@@ -203,19 +203,19 @@ struct VelaTodayView: View {
             TodayVitalCardModel(
                 kind: .hrv, label: "心率变异性",
                 value: hrv.map { "\(Int($0.rounded()))" } ?? "--", unit: "ms",
-                status: vitalStatusText(kind: .hrv, hasData: hrv != nil, observedAt: dashboard.recovery.observedAt, syncedAt: updatedDate),
+                status: vitalStatusText(kind: .hrv, hasData: hrv != nil, observedAt: dashboard.recoveryMetrics.hrvObservedAt, syncedAt: updatedDate),
                 assessment: vitalAssessment("hrv"), trend: trends["hrv"] ?? []
             ),
             TodayVitalCardModel(
                 kind: .rhr, label: "静息心率",
                 value: rhr.map { "\(Int($0.rounded()))" } ?? "--", unit: "bpm",
-                status: vitalStatusText(kind: .rhr, hasData: rhr != nil, observedAt: dashboard.recovery.observedAt, syncedAt: updatedDate),
+                status: vitalStatusText(kind: .rhr, hasData: rhr != nil, observedAt: dashboard.recoveryMetrics.rhrObservedAt, syncedAt: updatedDate),
                 assessment: vitalAssessment("rhr"), trend: trends["rhr"] ?? []
             ),
             TodayVitalCardModel(
                 kind: .spo2, label: "血氧",
                 value: spo2.map { "\(Int($0.rounded()))" } ?? "--", unit: "%",
-                status: vitalStatusText(kind: .spo2, hasData: spo2 != nil, observedAt: nil, syncedAt: updatedDate),
+                status: vitalStatusText(kind: .spo2, hasData: spo2 != nil, observedAt: dashboard.extendedMetrics.oxygenSaturationObservedAt, syncedAt: updatedDate),
                 assessment: vitalAssessment("spo2"), trend: trends["spo2"] ?? []
             ),
             TodayVitalCardModel(

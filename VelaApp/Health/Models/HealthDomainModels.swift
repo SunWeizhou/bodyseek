@@ -120,6 +120,7 @@ struct DailyHealthSnapshot: Identifiable, Hashable, Sendable {
     var rhrObservedAt: Date?
     var spo2ObservedAt: Date?
     var hrvObservedWindow: DateInterval?
+    var rhrObservedWindow: DateInterval?
 }
 
 enum SleepStage: String, Codable, Hashable, CaseIterable {
@@ -168,6 +169,10 @@ struct RecoveryMetricSummary: Codable, Hashable {
     var restingHeartRate: Double?
     var sleepHeartRate: Double?
     var respiratoryRate: Double?
+    var hrvObservedAt: Date? = nil
+    var rhrObservedAt: Date? = nil
+    var hrvObservedWindow: DateInterval? = nil
+    var rhrObservedWindow: DateInterval? = nil
 }
 
 struct StrainActivitySummary: Codable, Hashable {
@@ -234,6 +239,7 @@ struct ExtendedHealthMetrics: Codable, Hashable {
     // Cardiovascular advanced
     var walkingHeartRateAvg: Double?    // bpm
     var oxygenSaturation: Double?      // 0-100 %
+    var oxygenSaturationObservedAt: Date? = nil
     var bloodPressureSystolic: Double?  // mmHg
     var bloodPressureDiastolic: Double? // mmHg
 

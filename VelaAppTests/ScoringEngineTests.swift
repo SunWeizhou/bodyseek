@@ -256,6 +256,63 @@ final class ScoringEngineTests: XCTestCase {
         XCTAssertTrue(estimatedInterruptionReason.contains("醒来频率约 3次 · 估算"))
     }
 
+    func testSleepTargetCompletionReasonUsesExactObservedMinutes() {
+        let engine = SleepScoreEngine()
+        let asOf = Date(timeIntervalSince1970: 1_700_000_000)
+
+        func durationReason(sleepMinutes: Double?, targetMinutes: Double = 360) -> String {
+            let result = engine.calculate(from: SleepScoreInput(
+                asOf: asOf,
+                totalSleepMinutes: sleepMinutes,
+                sleepTargetMinutes: targetMinutes,
+                awakeMinutes: 0
+            ))
+            return result.reasons.first { $0.hasPrefix("睡眠时长") } ?? ""
+        }
+
+        let adequacyNote = "；注：依据 AASM 成人共识，成人健康睡眠建议为 7–9 小时，达成个人作息目标不代表生理充分满足"
+        XCTAssertEqual(durationReason(sleepMinutes: 240), "睡眠时长 4小时0分钟（未达成个人作息目标 6小时\(adequacyNote)）")
+        XCTAssertEqual(durationReason(sleepMinutes: 360), "睡眠时长 6小时0分钟（已达成个人作息目标 6小时\(adequacyNote)）")
+        XCTAssertEqual(durationReason(sleepMinutes: 390), "睡眠时长 6小时30分钟（已达成个人作息目标 6小时；超过目标30分钟\(adequacyNote)）")
+        XCTAssertEqual(durationReason(sleepMinutes: 359), "睡眠时长 5小时59分钟（未达成个人作息目标 6小时\(adequacyNote)）")
+        XCTAssertEqual(durationReason(sleepMinutes: 390, targetMinutes: 390), "睡眠时长 6小时30分钟（已达成个人作息目标 6小时30分钟\(adequacyNote)）")
+        XCTAssertEqual(durationReason(sleepMinutes: nil), "")
+    }
+
+    func testDailySnapshotObservationTimesSurviveEvidencePersistenceAndDoNotChangeScores() throws {
+        let calendar = Calendar(identifier: .gregorian)
+        let day = Date(timeIntervalSince1970: 1_700_000_000)
+        let hrvWindow = DateInterval(start: day.addingTimeInterval(7 * 3600 + 55 * 60), end: day.addingTimeInterval(8 * 3600))
+        var snapshot = DailyHealthSnapshot(date: day, hrvAverage: 42, restingHeartRate: 58, sleepHours: 7, oxygenSaturation: 98)
+        snapshot.hrvObservedAt = hrvWindow.end
+        snapshot.rhrObservedAt = day.addingTimeInterval(9 * 3600 + 50 * 60)
+        snapshot.spo2ObservedAt = day.addingTimeInterval(9 * 3600 + 30 * 60)
+        snapshot.hrvObservedWindow = hrvWindow
+
+        let profile = DailyHealthComputationProfile(sleepTargetMinutes: 450, maxHeartRate: 190, biologicalSex: "other")
+        let before = DailyHealthComputation(calendar: calendar, now: day.addingTimeInterval(22 * 3600), profile: profile).compute(for: snapshot, history: [])
+        let envelope = DailyScoreEvidenceEnvelope(evidence: before, persistedAt: day.addingTimeInterval(22 * 3600 + 60))
+        let record = DailyHealthSummaryRecord(snapshot: snapshot, calendar: calendar)
+        try record.apply(scoreEvidence: nil, observations: snapshot)
+        let rawReloaded = record.toSnapshot()
+        XCTAssertEqual(rawReloaded.hrvObservedAt, snapshot.hrvObservedAt)
+        XCTAssertEqual(rawReloaded.rhrObservedAt, snapshot.rhrObservedAt)
+        XCTAssertEqual(rawReloaded.spo2ObservedAt, snapshot.spo2ObservedAt)
+        try record.apply(scoreEvidence: envelope, observations: snapshot)
+        let reloaded = record.toSnapshot()
+        XCTAssertEqual(reloaded.hrvObservedAt, snapshot.hrvObservedAt)
+        XCTAssertEqual(reloaded.rhrObservedAt, snapshot.rhrObservedAt)
+        XCTAssertEqual(reloaded.spo2ObservedAt, snapshot.spo2ObservedAt)
+        XCTAssertEqual(reloaded.hrvObservedWindow, snapshot.hrvObservedWindow)
+
+        let after = DailyHealthComputation(calendar: calendar, now: day.addingTimeInterval(22 * 3600), profile: profile).compute(for: reloaded, history: [])
+        XCTAssertEqual(after.sleep.value, before.sleep.value)
+        XCTAssertEqual(after.recovery.value, before.recovery.value)
+        XCTAssertEqual(after.strain.value, before.strain.value)
+        XCTAssertEqual(after.physiologicalStress.value, before.physiologicalStress.value)
+        XCTAssertEqual(after.energy.value, before.energy.value)
+    }
+
     func testTodayVitalCardModelAndAssessmentFourStates() {
         // Test favorable
         let favCard = TodayVitalCardModel(

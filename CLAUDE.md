@@ -1,11 +1,11 @@
 # CLAUDE.md — Agent & Developer Workspace Handbook
 
 > Status: Canonical
-> Last verified: 2026-09-04
+> Last reviewed: 2026-09-06（交接入口、平台和构建步骤；未重新验证全文）
 > Scope: Agent 工作方式、构建/测试/部署命令、工程规则与关键代码入口
 > Does not define: 产品业务需求（见 [docs/PRD.md](docs/PRD.md)）、领域语言定义（见 [CONTEXT.md](CONTEXT.md)）
 
-> 平台状态：当前项目实现 floor 为 iOS 17 / watchOS 10；ADR 0013 已接受的 Daily Driver 目标为 iOS 26 / watchOS 26。transition 尚未执行，Proposed ADR 不会单独改变 deployment target 或发布契约。
+> 平台状态：Accepted ADR 0017 确定 iOS 17 / watchOS 10 shipping floor；ADR 0013–0016 已被取代。Xcode 工具链要求以 `.xcode-version` 和当前 CI 为准。
 
 ---
 
@@ -15,9 +15,10 @@
 
 1. [`docs/PRD.md`](docs/PRD.md) — 唯一当前产品规格、四大 Tab 与北极星指标
 2. [`CONTEXT.md`](CONTEXT.md) — 唯一领域术语表（Health Signal, Baseline, Brief, Body State, Training Decision 等）
-3. [`docs/adr/README.md`](docs/adr/README.md) — 架构决策记录（ADR 0001–0013 Accepted；0014–0016 Proposed）
+3. [`docs/adr/README.md`](docs/adr/README.md) — 架构决策记录（以 `Accepted` 为当前依据，`Superseded` 仅供追溯）
 4. [`docs/TECH_ARCHITECTURE.md`](docs/TECH_ARCHITECTURE.md) — 当前实现的技术架构与数据流
-5. 专项文档：
+5. 双人协作入口：[`docs/collaboration/README.md`](docs/collaboration/README.md)
+6. 专项文档：
    - 设计语言：[`docs/VELA_DESIGN_LANGUAGE.md`](docs/VELA_DESIGN_LANGUAGE.md)
    - AI 上下文与 Agent 协议：[`docs/AI_AGENT_SPEC.md`](docs/AI_AGENT_SPEC.md)
    - 指标与算法协议：[`docs/SCORING_SYSTEM_V1_0.md`](docs/SCORING_SYSTEM_V1_0.md)
@@ -26,30 +27,10 @@
 
 ## 2. 工程信息与构建命令
 
-- **Target / Scheme**: `Vela`
-- **Bundle ID**: `com.sunweizhou.Vela4`
-- **Target Device**: `Weizhou的iPhone` (`B1B2A1DB-2B5C-5C02-A222-B051240A22EA`)
-- **Project Path**: `/Users/sunweizhou/Developer/Vela/Vela.xcodeproj`
-- **DerivedData**: `~/Developer/Vela-DerivedData`（显式指定以避开 iCloud 同步死锁）
-
-### 常用命令
-
-```bash
-# 1. 编译校验（iOS Simulator / Generic Device）
-xcodebuild -project /Users/sunweizhou/Developer/Vela/Vela.xcodeproj -scheme Vela -configuration Debug -destination 'generic/platform=iOS Simulator' -derivedDataPath ~/Developer/Vela-DerivedData build
-
-# 2. 编译并部署到真机（Weizhou的iPhone）
-xcodebuild -project /Users/sunweizhou/Developer/Vela/Vela.xcodeproj -scheme Vela -configuration Debug -destination "id=B1B2A1DB-2B5C-5C02-A222-B051240A22EA" -derivedDataPath ~/Developer/Vela-DerivedData -allowProvisioningUpdates -allowProvisioningDeviceRegistration build
-
-# 3. 安装到真机
-xcrun devicectl device install app --device B1B2A1DB-2B5C-5C02-A222-B051240A22EA ~/Developer/Vela-DerivedData/Build/Products/Debug-iphoneos/Vela.app
-
-# 4. 在真机上拉起 App
-xcrun devicectl device process launch --device B1B2A1DB-2B5C-5C02-A222-B051240A22EA com.sunweizhou.Vela4
-
-# 5. 运行单测
-xcodebuild -project /Users/sunweizhou/Developer/Vela/Vela.xcodeproj -scheme Vela -configuration Debug -destination 'generic/platform=iOS Simulator' -derivedDataPath ~/Developer/Vela-DerivedData test
-```
+- 工程与 Scheme：`Vela.xcodeproj` / `Vela`；单测 target 为 `VelaTests`。
+- 新机器接手、构建和测试步骤统一见 [`docs/collaboration/ONBOARDING.md`](docs/collaboration/ONBOARDING.md)。
+- 在各自 Mac 的非 iCloud 目录克隆工程，命令在仓库根目录执行。
+- 真机签名与设备属于各自机器的本地配置；通过 `xcrun devicectl list devices` 查询本机设备。安装、启动或发布前遵循 `AGENTS.md` 的授权约定，不能复用另一位开发者的设备 ID 或签名身份。
 
 ---
 

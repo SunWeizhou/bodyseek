@@ -12,17 +12,9 @@
 
 ## 构建与测试
 
-```bash
-# 编译（模拟器）
-xcodebuild -project Vela.xcodeproj -scheme Vela -configuration Debug \
-  -destination 'generic/platform=iOS Simulator' -derivedDataPath ~/Developer/Vela-DerivedData build
+首次克隆、工具链检查、模拟器构建和测试命令见 [新开发者接手步骤](docs/collaboration/ONBOARDING.md)。测试数量与通过状态以目标提交的实际结果为准。
 
-# 全量单测（546 项）
-xcodebuild -project Vela.xcodeproj -scheme Vela -configuration Debug \
-  -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath ~/Developer/Vela-DerivedData test
-```
-
-CI（GitHub Actions `.github/workflows/quality.yml`）包含：schema 版本守卫（`scripts/schema_fingerprint.py`）、显式警告即错误构建、iOS 全量单测（546 项）与 UI 冒烟测试（6 项）、SwiftLint（report-only）、后端测试、xcresult 失败上报。
+CI 配置见 [`.github/workflows/quality.yml`](.github/workflows/quality.yml)：包含 schema 守卫、对比度检查、构建、iOS 单测、UI 冒烟和后端测试。固定字体与 SwiftLint 为 report-only；配置存在不等于本次 GitHub 运行已经通过。
 
 ## 常用脚本
 
@@ -37,6 +29,11 @@ CI（GitHub Actions `.github/workflows/quality.yml`）包含：schema 版本守�
 - `docs/PRD.md` — 产品规格（四大 Tab、北极星 Trusted Health Brief Day）
 - `CONTEXT.md` — 领域术语表（唯一权威）
 - `docs/TECH_ARCHITECTURE.md` — 技术架构与数据流
-- `docs/adr/` — 架构决策记录（0001–0013, 0017 Accepted；0014–0016 由 0017 取代）
+- `docs/adr/` — 架构决策记录（以 README 中的 Accepted 为当前依据；Superseded 仅供追溯）
 - `docs/AI_AGENT_SPEC.md` — Coach Agent 协议与上下文规格
 - `docs/validation/` — 验证与审计证据（含 2026-08-23 工程标准审计报告）
+- `docs/collaboration/` — 双人 GitHub 工作流、算法/UI 分工、任务与交接模板
+
+## 双人开发入口
+
+算法与数据工作从 [`docs/collaboration/ALGORITHM_WORKFLOW.md`](docs/collaboration/ALGORITHM_WORKFLOW.md) 开始；UI 与交互工作从 [`docs/collaboration/UI_WORKFLOW.md`](docs/collaboration/UI_WORKFLOW.md) 开始。GitHub Issue、分支、PR 和交接规则见 [`docs/collaboration/GITHUB_WORKFLOW.md`](docs/collaboration/GITHUB_WORKFLOW.md)。

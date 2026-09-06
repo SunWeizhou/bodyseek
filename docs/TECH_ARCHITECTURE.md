@@ -5,6 +5,8 @@
 > Scope: Vela 当前工程的技术架构、模块分层、数据流管道、持久化模型与状态管理规范
 > Does not define: 业务需求与产品优先级（见 [docs/PRD.md](PRD.md)）、领域术语定义（见 [../CONTEXT.md](../CONTEXT.md)）
 
+> 交接补充（2026-09-06，源码检查）：`DailyHealthComputation` 定义于 `VelaApp/Scoring/ScoreEngineFactory.swift`，生产评分仍在 Vela App target；`BodySeekDomain` 不能作为已迁移证明。Today 由 `VelaMinimalShell` 持有 `TodayStore`；Trends 的恢复图已部分接入 `TrendsStore`，其他宿主路径仍保留兼容逻辑。页面/共享文件地图见 [UI 工作流](collaboration/UI_WORKFLOW.md)。下文算法表是概要，旧 v1 评分文档与 Energy 模型卡仍待对齐，不据此宣称当前版本已验证。
+
 ---
 
 ## 1. 架构总览与技术栈

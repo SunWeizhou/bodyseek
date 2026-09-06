@@ -1,5 +1,8 @@
 # ARCH-03 / PR3：Today `Store / ViewState / Action` 迁移契约
 
+> 阅读范围（2026-09-06）：下文保留 `cdd25b9` 的迁移前勘察，不是当前源码地图。当前 `VelaMinimalShell` 持有 `TodayStore`，`VelaMinimalTodayView` 接收 Store；请勿据本文重新实施一次迁移。当前接手路径见 `docs/collaboration/UI_WORKFLOW.md`，运行时完成度仍需针对目标提交验证。
+
+
 > 状态：**contract-ready**（只读勘察与接口定稿；本文件不表示运行时已经迁移）  
 > 勘察基线：`cdd25b9298fe5de8766ebe270984d3be80a302fa`  
 > 关联：ADR 0017、`docs/architecture/bodyseek-dependencies-pr2-contract.md`、PR0 `docs/baselines/`
