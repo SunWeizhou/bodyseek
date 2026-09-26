@@ -1,10 +1,12 @@
 # Vela Core Metrics Scoring Specification v1.0
 
-> Status: Canonical
+> Status: Historical design reference / reconciliation pending
 > Last verified: 2026-08-21
 > Scope: 核心生理评分算法（Sleep, Recovery, Strain, Stress, Energy, HealthAge）数学模型、基线逻辑与输入协议
 > Does not define: 产品业务层级（见 [PRD.md](PRD.md)）、AI 交互协议（见 [AI_AGENT_SPEC.md](AI_AGENT_SPEC.md)）
 > Medical Disclaimer: **Not a medical diagnostic system**. All scores are wellness proxies intended for personal lifestyle interpretation, athletic self-tracking, and trend observation.
+
+> 接手说明（2026-09-06）：本文件含 HealthAge、Readiness Cockpit 和 v1 设计描述；当前产品范围以 PRD 为准，生产输出/版本以 `VelaApp/Scoring/ScoringCore.swift` 为准。本文尚未完成与当前源码的逐公式对齐，UI 不据此新增指标、阈值或重新计算分数。Energy 模型卡也存在版本差异，见 TAKEOVER 的 F5。
 
 ---
 

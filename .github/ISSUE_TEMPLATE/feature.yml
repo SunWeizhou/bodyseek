@@ -1,0 +1,30 @@
+name: 功能任务
+description: 为 BodySeek/Vela 创建一个有边界、可验收的任务
+title: "[ALGO/UI/CONTRACT/VALIDATION] "
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: 用户结果
+      description: 用户完成什么事情后会感到产品变好了？
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: 范围与责任
+      description: 写明负责目录、明确不改的范围和依赖。
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 验收证据
+      description: 写明测试、回放、截图、录屏或真机证据。
+    validations:
+      required: true
+  - type: textarea
+    id: risks
+    attributes:
+      label: 风险与交接
+      description: 记录未验证内容和另一位开发者需要知道的事项。

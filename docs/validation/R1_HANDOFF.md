@@ -3,8 +3,10 @@
 任务：Card R1 真机发布与用户体验验收 (Release Readiness & User Experience Acceptance)
 状态：VERIFIED (全量质量门禁、单元测试、UI 自动化测试与 Weizhou's iPhone 物理真机无线部署启动全量通过)
 审阅起始 SHA：0b7d8adf (Card V1 交付基准)
-交付 SHA：0c1449d4
+交付 SHA：fc2c40abd10ae43a9a04c77aec0280ae1eb24131（`feat(deploy): deploy and launch Vela on Weizhou's iPhone 16 Pro, marking Card R1 VERIFIED`）
 工作区未提交改动与处理：工作区干净，所有交付件已纳入版本控制。
+
+> 勘误（2026-09-26）：原文曾写交付 SHA `0c1449d4`，该对象不在当前仓库历史中；已更正为上述 `main` 上实际存在的 R1 部署提交。
 
 ## 本卡改变的用户行为
 - 完成全量质量门禁、端到端 UI 交互闭环以及 iPhone 16 Pro 物理真机无线部署与前台启动。

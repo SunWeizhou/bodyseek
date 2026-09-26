@@ -20,6 +20,8 @@
 | S7 | 生理压力的真实时间尺度 | S1；相关负荷方法明确 | VERIFIED | 72c0f91a | docs/validation/S1_S8_HANDOFF.md |
 | S8 | 能量估计与上游质量传播 | S1/S7；与共享合同修改串行 | VERIFIED | 72c0f91a | docs/validation/S1_S8_HANDOFF.md |
 | V1 | 建立可复跑的算法比较与模型卡 | S1–S8 中相关修复已验收；可分指标先做 | VERIFIED | 0b7d8adf | docs/validation/V1_HANDOFF.md |
-| R1 | 真机发布与用户体验验收 | 本轮选定 U/S/V 卡均完成，不强迫未授权研究候选上线 | VERIFIED | 0c1449d4 | docs/validation/R1_HANDOFF.md |
+| R1 | 真机发布与用户体验验收 | 本轮选定 U/S/V 卡均完成，不强迫未授权研究候选上线 | VERIFIED | fc2c40ab | docs/validation/R1_HANDOFF.md |
 
 每次只将有实际证据的卡标为 VERIFIED。若最新HEAD已经完成某卡，先补真实证据再标记，不重复实施。
+
+> 注（2026-09-26）：R1 表内旧写 `0c1449d4` 在仓库对象中不存在；以 `main` 上实际部署提交 `fc2c40abd10ae43a9a04c77aec0280ae1eb24131`（`feat(deploy): … Card R1 VERIFIED`）为准。本表记录历史验证卡，不代表后续未合入 `main` 的特性分支状态。

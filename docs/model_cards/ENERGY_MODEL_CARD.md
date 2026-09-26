@@ -1,5 +1,8 @@
 # 能量银行指标模型卡 (Energy Bank Model Card)
 
+> 文档状态（2026-09-06）：以下保留 v1.0 历史模型卡。当前生产 `ScoringAlgorithmVersions.energy` 为 `energy.v2.0.0`；旧公式和验证状态未对齐当前版本，不能用本页证明现行算法已验证。版本与公式对齐仍是 TAKEOVER F5 的工作。
+
+
 指标及算法版本：EnergyBankEngine v1.0 (`ScoringAlgorithmVersions.energy`)
 状态：工程回归已验证 / 生理有效性未验证 / 无真实代谢水解或主观疲劳多中心临床对照
 

@@ -1,6 +1,8 @@
 # BodySeek Trends PR5 bounded contract
 
-Status: integrated seam at `21d9e7d7`; legacy host migration remains a follow-up.
+Status: historical PR5 contract; implementation status refreshed by source inspection on 2026-09-06 at base `fc2c40ab` plus local changes.
+
+`VelaTrendsView` now uses `SummaryTrendsHistoryProvider`, `TrendsStore` and `TrendsOneMetricChart` for the recovery chart. Other rows and persistence loading retain legacy paths. This is partial host integration, not evidence of a completed migration or a new test pass.
 
 ## Scope
 
@@ -34,7 +36,4 @@ actions. `TrendsHistoryProviding` is the only input seam.
 ## Integration boundary
 
 The source and test files are registered in `Vela.xcodeproj` by
-`21d9e7d7`. The slice intentionally does not replace the legacy
-`VelaTrendsView`; wiring that host to `TrendsStore` and `TrendsOneMetricChart`
-is a separate migration task so this seam can remain behavior-preserving and
-non-overlapping with dashboard work.
+`21d9e7d7`. The original slice did not replace the legacy host. The current recovery chart is wired as described above; migrating the remaining host paths is still separate work.
