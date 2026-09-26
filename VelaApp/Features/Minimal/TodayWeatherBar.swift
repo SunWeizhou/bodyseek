@@ -12,22 +12,16 @@ struct TodayWeatherBar: View {
             requestWeatherUpdate()
         } label: {
             HStack(spacing: 6) {
-                Image(systemName: "cloud.sun.fill")
-                    .font(.system(size: 12))
-                    .symbolRenderingMode(.multicolor)
-
-                Text(weatherTemp)
-                    .font(.system(.caption, design: .default, weight: .semibold))
-                    .foregroundStyle(VelaTheme.fg)
-
-                Text(weatherStatusText)
-                    .font(.system(.caption2, design: .default))
-                    .foregroundStyle(VelaTheme.muted)
-                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
-                    .fixedSize(horizontal: false, vertical: true)
+                Image(systemName: "cloud.sun")
+                    .font(VelaTheme.subheadline())
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                Text(weatherTemp == "--" ? "天气" : weatherTemp)
+                    .font(VelaTheme.subheadline())
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                    .lineLimit(1)
             }
             .padding(.horizontal, 10)
-            .padding(.vertical, 6)
+            .frame(minHeight: VelaTheme.minimumHitTarget)
             .background(VelaTheme.cardBg, in: weatherShape)
             .overlay(weatherShape.stroke(VelaTheme.borderSoft, lineWidth: 0.5))
             .contentShape(weatherShape)

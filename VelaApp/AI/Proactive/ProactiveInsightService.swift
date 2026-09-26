@@ -235,9 +235,9 @@ enum ProactiveInsightService {
         // never a standalone prescription to increase training intensity.
         let hrvZScore = dashboard.recovery.metrics["hrv_z_score"]
         let rhrZScore = dashboard.recovery.metrics["rhr_z_score"]
-        let sleepScore = dashboard.sleepScore.score
+        let sleepScore = dashboard.sleepScore.value
         
-        if let hrvZScore, let rhrZScore,
+        if let hrvZScore, let rhrZScore, let sleepScore,
            hrvZScore > 0.5 && rhrZScore < -0.5 && sleepScore > 80 {
             insights.append(ProactiveInsight(
                 focus: .training,
@@ -595,4 +595,3 @@ public struct AutonomousHealthDigitalTwin: Sendable {
         )
     }
 }
-

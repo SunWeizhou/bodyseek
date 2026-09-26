@@ -40,6 +40,10 @@ struct DailyOperatingPlanPayload: Codable, Hashable, Sendable {
     /// Once present, automatic recomputation must propose changes instead of
     /// overwriting the user's plan. Completion and scheduling are user-owned.
     var userEditedAt: Date?
+    /// Additive provenance for newly evaluated confidence. Legacy payloads
+    /// decode with nil; this does not change user actions or kernel source.
+    var feedbackEvidencePolicyVersion: String? = nil
+    var feedbackEvidenceAsOf: Date? = nil
 
     init(
         schemaVersion: Int = Self.currentSchemaVersion,
@@ -93,6 +97,8 @@ struct DailyOperatingPlanPayload: Codable, Hashable, Sendable {
         case primaryAction
         case supportingActions
         case userEditedAt
+        case feedbackEvidencePolicyVersion
+        case feedbackEvidenceAsOf
     }
 
     init(from decoder: Decoder) throws {
@@ -113,6 +119,8 @@ struct DailyOperatingPlanPayload: Codable, Hashable, Sendable {
             excluding: primaryAction?.domain
         )
         userEditedAt = try values.decodeIfPresent(Date.self, forKey: .userEditedAt)
+        feedbackEvidencePolicyVersion = try values.decodeIfPresent(String.self, forKey: .feedbackEvidencePolicyVersion)
+        feedbackEvidenceAsOf = try values.decodeIfPresent(Date.self, forKey: .feedbackEvidenceAsOf)
     }
 
     private static func boundedSupportingActions(
@@ -135,6 +143,62 @@ enum DailyOperatingPlanMutation {
     case update(action: DailyOperatingPlanAction, at: Date)
     case add(action: DailyOperatingPlanAction, at: Date)
     case delete(actionID: String, at: Date)
+}
+
+/// A failed save restores only the records touched by this operation. A global
+/// ModelContext rollback would also discard unrelated edits in the shared context.
+@MainActor
+private final class DailyOperatingPlanWriteTransaction {
+    private let context: ModelContext
+    private var undo: [() -> Void] = []
+
+    private init(context: ModelContext) { self.context = context }
+
+    static func run<T>(
+        context: ModelContext,
+        saveChanges: (ModelContext) throws -> Void,
+        changes: (DailyOperatingPlanWriteTransaction) throws -> T
+    ) throws -> T {
+        try PersistenceWriteGate.shared.assertWritable(operation: "Save daily operating plan")
+        let transaction = DailyOperatingPlanWriteTransaction(context: context)
+        do {
+            let result = try changes(transaction)
+            try saveChanges(context)
+            return result
+        } catch {
+            transaction.undo.reversed().forEach { $0() }
+            throw error
+        }
+    }
+
+    func capture(_ record: DailyOperatingPlanRecord) {
+        let previous = (
+            record.bodyStateHash, record.generatedAt, record.primaryActionType,
+            record.title, record.payloadJSON, record.reasonsJSON, record.confidence,
+            record.status, record.source, record.safetyNotice
+        )
+        undo.append {
+            (record.bodyStateHash, record.generatedAt, record.primaryActionType,
+             record.title, record.payloadJSON, record.reasonsJSON, record.confidence,
+             record.status, record.source, record.safetyNotice) = previous
+        }
+    }
+
+    func capture(_ record: AgentArtifactRecord) {
+        let previous = (
+            record.title, record.payloadJSON, record.sourceContextHash,
+            record.status, record.confidence, record.source, record.safetyNotice
+        )
+        undo.append {
+            (record.title, record.payloadJSON, record.sourceContextHash,
+             record.status, record.confidence, record.source, record.safetyNotice) = previous
+        }
+    }
+
+    func insert<T: PersistentModel>(_ record: T) {
+        context.insert(record)
+        undo.append { [context] in context.delete(record) }
+    }
 }
 
 enum DailyOperatingPlanEditor {
@@ -195,13 +259,27 @@ enum DailyOperatingPlanEditor {
     static func persist(
         _ payload: DailyOperatingPlanPayload,
         to record: DailyOperatingPlanRecord,
-        modelContext: ModelContext
+        modelContext: ModelContext,
+        saveChanges: (ModelContext) throws -> Void = { try $0.save() }
+    ) throws {
+        try DailyOperatingPlanWriteTransaction.run(context: modelContext, saveChanges: saveChanges) { transaction in
+            try persist(payload, to: record, modelContext: modelContext, transaction: transaction)
+        }
+    }
+
+    @MainActor
+    private static func persist(
+        _ payload: DailyOperatingPlanPayload,
+        to record: DailyOperatingPlanRecord,
+        modelContext: ModelContext,
+        transaction: DailyOperatingPlanWriteTransaction
     ) throws {
         let encoder = JSONEncoder()
         let data = try encoder.encode(payload)
         guard let json = String(data: data, encoding: .utf8) else {
             throw CocoaError(.fileWriteInapplicableStringEncoding)
         }
+        transaction.capture(record)
         record.payloadJSON = json
         record.title = payload.primaryAction?.title ?? "今日计划"
         record.primaryActionType = payload.decision.rawValue
@@ -215,11 +293,12 @@ enum DailyOperatingPlanEditor {
             }
         )
         if let artifact = try modelContext.fetch(descriptor).first {
+            transaction.capture(artifact)
             artifact.title = record.title
             artifact.payloadJSON = json
             artifact.status = "active"
         } else {
-            modelContext.insert(AgentArtifactRecord(
+            transaction.insert(AgentArtifactRecord(
                 type: artifactType,
                 title: record.title,
                 payloadJSON: json,
@@ -229,7 +308,6 @@ enum DailyOperatingPlanEditor {
                 safetyNotice: record.safetyNotice
             ))
         }
-        try modelContext.save()
     }
 
     /// Records the user's decision to keep their edited plan after the upstream
@@ -239,20 +317,25 @@ enum DailyOperatingPlanEditor {
         _ payload: DailyOperatingPlanPayload,
         record: DailyOperatingPlanRecord,
         bodyStateHash: String,
-        modelContext: ModelContext
+        modelContext: ModelContext,
+        saveChanges: (ModelContext) throws -> Void = { try $0.save() }
     ) throws {
-        let artifactType = AgentArtifactType.dailyPlan.rawValue
-        let previousHash = record.bodyStateHash
-        let descriptor = FetchDescriptor<AgentArtifactRecord>(
-            predicate: #Predicate<AgentArtifactRecord> {
-                $0.type == artifactType && $0.sourceContextHash == previousHash
-            }
-        )
-        let previousArtifact = try modelContext.fetch(descriptor).first
-        record.bodyStateHash = bodyStateHash
-        record.generatedAt = Date()
-        previousArtifact?.sourceContextHash = bodyStateHash
-        try persist(payload, to: record, modelContext: modelContext)
+        try DailyOperatingPlanWriteTransaction.run(context: modelContext, saveChanges: saveChanges) { transaction in
+            let artifactType = AgentArtifactType.dailyPlan.rawValue
+            let previousHash = record.bodyStateHash
+            let descriptor = FetchDescriptor<AgentArtifactRecord>(
+                predicate: #Predicate<AgentArtifactRecord> {
+                    $0.type == artifactType && $0.sourceContextHash == previousHash
+                }
+            )
+            let previousArtifact = try modelContext.fetch(descriptor).first
+            transaction.capture(record)
+            if let previousArtifact { transaction.capture(previousArtifact) }
+            record.bodyStateHash = bodyStateHash
+            record.generatedAt = Date()
+            previousArtifact?.sourceContextHash = bodyStateHash
+            try persist(payload, to: record, modelContext: modelContext, transaction: transaction)
+        }
     }
 
     private static func mapAction(
@@ -287,6 +370,16 @@ enum DailyOperatingPlanEditor {
 extension DailyOperatingPlanPayload {
     var allActions: [DailyOperatingPlanAction] {
         [primaryAction].compactMap { $0 } + supportingActions
+    }
+
+    /// Preserve the user's canonical action order when presenting what is next.
+    var nextIncompleteAction: DailyOperatingPlanAction? {
+        allActions.first { $0.completedAt == nil }
+    }
+
+    /// An intentionally empty plan is different from a completed plan.
+    var allActionsCompleted: Bool {
+        !allActions.isEmpty && nextIncompleteAction == nil
     }
 
     var hasUserEdits: Bool { userEditedAt != nil }
@@ -671,91 +764,103 @@ struct DailyOperatingPlanDisplayModel: Codable, Hashable {
 @MainActor
 enum DailyOperatingPlanCoordinator {
     @discardableResult
+    @MainActor
     static func upsert(
         bodyState: BodyState,
         decision: DailyTrainingDecision,
         brief: PersonalHealthBrief? = nil,
         modelContext: ModelContext,
-        calendar: Calendar = .current
+        calendar: Calendar = .current,
+        saveChanges: (ModelContext) throws -> Void = { try $0.save() }
     ) throws -> DailyOperatingPlanRecord {
-        let dayIdentifier = DailyHealthSummaryRecord.dayIdentifier(for: bodyState.date, calendar: calendar)
-        let payload = DailyOperatingPlanBuilder.build(
-            bodyState: bodyState,
-            decision: decision,
-            brief: brief,
-            language: AppLanguage.stored
-        )
-        let payloadJSON = Self.json(payload)
-        let reasonsJSON = Self.json(decision.reasons)
-        let planTitle = payload.primaryAction?.title ?? title(for: decision.decision)
-        // 算法打通（批次 C）：计划置信度与今日页 readiness 吃同一份反馈校准
-        // （DecisionFeedbackCalibrator，rest↔recover 已归一）。每次 upsert 从
-        // kernel 原始置信度重新校准，不会因历史记录累积缩放。
-        let feedbackRecords = (try? modelContext.fetch(FetchDescriptor<DailyDecisionFeedbackRecord>())) ?? []
-        let storedConfidence = DecisionFeedbackCalibrator.calibratedPlanConfidence(
-            base: decision.confidence,
-            decision: decision.decision,
-            records: feedbackRecords
-        )
-        let descriptor = FetchDescriptor<DailyOperatingPlanRecord>(
-            predicate: #Predicate<DailyOperatingPlanRecord> { $0.dayIdentifier == dayIdentifier }
-        )
-        let record: DailyOperatingPlanRecord
-        if let existing = try modelContext.fetch(descriptor).first {
-            record = existing
-            record.bodyStateHash = bodyState.hash
-            record.generatedAt = Date()
-            record.primaryActionType = decision.decision.rawValue
-            record.title = planTitle
-            record.payloadJSON = payloadJSON
-            record.reasonsJSON = reasonsJSON
-            record.confidence = storedConfidence
-            record.status = "active"
-            record.source = decision.source
-            record.safetyNotice = decision.safetyNotice
-        } else {
-            record = DailyOperatingPlanRecord(
-                dayIdentifier: dayIdentifier,
-                bodyStateHash: bodyState.hash,
-                primaryActionType: decision.decision.rawValue,
-                title: planTitle,
-                payloadJSON: payloadJSON,
-                reasonsJSON: reasonsJSON,
-                confidence: storedConfidence,
-                status: "active",
-                source: decision.source,
-                safetyNotice: decision.safetyNotice
+        try DailyOperatingPlanWriteTransaction.run(context: modelContext, saveChanges: saveChanges) { transaction in
+            let dayIdentifier = DailyHealthSummaryRecord.dayIdentifier(for: bodyState.date, calendar: calendar)
+            var payload = DailyOperatingPlanBuilder.build(
+                bodyState: bodyState,
+                decision: decision,
+                brief: brief,
+                language: AppLanguage.stored
             )
-            modelContext.insert(record)
-        }
-
-        let artifactType = AgentArtifactType.dailyPlan.rawValue
-        let sourceContextHash = bodyState.hash
-        let artifactDescriptor = FetchDescriptor<AgentArtifactRecord>(
-            predicate: #Predicate<AgentArtifactRecord> {
-                $0.type == artifactType && $0.sourceContextHash == sourceContextHash
+            let feedbackAsOf = DecisionFeedbackCalibrator.evidenceCutoff(for: bodyState.date, calendar: calendar)
+            payload.feedbackEvidencePolicyVersion = DecisionFeedbackCalibrator.evidencePolicyVersion
+            payload.feedbackEvidenceAsOf = feedbackAsOf
+            let payloadJSON = Self.json(payload)
+            let reasonsJSON = Self.json(decision.reasons)
+            let planTitle = payload.primaryAction?.title ?? title(for: decision.decision)
+            // 算法打通（批次 C）：计划置信度与今日页 readiness 吃同一份反馈校准
+            // （DecisionFeedbackCalibrator，rest↔recover 已归一）。每次 upsert 从
+            // kernel 原始置信度重新校准，不会因历史记录累积缩放。
+            let feedbackRecords = (try? modelContext.fetch(FetchDescriptor<DailyDecisionFeedbackRecord>())) ?? []
+            let storedConfidence = feedbackAsOf.map { asOf in
+                DecisionFeedbackCalibrator.calibratedPlanConfidence(
+                    base: decision.confidence,
+                    decision: decision.decision,
+                    records: feedbackRecords,
+                    now: asOf,
+                    calendar: calendar
+                )
+            } ?? decision.confidence
+            let descriptor = FetchDescriptor<DailyOperatingPlanRecord>(
+                predicate: #Predicate<DailyOperatingPlanRecord> { $0.dayIdentifier == dayIdentifier }
+            )
+            let record: DailyOperatingPlanRecord
+            if let existing = try modelContext.fetch(descriptor).first {
+                record = existing
+                transaction.capture(record)
+                record.bodyStateHash = bodyState.hash
+                record.generatedAt = Date()
+                record.primaryActionType = decision.decision.rawValue
+                record.title = planTitle
+                record.payloadJSON = payloadJSON
+                record.reasonsJSON = reasonsJSON
+                record.confidence = storedConfidence
+                record.status = "active"
+                record.source = decision.source
+                record.safetyNotice = decision.safetyNotice
+            } else {
+                record = DailyOperatingPlanRecord(
+                    dayIdentifier: dayIdentifier,
+                    bodyStateHash: bodyState.hash,
+                    primaryActionType: decision.decision.rawValue,
+                    title: planTitle,
+                    payloadJSON: payloadJSON,
+                    reasonsJSON: reasonsJSON,
+                    confidence: storedConfidence,
+                    status: "active",
+                    source: decision.source,
+                    safetyNotice: decision.safetyNotice
+                )
+                transaction.insert(record)
             }
-        )
-        if let artifact = try modelContext.fetch(artifactDescriptor).first {
-            artifact.title = record.title
-            artifact.payloadJSON = payloadJSON
-            artifact.confidence = storedConfidence
-            artifact.status = "active"
-            artifact.source = decision.source
-            artifact.safetyNotice = record.safetyNotice
-        } else {
-            modelContext.insert(AgentArtifactRecord(
-                type: AgentArtifactType.dailyPlan.rawValue,
-                title: record.title,
-                payloadJSON: payloadJSON,
-                sourceContextHash: bodyState.hash,
-                confidence: storedConfidence,
-                source: decision.source,
-                safetyNotice: decision.safetyNotice
-            ))
+
+            let artifactType = AgentArtifactType.dailyPlan.rawValue
+            let sourceContextHash = bodyState.hash
+            let artifactDescriptor = FetchDescriptor<AgentArtifactRecord>(
+                predicate: #Predicate<AgentArtifactRecord> {
+                    $0.type == artifactType && $0.sourceContextHash == sourceContextHash
+                }
+            )
+            if let artifact = try modelContext.fetch(artifactDescriptor).first {
+                transaction.capture(artifact)
+                artifact.title = record.title
+                artifact.payloadJSON = payloadJSON
+                artifact.confidence = storedConfidence
+                artifact.status = "active"
+                artifact.source = decision.source
+                artifact.safetyNotice = record.safetyNotice
+            } else {
+                transaction.insert(AgentArtifactRecord(
+                    type: AgentArtifactType.dailyPlan.rawValue,
+                    title: record.title,
+                    payloadJSON: payloadJSON,
+                    sourceContextHash: bodyState.hash,
+                    confidence: storedConfidence,
+                    source: decision.source,
+                    safetyNotice: decision.safetyNotice
+                ))
+            }
+            return record
         }
-        try modelContext.save()
-        return record
     }
 
     private static func json<T: Encodable>(_ value: T) -> String {

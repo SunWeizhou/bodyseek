@@ -146,6 +146,8 @@ jobs:
             -derivedDataPath build/DerivedData \
             -resultBundlePath build/UnitTests.xcresult \
             -enableCodeCoverage YES \
+            -testLanguage zh \
+            -testRegion CN \
             -only-testing:VelaTests \
             CODE_SIGNING_ALLOWED=NO
 
@@ -163,6 +165,8 @@ jobs:
             -destination "platform=iOS Simulator,id=$device_udid" \
             -derivedDataPath build/DerivedData \
             -resultBundlePath build/UISmokeTests.xcresult \
+            -testLanguage zh \
+            -testRegion CN \
             -only-testing:VelaUITests
 
       - name: Coverage summary (report-only)

@@ -236,12 +236,17 @@ final class DashboardViewModel: ObservableObject {
 
     private func applyFeedbackCalibration(
         records: [DailyDecisionFeedbackRecord],
-        state: inout TodayCommandState
+        state: inout TodayCommandState,
+        now: Date = Date(),
+        calendar: Calendar = .current
     ) {
+        guard let asOf = DecisionFeedbackCalibrator.evidenceCutoff(for: state.date, now: now, calendar: calendar) else { return }
         let calibrated = DecisionFeedbackCalibrator.calibratedConfidence(
             base: baseReadinessConfidence,
             decision: state.readinessDecision.decision,
-            records: records
+            records: records,
+            now: asOf,
+            calendar: calendar
         )
         guard abs(calibrated - state.readinessDecision.confidence) > 0.0001 else { return }
         var decision = state.readinessDecision
@@ -766,7 +771,7 @@ final class DashboardViewModel: ObservableObject {
         self.latestTodayArtifact = assembly.latestTodayArtifact
         var calibratedCommandState = assembly.todayCommandState
         baseReadinessConfidence = assembly.todayCommandState.readinessDecision.confidence
-        applyFeedbackCalibration(records: decisionFeedback, state: &calibratedCommandState)
+        applyFeedbackCalibration(records: decisionFeedback, state: &calibratedCommandState, now: evaluationNow, calendar: calendar)
         self.todayCommandState = calibratedCommandState
 
         // Side effects stay in the VM (coordination, not pure assembly). They run on the

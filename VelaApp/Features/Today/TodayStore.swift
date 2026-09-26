@@ -82,6 +82,10 @@ final class TodayStore: ObservableObject {
             await effects.openQuickCoach()
         case .requestWeather:
             state.weather = await effects.requestWeather() ?? .unavailable
+        case .weatherLocationChanged:
+            if let weather = await effects.refreshWeatherFromKnownLocation() {
+                state.weather = weather
+            }
         case .refreshCoverage:
             state.coverage = await effects.requestCoverage() ?? state.coverage
         case .trackDailyDecisionViewed(let bodyStateHash):

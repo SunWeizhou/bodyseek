@@ -79,6 +79,55 @@ final class ScoringEngineTests: XCTestCase {
         XCTAssertEqual(UserProfileSettings.weightKilograms(defaults: defaults), 80.0)
     }
 
+    func testScoringContextResolvesProfileSourcesWithStablePriorityAndProvenance() throws {
+        let resolvedAt = Date(timeIntervalSince1970: 1_700_000_000)
+        let context = ScoringContext(
+            sleepTargetMinutes: 480,
+            profile: ProfileSnapshot.resolve(
+                manualAge: 35,
+                healthKitAge: 36,
+                wikiAge: 37,
+                manualMaxHeartRate: nil,
+                wikiMaxHeartRate: 188,
+                manualBiologicalSex: nil,
+                healthKitBiologicalSex: "female",
+                resolvedAt: resolvedAt
+            )
+        )
+
+        XCTAssertEqual(context.profile.age?.value, 35)
+        XCTAssertEqual(context.profile.age?.source, .manual)
+        XCTAssertEqual(context.profile.maxHeartRate?.value, 188)
+        XCTAssertEqual(context.profile.maxHeartRate?.source, .wiki)
+        XCTAssertEqual(context.profile.biologicalSex?.value, "female")
+        XCTAssertEqual(context.profile.biologicalSex?.source, .healthKit)
+        XCTAssertEqual(context.profile.maxHeartRate?.resolvedAt, resolvedAt)
+
+        let encoded = try JSONEncoder().encode(context)
+        let decoded = try JSONDecoder().decode(ScoringContext.self, from: encoded)
+        XCTAssertEqual(decoded, context)
+    }
+
+    func testScoringContextInfersMaxHeartRateOnlyAfterExplicitSourcesAreAbsent() {
+        let context = ScoringContext(
+            sleepTargetMinutes: 480,
+            profile: ProfileSnapshot.resolve(
+                manualAge: nil,
+                healthKitAge: 29,
+                wikiAge: 40,
+                manualMaxHeartRate: nil,
+                wikiMaxHeartRate: nil,
+                manualBiologicalSex: nil,
+                healthKitBiologicalSex: nil,
+                resolvedAt: Date(timeIntervalSince1970: 1_700_000_000)
+            )
+        )
+
+        XCTAssertEqual(context.profile.age?.source, .healthKit)
+        XCTAssertEqual(context.profile.maxHeartRate?.value, UserProfileSettings.inferredMaxHeartRate(age: 29))
+        XCTAssertEqual(context.profile.maxHeartRate?.source, .inferred)
+    }
+
     func testPersonalBaselineRequiresSevenValidSamplesPerMetric() {
         let date = Date()
         let sixSnapshots = (0..<6).map { offset -> DailyHealthSnapshot in
@@ -277,6 +326,111 @@ final class ScoringEngineTests: XCTestCase {
         XCTAssertEqual(durationReason(sleepMinutes: 359), "睡眠时长 5小时59分钟（未达成个人作息目标 6小时\(adequacyNote)）")
         XCTAssertEqual(durationReason(sleepMinutes: 390, targetMinutes: 390), "睡眠时长 6小时30分钟（已达成个人作息目标 6小时30分钟\(adequacyNote)）")
         XCTAssertEqual(durationReason(sleepMinutes: nil), "")
+    }
+
+    func testSleepEvidenceTreatsMissingStagesAsUnknownInsteadOfZero() {
+        let asOf = Date(timeIntervalSince1970: 1_700_000_000)
+        let result = SleepScoreEngine().calculate(from: SleepScoreInput(
+            asOf: asOf,
+            totalSleepMinutes: 450,
+            awakeMinutes: 12,
+            awakeEpisodeCount: nil
+        ))
+
+        XCTAssertNotNil(result.value)
+        XCTAssertEqual(result.components["sleep_efficiency"] ?? -1, 450.0 / 462.0 * 100.0, accuracy: 0.001)
+        XCTAssertNil(result.components["rem_pct"])
+        XCTAssertNil(result.components["deep_pct"])
+        XCTAssertFalse(result.missingInputs.contains("inBedMinutes"))
+        XCTAssertTrue(result.missingInputs.contains("remMinutes"))
+        XCTAssertTrue(result.missingInputs.contains("deepMinutes"))
+        XCTAssertTrue(result.reasons.contains { $0.contains("估算") })
+        XCTAssertEqual(result.algorithmVersion, "sleep.v2.2.0")
+    }
+
+    func testSleepEvidenceDoesNotPublishArchitectureWhenOneStageIsMissing() {
+        let result = SleepScoreEngine().calculate(from: SleepScoreInput(
+            asOf: Date(timeIntervalSince1970: 1_700_000_000),
+            totalSleepMinutes: 450,
+            remMinutes: 90,
+            deepMinutes: nil
+        ))
+
+        XCTAssertNil(result.components["deep_pct"])
+        XCTAssertNil(result.components["buysse_architecture"])
+        XCTAssertTrue(result.missingInputs.contains("deepMinutes"))
+    }
+
+    func testSleepZeroDurationIsUnknownEvenWhenOtherSignalsExist() {
+        let result = SleepScoreEngine().calculate(from: SleepScoreInput(
+            asOf: Date(timeIntervalSince1970: 1_700_000_000),
+            totalSleepMinutes: 0,
+            awakeMinutes: 0
+        ))
+
+        XCTAssertNil(result.value)
+        XCTAssertEqual(result.dataCoverage, .unavailable)
+        XCTAssertTrue(result.missingInputs.contains("totalSleepMinutes"))
+        XCTAssertFalse(result.reasons.contains { $0.contains("0小时") })
+    }
+
+    func testMissingSleepSummaryInfersNoDataQueryOutcome() {
+        let asOf = Date(timeIntervalSince1970: 1_700_000_000)
+        let range = DateInterval(start: asOf.addingTimeInterval(-86_400), end: asOf)
+        let evidence = SleepEvidenceContext.from(summary: nil, range: range)
+
+        XCTAssertEqual(evidence.queryOutcome, .noData)
+        XCTAssertEqual(evidence.freshness, .missing)
+        XCTAssertEqual(evidence.totalSleep.availability, .missing)
+    }
+
+    func testSleepStaleEvidenceRetainsValueButLowersConfidence() {
+        let asOf = Date(timeIntervalSince1970: 1_700_000_000)
+        let range = DateInterval(start: asOf.addingTimeInterval(-86_400), end: asOf)
+        let observed = SleepComponentObservation(value: 450, availability: .observed, observedWindow: range)
+        let staleEvidence = SleepEvidenceContext(
+            queryOutcome: .transient,
+            freshness: .stale,
+            totalSleep: observed,
+            bedtime: .missing("查询失败"),
+            wakeTime: .missing("查询失败"),
+            inBed: .missing("查询失败"),
+            awake: .missing("查询失败"),
+            rem: .missing("查询失败"),
+            deep: .missing("查询失败"),
+            episodeCount: .missing("查询失败")
+        )
+        let result = SleepScoreEngine().calculate(from: SleepScoreInput(
+            asOf: asOf,
+            totalSleepMinutes: 450,
+            sleepTargetMinutes: 450,
+            evidence: staleEvidence
+        ))
+
+        XCTAssertNotNil(result.value)
+        XCTAssertEqual(result.confidence, .low)
+        XCTAssertTrue(result.reasons.contains { $0.contains("陈旧") })
+        XCTAssertTrue(result.reasons.contains { $0.contains("transient") })
+    }
+
+    func testSleepNormalizerUsesInjectedHealthDayBoundaryForCrossMidnightNight() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let boundary = HealthDayBoundary(calendar: calendar, boundaryMinutes: 4 * 60)
+        let label = calendar.date(from: DateComponents(year: 2026, month: 9, day: 12))!
+        let range = boundary.range(forLabelDate: label)
+        let bedtime = range.start.addingTimeInterval(-2 * 3_600)
+        let wake = range.start.addingTimeInterval(1 * 3_600)
+        let summary = SleepSampleNormalizer.mainNightSummary(
+            in: range,
+            segments: [
+                SleepStageSegment(stage: .core, start: bedtime, end: wake)
+            ],
+            calendar: calendar
+        )
+
+        XCTAssertEqual(summary?.date, label)
+        XCTAssertEqual(summary?.totalSleepMinutes, 180)
     }
 
     func testDailySnapshotObservationTimesSurviveEvidencePersistenceAndDoNotChangeScores() throws {
@@ -575,6 +729,157 @@ final class ScoringEngineTests: XCTestCase {
         XCTAssertTrue(evidence.physiologicalStress.missingInputs.contains("quietWindow"))
     }
 
+    func testMissingActivityLoadRemainsUnknownAcrossDailyWriteback() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let day = ISO8601DateFormatter().date(from: "2026-09-22T00:00:00Z")!
+        let computation = DailyHealthComputation(
+            calendar: calendar,
+            now: day.addingTimeInterval(12 * 3_600),
+            profile: DailyHealthComputationProfile(sleepTargetMinutes: 450, maxHeartRate: 190, biologicalSex: "male")
+        )
+        var history: [DailyHealthSnapshot] = []
+        for offset in stride(from: 7, through: 1, by: -1) {
+            var snapshot = DailyHealthSnapshot(date: calendar.date(byAdding: .day, value: -offset, to: day)!)
+            snapshot.sleepHours = 7.5
+            snapshot.hrvAverage = 50
+            let evidence = computation.compute(for: snapshot, history: history)
+            let saved = evidence.applying(to: snapshot)
+            XCTAssertNil(evidence.strain.value)
+            XCTAssertNil(evidence.strain.components["daily_load"], "Unknown activity cannot become a measured load component")
+            XCTAssertNil(saved.dailyLoad, "The snapshot written to persistence must keep unknown activity unknown")
+            history.append(saved)
+        }
+        var today = DailyHealthSnapshot(date: day)
+        today.sleepHours = 7.5
+        today.hrvAverage = 50
+        today.activeCalories = 500
+        today.steps = 10_000
+        today.activeMinutes = 70
+        let evidence = computation.compute(for: today, history: history)
+        XCTAssertEqual(evidence.strain.components["daily_load"] ?? -1, 60, accuracy: 0.000_001)
+        XCTAssertNil(evidence.strain.components["training_load_ratio"])
+        XCTAssertEqual(evidence.strain.trainingLoadStatus, .unknown)
+        XCTAssertEqual(evidence.energy.components["load_drain"], 0)
+    }
+
+    func testLegacyZeroLoadRequiresOriginalActivityEvidence() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let day = ISO8601DateFormatter().date(from: "2026-09-22T00:00:00Z")!
+        let computation = DailyHealthComputation(
+            calendar: calendar,
+            now: day.addingTimeInterval(12 * 3_600),
+            profile: DailyHealthComputationProfile(sleepTargetMinutes: 450, maxHeartRate: 190, biologicalSex: "male")
+        )
+        let unknownHistory = (1...7).map { offset -> DailyHealthSnapshot in
+            var snapshot = DailyHealthSnapshot(date: calendar.date(byAdding: .day, value: -offset, to: day)!)
+            snapshot.dailyLoad = 0 // Legacy output without any original activity evidence.
+            return snapshot
+        }
+        let observedZeroHistory = unknownHistory.map { snapshot -> DailyHealthSnapshot in
+            var observed = snapshot
+            observed.steps = 0 // An actual zero-valued activity observation remains valid.
+            return observed
+        }
+        var today = DailyHealthSnapshot(date: day)
+        today.sleepHours = 7.5
+        today.activeCalories = 500
+        today.steps = 10_000
+        today.activeMinutes = 70
+        let unknown = computation.compute(for: today, history: unknownHistory)
+        let knownZero = computation.compute(for: today, history: observedZeroHistory)
+        XCTAssertNil(unknown.strain.components["training_load_ratio"])
+        XCTAssertEqual(unknown.strain.trainingLoadStatus, .unknown)
+        XCTAssertEqual(unknown.energy.components["load_drain"], 0)
+        XCTAssertEqual(knownZero.strain.components["training_load_ratio"] ?? -1, 3.625, accuracy: 0.000_001)
+        XCTAssertEqual(knownZero.strain.trainingLoadStatus, .highRisk)
+        XCTAssertEqual(knownZero.energy.components["load_drain"], 10)
+    }
+
+    func testSleepConsistencyUsesThirteenCalendarDaysInsteadOfThirteenRecords() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let day = ISO8601DateFormatter().date(from: "2026-09-22T00:00:00Z")!
+        let bedtime = day.addingTimeInterval(-3_600)
+        let computation = DailyHealthComputation(
+            calendar: calendar,
+            now: day.addingTimeInterval(12 * 3_600),
+            profile: DailyHealthComputationProfile(sleepTargetMinutes: 450, maxHeartRate: 190, biologicalSex: "male")
+        )
+        func history(offsets: [Int]) -> [DailyHealthSnapshot] {
+            offsets.map { offset in
+                var snapshot = DailyHealthSnapshot(date: calendar.date(byAdding: .day, value: -offset, to: day)!)
+                snapshot.bedtime = calendar.date(byAdding: .day, value: -offset, to: bedtime)!
+                return snapshot
+            }
+        }
+        var today = DailyHealthSnapshot(date: day)
+        today.sleepHours = 7.5
+        today.bedtime = bedtime
+        today.awakeMinutes = 0
+        today.awakeEpisodeCount = 0
+        let outsideWindow = computation.compute(for: today, history: history(offsets: [14, 21, 28, 35, 42])).sleep
+        let withinWindow = computation.compute(for: today, history: history(offsets: [1, 2, 3, 4, 13])).sleep
+        XCTAssertNil(outsideWindow.components["consistency"])
+        XCTAssertTrue(outsideWindow.missingInputs.contains("recentBedtimesHistory"))
+        XCTAssertEqual(outsideWindow.value ?? -1, 79, accuracy: 0.000_001)
+        XCTAssertEqual(outsideWindow.confidence, .low)
+        XCTAssertEqual(withinWindow.components["consistency"], 30)
+        XCTAssertEqual(withinWindow.value ?? -1, 100, accuracy: 0.000_001)
+    }
+
+    func testDailyHealthComputationPassesCalendarToSleepAcrossDaylightSaving() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "America/Los_Angeles")!
+        let formatter = ISO8601DateFormatter()
+        let now = formatter.date(from: "2026-11-02T20:00:00Z")!
+        let day = calendar.startOfDay(for: now)
+        let history = (28...31).map { dateNumber -> DailyHealthSnapshot in
+            let date = formatter.date(from: "2026-10-\(dateNumber)T06:30:00Z")!
+            var snapshot = DailyHealthSnapshot(date: calendar.startOfDay(for: date).addingTimeInterval(24 * 3_600))
+            snapshot.bedtime = date
+            return snapshot
+        } + {
+            var snapshot = DailyHealthSnapshot(date: formatter.date(from: "2026-11-01T07:00:00Z")!)
+            snapshot.bedtime = formatter.date(from: "2026-11-01T06:30:00Z")!
+            return [snapshot]
+        }()
+        var today = DailyHealthSnapshot(date: day)
+        today.sleepHours = 7.5
+        today.bedtime = formatter.date(from: "2026-11-02T07:30:00Z")! // Still 23:30 local after the clock change.
+        today.awakeMinutes = 0
+        today.awakeEpisodeCount = 0
+        let sleep = DailyHealthComputation(
+            calendar: calendar,
+            now: now,
+            profile: DailyHealthComputationProfile(sleepTargetMinutes: 450, maxHeartRate: 190, biologicalSex: "male")
+        ).compute(for: today, history: history).sleep
+        XCTAssertEqual(sleep.components["consistency"], 30)
+        XCTAssertEqual(sleep.value ?? -1, 100, accuracy: 0.000_001)
+    }
+
+    func testNormalizedOxygenSaturationMatchesExplicitPercentageAcrossFiveScores() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let day = ISO8601DateFormatter().date(from: "2026-09-22T00:00:00Z")!
+        var normalized = DailyHealthSnapshot(date: day)
+        normalized.sleepHours = 7.5
+        normalized.hrvAverage = 50
+        normalized.restingHeartRate = 60
+        normalized.steps = 0
+        normalized.oxygenSaturation = HealthUnitNormalizer.normalizeOxygenSaturation(0.98)
+        var percentage = normalized
+        percentage.oxygenSaturation = 98
+        let computation = DailyHealthComputation(
+            calendar: calendar,
+            now: day.addingTimeInterval(12 * 3_600),
+            profile: DailyHealthComputationProfile(sleepTargetMinutes: 450, maxHeartRate: 190, biologicalSex: "male")
+        )
+        XCTAssertEqual(normalized.oxygenSaturation, 98)
+        XCTAssertEqual(computation.compute(for: normalized, history: []), computation.compute(for: percentage, history: []))
+    }
+
     func testDailyHealthComputationGoldenFixtureAndVersionConsistency() {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
@@ -607,7 +912,8 @@ final class ScoringEngineTests: XCTestCase {
         snapshot.deepSleepMinutes = 92
         snapshot.remSleepMinutes = 108
         snapshot.wristTemperature = 36.4
-        snapshot.oxygenSaturation = 0.98
+        // Snapshot values are already normalized to 0...100 percentage units.
+        snapshot.oxygenSaturation = 98
         snapshot.steps = 8_400
         snapshot.activeCalories = 460
         snapshot.activeMinutes = 42
@@ -633,14 +939,16 @@ final class ScoringEngineTests: XCTestCase {
         ).compute(for: snapshot, history: history)
 
         XCTAssertEqual(evidence.sleep.value ?? -1, 77.43, accuracy: 0.01)
-        XCTAssertEqual(evidence.recovery.value ?? -1, 60.70, accuracy: 0.01)
+        // Snapshot SpO2 uses percent (98), after HealthKit's 0.98 normalization.
+        // Unit-corrected production replay: Recovery +8, Energy +5.6.
+        XCTAssertEqual(evidence.recovery.value ?? -1, 68.70, accuracy: 0.01)
         XCTAssertEqual(evidence.strain.value ?? -1, 63.67, accuracy: 0.01)
         // 2026-08-13 有意重定标：HRV 因子单位修复（log 域 SD）使生理压力正确反映
         // HRV 高于基线的低压力（见 testStressEngineHRVFactorRespondsToRealisticHRVDecline）
         XCTAssertEqual(evidence.physiologicalStress.value ?? -1, 21.08, accuracy: 0.01)
         // 2026-08-13 有意重定标：ATL/CTL/TSB 改用 TRIMP 域 todayLoad
         // （见 testEnergyBankTrainingLoadUsesTRIMPScaleTodayLoad）
-        XCTAssertEqual(evidence.energy.value ?? -1, 42.31, accuracy: 0.01)
+        XCTAssertEqual(evidence.energy.value ?? -1, 47.91, accuracy: 0.01)
         XCTAssertEqual(evidence.sleep.algorithmVersion, ScoringAlgorithmVersions.sleep)
         XCTAssertEqual(evidence.recovery.algorithmVersion, ScoringAlgorithmVersions.recovery)
         XCTAssertEqual(evidence.strain.algorithmVersion, ScoringAlgorithmVersions.strain)
@@ -2127,7 +2435,76 @@ final class ScoringEngineTests: XCTestCase {
         }
         let a = acwr(strainScore: 100)
         let b = acwr(strainScore: 50)
-        XCTAssertEqual(a, b, "todayLoad 缺失时 acwr 不应随评分域 strainScore 变化：100→\(String(describing: a)) vs 50→\(String(describing: b))")
+        XCTAssertNil(a, "todayLoad 缺失时不应发布看似精确的 ACWR")
+        XCTAssertNil(b, "todayLoad 缺失时不应发布看似精确的 ACWR")
+    }
+
+    func testEnergyTrainingLoadAvailabilityKeepsKnownZeroDistinctFromMissing() {
+        let asOf = Date(timeIntervalSince1970: 1_735_689_600)
+        let calendar = Calendar(identifier: .gregorian)
+        let history = (1...7).map { offset in
+            DailyLoadObservation(
+                date: calendar.date(byAdding: .day, value: -offset, to: asOf)!,
+                value: 40,
+                availability: .observed
+            )
+        }
+        func result(today: DailyLoadObservation) -> MetricResult {
+            EnergyBankEngine().calculate(from: EnergyBankInput(
+                asOf: asOf,
+                recoveryScore: 75,
+                sleepScore: 75,
+                strainScore: 40,
+                stressIndex: 20,
+                trainingLoadHistory: history,
+                todayLoadObservation: today
+            ))
+        }
+
+        let knownZero = result(today: DailyLoadObservation(
+            date: asOf,
+            value: 0,
+            availability: .knownZero
+        ))
+        let missing = result(today: DailyLoadObservation(
+            date: asOf,
+            value: nil,
+            availability: .missing,
+            reason: "今日没有负荷覆盖"
+        ))
+
+        XCTAssertNotNil(knownZero.components["acwr"], "已知零负荷仍是有效观测，应可进入负荷网格")
+        XCTAssertNil(missing.components["acwr"], "缺失负荷不能被伪造为零负荷")
+        XCTAssertTrue(missing.missingInputs.contains("todayLoad"))
+        XCTAssertTrue(missing.reasons.contains { $0.contains("今日训练负荷") })
+    }
+
+    func testEnergyTrainingLoadGapDoesNotCountAsObservedDay() {
+        let asOf = Date(timeIntervalSince1970: 1_735_689_600)
+        let calendar = Calendar(identifier: .gregorian)
+        let observations = (1...7).map { offset in
+            DailyLoadObservation(
+                date: calendar.date(byAdding: .day, value: -offset, to: asOf)!,
+                value: offset == 4 ? nil : 30,
+                availability: offset == 4 ? .missing : .observed,
+                reason: offset == 4 ? "历史断档" : nil
+            )
+        }
+        let result = EnergyBankEngine().calculate(from: EnergyBankInput(
+            asOf: asOf,
+            recoveryScore: 70,
+            sleepScore: 70,
+            strainScore: 20,
+            stressIndex: 20,
+            trainingLoadHistory: observations,
+            todayLoadObservation: DailyLoadObservation(
+                date: asOf,
+                value: 30,
+                availability: .observed
+            )
+        ))
+        XCTAssertNil(result.components["acwr"], "6 个有效历史观测不足门控，不应发布 ACWR")
+        XCTAssertTrue(result.missingInputs.contains("trainingLoadHistory"))
     }
 
     // MARK: - 批次二修复回归
@@ -2185,7 +2562,8 @@ final class ScoringEngineTests: XCTestCase {
                 decisionType: "keep",
                 decisionTitle: "按计划训练",
                 accuracyRating: rating,
-                createdAt: now.addingTimeInterval(-offset)
+                createdAt: now.addingTimeInterval(-offset),
+                updatedAt: now.addingTimeInterval(-offset)
             )
         }
 
@@ -2240,7 +2618,8 @@ final class ScoringEngineTests: XCTestCase {
                 decisionType: "rest",
                 decisionTitle: "休息",
                 accuracyRating: i < 2 ? "accurate" : "inaccurate",
-                createdAt: now
+                createdAt: now,
+                updatedAt: now
             )
         }
         // 2/3 准确 → 乘数 0.6 + 0.4 * (2/3)
@@ -2263,7 +2642,8 @@ final class ScoringEngineTests: XCTestCase {
                 decisionType: "keep",
                 decisionTitle: "t",
                 accuracyRating: i == 2 ? "partly" : "accurate",
-                createdAt: now
+                createdAt: now,
+                updatedAt: now
             )
         }
         // (1 + 1 + 0.5)/3 = 5/6 → 乘数 0.6 + 0.4 * (5/6)

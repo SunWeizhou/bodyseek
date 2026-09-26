@@ -254,6 +254,22 @@ final class CoachChatVM: ObservableObject {
     private var streamFlushTask: Task<Void, Never>?
     private static let streamFlushIntervalNanoseconds: UInt64 = 40_000_000
 
+    /// All Coach writes go through the shared gate so a failure remains a
+    /// visible typed UI state instead of disappearing behind `try?`.
+    private func savePersistence(_ modelContext: ModelContext, operation: String) {
+        do {
+            try PersistenceWriteGate.shared.withSerializedWrite(
+                operation: operation,
+                modelContext: modelContext
+            ) {
+                try modelContext.save()
+            }
+        } catch {
+            persistenceError = "对话内容未保存。请稍后重试。"
+            VelaAppState.shared.logDebug("[CoachPersistence] \(operation) failed: \(error.localizedDescription)")
+        }
+    }
+
     /// Providers often emit one token at a time. Publishing every token invalidates
     /// the entire conversation tree, so coalesce deltas to roughly one UI update per frame pair.
     private func enqueueStreamDelta(_ delta: String) {
@@ -537,7 +553,7 @@ final class CoachChatVM: ObservableObject {
         if !isGhostMode, let current = currentSession,
            current.title == "新对话" || current.title == "New Chat" || current.title == "New Session" || current.title.isEmpty {
             current.title = String(cleanText.prefix(12)) + (cleanText.count > 12 ? "..." : "")
-            try? modelContext.save()
+            savePersistence(modelContext, operation: "coach.renameSession")
         }
         persistThread(modelContext: modelContext)
     }
@@ -586,7 +602,7 @@ final class CoachChatVM: ObservableObject {
             serializedMessages: "[]"
         )
         modelContext.insert(session)
-        try? modelContext.save()
+        savePersistence(modelContext, operation: "coach.createSession")
         sessionStore.currentSession = session
         if !sessionStore.sessions.contains(where: { $0.id == session.id }) {
             sessionStore.sessions.append(session)
@@ -740,7 +756,7 @@ final class CoachChatVM: ObservableObject {
             let cleanQuery = userText.trimmingCharacters(in: .whitespacesAndNewlines)
             let displayTitle = String(cleanQuery.prefix(12)) + (cleanQuery.count > 12 ? "..." : "")
             current.title = displayTitle.isEmpty ? "新对话" : displayTitle
-            try? modelContext.save()
+            savePersistence(modelContext, operation: "coach.renameSessionFromPrompt")
         }
 
         guard let apiKey = try? keychain.read(account: apiKeyAccount), !apiKey.isEmpty else {
@@ -834,7 +850,7 @@ final class CoachChatVM: ObservableObject {
                         // Persist to SwiftData
                         let record = CoachArtifactRecord(artifact: parsedArtifact)
                         modelContext.insert(record)
-                        try? modelContext.save()
+                        savePersistence(modelContext, operation: "coach.persistArtifact")
                         
                         // Replace the xml tag in the response text with inline artifact tag
                         let inlineTag = "[ARTIFACT:\(parsedArtifact.type.rawValue):\(record.id.uuidString)]"

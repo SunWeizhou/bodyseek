@@ -893,6 +893,7 @@
 			name = Vela;
 			packageProductDependencies = (
 				286FFA53BD9D8961FD2A971E /* Sentry */,
+				E1B2C3D40000000000000002 /* BodySeekDomain */,
 			);
 			productName = Vela;
 			productReference = 0B0000060000000000000006 /* Vela.app */;
@@ -957,8 +958,13 @@
 		3366974B39BF06D2D2F4F6B8 /* XCRemoteSwiftPackageReference "sentry-cocoa" */ = {isa = XCRemoteSwiftPackageReference; repositoryURL = "https://github.com/getsentry/sentry-cocoa"; requirement = {kind = upToNextMajorVersion; minimumVersion = 8.0.0;}; };
 /* End XCRemoteSwiftPackageReference section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		E1B2C3D40000000000000001 /* XCLocalSwiftPackageReference "BodySeekDomain" */ = {isa = XCLocalSwiftPackageReference; relativePath = BodySeekDomain; };
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		286FFA53BD9D8961FD2A971E /* Sentry */ = {isa = XCSwiftPackageProductDependency; package = 3366974B39BF06D2D2F4F6B8 /* XCRemoteSwiftPackageReference "sentry-cocoa" */; productName = Sentry; };
+		E1B2C3D40000000000000002 /* BodySeekDomain */ = {isa = XCSwiftPackageProductDependency; package = E1B2C3D40000000000000001 /* XCLocalSwiftPackageReference "BodySeekDomain" */; productName = BodySeekDomain; };
 /* End XCSwiftPackageProductDependency section */
 
 
@@ -999,6 +1005,7 @@
 			projectRoot = "";
 			packageReferences = (
 				3366974B39BF06D2D2F4F6B8 /* XCRemoteSwiftPackageReference "sentry-cocoa" */,
+				E1B2C3D40000000000000001 /* XCLocalSwiftPackageReference "BodySeekDomain" */,
 			);
 			targets = (
 				0B0000050000000000000005 /* Vela */,

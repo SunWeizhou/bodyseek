@@ -738,13 +738,14 @@ enum CoachSnapshotDirective {
         let time = formattedTime(generatedAt, calendar: calendar)
         let hrv = dashboard.recoveryMetrics.hrvMilliseconds.map { "\(Int($0.rounded()))ms" } ?? "N/A"
         let rhr = dashboard.recoveryMetrics.restingHeartRate.map { "\(Int($0.rounded()))bpm" } ?? "N/A"
+        let energy = dashboard.energy.value.map { "\(Int($0.rounded()))" } ?? "N/A"
         let targetRange = "\(dashboard.strain.recommendedRange.lowerBound)-\(dashboard.strain.recommendedRange.upperBound)"
 
         if AppLanguage.stored.isChinese {
             return """
             ## 当前健康快照协议（必须优先于旧对话）
             - 生成时间：\(time)
-            - 恢复 \(Int(dashboard.recovery.score.rounded()))，睡眠 \(Int(dashboard.sleepScore.score.rounded()))，负荷 \(Int(dashboard.strain.score.rounded()))（目标 \(targetRange)），能量 \(Int(dashboard.energy.currentEnergy.rounded()))，压力 \(Int(dashboard.stress.stressIndex.rounded()))
+            - 恢复 \(Int(dashboard.recovery.score.rounded()))，睡眠 \(dashboard.sleepScore.value.map { String(Int($0.rounded())) } ?? "N/A")，负荷 \(Int(dashboard.strain.score.rounded()))（目标 \(targetRange)），能量 \(energy)，压力 \(Int(dashboard.stress.stressIndex.rounded()))
             - HRV \(hrv)，静息心率 \(rhr)
             - 主要限制因素：\(limiterText)
 
@@ -755,7 +756,7 @@ enum CoachSnapshotDirective {
         return """
         ## Current Health Snapshot Protocol (fresh data has priority over old chat)
         - Generated at: \(time)
-        - Recovery \(Int(dashboard.recovery.score.rounded())), Sleep \(Int(dashboard.sleepScore.score.rounded())), Strain \(Int(dashboard.strain.score.rounded())) (target \(targetRange)), Energy \(Int(dashboard.energy.currentEnergy.rounded())), Stress \(Int(dashboard.stress.stressIndex.rounded()))
+        - Recovery \(Int(dashboard.recovery.score.rounded())), Sleep \(dashboard.sleepScore.value.map { String(Int($0.rounded())) } ?? "N/A"), Strain \(Int(dashboard.strain.score.rounded())) (target \(targetRange)), Energy \(energy), Stress \(Int(dashboard.stress.stressIndex.rounded()))
         - HRV \(hrv), resting heart rate \(rhr)
         - Main limiter: \(limiterText)
 
