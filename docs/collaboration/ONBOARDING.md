@@ -4,7 +4,7 @@
 
 ## 1. 先拿到同一份代码
 
-仓库为 [SunWeizhou/Vela](https://github.com/SunWeizhou/Vela)。各自克隆到非 iCloud 目录，例如 `~/Developer/Vela`；不复制另一台 Mac 的 build、数据库、Keychain、设备 ID 或 Codex 对话目录。
+仓库为 [SunWeizhou/bodyseek](https://github.com/SunWeizhou/bodyseek)。各自克隆到非 iCloud 目录，例如 `~/Developer/Vela`；不复制另一台 Mac 的 build、数据库、Keychain、设备 ID 或 Codex 对话目录。
 
 在仓库根目录记录：
 

@@ -15,7 +15,8 @@ private struct ScoreTrendDescriptor: Identifiable {
 /// persistence and the existing dashboard formulas remain unchanged.
 private struct SummaryTrendsHistoryProvider: TrendsHistoryProviding {
     let snapshots: [DailyHealthSnapshot]
-    let finding: HealthTrendFinding?
+    let findings: [HealthTrendFinding]
+    var isPreview = false
 
     func history(
         metric: CoreHealthMetric,
@@ -25,7 +26,12 @@ private struct SummaryTrendsHistoryProvider: TrendsHistoryProviding {
     ) async throws -> TrendsHistoryPayload {
         TrendsHistoryPayload(
             snapshots: snapshots,
-            finding: finding
+            finding: findings.first {
+                $0.metric == metric && $0.horizon == horizon
+            },
+            provenanceByDay: isPreview ? Dictionary(uniqueKeysWithValues: snapshots.map {
+                (calendar.startOfDay(for: $0.date), TrendsPointProvenance(source: .derived, sourceLabel: "示例数据", detail: "仅用于界面预览"))
+            }) : [:]
         )
     }
 }
@@ -44,9 +50,7 @@ struct VelaTrendsView: View {
     @State private var showAllMetricCatalog = false
     @State private var dailyRecords: [DailyHealthSummaryRecord] = []
     @State private var dailyRecordsLoadError: String?
-    @State private var memoizedScoreHistories: [CoreHealthMetric: [Double]] = [:]
-    @State private var memoizedNormalizedHistories: [CoreHealthMetric: [Double]] = [:]
-    @State private var recoveryTrendState: TrendsViewState?
+    @State private var trendStates: [CoreHealthMetric: TrendsViewState] = [:]
     @State private var selectedRecoveryTrendDate: Date?
 
     private var dashboard: DashboardSummary { dashboardVM.dashboard }
@@ -98,6 +102,7 @@ struct VelaTrendsView: View {
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("trends-horizon-picker")
                 trendHistoryErrorCard
+                primaryTrendFindingCard
                 fiveScoreTrendSection
                 recoveryTrendChart
 
@@ -130,8 +135,7 @@ struct VelaTrendsView: View {
         .background(VelaTheme.rhythmCanvas)
         .safeAreaInset(edge: .top, spacing: 0) {
             VelaSurfaceHeader(
-                title: "趋势",
-                subtitle: "把今天放进更长的时间里看"
+                title: "趋势"
             )
             .background(VelaTheme.rhythmCanvas.opacity(0.96))
         }
@@ -140,8 +144,7 @@ struct VelaTrendsView: View {
         .onChange(of: dashboardVM.selectedDate) { _, _ in loadDailyRecords() }
         .onChange(of: appState.localDataRevision) { _, _ in loadDailyRecords() }
         .onChange(of: selectedHorizon) { _, _ in
-            recomputeMemoizedHistories()
-            reloadRecoveryTrendStore()
+            reloadTrendStores()
         }
         .sheet(item: $selectedMetricForDetail) { metric in
             NavigationStack {
@@ -159,6 +162,67 @@ struct VelaTrendsView: View {
     }
 
     // MARK: - Five scored time series
+
+
+    @ViewBuilder
+    private var primaryTrendFindingCard: some View {
+        let finding = horizonNotableShifts.first ?? availableFindings.first
+        if let finding {
+            Button {
+                selectedMetricForDetail = detailMetric(for: finding.metric)
+            } label: {
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: finding.metric.icon)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(accentColor(for: finding.metric))
+                        .frame(width: 36, height: 36)
+                        .background(VelaTheme.rhythmMist.opacity(0.72), in: Circle())
+
+                    VStack(alignment: .leading, spacing: 5) {
+                        HStack(spacing: 6) {
+                            Text("主要发现")
+                                .font(VelaTheme.caption1().weight(.bold))
+                                .foregroundStyle(VelaTheme.rhythmDeep)
+                            Text(finding.metric.title)
+                                .font(VelaTheme.caption1().weight(.semibold))
+                                .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                        }
+                        Text(finding.summary.isEmpty ? finding.temporalTrendSummary : finding.summary)
+                            .font(VelaTheme.body())
+                            .foregroundStyle(VelaTheme.rhythmInk)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text("\(finding.currentValueFormatted) · \(selectedHorizon.detailedTitle)")
+                            .font(VelaTheme.caption2())
+                            .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                    }
+
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                }
+                .padding(16)
+                .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous)
+                        .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                }
+            }
+            .buttonStyle(.cardPress)
+            .accessibilityLabel("主要趋势发现：\(finding.metric.title)，\(finding.summary)")
+        } else {
+            HStack(spacing: 10) {
+                Image(systemName: "chart.xyaxis.line")
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                Text(dashboard.source == .preview ? "示例历史，仅用于界面预览。" : "数据积累后，这里会显示你的第一条趋势发现。")
+                    .font(VelaTheme.body())
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(VelaTheme.rhythmMist.opacity(0.42), in: RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous))
+        }
+    }
 
     private var fiveScoreTrendSection: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -211,15 +275,16 @@ struct VelaTrendsView: View {
     /// Store-owned series while the legacy rows remain unchanged.
     @ViewBuilder
     private var recoveryTrendChart: some View {
-        if let series = recoveryTrendState?.series,
-           recoveryTrendState?.phase == .ready {
+        if let recoveryState = trendStates[.recovery],
+           let series = recoveryState.series,
+           recoveryState.phase == .ready {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .firstTextBaseline) {
                     Text("恢复趋势")
                         .font(VelaTheme.callout().weight(.bold))
                         .foregroundStyle(VelaTheme.rhythmInk)
                     Spacer()
-                    Text("真实读数 · 缺失日期保留空档")
+                    Text(dashboard.source == .preview ? "示例曲线 · 缺失日期保留空档" : "缺失日期保留空档")
                         .font(VelaTheme.caption2())
                         .foregroundStyle(VelaTheme.rhythmInkSecondary)
                 }
@@ -269,7 +334,7 @@ struct VelaTrendsView: View {
                             Spacer(minLength: 8)
 
                             Text(valueText)
-                                .font(.system(.headline, design: .rounded, weight: .bold))
+                                .font(.system(.headline, design: .default, weight: .semibold))
                                 .monospacedDigit()
                                 .foregroundStyle(valueText == "--" ? VelaTheme.muted : VelaTheme.rhythmInk)
 
@@ -325,7 +390,7 @@ struct VelaTrendsView: View {
                         .accessibilityHidden(true)
 
                         Text(valueText)
-                            .font(.system(.headline, design: .rounded, weight: .bold))
+                            .font(.system(.headline, design: .default, weight: .semibold))
                             .monospacedDigit()
                             .foregroundStyle(valueText == "--" ? VelaTheme.muted : VelaTheme.rhythmInk)
                             .frame(minWidth: 38, alignment: .trailing)
@@ -433,71 +498,11 @@ struct VelaTrendsView: View {
     }
 
     private func scoreTrendPoints(for metric: CoreHealthMetric) -> [TrendsChartPoint] {
-        let calendar = Calendar.current
-        let endDay = calendar.startOfDay(for: dashboardVM.selectedDate)
-        let days = selectedHorizon.windowDays
-        var points: [TrendsChartPoint] = []
-        points.reserveCapacity(days)
-
-        for dayOffset in (0..<days).reversed() {
-            guard let day = calendar.date(byAdding: .day, value: -dayOffset, to: endDay) else { continue }
-            let record = dailyRecords.first { calendar.isDate($0.date, inSameDayAs: day) }
-            let val: Double? = {
-                guard let record else { return nil }
-                switch metric {
-                case .recovery: return record.recoveryScore
-                case .sleepScore: return record.sleepScore
-                case .strain: return record.strainScore
-                case .stress: return record.stressIndex
-                case .energy: return record.currentEnergy ?? record.energyBank ?? record.morningEnergy
-                default: return nil
-                }
-            }()
-            points.append(TrendsChartPoint(date: day, value: val, provenance: nil))
-        }
-        return points
+        trendStates[metric]?.series?.points ?? []
     }
 
     private func scoreHistory(for metric: CoreHealthMetric) -> [Double] {
-        let calendar = Calendar.current
-        let endDay = calendar.startOfDay(for: dashboardVM.selectedDate)
-        let end = calendar.date(byAdding: .day, value: 1, to: endDay) ?? endDay
-        let start = calendar.date(byAdding: .day, value: -selectedHorizon.windowDays, to: end) ?? end
-
-        return dailyRecords
-            .filter { $0.date >= start && $0.date < end }
-            .sorted { $0.date < $1.date }
-            .compactMap { record in
-                switch metric {
-                case .recovery: record.recoveryScore
-                case .sleepScore: record.sleepScore
-                case .strain: record.strainScore
-                case .stress: record.stressIndex
-                case .energy: record.currentEnergy ?? record.energyBank ?? record.morningEnergy
-                default: nil
-                }
-            }
-    }
-
-    private func normalizedHistory(_ values: [Double]) -> [Double] {
-        guard !values.isEmpty else { return [] }
-        let sampled = downsample(values, maximumCount: 72)
-        guard let minimum = sampled.min(), let maximum = sampled.max() else { return [] }
-        let distance = maximum - minimum
-        guard distance > 0 else { return sampled.map { _ in 0.5 } }
-        return sampled.map { ($0 - minimum) / distance }
-    }
-
-    private func downsample(_ values: [Double], maximumCount: Int) -> [Double] {
-        guard values.count > maximumCount else { return values }
-        let bucketSize = Double(values.count) / Double(maximumCount)
-        return (0..<maximumCount).compactMap { bucket in
-            let lower = Int((Double(bucket) * bucketSize).rounded(.down))
-            let upper = min(values.count, Int((Double(bucket + 1) * bucketSize).rounded(.down)))
-            guard lower < upper else { return nil }
-            let slice = values[lower..<upper]
-            return slice.reduce(0, +) / Double(slice.count)
-        }
+        trendStates[metric]?.series?.points.compactMap(\.value) ?? []
     }
 
     private func scoreValueText(
@@ -580,12 +585,11 @@ struct VelaTrendsView: View {
                 "趋势历史暂时无法读取，请重试后再查看。"
             )
         }
-        recomputeMemoizedHistories()
-        reloadRecoveryTrendStore()
+        reloadTrendStores()
     }
 
-    private func reloadRecoveryTrendStore() {
-        let snapshots = dailyRecords.map { record in
+    private func reloadTrendStores() {
+        var snapshots = dailyRecords.map { record in
             var snapshot = DailyHealthSnapshot(date: record.date, createdAt: record.updatedAt)
             snapshot.sleepScore = record.sleepScore
             snapshot.recoveryScore = record.recoveryScore
@@ -605,53 +609,33 @@ struct VelaTrendsView: View {
             snapshot.respiratoryRate = record.respiratoryRate
             return snapshot
         }
+        var isPreview = false
+        #if DEBUG
+        if DailySummaryUseCase.isPreviewDashboardEnabled() {
+            snapshots = PreviewDataFactory.makeTrendSnapshots(endingAt: dashboardVM.selectedDate)
+            isPreview = true
+        }
+        #endif
         let provider = SummaryTrendsHistoryProvider(
             snapshots: snapshots,
-            finding: finding(for: .recovery)
-        )
-        let store = TrendsStore(
-            provider: provider,
-            selectedDay: dashboardVM.selectedDate,
-            horizon: selectedHorizon,
-            metric: .recovery
+            findings: allTrends,
+            isPreview: isPreview
         )
         Task {
-            await store.send(.appear)
-            guard !Task.isCancelled else { return }
-            recoveryTrendState = store.state
-        }
-    }
-
-    private func recomputeMemoizedHistories() {
-        let calendar = Calendar.current
-        let endDay = calendar.startOfDay(for: dashboardVM.selectedDate)
-        let end = calendar.date(byAdding: .day, value: 1, to: endDay) ?? endDay
-        let start = calendar.date(byAdding: .day, value: -selectedHorizon.windowDays, to: end) ?? end
-
-        let filtered = dailyRecords
-            .filter { $0.date >= start && $0.date < end }
-            .sorted { $0.date < $1.date }
-
-        var histories: [CoreHealthMetric: [Double]] = [:]
-        var normalized: [CoreHealthMetric: [Double]] = [:]
-
-        for metric in scoreMetrics {
-            let values: [Double] = filtered.compactMap { record in
-                switch metric {
-                case .recovery: record.recoveryScore
-                case .sleepScore: record.sleepScore
-                case .strain: record.strainScore
-                case .stress: record.stressIndex
-                case .energy: record.currentEnergy ?? record.energyBank ?? record.morningEnergy
-                default: nil
-                }
+            var states: [CoreHealthMetric: TrendsViewState] = [:]
+            for metric in scoreMetrics {
+                let store = TrendsStore(
+                    provider: provider,
+                    selectedDay: dashboardVM.selectedDate,
+                    horizon: selectedHorizon,
+                    metric: metric
+                )
+                await store.send(.appear)
+                states[metric] = store.state
             }
-            histories[metric] = values
-            normalized[metric] = normalizedHistory(values)
+            guard !Task.isCancelled else { return }
+            trendStates = states
         }
-
-        memoizedScoreHistories = histories
-        memoizedNormalizedHistories = normalized
     }
 
     // MARK: - Horizon Picker

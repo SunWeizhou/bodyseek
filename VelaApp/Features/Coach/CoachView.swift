@@ -17,6 +17,26 @@ enum CoachPresentationStyle {
     case quickCover
 }
 
+/// Presentation-only state for the redesigned Coach surface. It deliberately
+/// carries no prompt facts or persistence records; canonical AI context stays
+/// in CoachContextAssembler and ScoringContext.
+struct CoachPresentationState: Equatable, Sendable {
+    var headerTitle: String
+    var contextSubtitle: String?
+    var isGhostMode: Bool
+    var isStreaming: Bool
+    var messageCount: Int
+    var composerText: String
+}
+
+enum CoachPresentationAction: Hashable, Sendable {
+    case send
+    case createSession
+    case openHistory
+    case openEvidence
+    case toggleGhostMode
+}
+
 struct CoachFileContextDraft: Identifiable, Hashable {
     var id = UUID()
     var filename: String
@@ -571,6 +591,47 @@ struct VelaCoachView: View {
         }
         return title
     }
+
+    private var presentationState: CoachPresentationState {
+        CoachPresentationState(
+            headerTitle: vm.isGhostMode ? "私密 Coach" : "Coach",
+            contextSubtitle: headerSubtitle,
+            isGhostMode: vm.isGhostMode,
+            isStreaming: vm.isStreaming,
+            messageCount: vm.messages.count,
+            composerText: inputText
+        )
+    }
+
+    /// Keep the conversation anchored to the same snapshot the user just saw
+    /// in Today. This is intentionally compact: the full provenance remains
+    /// available in the evidence surfaces, while Coach needs a quick cue that
+    /// makes stale or preview context legible at a glance.
+    private var headerSubtitle: String {
+        if vm.isGhostMode { return "不保存" }
+        switch dashboard.source {
+        case .preview:
+            return "示例状态 · 仅供预览"
+        case .cache:
+            return "今日状态 · 上次同步 \(dashboard.recovery.lastUpdated.formatted(.dateTime.hour().minute()))"
+        case .healthKit:
+            return "今日状态 · 已同步 \(dashboard.recovery.lastUpdated.formatted(.dateTime.hour().minute()))"
+        case .empty:
+            return "今日状态 · 等待数据"
+        }
+    }
+
+    /// Keep page identity stable while a session title changes. A long first
+    /// question is useful context, but should never replace the wayfinding
+    /// label or make the header look clipped.
+    private var headerContextLine: String {
+        let sessionTitle = headerTitle == "身体分析" ? nil : headerTitle
+        // Put freshness first so a long session title cannot hide the
+        // snapshot provenance that anchors this conversation to Today.
+        return [headerSubtitle, sessionTitle]
+            .compactMap { $0 }
+            .joined(separator: " · ")
+    }
     private var todayOperatingPlan: DailyOperatingPlanRecord? {
         let identifier = DailyHealthSummaryRecord.dayIdentifier(for: dashboardVM.selectedDate)
         return operatingPlans.first(where: { $0.dayIdentifier == identifier })
@@ -890,21 +951,20 @@ struct VelaCoachView: View {
             .accessibilityLabel("对话历史")
             .accessibilityHint("打开历史对话列表")
 
+            BodySeekBrandMark(size: 22, monochrome: true)
+
             VStack(alignment: .leading, spacing: 3) {
-                Text(headerTitle)
-                    .font(.headline)
+                Text(presentationState.headerTitle)
+                    .font(.headline.weight(.semibold))
                     .tracking(-0.25)
                     .foregroundStyle(VelaTheme.rhythmInk)
                     .lineLimit(1)
 
-                if !dynamicTypeSize.isAccessibilitySize {
-                    HStack(spacing: 5) {
-                        Circle().fill(VelaTheme.rhythmDeep).frame(width: 5, height: 5)
-                        Text(vm.isGhostMode ? "不保存" : "分数 · 基线 · 趋势")
-                            .font(.caption)
-                            .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                    }
-                }
+                Text(presentationState.contextSubtitle ?? "")
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
             }
 
             Spacer()
@@ -969,6 +1029,7 @@ struct VelaCoachView: View {
         .dynamicTypeSize(
             dynamicTypeSize.isAccessibilitySize ? .accessibility1 : dynamicTypeSize
         )
+        .accessibilityLabel("\(presentationState.headerTitle)，\(presentationState.contextSubtitle ?? "")")
         .accessibilityIdentifier("coach-surface-header")
     }
 
@@ -1203,8 +1264,13 @@ struct VelaCoachView: View {
             }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 8)
+        .padding(.vertical, 10)
         .background(VelaTheme.rhythmCanvas)
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(VelaTheme.rhythmMist.opacity(0.72))
+                .frame(height: 0.5)
+        }
     }
 
     // MARK: - Actions

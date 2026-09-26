@@ -3,7 +3,7 @@
 
 规则：
   1. 硬性门禁：VelaTheme.textColor(for:) 的文字色（light/dark）对画布
-     #F2F5F1 / #0E1412 必须 ≥4.5:1（WCAG AA 正文）。新增/修改文字色须通过。
+     VelaTheme.rhythmCanvas 必须 ≥4.5:1（WCAG AA 正文）。新增/修改文字色须通过。
   2. 报告项：全部 adaptive 色板里 light <3:1 或 dark <3:1 的条目打印警告
      不阻断（图形/装饰色按 3:1 图形目标；如需收紧请提升到规则 1）。
 
@@ -17,8 +17,6 @@ import sys
 from pathlib import Path
 
 THEME = Path(__file__).resolve().parent.parent / "VelaApp" / "Core" / "Theme" / "VelaTheme.swift"
-LIGHT_CANVAS = "#F2F5F1"
-DARK_CANVAS = "#0E1412"
 TEXT_MIN = 4.5
 
 
@@ -52,6 +50,13 @@ def parse_adaptive_pairs(text):
 def main():
     report_only = "--report" in sys.argv
     source = THEME.read_text(encoding="utf-8")
+    canvas = next(((light, dark) for name, light, dark in parse_adaptive_pairs(source)
+                   if name == "rhythmCanvas"), None)
+    if canvas is None:
+        print("FAIL: rhythmCanvas 自适应画布颜色未找到", file=sys.stderr)
+        return 1
+    light_canvas, dark_canvas = canvas
+    print(f"Canvas: {light_canvas} / {dark_canvas}")
 
     # 规则 1：textColor(for:) 的六个值
     block = re.search(r"static func textColor\(for[\s\S]*?\n    \}", source)
@@ -63,9 +68,9 @@ def main():
     for light, dark in hexes:
         l = "#" + light.upper()
         d = "#" + dark.upper()
-        cl = contrast(l, LIGHT_CANVAS)
-        cd = contrast(d, DARK_CANVAS)
-        for mode, value, canvas, ratio in (("light", l, LIGHT_CANVAS, cl), ("dark", d, DARK_CANVAS, cd)):
+        cl = contrast(l, light_canvas)
+        cd = contrast(d, dark_canvas)
+        for mode, value, canvas, ratio in (("light", l, light_canvas, cl), ("dark", d, dark_canvas, cd)):
             if ratio < TEXT_MIN:
                 failures.append(f"  textColor {value} on {canvas} = {ratio:.2f}:1 (< {TEXT_MIN})")
 
@@ -78,12 +83,12 @@ def main():
     for name, light, dark in parse_adaptive_pairs(source):
         if not text_like.search(name):
             continue
-        cl = contrast(light, LIGHT_CANVAS)
-        cd = contrast(dark, DARK_CANVAS)
+        cl = contrast(light, light_canvas)
+        cd = contrast(dark, dark_canvas)
         if cl < 3.0:
-            warnings.append(f"  {name} {light} on {LIGHT_CANVAS} = {cl:.2f}:1")
+            warnings.append(f"  {name} {light} on {light_canvas} = {cl:.2f}:1")
         if cd < 3.0:
-            warnings.append(f"  {name} {dark} on {DARK_CANVAS} = {cd:.2f}:1")
+            warnings.append(f"  {name} {dark} on {dark_canvas} = {cd:.2f}:1")
 
     if warnings:
         print("WARN (graphic palette <3:1, informational):")

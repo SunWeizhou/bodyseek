@@ -29,7 +29,7 @@ struct VelaSettingsView: View {
             LazyVStack(alignment: .leading, spacing: 32) {
                 profileCardRow
 
-                settingsGroup(eyebrow: "", title: "你的模型") {
+                settingsGroup(eyebrow: "", title: "我的档案") {
                     VStack(spacing: 0) {
                         NavigationLink(destination: AccountSettingsView()) {
                             settingsRow(icon: "person.crop.circle", title: "基本资料", value: "本机保存")
@@ -49,7 +49,7 @@ struct VelaSettingsView: View {
                     }
                 }
 
-                settingsGroup(eyebrow: "", title: "身体数据与控制") {
+                settingsGroup(eyebrow: "", title: "连接与数据") {
                     VStack(spacing: 0) {
                         NavigationLink(destination: DataSourceSettingsView()) {
                             settingsRow(icon: "applewatch", title: "数据来源", value: "Apple 健康")
@@ -140,7 +140,7 @@ struct VelaSettingsView: View {
                     }
                 }
 
-                settingsGroup(eyebrow: "", title: "关于 Vela") {
+                settingsGroup(eyebrow: "", title: "关于 BodySeek") {
                     VStack(spacing: 0) {
                         NavigationLink(destination: WhatsNewSettingsView()) {
                             settingsRow(icon: "sparkles", title: "最新变化", value: VelaAppMetadata.marketingVersion)
@@ -154,7 +154,7 @@ struct VelaSettingsView: View {
         }
         .scrollIndicators(.hidden)
         .background(VelaTheme.rhythmCanvas)
-        .navigationTitle("设置")
+        .navigationTitle("个人空间")
         .accessibilityIdentifier("settings-surface")
         .velaRhythmDetailChrome()
         .toolbar {
@@ -248,12 +248,18 @@ struct VelaSettingsView: View {
     }
     
     private var profileCardRow: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("设置与偏好")
-                .font(.system(.title, design: .rounded, weight: .bold))
-                .foregroundStyle(VelaTheme.rhythmInk)
+        VStack(alignment: .leading, spacing: 16) {
+            BodySeekPageIntro(
+                eyebrow: "PERSONAL / YOUR FIELD NOTES",
+                title: "关于你，\n持续了解中。",
+                subtitle: "你的资料、偏好与健康记忆，都在这里。",
+                artwork: .profile
+            )
+            HStack(spacing: 8) {
+                settingsPill("本机保存", icon: "iphone")
+                settingsPill("由你掌控", icon: "hand.raised")
+            }
         }
-        .padding(.top, 4)
     }
 
     private func settingsPill(_ title: String, icon: String) -> some View {

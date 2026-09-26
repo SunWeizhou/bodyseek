@@ -91,12 +91,13 @@ final class VelaSmokeUITests: XCTestCase {
             )
         }
 
-        XCTAssertTrue(
-            app.descendants(matching: .any)["trends-recovery-store-chart"].waitForExistence(timeout: 8),
-            "Recovery trend should expose the Store-owned one-metric chart when preview history is available"
-        )
+        let chart = app.descendants(matching: .any)["trends-recovery-store-chart"]
+        for _ in 0..<3 where !chart.exists { app.swipeUp() }
+        XCTAssertTrue(chart.waitForExistence(timeout: 8), "Preview history should reach the real Store-owned chart")
 
-        app.descendants(matching: .any)["trends-score-recovery"].tap()
+        let recovery = app.descendants(matching: .any)["trends-score-recovery"]
+        for _ in 0..<3 where !recovery.isHittable { app.swipeDown() }
+        recovery.tap()
         XCTAssertTrue(
             app.descendants(matching: .any)["metric-detail-recovery"].waitForExistence(timeout: 8),
             "Trends recovery score did not route to its metric detail"
@@ -110,7 +111,41 @@ final class VelaSmokeUITests: XCTestCase {
             app.descendants(matching: .any)["settings-surface"].waitForExistence(timeout: 10),
             "Settings sheet did not open from its launch route"
         )
-        XCTAssertTrue(app.navigationBars["设置"].exists)
+        XCTAssertTrue(app.navigationBars["个人空间"].exists)
+    }
+
+    /// Read-only preview evidence for this redesign; kept separately from old captures.
+    func testUpgradeSurfaceSnapshots() {
+        for (index, name) in [(0, "today"), (1, "trends"), (2, "plan"), (3, "coach")] {
+            let app = launchApp(initialTab: index, extraArguments: ["-vela_dark_mode", "light"])
+            assertSurface(index, in: app)
+            let readyID = index == 0 ? "today-score-recovery" : index == 3 ? "coach-current-context" : "surface-\(index)"
+            XCTAssertTrue(app.descendants(matching: .any)[readyID].waitForExistence(timeout: 8))
+            // Allow the existing score-ring entrance animation to finish.
+            Thread.sleep(forTimeInterval: 1)
+            let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            attachment.name = "upgrade-\(name)-light"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+            app.terminate()
+        }
+        let dark = launchApp(extraArguments: ["-vela_dark_mode", "dark"])
+        assertSurface(0, in: dark)
+        XCTAssertTrue(dark.descendants(matching: .any)["today-secondary-energy"].waitForExistence(timeout: 8))
+        Thread.sleep(forTimeInterval: 1)
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = "upgrade-today-dark"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+        dark.terminate()
+
+        let large = launchApp(extraArguments: ["-vela_dark_mode", "light", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
+        assertSurface(0, in: large)
+        XCTAssertTrue(large.descendants(matching: .any)["today-score-recovery"].waitForExistence(timeout: 8))
+        let largeAttachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        largeAttachment.name = "upgrade-today-accessibility"
+        largeAttachment.lifetime = .keepAlways
+        add(largeAttachment)
     }
 
     func testRecoveryDetailDeepLaunch() {
@@ -274,8 +309,10 @@ final class VelaSmokeUITests: XCTestCase {
             "Sleep timeline card should be present in sleep detail push"
         )
 
-        let screenshot = XCUIScreen.main.screenshot()
-        try? screenshot.pngRepresentation.write(to: URL(fileURLWithPath: "/Users/sunweizhou/Developer/Vela/docs/validation/u4/after/sleep-detail-push.png"))
+        let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        screenshot.name = "sleep-detail-push"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
 
         let backButton = app.navigationBars.buttons.element(boundBy: 0)
         XCTAssertTrue(backButton.waitForExistence(timeout: 5), "System back button should be present")
