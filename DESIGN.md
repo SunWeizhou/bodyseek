@@ -1,6 +1,7 @@
 ---
 name: Vela Signal Intelligence
-description: A local-first iOS body intelligence agent for Apple Watch users. Native iOS clarity, a focused daily health story, restrained signal color, and Liquid Glass navigation. Target device: iPhone 16 Pro (390×844pt), iOS 26. Chinese + English bilingual, Light + Dark adaptive.
+description: A local-first iOS body intelligence agent for Apple Watch users. Native iOS clarity, a focused daily health story, restrained signal color, and Liquid Glass navigation. Target device: iPhone 16 Pro (390×844pt). Chinese + English bilingual, Light + Dark adaptive. Shipping floor is iOS 17 / watchOS 10 (ADR 0017); iOS 26 Liquid Glass language below is progressive enhancement / design aspiration, not the deployment floor.
+status_note: "Canonical product/platform authority is docs/PRD.md + docs/adr/0017. This file is a design system reference; do not treat iOS 26 mentions as raising the shipping floor."
 colors:
   # Light Mode — Cool Neutral Canvas
   background: '#F4F6FA'

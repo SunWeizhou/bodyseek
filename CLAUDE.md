@@ -1,7 +1,7 @@
 # CLAUDE.md — Agent & Developer Workspace Handbook
 
 > Status: Canonical
-> Last reviewed: 2026-09-06（交接入口、平台和构建步骤；未重新验证全文）
+> Last reviewed: 2026-09-26（对齐 ADR 0017 平台状态与文档权威顺序；构建步骤仍以协作接手文档为准）
 > Scope: Agent 工作方式、构建/测试/部署命令、工程规则与关键代码入口
 > Does not define: 产品业务需求（见 [docs/PRD.md](docs/PRD.md)）、领域语言定义（见 [CONTEXT.md](CONTEXT.md)）
 

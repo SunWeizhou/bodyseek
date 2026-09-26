@@ -60,9 +60,9 @@
 
 | 归档子目录 | 包含内容 |
 | :--- | :--- |
-| [`docs/archive/product-eras/`](archive/product-eras/) | 历史 PRD、旧蓝图（`VELA_FULL_STRENGTH_PRODUCT_BLUEPRINT`、`TRAINING_INTELLIGENCE_V3`）、旧方向文档 |
+| [`docs/archive/product-eras/`](archive/product-eras/) | 历史 PRD、旧蓝图（`VELA_FULL_STRENGTH_PRODUCT_BLUEPRINT`、`TRAINING_INTELLIGENCE_V3`）、旧方向文档；含已归档的 `Vela_4.0-product-review.md`（Active Coach OS / 多模块并列时代评述，已被当前 PRD 4-Tab 取代） |
 | [`docs/archive/audits/`](archive/audits/) | 历史稳定性审计与 UI 走查报告（`VELA_3_AUDIT`、`VELA_4_STABILIZATION_REPORT` 等） |
-| [`docs/archive/handoffs/`](archive/handoffs/) | 历史 Agent 交接记录（`AGENT_HANDOFF_*`） |
+| [`docs/archive/handoffs/`](archive/handoffs/) | 历史 Agent 交接记录（`AGENT_HANDOFF_*`）；含已归档的 `ORIGINAL_REQUEST-2026-08-05.md`（旧 orchestrator 缺陷修复清单，非当前产品规格） |
 | [`docs/archive/plans/`](archive/plans/) | 历史 Bevel 对标计划、已完成或废弃的实施计划（`superpowers-plans` 等） |
 | [`docs/archive/v2/`](archive/v2/) | Vela 2.0 时代历史架构与规格文档 |
 
