@@ -383,15 +383,29 @@ extension DailyOperatingPlanPayload {
     }
 
     var hasUserEdits: Bool { userEditedAt != nil }
+
+    /// Decision plus action outline. Used to avoid offering a candidate that
+    /// would not change what the user sees.
+    var actionOutline: String {
+        let actions = allActions.map { "\($0.domain.rawValue):\($0.title)" }
+        return ([decision.rawValue] + actions).joined(separator: "|")
+    }
 }
 
-/// Automatic refresh may create or migrate a plan, but it never silently replaces
-/// a plan the user has completed, scheduled, edited, or deliberately emptied.
+/// Automatic refresh may create a missing plan or migrate a legacy payload.
+/// A canonical plan is kept when the body state changes; Plan offers a
+/// candidate instead of replacing it.
 enum DailyOperatingPlanRefreshPolicy {
     static func shouldRegenerate(
         usedPersistedDecision: Bool,
         persistedPayload: DailyOperatingPlanPayload?
     ) -> Bool {
+        // A canonical plan stays put when the body state changes. The Plan
+        // surface offers a candidate instead of replacing it, whether or not
+        // the user has edited it. Legacy payloads still migrate.
+        if persistedPayload?.hasCanonicalActionSequence == true {
+            return false
+        }
         guard persistedPayload?.hasUserEdits != true else { return false }
         return !usedPersistedDecision || persistedPayload?.hasCanonicalActionSequence != true
     }

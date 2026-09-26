@@ -269,7 +269,7 @@ struct TodaySignalGrid: View {
     }
 
     private func energyValue(_ card: TodayExperienceSignalCard) -> some View {
-        Text(card.value == "--" ? "--" : "\(card.value)%")
+        Text(card.value)
             .font(VelaTheme.title2().monospacedDigit())
             .foregroundStyle(VelaTheme.rhythmInk)
             .lineLimit(1)
@@ -296,7 +296,7 @@ struct TodaySignalGrid: View {
         } else {
             stateText = card.value == "--" ? "待同步" : energyStateLabel(for: card.state)
         }
-        let value = card.value == "--" ? "暂无数据" : "\(card.value)\(card.id == "energy" ? "%" : "分")"
+        let value = card.value == "--" ? "暂无数据" : "\(card.value) 分"
         let deviation = deviatedScoreIDs.contains(card.id) ? "，偏离个人基线" : ""
         return "\(card.title)，\(value)，\(stateText)\(deviation)"
     }

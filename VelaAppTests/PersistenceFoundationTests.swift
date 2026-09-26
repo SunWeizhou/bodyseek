@@ -1138,6 +1138,11 @@ final class PersistenceFoundationTests: XCTestCase {
             usedPersistedDecision: true,
             persistedPayload: payload
         ))
+        XCTAssertFalse(DailyOperatingPlanRefreshPolicy.shouldRegenerate(
+            usedPersistedDecision: false,
+            persistedPayload: payload
+        ))
+        XCTAssertEqual(payload.decision.todayDecisionTitle, "保持")
     }
 
     @MainActor

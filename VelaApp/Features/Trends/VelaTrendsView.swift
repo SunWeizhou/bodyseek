@@ -41,7 +41,7 @@ private struct SummaryTrendsHistoryProvider: TrendsHistoryProviding {
 struct VelaTrendsView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @EnvironmentObject private var dashboardVM: DashboardViewModel
     @ObservedObject private var appState = VelaAppState.shared
 
@@ -51,6 +51,7 @@ struct VelaTrendsView: View {
     @State private var dailyRecords: [DailyHealthSummaryRecord] = []
     @State private var dailyRecordsLoadError: String?
     @State private var trendStates: [CoreHealthMetric: TrendsViewState] = [:]
+    @State private var trendReloadGeneration = 0
     @State private var selectedRecoveryTrendDate: Date?
 
     private var dashboard: DashboardSummary { dashboardVM.dashboard }
@@ -79,14 +80,6 @@ struct VelaTrendsView: View {
         ]
     }
 
-    private var scoreMetrics: Set<CoreHealthMetric> {
-        Set(scoreDescriptors.map(\.metric))
-    }
-
-    private var notableScoreShifts: [HealthTrendFinding] {
-        horizonNotableShifts.filter { scoreMetrics.contains($0.metric) }
-    }
-
     private var hasAnyScoreHistory: Bool {
         scoreDescriptors.contains { descriptor in
             scoreHistory(for: descriptor.metric).count >= 2
@@ -102,16 +95,12 @@ struct VelaTrendsView: View {
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("trends-horizon-picker")
                 trendHistoryErrorCard
-                primaryTrendFindingCard
                 fiveScoreTrendSection
                 recoveryTrendChart
 
                 if !hasAnyScoreHistory && scoreDescriptors.allSatisfy({ finding(for: $0.metric)?.isAvailable != true }) {
                     compactCalibrationCard
                 } else {
-                    if !notableScoreShifts.isEmpty {
-                        notableShiftsSection
-                    }
                     compactAgentObservation
                 }
 
@@ -124,7 +113,9 @@ struct VelaTrendsView: View {
                     threeYearTrajectoryCard
                 }
 
-                askVelaTrendCard
+                if healthBrief?.subheadline.isEmpty != false {
+                    askVelaTrendCard
+                }
             }
             .padding(.horizontal, VelaTheme.pagePadding)
             .padding(.top, 6)
@@ -140,11 +131,11 @@ struct VelaTrendsView: View {
             .background(VelaTheme.rhythmCanvas.opacity(0.96))
         }
         .toolbar(.hidden, for: .navigationBar)
-        .onAppear(perform: loadDailyRecords)
-        .onChange(of: dashboardVM.selectedDate) { _, _ in loadDailyRecords() }
-        .onChange(of: appState.localDataRevision) { _, _ in loadDailyRecords() }
+        .onAppear(perform: scheduleTrendLoad)
+        .onChange(of: dashboardVM.selectedDate) { _, _ in scheduleTrendLoad() }
+        .onChange(of: appState.localDataRevision) { _, _ in scheduleTrendLoad() }
         .onChange(of: selectedHorizon) { _, _ in
-            reloadTrendStores()
+            scheduleTrendLoad()
         }
         .sheet(item: $selectedMetricForDetail) { metric in
             NavigationStack {
@@ -162,67 +153,6 @@ struct VelaTrendsView: View {
     }
 
     // MARK: - Five scored time series
-
-
-    @ViewBuilder
-    private var primaryTrendFindingCard: some View {
-        let finding = horizonNotableShifts.first ?? availableFindings.first
-        if let finding {
-            Button {
-                selectedMetricForDetail = detailMetric(for: finding.metric)
-            } label: {
-                HStack(alignment: .top, spacing: 12) {
-                    Image(systemName: finding.metric.icon)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(accentColor(for: finding.metric))
-                        .frame(width: 36, height: 36)
-                        .background(VelaTheme.rhythmMist.opacity(0.72), in: Circle())
-
-                    VStack(alignment: .leading, spacing: 5) {
-                        HStack(spacing: 6) {
-                            Text("主要发现")
-                                .font(VelaTheme.caption1().weight(.bold))
-                                .foregroundStyle(VelaTheme.rhythmDeep)
-                            Text(finding.metric.title)
-                                .font(VelaTheme.caption1().weight(.semibold))
-                                .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                        }
-                        Text(finding.summary.isEmpty ? finding.temporalTrendSummary : finding.summary)
-                            .font(VelaTheme.body())
-                            .foregroundStyle(VelaTheme.rhythmInk)
-                            .fixedSize(horizontal: false, vertical: true)
-                        Text("\(finding.currentValueFormatted) · \(selectedHorizon.detailedTitle)")
-                            .font(VelaTheme.caption2())
-                            .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                    }
-
-                    Spacer(minLength: 0)
-                    Image(systemName: "chevron.right")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                }
-                .padding(16)
-                .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous)
-                        .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
-                }
-            }
-            .buttonStyle(.cardPress)
-            .accessibilityLabel("主要趋势发现：\(finding.metric.title)，\(finding.summary)")
-        } else {
-            HStack(spacing: 10) {
-                Image(systemName: "chart.xyaxis.line")
-                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                Text(dashboard.source == .preview ? "示例历史，仅用于界面预览。" : "数据积累后，这里会显示你的第一条趋势发现。")
-                    .font(VelaTheme.body())
-                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
-            }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(VelaTheme.rhythmMist.opacity(0.42), in: RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous))
-        }
-    }
 
     private var fiveScoreTrendSection: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -267,7 +197,6 @@ struct VelaTrendsView: View {
                 RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous)
                     .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
             }
-            .shadow(color: VelaTheme.cardShadow(colorScheme), radius: 14, x: 0, y: 6)
         }
     }
 
@@ -472,7 +401,7 @@ struct VelaTrendsView: View {
 
     private var metricCatalogDisclosure: some View {
         Button {
-            withAnimation(.snappy(duration: 0.24)) {
+            withAnimation(reduceMotion ? .easeOut(duration: 0.16) : .snappy(duration: 0.24)) {
                 showAllMetricCatalog.toggle()
             }
             VelaHaptic.selection()
@@ -564,11 +493,26 @@ struct VelaTrendsView: View {
         }
     }
 
-    private func loadDailyRecords() {
+    /// Lets the horizon control paint before the history read. A newer
+    /// selection supersedes an in-flight load, and the visible series stays
+    /// until that load finishes.
+    private func scheduleTrendLoad() {
+        trendReloadGeneration &+= 1
+        let generation = trendReloadGeneration
+        let horizon = selectedHorizon
+        let selectedDate = dashboardVM.selectedDate
+        Task { @MainActor in
+            await Task.yield()
+            guard generation == trendReloadGeneration else { return }
+            loadDailyRecords(generation: generation, horizon: horizon, selectedDate: selectedDate)
+        }
+    }
+
+    private func loadDailyRecords(generation: Int, horizon: HealthTrendHorizon, selectedDate: Date) {
         let calendar = Calendar.current
-        let endDay = calendar.startOfDay(for: dashboardVM.selectedDate)
+        let endDay = calendar.startOfDay(for: selectedDate)
         let end = calendar.date(byAdding: .day, value: 1, to: endDay) ?? endDay
-        let start = calendar.date(byAdding: .day, value: -HealthTrendHorizon.threeYears.windowDays, to: end) ?? end
+        let start = horizon.historyFetchStart(endingExclusive: end, calendar: calendar)
         let descriptor = FetchDescriptor<DailyHealthSummaryRecord>(
             predicate: #Predicate { $0.date >= start && $0.date < end },
             sortBy: [SortDescriptor(\.date, order: .forward)]
@@ -585,10 +529,10 @@ struct VelaTrendsView: View {
                 "趋势历史暂时无法读取，请重试后再查看。"
             )
         }
-        reloadTrendStores()
+        reloadTrendStores(generation: generation, horizon: horizon, selectedDate: selectedDate)
     }
 
-    private func reloadTrendStores() {
+    private func reloadTrendStores(generation: Int, horizon: HealthTrendHorizon, selectedDate: Date) {
         var snapshots = dailyRecords.map { record in
             var snapshot = DailyHealthSnapshot(date: record.date, createdAt: record.updatedAt)
             snapshot.sleepScore = record.sleepScore
@@ -612,7 +556,7 @@ struct VelaTrendsView: View {
         var isPreview = false
         #if DEBUG
         if DailySummaryUseCase.isPreviewDashboardEnabled() {
-            snapshots = PreviewDataFactory.makeTrendSnapshots(endingAt: dashboardVM.selectedDate)
+            snapshots = PreviewDataFactory.makeTrendSnapshots(endingAt: selectedDate)
             isPreview = true
         }
         #endif
@@ -621,19 +565,20 @@ struct VelaTrendsView: View {
             findings: allTrends,
             isPreview: isPreview
         )
-        Task {
+        Task { @MainActor in
             var states: [CoreHealthMetric: TrendsViewState] = [:]
-            for metric in scoreMetrics {
+            for metric in scoreDescriptors.map(\.metric) {
+                guard generation == trendReloadGeneration else { return }
                 let store = TrendsStore(
                     provider: provider,
-                    selectedDay: dashboardVM.selectedDate,
-                    horizon: selectedHorizon,
+                    selectedDay: selectedDate,
+                    horizon: horizon,
                     metric: metric
                 )
                 await store.send(.appear)
                 states[metric] = store.state
             }
-            guard !Task.isCancelled else { return }
+            guard generation == trendReloadGeneration else { return }
             trendStates = states
         }
     }
@@ -703,7 +648,7 @@ struct VelaTrendsView: View {
                 title: "趋势历史暂时无法读取",
                 message: dailyRecordsLoadError,
                 actionTitle: "重试",
-                action: loadDailyRecords
+                action: scheduleTrendLoad
             )
             .accessibilityIdentifier("trends-history-error")
         }
@@ -762,118 +707,6 @@ struct VelaTrendsView: View {
                 .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
         )
         .accessibilityIdentifier("trends-empty-state")
-    }
-
-    // MARK: - Tier 1: Notable Shifts Section
-
-    private var notableShiftsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 6) {
-                Image(systemName: "waveform.path.badge.plus")
-                    .font(VelaTheme.footnote().weight(.semibold))
-                    .foregroundStyle(VelaTheme.rhythmDeep)
-                Text("\(selectedHorizon.detailedTitle)关键偏离与变化")
-                    .font(VelaTheme.callout().weight(.bold))
-                    .foregroundStyle(VelaTheme.rhythmInk)
-                    .fixedSize(horizontal: false, vertical: true)
-                Spacer()
-            }
-
-            if horizonNotableShifts.isEmpty {
-                HStack(spacing: 10) {
-                    Image(systemName: "checkmark.seal.fill")
-                        .font(.system(size: 16))
-                        .foregroundStyle(VelaTheme.brandLeaf)
-                    Text("\(selectedHorizon.detailedTitle)各项体征平稳运行在个人基线范围内，未观察到显著偏离。")
-                        .font(VelaTheme.body())
-                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .padding(14)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(VelaTheme.rhythmCanvasRaised)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
-                )
-            } else {
-                let shifts = Array(notableScoreShifts.prefix(3))
-                VStack(spacing: 0) {
-                    ForEach(Array(shifts.enumerated()), id: \.offset) { index, finding in
-                        notableShiftRow(finding: finding)
-                        if index < shifts.count - 1 {
-                            Divider()
-                                .overlay(VelaTheme.rhythmMist)
-                                .padding(.leading, 58)
-                        }
-                    }
-                }
-                .velaNativeCard(radius: VelaTheme.radiusLg)
-            }
-        }
-    }
-
-    private func notableShiftRow(finding: HealthTrendFinding) -> some View {
-        Button {
-            selectedMetricForDetail = detailMetric(for: finding.metric)
-        } label: {
-            HStack(alignment: .center, spacing: 12) {
-                Image(systemName: finding.metric.icon)
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(accentColor(for: finding.metric))
-                    .frame(width: 36, height: 36)
-                    .background(Circle().fill(VelaTheme.rhythmMist.opacity(0.8)))
-
-                VStack(alignment: .leading, spacing: 4) {
-                    ViewThatFits(in: .horizontal) {
-                        HStack(spacing: 6) {
-                            Text(finding.metric.title)
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(VelaTheme.rhythmInk)
-                            Text(finding.currentValueFormatted)
-                                .font(.subheadline.weight(.semibold).monospacedDigit())
-                                .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                            Spacer(minLength: 6)
-                            trendAssessment(finding)
-                        }
-
-                        VStack(alignment: .leading, spacing: 3) {
-                            HStack(spacing: 6) {
-                                Text(finding.metric.title)
-                                    .font(.subheadline.weight(.semibold))
-                                Text(finding.currentValueFormatted)
-                                    .font(.subheadline.weight(.semibold).monospacedDigit())
-                            }
-                            trendAssessment(finding)
-                        }
-                    }
-
-                        Text(finding.summary)
-                        .font(VelaTheme.footnote())
-                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
-            }
-            .padding(12)
-            .frame(maxWidth: .infinity, minHeight: VelaTheme.minimumHitTarget, alignment: .leading)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.cardPress)
-        .accessibilityLabel("\(finding.metric.title)，\(finding.currentValueFormatted)，\(finding.assessment.label)。\(finding.summary)")
-        .accessibilityHint("打开指标详情")
-    }
-
-    private func trendAssessment(_ finding: HealthTrendFinding) -> some View {
-        Label(finding.assessment.label, systemImage: finding.valueDirection.icon)
-            .font(VelaTheme.footnote().weight(.semibold))
-            .foregroundStyle(assessmentColor(for: finding.assessment))
     }
 
     // MARK: - Tier 2: System Narrative Section
