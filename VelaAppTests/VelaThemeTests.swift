@@ -2821,7 +2821,8 @@ final class VelaThemeTests: XCTestCase {
                 decisionType: i < 4 ? "keep" : "reduce",
                 decisionTitle: "t",
                 accuracyRating: rating,
-                createdAt: now
+                createdAt: now,
+                updatedAt: now
             )
         }
         let summary = DecisionFeedbackCalibrator.feedbackSummary(records: records, now: now)

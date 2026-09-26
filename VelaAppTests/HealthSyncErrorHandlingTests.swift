@@ -148,6 +148,9 @@ final class HealthSyncErrorHandlingTests: XCTestCase {
         XCTAssertTrue(result.hasCoreData, "部分组件失败时应保留其余核心数据")
         XCTAssertEqual(result.snapshot.hrvAverage, 41.0)
         XCTAssertNil(result.snapshot.sleepHours, "失败组件不得产出伪造数据")
+        XCTAssertEqual(result.sleepEvidence.queryOutcome, .failed)
+        XCTAssertEqual(result.sleepEvidence.freshness, .stale)
+        XCTAssertEqual(result.sleepEvidence.totalSleep.availability, .missing)
     }
 
     func testHealthKitErrorClassifierKeepsPermissionAndAvailabilityDistinct() {

@@ -3,6 +3,113 @@ import SwiftData
 @testable import Vela
 
 final class ContextBuilderTests: XCTestCase {
+    func testCoachEvidenceDateKeepsTodayAndRejectsFutureWithoutSubstitutingToday() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let today = CoachEvidenceDate.resolve(selectedDate: now, now: now, calendar: calendar)
+        XCTAssertEqual(today.asOf, now)
+        XCTAssertFalse(today.isHistorical)
+        let futureDay = try XCTUnwrap(calendar.date(byAdding: .day, value: 2, to: now))
+        let future = CoachEvidenceDate.resolve(selectedDate: futureDay, now: now, calendar: calendar)
+        XCTAssertEqual(future.selectedDay, calendar.startOfDay(for: futureDay))
+        XCTAssertNil(future.asOf)
+        let unavailable = future.dashboard(.preview(date: now), calendar: calendar)
+        XCTAssertEqual(unavailable.date, future.selectedDay)
+        XCTAssertFalse(unavailable.recovery.hasData)
+        XCTAssertTrue(future.contextLine(calendar: calendar).contains("尚无该日事实"))
+    }
+
+    func testCoachHistoricalDayUsesCalendarBoundaryAcrossDaylightSavingTime() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try XCTUnwrap(TimeZone(identifier: "America/Los_Angeles"))
+        let selectedDay = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 3, day: 8)))
+        let now = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 3, day: 10, hour: 12)))
+        let interval = try XCTUnwrap(calendar.dateInterval(of: .day, for: selectedDay))
+        XCTAssertEqual(interval.duration, 23 * 3_600)
+        let historical = CoachEvidenceDate.resolve(selectedDate: selectedDay, now: now, calendar: calendar)
+        let cutoff = try XCTUnwrap(historical.asOf)
+        XCTAssertTrue(historical.isHistorical)
+        XCTAssertLessThan(cutoff, interval.end)
+        XCTAssertGreaterThan(cutoff, interval.end.addingTimeInterval(-1))
+        XCTAssertTrue(calendar.isDate(cutoff, inSameDayAs: selectedDay))
+        let mismatched = historical.dashboard(.preview(date: now), calendar: calendar)
+        XCTAssertEqual(mismatched.date, selectedDay)
+        XCTAssertFalse(mismatched.sleepScore.hasData)
+    }
+
+    @MainActor
+    func testHistoricalAgentInputExcludesNextDayFactsAndMutableCurrentProfile() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let day = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_800_000_000))
+        let nextDay = try XCTUnwrap(calendar.date(byAdding: .day, value: 1, to: day))
+        let now = nextDay.addingTimeInterval(12 * 3_600)
+        let asOf = try XCTUnwrap(CoachEvidenceDate.resolve(selectedDate: day, now: now, calendar: calendar).asOf)
+        let container = try VelaModelContainer.make(inMemory: true)
+        let context = container.mainContext
+        for (date, marker) in [(day.addingTimeInterval(23 * 3_600), "historical"), (nextDay, "future")] {
+            context.insert(JournalEntryRecord(createdAt: date, tags: [marker], note: marker))
+            context.insert(AIReportRecord(createdAt: date, type: "weeklyReport", title: marker, markdownContent: marker, serializedContextSnapshot: "{}"))
+            context.insert(FoodLogRecord(mealName: marker, foods: [], totalCalories: 100, proteinGrams: 1, carbsGrams: 1, fatGrams: 1, fiberGrams: 1, healthScore: "good", source: .manual, createdAt: date))
+            context.insert(WorkoutEventRecord(source: "healthKit", startedAt: date, endedAt: date.addingTimeInterval(60), activityType: "running", title: marker, calendar: calendar))
+        }
+        context.insert(DailyHealthSummaryRecord(dayIdentifier: DailyHealthSummaryRecord.dayIdentifier(for: day, calendar: calendar), date: day, recoveryScore: 42))
+        context.insert(DailyHealthSummaryRecord(dayIdentifier: DailyHealthSummaryRecord.dayIdentifier(for: nextDay, calendar: calendar), date: nextDay, recoveryScore: 99))
+        context.insert(TrainingResponseRecord(workoutId: UUID(), date: day, nextDayDate: nextDay, primaryMuscleGroups: [], totalEffectiveSets: 0, totalVolumeKg: 0, nextDayRecoveryDelta: 99))
+        context.insert(TrainingPlanRecord(title: "current plan", goalDescription: "current goal", days: []))
+        context.insert(OnboardingState())
+        try context.save()
+
+        let input = AgentFactInputLoader().load(modelContext: context, asOf: asOf, now: now, calendar: calendar)
+        XCTAssertEqual(input.journalRecords.map(\.note), ["historical"])
+        XCTAssertEqual(input.reportRecords.map(\.title), ["historical"])
+        XCTAssertEqual(input.foodLogs.map(\.mealName), ["historical"])
+        XCTAssertEqual(input.workoutEvents.map(\.title), ["historical"])
+        XCTAssertEqual(input.dailySummaries.first?.recoveryScore, 42)
+        XCTAssertTrue(input.trainingResponses.isEmpty)
+        XCTAssertNil(input.activePlan)
+        XCTAssertNil(input.onboardingState)
+
+        let missingDay = day.addingTimeInterval(-86_400)
+        let missingInput = AgentFactInputLoader().load(modelContext: context, asOf: missingDay, now: now, calendar: calendar)
+        XCTAssertTrue(missingInput.dailySummaries.isEmpty)
+    }
+
+    @MainActor
+    func testCoachAssemblerUsesHistoricalScopeAndFutureRequestsCarryNoCurrentScores() async throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let day = calendar.startOfDay(for: now.addingTimeInterval(-86_400))
+        let container = try VelaModelContainer.make(inMemory: true)
+        var policy = CoachOutboundDataPolicy.none
+        policy.health = true
+        policy.journal = true
+        policy.reports = true
+        container.mainContext.insert(JournalEntryRecord(createdAt: now, tags: ["future_marker"], note: "future_marker"))
+        try container.mainContext.save()
+        let assembler = CoachContextAssembler()
+        let historical = await assembler.buildRequestContext(
+            userText: "请详细分析所选日期的身体状态与健康数据，不要解释今天的状态。",
+            dashboard: .preview(date: day), journalEntries: [], savedReports: [],
+            focus: .routed(from: .home, selectedDate: day), modelContext: container.mainContext,
+            messages: [], coverageSummary: .unknown, now: now, calendar: calendar, outboundPolicy: policy
+        )
+        let facts = try XCTUnwrap(historical.agentFactSnapshot)
+        XCTAssertTrue(facts.journalEntries.isEmpty)
+        XCTAssertTrue(historical.messages.contains { $0.content.contains("历史视角：截至") })
+        XCTAssertFalse(historical.messages.contains { $0.content.contains("future_marker") })
+        let future = await assembler.buildRequestContext(
+            userText: "明天的分数是多少？", dashboard: .preview(date: now), journalEntries: [], savedReports: [],
+            focus: .routed(from: .home, selectedDate: now.addingTimeInterval(2 * 86_400)),
+            modelContext: container.mainContext, messages: [], now: now, calendar: calendar, outboundPolicy: policy
+        )
+        XCTAssertNil(future.agentFactSnapshot?.recovery.score.value)
+        XCTAssertNil(future.agentFactSnapshot?.sleep.score.value)
+        XCTAssertTrue(future.messages.contains { $0.content.contains("未来日期不可用") })
+    }
+
     func testAutomatedOutboundConsentRequiresFeatureAndCategoryGrant() {
         let categories = CoachOutboundDataPolicy(
             health: false,
@@ -421,6 +528,31 @@ final class ContextBuilderTests: XCTestCase {
         XCTAssertEqual(strength.muscleGroupSets7d["chest"], 2)
     }
 
+    func testAIContextUsesExplicitScoringProfileContract() throws {
+        let generatedAt = makeDate()
+        let dashboard = DashboardSummary.preview(date: generatedAt)
+        let context = ScoringContext(
+            sleepTargetMinutes: 480,
+            profile: ProfileSnapshot(
+                age: ProfileValue(value: 41, source: .manual, resolvedAt: generatedAt),
+                maxHeartRate: ProfileValue(value: 179, source: .wiki, resolvedAt: generatedAt),
+                biologicalSex: ProfileValue(value: "female", source: .manual, resolvedAt: generatedAt)
+            )
+        )
+
+        let result = AIContextBuilder().buildFacts(
+            dashboard: dashboard,
+            journalEntries: [],
+            historicalReports: [],
+            userWiki: [:],
+            scoringContext: context,
+            generatedAt: generatedAt
+        )
+
+        XCTAssertEqual(result.snapshot.extendedMetrics.age, 41)
+        XCTAssertEqual(result.snapshot.extendedMetrics.biologicalSex, "female")
+    }
+
     func testAIContextMarksNoStrengthDataWhenEmpty() throws {
         let generatedAt = makeDate()
         let dashboard = DashboardSummary.preview(date: generatedAt)
@@ -491,6 +623,11 @@ final class ContextBuilderTests: XCTestCase {
         )
 
         XCTAssertEqual(result.metadata.schemaVersion, "v1.0")
+        let currentSleepContext = SleepContextBuilder().build(from: .empty(date: generatedAt))
+        XCTAssertNotNil(currentSleepContext["algorithm_version"])
+        XCTAssertNotNil(currentSleepContext["data_coverage"])
+        XCTAssertNotNil(currentSleepContext["confidence"])
+        XCTAssertNotNil(currentSleepContext["missing_inputs"])
         XCTAssertEqual(Set(result.envelope.todaySummary.keys), [
             "date", "overall_state", "source", "top_reason",
             "readiness_level", "readiness_guidance"

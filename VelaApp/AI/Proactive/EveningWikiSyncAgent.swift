@@ -147,7 +147,7 @@ final class EveningWikiSyncAgent: ObservableObject {
                 bodyState: canonicalBodyState,
                 trainingDecision: input.canonicalTrainingDecision(for: canonicalBodyState),
                 dataCoverage: coverageSummary.agentFactContext,
-                profileAge: dashboard.extendedMetrics.age ?? WikiFileService.getAgeFromWiki(),
+                scoringContext: dashboard.scoringContext,
                 dailyOperatingPlan: AIContextBuilder.compactDailyOperatingPlan(input.dailyOperatingPlan),
                 activePlan: input.activePlan?.dto,
                 generatedAt: contextAsOf

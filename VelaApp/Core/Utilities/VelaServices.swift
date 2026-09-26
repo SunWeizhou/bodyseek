@@ -769,7 +769,9 @@ struct DailyDecisionFeedbackService {
     ) -> DecisionFeedbackCalibration {
         let cutoff = now.addingTimeInterval(-Double(periodDays) * 86_400)
         let feedback = (try? modelContext.fetch(FetchDescriptor<DailyDecisionFeedbackRecord>(
-            predicate: #Predicate { $0.updatedAt >= cutoff }
+            predicate: #Predicate {
+                $0.updatedAt >= cutoff && $0.updatedAt <= now && $0.createdAt <= now
+            }
         ))) ?? []
         let completed = feedback.filter(\.isCompleted)
         guard completed.count >= 3 else {

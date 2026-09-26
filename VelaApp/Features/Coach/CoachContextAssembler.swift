@@ -173,6 +173,50 @@ struct CoachContextBuildResult {
     let agentFactSnapshot: AgentFactSnapshot?
 }
 
+/// The selected calendar day and evidence cutoff travel together. Future dates
+/// remain unavailable; they must never silently become a request about today.
+struct CoachEvidenceDate: Equatable {
+    let selectedDay: Date
+    let asOf: Date?
+    let isHistorical: Bool
+
+    static func resolve(selectedDate: Date, now: Date, calendar: Calendar) -> Self {
+        let day = calendar.startOfDay(for: selectedDate)
+        let today = calendar.startOfDay(for: now)
+        guard day <= today else {
+            return Self(selectedDay: day, asOf: nil, isHistorical: false)
+        }
+        guard day < today else {
+            return Self(selectedDay: day, asOf: now, isHistorical: false)
+        }
+        guard let end = calendar.dateInterval(of: .day, for: day)?.end else {
+            return Self(selectedDay: day, asOf: nil, isHistorical: true)
+        }
+        let lastInstant = Date(timeIntervalSinceReferenceDate: end.timeIntervalSinceReferenceDate.nextDown)
+        return Self(selectedDay: day, asOf: lastInstant, isHistorical: true)
+    }
+
+    func dashboard(_ candidate: DashboardSummary, calendar: Calendar) -> DashboardSummary {
+        guard asOf != nil, calendar.isDate(candidate.date, inSameDayAs: selectedDay) else {
+            return .empty(date: selectedDay)
+        }
+        return candidate
+    }
+
+    func contextLine(calendar: Calendar) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd"
+        let day = formatter.string(from: selectedDay)
+        if asOf == nil {
+            return "所选日期为 \(day)（\(calendar.timeZone.identifier)），尚无该日事实。明确说明未来日期不可用，不得引用今天的分数冒充该日观测。"
+        }
+        return "历史视角：截至 \(day) 当日结束（\(calendar.timeZone.identifier)）的记录。请向用户说明这个截止日期；当前可变档案和当前活动计划未作为当时事实提供。已有记录可能经过后续补录，本次不是逐时刻数据库回放。"
+    }
+}
+
 @MainActor
 struct CoachContextAssembler {
     /// 深度专项批次 6：相关性结果会话内 memo（≤5 条，快照日期/手记变化自动失效）。
@@ -188,11 +232,37 @@ struct CoachContextAssembler {
         focus: CoachContextFocus,
         modelContext: ModelContext,
         messages: [CoachChatVM.ChatMsg],
-        coverageSummary: DataCoverageSummaryModel? = nil
+        coverageSummary: DataCoverageSummaryModel? = nil,
+        now: Date = Date(),
+        calendar: Calendar = .current,
+        outboundPolicy: CoachOutboundDataPolicy = .stored
     ) async -> CoachContextBuildResult {
-        let outboundPolicy = CoachOutboundDataPolicy.stored
+        let evidenceDate = CoachEvidenceDate.resolve(
+            selectedDate: focus.screenContext.selectedDate ?? dashboard.date,
+            now: now,
+            calendar: calendar
+        )
+        let dashboard = evidenceDate.dashboard(dashboard, calendar: calendar)
+        guard let contextAsOf = evidenceDate.asOf else {
+            let unavailable = AIContextBuilder().buildFacts(
+                dashboard: dashboard,
+                journalEntries: [],
+                historicalReports: [],
+                userWiki: [:],
+                calendar: calendar,
+                generatedAt: now
+            ).snapshot
+            return CoachContextBuildResult(
+                messages: [
+                    ChatMessage(role: .system, content: evidenceDate.contextLine(calendar: calendar)),
+                    ChatMessage(role: .user, content: userText)
+                ],
+                agentFactSnapshot: unavailable
+            )
+        }
+        let usesCurrentProfile = !evidenceDate.isHistorical
         // A5：只注入已初始化的 wiki 文件，空模板不进 AI 上下文。
-        let wiki = outboundPolicy.wiki ? WikiFileService.loadPopulatedDictionary() : [:]
+        let wiki = outboundPolicy.wiki && usesCurrentProfile ? WikiFileService.loadPopulatedDictionary() : [:]
         // A11：生理字段已由 extendedMetrics 权威解析并注入，再注入 wiki 原文
         // 会与解析值矛盾（模型可能引用陈旧 wiki 年龄/体重）——剥除 profile.md 对应行。
         let physiologicalPrefixes = [
@@ -216,13 +286,13 @@ struct CoachContextAssembler {
             wikiRawText,
             maxChars: ContextBudget().maxWikiPromptCharacters
         )
-        let wikiFiles = WikiFileService.loadAllDocuments()
+        let wikiFiles = (outboundPolicy.wiki && usesCurrentProfile ? WikiFileService.loadAllDocuments() : [])
             .filter { !WikiFileService.isUninitialized($0.filename) }
             .map { "\($0.filename) (\($0.title))" }
             .joined(separator: ", ")
 
         let activePlan: TrainingPlanRecord?
-        if outboundPolicy.training {
+        if outboundPolicy.training && usesCurrentProfile {
             let activePlanFetch = FetchDescriptor<TrainingPlanRecord>(
                 predicate: #Predicate { $0.isActive }
             )
@@ -291,7 +361,7 @@ struct CoachContextAssembler {
                     casualProfile += "\n\n## 用户生理档案\n" + parts.joined(separator: "，")
                 }
             }
-            if outboundPolicy.wiki,
+            if outboundPolicy.wiki, usesCurrentProfile,
                let onboarding = (try? modelContext.fetch(FetchDescriptor<OnboardingState>()))?.first {
                 let goal = onboarding.goalProfile
                 let training = onboarding.trainingPreference
@@ -321,7 +391,8 @@ struct CoachContextAssembler {
                 correlationText: "",
                 wikiFiles: wikiFiles
             )
-            let systemPrompt = composer.compose(for: .casual) + casualProfile
+            let dateBoundary = evidenceDate.isHistorical ? "\n\n" + evidenceDate.contextLine(calendar: calendar) : ""
+            let systemPrompt = composer.compose(for: .casual) + casualProfile + dateBoundary
             var result: [ChatMessage] = [
                 ChatMessage(role: .system, content: systemPrompt),
             ]
@@ -338,10 +409,11 @@ struct CoachContextAssembler {
             return CoachContextBuildResult(messages: result, agentFactSnapshot: nil)
         }
 
-        let contextAsOf = Date()
         let input = AgentFactInputLoader().load(
             modelContext: modelContext,
-            asOf: contextAsOf
+            asOf: contextAsOf,
+            now: now,
+            calendar: calendar
         )
         // T3：计划执行复盘回灌 Coach——完成率/依从度/恢复成本此前只进日历卡片，
         // 计划生成与 AI 建议完全看不到执行事实。
@@ -362,6 +434,7 @@ struct CoachContextAssembler {
         let correlationJournalEntries: [JournalEntryRecord]
         if outboundPolicy.journal, outboundPolicy.health {
             correlationJournalEntries = (try? modelContext.fetch(FetchDescriptor<JournalEntryRecord>(
+                predicate: #Predicate { $0.createdAt <= contextAsOf },
                 sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
             ))) ?? []
         } else {
@@ -372,7 +445,7 @@ struct CoachContextAssembler {
         if outboundPolicy.journal, outboundPolicy.health {
             let latestJournalUpdate = correlationJournalEntries.max(by: { $0.createdAt < $1.createdAt })?.createdAt
                 ?? .distantPast
-            correlationCacheKey = "\(correlationJournalEntries.count)-\(Int(latestJournalUpdate.timeIntervalSince1970))-\(Self.latestSnapshotEpoch)"
+            correlationCacheKey = "\(evidenceDate.selectedDay.timeIntervalSince1970)-\(calendar.timeZone.identifier)-\(dashboard.bodyState.hash)-\(correlationJournalEntries.count)-\(Int(latestJournalUpdate.timeIntervalSince1970))-\(Self.latestSnapshotEpoch)"
         } else {
             correlationCacheKey = nil
         }
@@ -381,7 +454,7 @@ struct CoachContextAssembler {
             correlationText = cached
         } else {
             let snapshots = outboundPolicy.journal && outboundPolicy.health
-                ? ((try? HealthSnapshotRepository(modelContext: modelContext).fetchSnapshots(days: 1100)) ?? [])
+                ? ((try? HealthSnapshotRepository(modelContext: modelContext, calendar: calendar).fetchSnapshots(days: 1100, endingAt: contextAsOf)) ?? []).filter { $0.date <= contextAsOf }
                 : []
             Self.latestSnapshotEpoch = Int(snapshots.max(by: { $0.date < $1.date })?.date.timeIntervalSince1970 ?? 0)
             // T6：Coach 上下文统一到 calculateInsights（点二列 + BH-FDR），
@@ -412,7 +485,7 @@ struct CoachContextAssembler {
 
         let outboundDashboard = outboundPolicy.health ? dashboard : DashboardSummary.empty(date: dashboard.date)
         let profileAge = outboundPolicy.health
-            ? (dashboard.extendedMetrics.age ?? WikiFileService.getAgeFromWiki())
+            ? dashboard.extendedMetrics.age
             : nil
         let canonicalBodyState = outboundPolicy.health
             ? input.bodyState(dashboard: dashboard)
@@ -420,7 +493,9 @@ struct CoachContextAssembler {
         // 算法打通（深度专项批次 1）：覆盖摘要在 CoachView 已算好（.task 时加载），
         // 传入则跳过每条消息 9 次串行 HealthKit 覆盖查询；nil 时保持旧行为。
         let effectiveCoverage: DataCoverageSummaryModel
-        if let provided = coverageSummary {
+        if evidenceDate.isHistorical {
+            effectiveCoverage = .unknown
+        } else if let provided = coverageSummary {
             effectiveCoverage = provided
         } else if outboundPolicy.health {
             effectiveCoverage = DataCoverageSummaryModel.build(
@@ -439,14 +514,16 @@ struct CoachContextAssembler {
             workoutEvents: outboundPolicy.training ? input.workoutEvents : [],
             strengthWorkouts: outboundPolicy.training ? input.strengthWorkouts : [],
             trainingResponses: outboundPolicy.training ? input.trainingResponses : [],
-            onboardingState: outboundPolicy.health ? input.onboardingState : nil,
+            onboardingState: outboundPolicy.health && usesCurrentProfile ? input.onboardingState : nil,
             // 联通专项批次 1：身体模型注入——此前 bodyModelState 形参零生产调用，
             // Coach 永远看不到成熟度/断言/coachRules。
             bodyModelState: (outboundPolicy.health && outboundPolicy.training)
                 ? Self.resolvedBodyModelState(
                     modelContext: modelContext,
                     dashboard: outboundDashboard,
-                    journalEntries: Array(journalEntries)
+                    asOf: contextAsOf,
+                    usesCurrentProfile: usesCurrentProfile,
+                    calendar: calendar
                 )
                 : nil,
             bodyState: canonicalBodyState,
@@ -455,10 +532,12 @@ struct CoachContextAssembler {
                 : nil,
             dataCoverage: outboundPolicy.health ? effectiveCoverage.agentFactContext : nil,
             profileAge: profileAge,
+            scoringContext: outboundDashboard.scoringContext,
             dailyOperatingPlan: outboundPolicy.health
                 ? AIContextBuilder.compactDailyOperatingPlan(input.dailyOperatingPlan)
                 : nil,
             activePlan: outboundPolicy.training ? input.activePlan?.dto : nil,
+            calendar: calendar,
             generatedAt: contextAsOf
         ).snapshot
         let contextJSON = CoachCompactContextAdapter().render(
@@ -496,6 +575,9 @@ struct CoachContextAssembler {
             If coverage is low or a relevant blocker is listed, lower certainty, avoid pretending missing signals are normal, and tell the user which signal would improve the recommendation.
             """)
         ]
+        if evidenceDate.isHistorical {
+            result.append(ChatMessage(role: .system, content: evidenceDate.contextLine(calendar: calendar)))
+        }
         if let biomarkerContext {
             result.append(ChatMessage(role: .system, content: biomarkerContext))
         }
@@ -506,14 +588,14 @@ struct CoachContextAssembler {
         if outboundPolicy.health, outboundPolicy.training {
             let allFoods = (try? modelContext.fetch(FetchDescriptor<FoodLogRecord>())) ?? []
             let recentFoods = allFoods.filter {
-                $0.createdAt >= contextAsOf.addingTimeInterval(-36 * 3_600)
+                $0.createdAt >= contextAsOf.addingTimeInterval(-36 * 3_600) && $0.createdAt <= contextAsOf
             }
             let interpretation = BodyInterpreterEngine().interpret(
                 dashboard: outboundDashboard,
                 wiki: wiki,
                 activePlan: activePlan,
                 foodLogs: outboundPolicy.nutrition ? recentFoods : [],
-                journalEntries: outboundPolicy.journal ? Array(journalEntries) : []
+                journalEntries: outboundPolicy.journal ? input.journalRecords : []
             )
             result.append(ChatMessage(
                 role: .system,
@@ -524,7 +606,8 @@ struct CoachContextAssembler {
         // 深度专项批次 6：决策反馈 push 进 Coach 系统提示——
         // 此前模型需自行调用 get_decision_feedback 工具才可见（pull）。
         if outboundPolicy.health {
-            let feedbackRecords = (try? modelContext.fetch(FetchDescriptor<DailyDecisionFeedbackRecord>())) ?? []
+            let feedbackRecords = ((try? modelContext.fetch(FetchDescriptor<DailyDecisionFeedbackRecord>())) ?? [])
+                .filter { $0.createdAt <= contextAsOf && $0.updatedAt <= contextAsOf }
             let feedbackText = DecisionFeedbackCalibrator.feedbackSummary(records: feedbackRecords, now: contextAsOf)
             if !feedbackText.contains("暂无") {
                 result.append(ChatMessage(role: .system, content: """
@@ -580,22 +663,25 @@ struct CoachContextAssembler {
     private static func resolvedBodyModelState(
         modelContext: ModelContext,
         dashboard: DashboardSummary,
-        journalEntries: [JournalEntryRecord]
+        asOf: Date,
+        usesCurrentProfile: Bool,
+        calendar: Calendar
     ) -> BodyModelState {
-        let strengths = (try? modelContext.fetch(FetchDescriptor<StrengthWorkoutRecord>())) ?? []
-        let responses = (try? modelContext.fetch(FetchDescriptor<TrainingResponseRecord>())) ?? []
-        let summaries = (try? modelContext.fetch(FetchDescriptor<DailyHealthSummaryRecord>())) ?? []
+        let strengths = ((try? modelContext.fetch(FetchDescriptor<StrengthWorkoutRecord>())) ?? []).filter { $0.startedAt <= asOf }
+        let responses = ((try? modelContext.fetch(FetchDescriptor<TrainingResponseRecord>())) ?? []).filter { $0.nextDayDate <= asOf }
+        let summaries = ((try? modelContext.fetch(FetchDescriptor<DailyHealthSummaryRecord>())) ?? []).filter { $0.date <= asOf }
         // Coach 看到的身体模型必须与身体模型页同口径：这里补全量手记，
         // 而不是只吃调用方传入的最近 12 条，否则行为配对/成熟度会偏小。
         let allJournals = (try? modelContext.fetch(FetchDescriptor<JournalEntryRecord>())) ?? []
-        let journalEntries = allJournals
-        let onboarding = (try? modelContext.fetch(FetchDescriptor<OnboardingState>()))?.first
+        let journalEntries = allJournals.filter { $0.createdAt <= asOf }
+        let onboarding = usesCurrentProfile ? (try? modelContext.fetch(FetchDescriptor<OnboardingState>()))?.first : nil
         let key = [
+            "\(calendar.startOfDay(for: asOf).timeIntervalSince1970)-\(calendar.timeZone.identifier)-\(dashboard.bodyState.hash)",
             "\(strengths.count)",
             "\(Int(strengths.map(\.startedAt).max()?.timeIntervalSince1970 ?? 0))",
             "\(responses.count)",
             "\(summaries.count)",
-            "\(Int(summaries.map(\.date).max()?.timeIntervalSince1970 ?? 0))",
+            "\(summaries.map(\.updatedAt).max()?.timeIntervalSince1970 ?? 0)",
             "\(journalEntries.count)",
             "\(Int(journalEntries.map(\.createdAt).max()?.timeIntervalSince1970 ?? 0))"
         ].joined(separator: "-")
@@ -607,7 +693,8 @@ struct CoachContextAssembler {
             strengthWorkouts: strengths,
             trainingResponses: responses,
             longTermBaselines: dashboard.longTermBaselines,
-            asOf: Date()
+            asOf: asOf,
+            calendar: calendar
         )
         if bodyModelMemo.count > 4 { bodyModelMemo.removeAll() }
         bodyModelMemo[key] = state

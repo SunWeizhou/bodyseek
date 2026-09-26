@@ -38,12 +38,16 @@ enum SleepSampleNormalizer {
         for date: Date,
         segments: [SleepStageSegment],
         sleepScore: Double? = nil,
-        maximumGapMinutes: Int = 120
+        maximumGapMinutes: Int = 120,
+        calendar: Calendar = .current
     ) -> SleepSummary? {
-        let allSummaries = allNightlyEpisodes(segments: segments, maximumGapMinutes: maximumGapMinutes)
+        let allSummaries = allNightlyEpisodes(
+            segments: segments,
+            maximumGapMinutes: maximumGapMinutes,
+            calendar: calendar
+        )
         guard !allSummaries.isEmpty else { return nil }
 
-        let calendar = Calendar.current
         let targetDay = calendar.startOfDay(for: date)
 
         // 1. Look for an episode assigned to the target health day
@@ -68,9 +72,14 @@ enum SleepSampleNormalizer {
         segments: [SleepStageSegment],
         sleepScore: Double? = nil,
         maximumGapMinutes: Int = 120,
-        minimumNightMinutes: Int = 60
+        minimumNightMinutes: Int = 60,
+        calendar: Calendar = .current
     ) -> SleepSummary? {
-        let episodes = allNightlyEpisodes(segments: segments, maximumGapMinutes: maximumGapMinutes)
+        let episodes = allNightlyEpisodes(
+            segments: segments,
+            maximumGapMinutes: maximumGapMinutes,
+            calendar: calendar
+        )
         return episodes
             .filter { episode in
                 guard let wake = episode.wakeTime else { return false }
@@ -83,14 +92,14 @@ enum SleepSampleNormalizer {
 
     static func allNightlyEpisodes(
         segments: [SleepStageSegment],
-        maximumGapMinutes: Int = 120
+        maximumGapMinutes: Int = 120,
+        calendar: Calendar = .current
     ) -> [SleepSummary] {
         let sortedSegments = segments
             .filter { $0.end > $0.start }
             .sorted { $0.start < $1.start }
         guard !sortedSegments.isEmpty else { return [] }
 
-        let calendar = Calendar.current
         let boundary = HealthDayBoundary(calendar: calendar)
         let maximumGap = TimeInterval(maximumGapMinutes * 60)
         var episodes: [[SleepStageSegment]] = []

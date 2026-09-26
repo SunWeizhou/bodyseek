@@ -385,6 +385,22 @@ final class DataCoverageAndEvidenceTests: XCTestCase {
         let resultWorkout = engine.calculate(from: inputWorkoutExcluded)
         XCTAssertEqual(resultWorkout.components["stress_drain"], 0.0)
         XCTAssertTrue(resultWorkout.reasons.contains { $0.contains("运动排除窗口") }, "Must explain that stress drain is accounted for by training load")
+
+        // A missing strain score is not a measured zero: the drain is neutral,
+        // while coverage remains explicitly unknown for downstream consumers.
+        let inputMissingStrain = EnergyBankInput(
+            asOf: asOf,
+            recoveryScore: 80,
+            sleepScore: 80,
+            strainScore: nil,
+            stressIndex: 30,
+            bodyTempDelta: 0.1,
+            respiratoryRateZ: 0.2,
+            SpO2: 98
+        )
+        let resultMissingStrain = engine.calculate(from: inputMissingStrain)
+        XCTAssertEqual(resultMissingStrain.components["strain_drain"], 0.0)
+        XCTAssertTrue(resultMissingStrain.missingInputs.contains("strainScore"))
     }
 
     // MARK: - V1: 10 Scenario Replay Generation
@@ -631,5 +647,169 @@ final class DataCoverageAndEvidenceTests: XCTestCase {
         try? csvString.write(to: URL(fileURLWithPath: "/tmp/replay_comparison.csv"), atomically: true, encoding: .utf8)
 
         XCTAssertEqual(reports.count, 10, "Must generate exactly 10 scenario comparisons")
+    }
+
+    func testGenerateSleepSemanticsReplayContract() throws {
+        struct ComponentDTO: Codable {
+            var value: Double?
+            var availability: String
+            var reason: String?
+        }
+
+        struct ScenarioDTO: Codable {
+            var scenario: String
+            var oldValue: Double?
+            var newValue: Double?
+            var queryOutcome: String?
+            var freshness: String?
+            var components: [String: ComponentDTO]
+            var dataCoverage: String
+            var confidence: String
+            var missingInputs: [String]
+            var reasons: [String]
+            var algorithmVersion: String
+        }
+
+        let asOf = Date(timeIntervalSince1970: 1_700_000_000)
+        let range = DateInterval(start: asOf.addingTimeInterval(-86_400), end: asOf)
+        func observed(_ value: Double) -> SleepComponentObservation {
+            SleepComponentObservation(value: value, availability: .observed, observedWindow: range)
+        }
+        func missing(_ reason: String) -> SleepComponentObservation {
+            SleepComponentObservation(value: nil, availability: .missing, reason: reason, observedWindow: range)
+        }
+        func context(
+            outcome: HealthQueryOutcomeKind,
+            freshness: DataFreshness,
+            total: SleepComponentObservation,
+            bedtime: SleepComponentObservation,
+            wake: SleepComponentObservation,
+            inBed: SleepComponentObservation,
+            awake: SleepComponentObservation,
+            rem: SleepComponentObservation,
+            deep: SleepComponentObservation,
+            episodeCount: SleepComponentObservation
+        ) -> SleepEvidenceContext {
+            SleepEvidenceContext(
+                queryOutcome: outcome,
+                freshness: freshness,
+                totalSleep: total,
+                bedtime: bedtime,
+                wakeTime: wake,
+                inBed: inBed,
+                awake: awake,
+                rem: rem,
+                deep: deep,
+                episodeCount: episodeCount
+            )
+        }
+
+        let scenarios: [(String, Double?, SleepEvidenceContext)] = [
+            (
+                "observed_complete",
+                78,
+                context(
+                    outcome: .data,
+                    freshness: .today,
+                    total: observed(450),
+                    bedtime: observed(asOf.timeIntervalSinceReferenceDate - 8 * 3_600),
+                    wake: observed(asOf.timeIntervalSinceReferenceDate),
+                    inBed: observed(480),
+                    awake: observed(30),
+                    rem: observed(90),
+                    deep: observed(80),
+                    episodeCount: SleepComponentObservation(value: 2, availability: .estimated, reason: "由清醒片段估算醒来次数", observedWindow: range)
+                )
+            ),
+            (
+                "estimated_efficiency",
+                70,
+                context(
+                    outcome: .data,
+                    freshness: .today,
+                    total: observed(450),
+                    bedtime: observed(asOf.timeIntervalSinceReferenceDate - 8 * 3_600),
+                    wake: observed(asOf.timeIntervalSinceReferenceDate),
+                    inBed: SleepComponentObservation(value: 480, availability: .estimated, reason: "由睡眠时长与清醒时长推导卧床时长", observedWindow: range),
+                    awake: observed(30),
+                    rem: missing("HealthKit 未提供 REM 阶段"),
+                    deep: missing("HealthKit 未提供 Deep 阶段"),
+                    episodeCount: missing("缺少清醒次数数据")
+                )
+            ),
+            (
+                "stale_retained",
+                75,
+                context(
+                    outcome: .transient,
+                    freshness: .stale,
+                    total: observed(450),
+                    bedtime: missing("查询失败"),
+                    wake: missing("查询失败"),
+                    inBed: missing("查询失败"),
+                    awake: missing("查询失败"),
+                    rem: missing("查询失败"),
+                    deep: missing("查询失败"),
+                    episodeCount: missing("查询失败")
+                )
+            ),
+            (
+                "no_valid_sleep",
+                nil,
+                context(
+                    outcome: .noData,
+                    freshness: .stale,
+                    total: missing("没有有效睡眠片段"),
+                    bedtime: missing("没有入睡时间"),
+                    wake: missing("没有起床时间"),
+                    inBed: missing("没有卧床阶段"),
+                    awake: missing("没有清醒阶段"),
+                    rem: missing("没有 REM 阶段"),
+                    deep: missing("没有 Deep 阶段"),
+                    episodeCount: missing("没有清醒次数")
+                )
+            )
+        ]
+
+        func dto(_ observation: SleepComponentObservation) -> ComponentDTO {
+            ComponentDTO(value: observation.value, availability: observation.availability.rawValue, reason: observation.reason)
+        }
+
+        let reports = scenarios.map { name, oldValue, evidence in
+            let result = SleepScoreEngine().calculate(from: SleepScoreInput(
+                asOf: asOf,
+                totalSleepMinutes: evidence.totalSleep.value,
+                sleepTargetMinutes: 450,
+                evidence: evidence
+            ))
+            return ScenarioDTO(
+                scenario: name,
+                oldValue: oldValue,
+                newValue: result.value,
+                queryOutcome: evidence.queryOutcome?.rawValue,
+                freshness: evidence.freshness?.rawValue,
+                components: [
+                    "totalSleep": dto(evidence.totalSleep),
+                    "inBed": dto(evidence.inBed),
+                    "awake": dto(evidence.awake),
+                    "rem": dto(evidence.rem),
+                    "deep": dto(evidence.deep),
+                    "episodeCount": dto(evidence.episodeCount)
+                ],
+                dataCoverage: result.dataCoverage.rawValue,
+                confidence: result.confidence.rawValue,
+                missingInputs: result.missingInputs,
+                reasons: result.reasons,
+                algorithmVersion: result.algorithmVersion
+            )
+        }
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(reports)
+        let url = URL(fileURLWithPath: "/Users/sunweizhou/Developer/Vela/docs/validation/v1/sleep_semantics_replay.json")
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try data.write(to: url)
+        XCTAssertEqual(reports.count, 4)
     }
 }

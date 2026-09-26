@@ -81,6 +81,7 @@ struct AIContextBuilder {
         trainingDecision: DailyTrainingDecision? = nil,
         dataCoverage: AgentDataCoverageContext? = nil,
         profileAge: Int? = nil,
+        scoringContext: ScoringContext? = nil,
         dailyOperatingPlan: [String: String]? = nil,
         activePlan: TrainingPlanDTO? = nil,
         calendar: Calendar = .current,
@@ -256,10 +257,14 @@ struct AIContextBuilder {
 
         let ext = dashboard.extendedMetrics
         let body = dashboard.bodyMetrics
-        let age = profileAge ?? ext.age
+        // A missing field in a resolved context stays missing. In particular,
+        // historical/consent-filtered facts must never reopen global settings.
+        let resolvedScoringContext = scoringContext ?? dashboard.scoringContext
+        let age = resolvedScoringContext.map { $0.profile.age?.value } ?? (profileAge ?? ext.age)
+        let sex = resolvedScoringContext.map { $0.profile.biologicalSex?.value } ?? ext.biologicalSex
         let extended = ExtendedMetricsContext(
             age: age,
-            biologicalSex: ext.biologicalSex,
+            biologicalSex: sex,
             heightCm: ext.heightCm.map { MetricValue.live($0, unit: "cm") } ?? MetricValue.missing(),
             weightKg: body.weightKilograms.map { MetricValue.live($0, unit: "kg") } ?? MetricValue.missing(),
             bmi: ext.bmi.map { MetricValue.live($0, unit: "kg/m²") } ?? MetricValue.missing(),
@@ -869,7 +874,7 @@ struct LegacyReportContextAdapter {
                 "drivers": bodyState.drivers.map { "\($0.title): \($0.detail)" }.joined(separator: " | "),
                 "safety": "General wellness guidance only; not a medical diagnosis."
             ],
-            sleep: SleepContextBuilder().build(from: dashboard),
+            sleep: Self.legacySleepContext(dashboard),
             recovery: RecoveryContextBuilder().build(from: dashboard),
             strain: StrainContextBuilder().build(from: dashboard),
             workouts: WorkoutsContextBuilder().build(from: dashboard.workouts),
@@ -902,6 +907,17 @@ struct LegacyReportContextAdapter {
             strengthTraining: strengthTraining
         )
     }
+
+    /// v1 report snapshots retain their persisted shape even as the domain
+    /// context gains richer evidence. New consumers use the typed v2 facts.
+    private static func legacySleepContext(_ dashboard: DashboardSummary) -> [String: String] {
+        let keys: Set<String> = [
+            "sleep_score", "duration_minutes", "band", "reason",
+            "rem_minutes", "deep_minutes", "core_minutes", "awake_minutes",
+            "sleep_efficiency_pct", "rem_pct", "deep_pct"
+        ]
+        return SleepContextBuilder().build(from: dashboard).filter { keys.contains($0.key) }
+    }
 }
 
 /// The single persistence boundary for facts consumed by reports and Coach.
@@ -911,6 +927,8 @@ struct LegacyReportContextAdapter {
 struct AgentFactInputLoader {
     struct Input {
         var asOf: Date
+        var evaluatedAt: Date
+        var calendar: Calendar
         var journalRecords: [JournalEntryRecord]
         var reportRecords: [AIReportRecord]
         var weeklyTrends: [String: String]
@@ -949,8 +967,9 @@ struct AgentFactInputLoader {
                 foodLogs: foodLogs.map { $0.dto },
                 journalEntries: journalRecords.map { $0.dto },
                 activePlan: activePlan?.dto,
-                activeStatus: ActiveStatusSettings.resolveCurrentStatus(),
-                generatedAt: asOf
+                activeStatus: ActiveStatusSettings.resolveStatus(at: asOf, now: evaluatedAt, calendar: calendar),
+                generatedAt: asOf,
+                calendar: calendar
             ))
         }
 
@@ -964,8 +983,15 @@ struct AgentFactInputLoader {
         }
     }
 
-    func load(modelContext: ModelContext, asOf: Date = Date()) -> Input {
+    func load(
+        modelContext: ModelContext,
+        asOf: Date = Date(),
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> Input {
         let historyStart = asOf.addingTimeInterval(-35 * 86_400)
+        let dayStart = calendar.startOfDay(for: asOf)
+        let usesCurrentProfile = calendar.isDate(asOf, inSameDayAs: now)
 
         var journalDescriptor = FetchDescriptor<JournalEntryRecord>(
             predicate: #Predicate<JournalEntryRecord> { $0.createdAt <= asOf },
@@ -995,22 +1021,22 @@ struct AgentFactInputLoader {
             predicate: #Predicate<StrengthWorkoutRecord> { $0.startedAt >= historyStart && $0.startedAt <= asOf },
             sortBy: [SortDescriptor(\.startedAt, order: .reverse)]
         ))) ?? []
-        let responses = (try? modelContext.fetch(FetchDescriptor<TrainingResponseRecord>(
+        let responses = ((try? modelContext.fetch(FetchDescriptor<TrainingResponseRecord>(
             predicate: #Predicate<TrainingResponseRecord> { $0.date >= historyStart && $0.date <= asOf },
             sortBy: [SortDescriptor(\.date, order: .reverse)]
-        ))) ?? []
+        ))) ?? []).filter { usesCurrentProfile || $0.nextDayDate <= asOf }
         // A8 修复：每日快照只取最新一条（此前抓 35 天只用 .first，白费一次大 fetch）。
         // 这里再加 asOf 上界：浏览历史日时 body state 应使用该日快照，而不是真实今天。
         var summaryDescriptor = FetchDescriptor<DailyHealthSummaryRecord>(
-            predicate: #Predicate<DailyHealthSummaryRecord> { $0.date >= historyStart && $0.date <= asOf },
+            predicate: #Predicate<DailyHealthSummaryRecord> { $0.date >= dayStart && $0.date <= asOf },
             sortBy: [SortDescriptor(\.date, order: .reverse)]
         )
         summaryDescriptor.fetchLimit = 1
         let summaries = (try? modelContext.fetch(summaryDescriptor)) ?? []
-        let activePlan = (try? modelContext.fetch(FetchDescriptor<TrainingPlanRecord>(
+        let activePlan = usesCurrentProfile ? (try? modelContext.fetch(FetchDescriptor<TrainingPlanRecord>(
             predicate: #Predicate<TrainingPlanRecord> { $0.isActive }
-        )))?.first
-        let dayIdentifier = DailyHealthSummaryRecord.dayIdentifier(for: asOf)
+        )))?.first : nil
+        let dayIdentifier = DailyHealthSummaryRecord.dayIdentifier(for: asOf, calendar: calendar)
         let operatingPlans = (try? modelContext.fetch(FetchDescriptor<DailyOperatingPlanRecord>(
             sortBy: [SortDescriptor(\.generatedAt, order: .reverse)]
         ))) ?? []
@@ -1021,17 +1047,22 @@ struct AgentFactInputLoader {
 
         return Input(
             asOf: asOf,
+            evaluatedAt: now,
+            calendar: calendar,
             journalRecords: journals,
             reportRecords: reports,
-            weeklyTrends: (try? HealthSnapshotRepository(modelContext: modelContext).buildWeeklyTrendSummary(referenceDate: asOf)) ?? [:],
+            weeklyTrends: (try? HealthSnapshotRepository(modelContext: modelContext, calendar: calendar).buildWeeklyTrendSummary(referenceDate: asOf)) ?? [:],
             foodLogs: foods,
             workoutEvents: workoutEvents,
             strengthWorkouts: strength,
             trainingResponses: responses,
             dailySummaries: summaries,
             activePlan: activePlan,
-            dailyOperatingPlan: operatingPlans.first { $0.dayIdentifier == dayIdentifier },
-            onboardingState: (try? modelContext.fetch(onboardingDescriptor))?.first
+            dailyOperatingPlan: operatingPlans.first {
+                $0.dayIdentifier == dayIdentifier
+                    && (usesCurrentProfile || ($0.generatedAt <= asOf && ($0.operatingPlanPayload?.userEditedAt ?? .distantPast) <= asOf))
+            },
+            onboardingState: usesCurrentProfile ? (try? modelContext.fetch(onboardingDescriptor))?.first : nil
         )
     }
 }

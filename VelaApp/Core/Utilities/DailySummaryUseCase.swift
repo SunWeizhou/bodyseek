@@ -388,12 +388,16 @@ final class DailySummaryUseCase {
         let resolvedSleep = try? await queryService.sleepSummary(in: DateRangeQuery.today(containing: now, calendar: calendar))
         let profileWeight = UserProfileSettings.weightKilograms()
         let profileHeight = UserProfileSettings.heightCentimeters()
+        let scoringContext = ScoringContext.current(
+            ageFallback: liveExtended.age,
+            biologicalSexFallback: liveExtended.biologicalSex
+        )
         // 手动设置的档案值优先，Apple 健康数据兜底；清空手填字段即回退 Apple 健康。
         let resolvedWeight = profileWeight ?? snapshot.bodyWeight
         var extendedMetrics = liveExtended
-        extendedMetrics.age = UserProfileSettings.age() ?? extendedMetrics.age
+        extendedMetrics.age = scoringContext.profile.age?.value ?? extendedMetrics.age
         extendedMetrics.heightCm = profileHeight ?? extendedMetrics.heightCm
-        extendedMetrics.biologicalSex = UserProfileSettings.biologicalSex() ?? extendedMetrics.biologicalSex
+        extendedMetrics.biologicalSex = scoringContext.profile.biologicalSex?.value ?? extendedMetrics.biologicalSex
         extendedMetrics.bmi = snapshot.bmi
             ?? extendedMetrics.bmi
             ?? UserProfileSettings.bodyMassIndex(
@@ -464,19 +468,24 @@ final class DailySummaryUseCase {
         let evaluationNow = calendar.isDateInToday(now)
             ? now
             : (calendar.date(bySettingHour: 23, minute: 59, second: 59, of: now) ?? now)
+        let sleepEvidence = SleepEvidenceContext.from(
+            summary: context.sleepSummary,
+            range: {
+                let range = HealthDayBoundary(calendar: calendar).range(containing: evaluationNow)
+                return DateInterval(start: range.start, end: range.end)
+            }()
+        )
         // F1/M1 修复：前台重算必须携带与同步引擎一致的 HealthKit 年龄/性别兜底，
         // 否则覆盖持久化分数时会把「性别系数 / maxHR→年龄链」退回 unknown/other。
         let metrics = DailyHealthComputation(
             calendar: calendar,
             now: evaluationNow,
-            profile: .current(
-                ageFallback: extendedMetrics.age,
-                biologicalSexFallback: extendedMetrics.biologicalSex
-            )
+            scoringContext: scoringContext
         ).compute(
             for: pipelineSnapshot,
             history: historicalSnapshots,
-            longTermBaselines: longTermReport
+            longTermBaselines: longTermReport,
+            sleepEvidence: sleepEvidence
         )
         let sleepScore = metrics.sleepScore
         let resolvedSleepSummary = DashboardMetricProjection.resolvedSleepSummary(
@@ -617,7 +626,8 @@ final class DailySummaryUseCase {
             dailyInsight: dailyInsight(recovery: recovery, sleepScore: sleepScore, strain: strain, source: .healthKit),
             source: .healthKit,
             longTermBaselines: longTermReport,
-            bodyModelState: bodyModelState
+            bodyModelState: bodyModelState,
+            scoringContext: scoringContext
         )
         let activeStatus = ActiveStatusSettings.resolveStatus(
             at: now,
@@ -646,8 +656,11 @@ final class DailySummaryUseCase {
                 persistedTargetSessionTitle = persistedOperatingPlanPayload?.targetSessionTitle
             }
         }
-        let feedbackCalibration = modelContext.map {
-            DailyDecisionFeedbackService().calculateFeedbackCalibration(modelContext: $0, now: now)
+        let feedbackCalibration: DecisionFeedbackCalibration? = modelContext.flatMap { context in
+            guard let asOf = DecisionFeedbackCalibrator.evidenceCutoff(
+                for: now, now: statusEvaluationNow, calendar: calendar
+            ) else { return nil }
+            return DailyDecisionFeedbackService().calculateFeedbackCalibration(modelContext: context, now: asOf)
         }
         let intelligence = DailyIntelligenceAssemblyModule.assemble(
             DailyIntelligenceAssemblyInput(
@@ -960,7 +973,7 @@ final class DailySummaryUseCase {
         if source == .healthKit {
             return L10n.t(
                 "Updated from Apple Health. Recovery \(Int(recovery.score.rounded())), sleep \(Int(sleepScore.score.rounded())), strain \(Int(strain.score.rounded())).",
-                "已读取 Apple 健康数据。恢复 \(Int(recovery.score.rounded()))，睡眠 \(Int(sleepScore.score.rounded()))，负荷 \(Int(strain.score.rounded()))。"
+                "已读取 Apple 健康数据。恢复 \(Int(recovery.score.rounded()))，睡眠 \(sleepScore.value.map { String(Int($0.rounded())) } ?? "暂无")，负荷 \(Int(strain.score.rounded()))。"
             )
         }
         return L10n.t(

@@ -829,6 +829,10 @@ final class TodayLegacyEffectRouter: TodayEffectRouter {
         return await runtime.loadWeatherProjection()
     }
 
+    func refreshWeatherFromKnownLocation() async -> TodayWeatherProjection? {
+        await runtime?.loadWeatherProjection()
+    }
+
     func requestCoverage() async -> DataCoverageSummaryModel? {
         await runtime?.loadCoverageSummary()
     }
