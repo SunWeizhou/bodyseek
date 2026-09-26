@@ -807,7 +807,10 @@ final class DataCoverageAndEvidenceTests: XCTestCase {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         let data = try encoder.encode(reports)
-        let url = URL(fileURLWithPath: "/Users/sunweizhou/Developer/Vela/docs/validation/v1/sleep_semantics_replay.json")
+        let outputDirectory = ProcessInfo.processInfo.environment["BODYSEEK_REPLAY_OUTPUT_DIR"]
+            .map { URL(fileURLWithPath: $0, isDirectory: true) }
+            ?? FileManager.default.temporaryDirectory
+        let url = outputDirectory.appendingPathComponent("sleep_semantics_replay.json")
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         try data.write(to: url)
         XCTAssertEqual(reports.count, 4)
