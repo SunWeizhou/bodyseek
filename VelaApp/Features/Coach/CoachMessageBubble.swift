@@ -14,6 +14,59 @@ struct CoachChatMessage: Identifiable, Hashable {
     var createdAt: Date = Date()
 }
 
+/// Presentation-only split for a completed Coach answer. The first concise
+/// paragraph/line is promoted as a conclusion while the full evidence remains
+/// visible underneath; model output and stored content are never rewritten.
+enum CoachResponseLayout {
+    static func split(_ raw: String, isStreaming: Bool) -> (lead: String?, detail: String?) {
+        guard !isStreaming else { return (nil, raw) }
+
+        let normalized = raw
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalized.isEmpty else { return (nil, nil) }
+
+        // Older sessions can contain provider protocol fragments when a tool
+        // call was interrupted. Never promote or prettify those fragments as
+        // a user-facing conclusion; keep the existing raw rendering path so
+        // the caller can apply its normal recovery/error treatment.
+        let internalMarkers = ["<|", "tool_calls", "function_call", "DSML", "[ARTIFACT:"]
+        if internalMarkers.contains(where: { normalized.localizedCaseInsensitiveContains($0) }) {
+            return (nil, normalized)
+        }
+
+        let paragraphs = normalized
+            .components(separatedBy: "\n\n")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+
+        if paragraphs.count >= 2, let first = paragraphs.first, first.count <= 220 {
+            let detail = paragraphs.dropFirst().joined(separator: "\n\n")
+            return (first, detail.isEmpty ? nil : detail)
+        }
+
+        // Some answers use one conclusion line followed by bullets instead of
+        // a blank line. Lift that line while preserving every remaining line.
+        let lines = normalized.components(separatedBy: "\n")
+        if lines.count >= 2,
+           let first = lines.first?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !first.isEmpty,
+           first.count <= 160,
+           !first.hasPrefix("#"),
+           !first.hasPrefix("-"),
+           !first.hasPrefix("•"),
+           !first.hasPrefix("*") {
+            let detail = lines.dropFirst()
+                .joined(separator: "\n")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return (first, detail.isEmpty ? nil : detail)
+        }
+
+        return (nil, normalized)
+    }
+}
+
 // MARK: - CoachThinkingParser
 
 struct ParsedMessageParts: Equatable {
@@ -493,6 +546,7 @@ struct CoachFollowUpChipsView: View {
                                 Capsule()
                                     .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
                             )
+                            .fixedSize(horizontal: true, vertical: false)
                     }
                     .buttonStyle(.cardPress)
                 }
@@ -500,6 +554,7 @@ struct CoachFollowUpChipsView: View {
         }
         .scrollIndicators(.hidden)
         .padding(.leading, 8)
+        .padding(.trailing, 8)
         .transition(.opacity.combined(with: .move(edge: .bottom)))
     }
 }

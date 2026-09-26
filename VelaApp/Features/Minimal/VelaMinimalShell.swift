@@ -19,6 +19,33 @@ enum VelaNavigationMotion {
     static let destinationFadeDuration = 0.16
 }
 
+// MARK: - BodySeek product navigation intent
+
+/// UI-only intent types. These keep the product shell independent from
+/// SwiftData, HealthKit and score computation. VelaAppState remains the
+/// compatibility router at the composition root.
+enum BodySeekDestination: Hashable, Sendable {
+    case today
+    case trends
+    case plan
+    case coach
+    case profile
+}
+
+enum BodySeekQuickAction: Hashable, Sendable {
+    case logLivedState
+    case logWeight
+    case logBlood
+    case logWorkout
+    case askCoach
+}
+
+enum BodySeekNavigationAction: Hashable, Sendable {
+    case select(BodySeekDestination)
+    case perform(BodySeekQuickAction)
+    case presentProfile
+}
+
 extension EnvironmentValues {
     @Entry var velaSurfaceIsActive = true
 }
@@ -41,6 +68,7 @@ struct VelaShell: View {
 
     @State private var showPlusSheet = false
     @State private var showCoach     = false
+    @State private var showTodayEvidence = false
     @State private var keyboardVisible = false
     @State private var mountedLegacyTabs: Set<VelaTab> = [.today]
     @State private var lastPresentedAppSheet: VelaAppState.AppSheet?
@@ -166,6 +194,29 @@ struct VelaShell: View {
                 .presentationDetents([.medium])
                 .velaSheetSurface()
         }
+        .overlay(alignment: .bottom) {
+            if showTodayEvidence {
+                ZStack(alignment: .bottom) {
+                    Color.black.opacity(0.18)
+                        .ignoresSafeArea()
+                        .onTapGesture { showTodayEvidence = false }
+                    TodayEvidenceSheet(
+                        state: todayStore.state.command
+                            ?? TodayViewState.unavailableCommand(for: todayStore.state.selectedDay),
+                        dashboard: todayStore.state.dashboard,
+                        onAskCoach: { question in
+                            showTodayEvidence = false
+                            appState.routeToCoach(question: question, surface: .home)
+                        },
+                        onClose: { showTodayEvidence = false }
+                    )
+                    .frame(maxHeight: .infinity)
+                    .velaSheetSurface()
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+                .accessibilityIdentifier("today-evidence-sheet")
+            }
+        }
         .fullScreenCover(isPresented: $showCoach) {
             VelaCoachView(presentation: .quickCover, vm: services.coachChat)
         }
@@ -284,11 +335,10 @@ struct VelaShell: View {
 
     @ViewBuilder
     private var navigationSurface: some View {
-        if #available(iOS 26.0, *) {
-            nativeTabNavigation
-        } else {
-            legacyFloatingNavigation
-        }
+        // BodySeek owns one navigation grammar on every supported iOS
+        // release. The system TabView is intentionally kept below as a
+        // reference implementation while the product Dock is validated.
+        legacyFloatingNavigation
     }
 
     @available(iOS 26.0, *)
@@ -298,6 +348,7 @@ struct VelaShell: View {
                 VelaTodayView(
                     showCoach: $showCoach,
                     showSettings: $appState.showSettings,
+                    showEvidence: $showTodayEvidence,
                     todayStore: todayStore,
                     todayReader: todayReader
                 )
@@ -339,6 +390,21 @@ struct VelaShell: View {
         // Remove the minimize behavior; the tab bar stays visible instead.
         // .tabBarMinimizeBehavior(.onScrollDown)
         .toolbar(keyboardVisible ? .hidden : .visible, for: .tabBar)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                BodySeekBrandMark(size: 26, monochrome: true)
+            }
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Button { showPlusSheet = true } label: {
+                    Image(systemName: "plus")
+                }
+                .accessibilityLabel("记录或提问")
+                Button { appState.present(.settings) } label: {
+                    Image(systemName: "person.crop.circle")
+                }
+                .accessibilityLabel("个人档案")
+            }
+        }
     }
 
     private var legacyFloatingNavigation: some View {
@@ -354,6 +420,7 @@ struct VelaShell: View {
                         VelaTodayView(
                             showCoach: $showCoach,
                             showSettings: $appState.showSettings,
+                            showEvidence: $showTodayEvidence,
                             todayStore: todayStore,
                             todayReader: todayReader
                         )
@@ -384,7 +451,7 @@ struct VelaShell: View {
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if VelaNavigationVisibility.shouldShowBottomBar(keyboardVisible: keyboardVisible) {
-                bottomGlassNavBar
+                bodySeekDock
                     .padding(.top, 6)
                     .padding(.bottom, VelaFloatingNavigationMetrics.navBottomPadding)
                     .transition(bottomBarTransition)
@@ -406,25 +473,36 @@ struct VelaShell: View {
 
     // MARK: - Legacy Floating Glass Navigation
     
-    private var bottomGlassNavBar: some View {
-        HStack(spacing: 0) {
-            ForEach(VelaTabSelection.contentTabs, id: \.self) { tab in
-                customTabButton(tab)
+    private var bodySeekDock: some View {
+        HStack(spacing: 5) {
+            customTabButton(.today)
+            customTabButton(.trends)
+            Button { showPlusSheet = true } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(VelaTheme.rhythmDeepOn)
+                    .frame(width: 46, height: 46)
+                    .background(Circle().fill(VelaTheme.rhythmDeep))
             }
+            .accessibilityLabel("记录或提问")
+            customTabButton(.plan)
+            customTabButton(.coach)
         }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 5)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 7)
         .background(
-            Capsule()
-                .fill(VelaTheme.cardBg.opacity(0.12))
-                .velaInteractiveGlass(in: Capsule())
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(VelaTheme.cardBg.opacity(0.96))
         )
         .overlay(
-            Capsule()
-                .stroke(VelaTheme.cardBg.opacity(0.18), lineWidth: 0.5)
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(VelaTheme.rhythmMist.opacity(0.7), lineWidth: 0.7)
         )
-        .shadow(color: Color.black.opacity(0.018), radius: 10, y: 4)
-        .padding(.horizontal, 16)
+        .shadow(color: Color.black.opacity(0.08), radius: 18, y: 8)
+        .padding(.horizontal, 14)
+        // Navigation chrome has a fixed hit-target grid; reading content keeps
+        // the user's full Dynamic Type size inside each destination.
+        .dynamicTypeSize(...DynamicTypeSize.xxLarge)
     }
 
     // MARK: - Individual Tab Button with Premium Sliding Highlight
@@ -466,7 +544,7 @@ struct VelaShell: View {
             }
             .foregroundStyle(isActive ? VelaTheme.fg : VelaTheme.muted)
             .frame(maxWidth: .infinity)
-            .frame(height: VelaFloatingNavigationMetrics.barHeight - 12)
+            .frame(height: 44)
             .background(
                 ZStack {
                     if isActive {
@@ -503,7 +581,7 @@ struct VelaShell: View {
         case .today:    L10n.t("Today", "今日")
         case .trends:   L10n.t("Trends", "趋势")
         case .plan:     L10n.t("Plan", "计划")
-        case .coach:    "Vela"
+        case .coach:    L10n.t("Coach", "教练")
         }
     }
 

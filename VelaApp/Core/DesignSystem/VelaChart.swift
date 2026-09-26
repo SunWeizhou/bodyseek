@@ -110,7 +110,7 @@ struct VelaMetricScoreRing: View {
     }
 
     private var ringWidth: CGFloat {
-        max(6, (size * 0.088).rounded())
+        max(5, (size * 0.065).rounded())
     }
 
     /// Semantic text styles keep score numerals responsive to Dynamic Type.
@@ -118,12 +118,12 @@ struct VelaMetricScoreRing: View {
     /// minimum scale factor preventing the value from colliding with its arc.
     private var valueFont: Font {
         if size <= VelaTheme.ringSm + 10 {
-            return .system(.footnote, design: .rounded, weight: .bold)
+            return .system(.footnote, design: .default, weight: .semibold)
         }
         if size <= VelaTheme.ringMd + 6 {
-            return .system(.title3, design: .rounded, weight: .bold)
+            return .system(.title3, design: .default, weight: .semibold)
         }
-        return .system(.title, design: .rounded, weight: .bold)
+        return .system(.title, design: .default, weight: .semibold)
     }
 
     private var effectiveColor: Color {
@@ -353,7 +353,7 @@ struct DottedCircleGauge: View {
             
             VStack(spacing: 1) {
                 Text("\(Int(animatedScore))")
-                    .font(.system(.title3, design: .rounded, weight: .bold).monospacedDigit())
+                    .font(.system(.title3, design: .default, weight: .semibold).monospacedDigit())
                     .foregroundStyle(VelaTheme.rhythmInk)
                 Text(labelText)
                     .font(.system(.caption2, design: .default, weight: .semibold))
@@ -704,7 +704,7 @@ struct MiniMetricRow: View {
                         .foregroundStyle(VelaTheme.fg)
                     Spacer()
                     Text(value)
-                        .font(.system(.caption, design: .rounded, weight: .bold))
+                        .font(.system(.caption, design: .default, weight: .semibold))
                         .foregroundStyle(color)
                 }
                 

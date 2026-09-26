@@ -2,7 +2,7 @@
 # Vela 设计 Token 审计 —— 零依赖,现在即可运行。
 #
 # 目的:让"不允许在视图层硬编码颜色/字号/圆角"这条设计系统宪法**可见、可执行**,
-# 而不是停留在 DESIGN.md 纸面上。Token 只在 Core/Theme 与 Core/DesignSystem 定义,
+# 而不是停留在 docs/VELA_DESIGN_LANGUAGE.md 纸面上。Token 只在 Core/Theme 与 Core/DesignSystem 定义,
 # 其余视图文件一律应引用 VelaTheme / VelaDesignSystem。
 #
 # 用法:

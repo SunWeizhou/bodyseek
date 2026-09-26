@@ -33,6 +33,16 @@ struct AccountSettingsView: View {
 
     var body: some View {
         Form {
+            Section {
+                BodySeekPageIntro(
+                    eyebrow: "PROFILE / THE BASICS",
+                    title: "先从你，开始。",
+                    subtitle: "保留最有用的资料。你可以随时更新，也可以留空。",
+                    artwork: .profile
+                )
+            }
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets())
             Section(header: Text("生理特征指标")) {
                 if hasHealthProfileData {
                     Label("已同步的 Apple 健康资料会自动用于评分与训练建议。", systemImage: "heart.text.square")
@@ -107,7 +117,7 @@ struct AccountSettingsView: View {
             }
 
             Section {
-                Button("应用身体模型") {
+                Button("保存个人资料") {
                     applyProfile()
                 }
                 .frame(maxWidth: .infinity)
@@ -116,7 +126,7 @@ struct AccountSettingsView: View {
                 Text("已填写的数值优先于 Apple 健康数据；清空字段即可恢复使用 Apple 健康。应用后会重新计算训练建议。")
             }
         }
-        .navigationTitle("账户与特征基准")
+        .navigationTitle("基本资料")
         .velaRhythmFormSurface()
         .velaRhythmDetailChrome()
         .onAppear {

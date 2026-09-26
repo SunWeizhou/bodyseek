@@ -105,6 +105,20 @@ struct TodayScoreState: Equatable, Sendable {
     }
 }
 
+/// Compact, immutable projection for the redesigned Today surface. It keeps
+/// page composition independent from the full Store state while preserving
+/// the same five-score and evidence semantics.
+struct TodayPresentationState: Equatable, Sendable {
+    let selectedDay: Date
+    let headline: String
+    let summary: String
+    let primaryActionTitle: String?
+    let scores: TodayScoreState
+    let phase: TodayViewState.Phase
+    let freshness: DataFreshness
+    let coverage: DataCoverageSummaryModel
+}
+
 enum TodayLoadFailure: Equatable, Sendable, LocalizedError {
     case invalidDay
     case reader(String)
@@ -331,6 +345,19 @@ struct TodayViewState: Equatable, Sendable {
     var secondaryDataErrorMessage: String?
     var nonCritical: TodayNonCriticalState
     var error: TodayLoadFailure?
+
+    var bodySeekPresentation: TodayPresentationState {
+        TodayPresentationState(
+            selectedDay: selectedDay,
+            headline: experience?.hero.decisionTitle ?? "今天的身体状态",
+            summary: experience?.hero.summary ?? "正在整理今天的身体信号。",
+            primaryActionTitle: experience?.hero.primaryActionTitle,
+            scores: scores,
+            phase: phase,
+            freshness: freshness,
+            coverage: coverage
+        )
+    }
 
     /// Keep the initial state independent from the app language/preferences
     /// store.  Coverage is an explicit unknown until a reader/coverage adapter

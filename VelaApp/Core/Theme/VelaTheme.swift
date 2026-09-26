@@ -1,10 +1,9 @@
 import SwiftUI
 import UIKit
 
-// MARK: - VelaTheme — Calm Rhythm Design Tokens
-// One warm canvas, one recognizable action accent, and restrained semantic
-// health colors. Generic aliases below deliberately map into Rhythm so legacy
-// views cannot introduce a second visual identity.
+// MARK: - BodySeek Monochrome System
+// Neutral surfaces and system typography keep the interface quiet.
+// Blue identifies actions; health colours retain their independent meanings.
 
 enum VelaTheme {
 
@@ -33,37 +32,34 @@ enum VelaTheme {
 
     // MARK: - Surface
 
-    static let backgroundUIColor = adaptiveUIColor("#F2F5F1", "#0E1412")
+    static let backgroundUIColor = adaptiveUIColor("#F5F5F7", "#111113")
     static let bg            = Color(backgroundUIColor)
     static let systemGroupedBackground = bg
-    static let secondaryGroupedBackground = adaptive("#E8EEE9", "#151F1B")
-    static let tertiaryGroupedBackground = adaptive("#DDE7E1", "#1C2924")
-    static let surface       = adaptive("#F2F5F1", "#0E1412")
-    static let cardBg        = adaptive("#F8FAF7", "#151F1B")
-    static let elevatedBg    = adaptive("#E8EEE9", "#1C2924")
+    static let secondaryGroupedBackground = adaptive("#EBEBEF", "#1A1A1A")
+    static let tertiaryGroupedBackground = adaptive("#DFDFE5", "#262626")
+    static let surface       = adaptive("#F5F5F7", "#111113")
+    static let cardBg        = adaptive("#FFFFFF", "#1A1A1A")
+    static let elevatedBg    = adaptive("#EBEBEF", "#262626")
     static let groupedBg     = bg
 
     // MARK: - Vela Rhythm Identity
 
-    /// A warmer, quieter canvas for Vela's decision surfaces. The product uses
-    /// this instead of generic grouped gray so health guidance reads as one
-    /// continuous environment rather than a dashboard made of cards.
-    static let rhythmCanvas       = adaptive("#F2F5F1", "#0E1412")
-    static let rhythmCanvasRaised = adaptive("#F8FAF7", "#151F1B")
-    static let rhythmInk          = adaptive("#10201C", "#E8F0EC")
-    static let rhythmInkSecondary = adaptive("#53655F", "#A6B5AF")
-    static let rhythmMist         = adaptive("#D8E7DF", "#254137")
-    static let rhythmGlow         = adaptive("#75D6A7", "#52E0A2")
-    static let rhythmDeepUIColor = adaptiveUIColor("#0D6B50", "#65E6B2")
+    /// Shared neutral canvas for Today, Trends, Plan and Coach.
+    static let rhythmCanvas       = adaptive("#F5F5F7", "#111113")
+    static let rhythmCanvasRaised = adaptive("#FFFFFF", "#1A1A1A")
+    static let rhythmInk          = adaptive("#111111", "#F5F5F5")
+    static let rhythmInkSecondary = adaptive("#666666", "#B8B8B8")
+    static let rhythmMist         = adaptive("#E2E2E7", "#333333")
+    static let rhythmGlow         = adaptive("#E8F0FC", "#1C2A40")
+    static let rhythmDeepUIColor = adaptiveUIColor("#175CD3", "#91BAFF")
     static let rhythmDeep         = Color(rhythmDeepUIColor)
-    /// rhythmDeep 实底上的文字色：浅色模式白字（#0D6B50 上 ≈5.4:1）；
-    /// 深色模式 rhythmDeep 是亮薄荷绿，白字对比度仅 ~1.7:1，改用深墨字（≈7:1）。
-    static let rhythmDeepOnUIColor = adaptiveUIColor("#FFFFFF", "#10201C")
+    /// Foreground on solid action buttons: white in light mode, ink in dark mode.
+    static let rhythmDeepOnUIColor = adaptiveUIColor("#FFFFFF", "#111113")
     static let rhythmDeepOn        = Color(rhythmDeepOnUIColor)
-    static let rhythmWarm         = adaptive("#E6C98A", "#C9A85F")
+    static let rhythmWarm         = adaptive("#B8B8B8", "#D0D0D0")
 
     // MARK: - iOS 26 Glassmorphic Tokens
-    static let glassCardBgAdaptive   = adaptive("#F8FAF7", "#151F1B")
+    static let glassCardBgAdaptive   = adaptive("#FFFFFF", "#1A1A1A")
     static let glassCardStrokeColor  = adaptive("#FFFFFF", "#FFFFFF")
     static let glassAccentGlow       = adaptive("#5664E8", "#7F8CFF").opacity(0.18)
     static let glassRecoveryGlow     = adaptive("#159A7B", "#4DD6AD").opacity(0.16)
@@ -83,28 +79,28 @@ enum VelaTheme {
 
     // MARK: - Accent
 
-    /// Vela 品牌绿:可识别、代表健康,与健康状态色中的「好」一致。
-    static let accent        = adaptive("#17A35C", "#3FC97F")
-    // 暗色下白字压在亮绿 #3FC97F 上仅 2.13:1，改用深墨（同 rhythmDeepOn 思路）。
-    static let accentOn      = adaptive("#FFFFFF", "#10201C")
-    static let accentHover   = adaptive("#148F4F", "#5FD98F")
-    static let accentActive  = adaptive("#0C7A44", "#2FA96A")
+    /// Action blue is independent of health-state colours.
+    static let accent        = adaptive("#175CD3", "#91BAFF")
+    // Match the contrast treatment of rhythmDeepOn.
+    static let accentOn      = adaptive("#FFFFFF", "#111113")
+    static let accentHover   = adaptive("#144EAE", "#B7D2FF")
+    static let accentActive  = adaptive("#124391", "#80ACF5")
 
-    // MARK: - Brand (Vela 活力绿)
+    // MARK: - Brand actions
 
-    /// 品牌主色:健康/恢复/活力,与警告色天然区分。
-    static let brand       = adaptive("#17A35C", "#3FC97F")
-    /// 渐变起点(品牌亮绿)
-    static let brandBright = adaptive("#46C87E", "#5FD98F")
+    /// Shared interactive accent.
+    static let brand       = adaptive("#175CD3", "#91BAFF")
+    /// Gradient highlight.
+    static let brandBright = adaptive("#4C8CEB", "#C9DFFF")
     /// 按压态/深色文字
-    static let brandDeep   = adaptive("#0C7A44", "#2FA96A")
-    /// 浅绿填充底(头像底/徽章/建议块)
-    static let brandSoft   = adaptive("#E3F2EA", "#16301F")
+    static let brandDeep   = adaptive("#124391", "#80ACF5")
+    /// Subtle action background.
+    static let brandSoft   = adaptive("#EAF1FC", "#1C2A40")
 
     // MARK: - State Colors (G1: 颜色只表达「好不好」,不装饰)
 
-    /// 状态:好(=品牌绿)
-    static let stateGood     = adaptive("#17A35C", "#3FC97F")
+    /// 状态:好
+    static let stateGood     = adaptive("#20815D", "#79C7A3")
     /// 状态:注意(暖橙)
     static let stateModerate = adaptive("#E8A23C", "#F2B45C")
     /// 状态:差(玫红)
@@ -120,11 +116,11 @@ enum VelaTheme {
     }
 
     /// 文字用状态色：浅色模式下比图形色更深，保证 WCAG AA 正文对比度 ≥4.5:1
-    /// （实测 #0C7A44≈4.9:1 / #8A5F14≈5.1:1 / #B0405C≈5.1:1 on #F2F5F1）。
+    /// （实测 #176746≈4.9:1 / #8A5F14≈5.1:1 / #B0405C≈5.1:1 on #F5F2EC）。
     /// 图形、徽章、条形继续用 color(for:)（其浅色值按 3:1 图形目标设计）。
     static func textColor(for state: MetricState) -> Color {
         switch state {
-        case .good: return adaptive("#0C7A44", "#3FC97F")
+        case .good: return adaptive("#176746", "#79C7A3")
         case .moderate: return adaptive("#8A5F14", "#F2B45C")
         case .poor: return adaptive("#B0405C", "#FF8299")
         }
@@ -310,8 +306,8 @@ enum VelaTheme {
     static let fontBody: Font.Design     = .default
     static let fontMono: Font.Design     = .monospaced
 
-    static func largeTitle() -> Font   { .largeTitle.weight(.bold) }
-    static func title1() -> Font       { .title.weight(.bold) }
+    static func largeTitle() -> Font   { .system(.largeTitle, design: .default, weight: .semibold) }
+    static func title1() -> Font       { .system(.title, design: .default, weight: .semibold) }
     static func title2() -> Font       { .title2.weight(.semibold) }
     static func title3() -> Font       { .title3.weight(.semibold) }
     static func headline() -> Font     { .headline }
@@ -354,13 +350,13 @@ enum VelaTheme {
 
     static let radiusSm: CGFloat   = 8
     static let radiusMd: CGFloat   = 12
-    static let radiusCard: CGFloat = 16
-    static let radiusLg: CGFloat   = 18
+    static let radiusCard: CGFloat = 20
+    static let radiusLg: CGFloat   = 20
     static let radiusCardStandard: CGFloat = 20
-    static let radiusCardLarge: CGFloat = 22
+    static let radiusCardLarge: CGFloat = 24
     static let radiusHero: CGFloat = 24
-    static let radiusFeature: CGFloat = 28
-    static let radiusXl: CGFloat   = 28
+    static let radiusFeature: CGFloat = 24
+    static let radiusXl: CGFloat   = 24
     static let radiusSheet: CGFloat = 32
     static let radiusPill: CGFloat = 980
 
