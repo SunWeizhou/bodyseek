@@ -83,16 +83,18 @@ struct VelaPlanView: View {
     }
 
     private var candidatePayload: DailyOperatingPlanPayload? {
-        guard let plan, payload?.hasUserEdits == true,
+        guard let plan, let payload,
               plan.bodyStateHash != dashboardVM.dashboard.bodyState.hash else {
             return nil
         }
-        return DailyOperatingPlanBuilder.build(
+        let candidate = DailyOperatingPlanBuilder.build(
             bodyState: dashboardVM.dashboard.bodyState,
             decision: currentDecision,
             brief: dashboardVM.dashboard.personalHealthBrief,
             language: AppLanguage.stored
         )
+        guard candidate.actionOutline != payload.actionOutline else { return nil }
+        return candidate
     }
 
     private var currentDecision: DailyTrainingDecision {
@@ -225,29 +227,33 @@ struct VelaPlanView: View {
         let total = completion.total
         let progress = completion.progress
         let completed = completion.completed
+        let decisionTitle = payload?.decision.todayDecisionTitle
         return VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(total == 0 ? "今天由你决定" : primaryRhythmTitle)
+            VStack(alignment: .leading, spacing: 4) {
+                if total == 0 {
+                    Text("今天由你决定")
+                        .font(.system(.title2, design: .default, weight: .semibold))
+                        .tracking(-0.35)
+                        .foregroundStyle(VelaTheme.rhythmInk)
+                    Text("添加一项真正有帮助的行动")
+                        .font(.footnote)
+                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                } else {
+                    if let decisionTitle {
+                        Text(decisionTitle)
+                            .font(.system(.caption, design: .default, weight: .semibold))
+                            .foregroundStyle(VelaTheme.rhythmDeep)
+                    }
+                    Text(primaryRhythmTitle)
                         .font(.system(.title2, design: .default, weight: .semibold))
                         .tracking(-0.35)
                         .foregroundStyle(VelaTheme.rhythmInk)
                         .fixedSize(horizontal: false, vertical: true)
-                    Text(total == 0 ? "添加一项真正有帮助的行动" : completed == total ? "今天的安排已完成" : "按自己的节奏，一项一项完成")
+                    Text(completed == total ? "今天的安排已完成" : "已完成 \(completed)/\(total)")
                         .font(.footnote)
                         .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                        .accessibilityLabel("已完成 \(completed) 项，共 \(total) 项")
                 }
-                Spacer(minLength: 16)
-                HStack(alignment: .firstTextBaseline, spacing: 2) {
-                    Text("\(completed)")
-                        .font(.system(.largeTitle, design: .default, weight: .semibold).monospacedDigit())
-                        .foregroundStyle(VelaTheme.rhythmInk)
-                    Text("/\(total)")
-                        .font(.system(.footnote, design: .default, weight: .semibold))
-                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                }
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("已完成 \(completed) 项，共 \(total) 项")
             }
 
             BodySeekPlanProgressRail(
@@ -364,7 +370,7 @@ struct VelaPlanView: View {
                 .background(VelaTheme.rhythmDeep, in: Capsule())
                 .buttonStyle(.cardPress)
 
-                Button("保留我的安排") {
+                Button(payload?.hasUserEdits == true ? "保留我的安排" : "先保持现在的安排") {
                     keepCurrentPlan()
                 }
                 .font(.system(.footnote, design: .default, weight: .semibold))
