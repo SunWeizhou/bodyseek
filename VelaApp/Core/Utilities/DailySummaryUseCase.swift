@@ -401,7 +401,6 @@ final class DailySummaryUseCase {
                 heightCentimeters: extendedMetrics.heightCm
             )
         extendedMetrics.oxygenSaturation = snapshot.oxygenSaturation ?? extendedMetrics.oxygenSaturation
-        extendedMetrics.oxygenSaturationObservedAt = snapshot.spo2ObservedAt ?? extendedMetrics.oxygenSaturationObservedAt
         extendedMetrics.bodyTemperature = snapshot.wristTemperature ?? extendedMetrics.bodyTemperature
         
         let recoveryMetrics = RecoveryMetricSummary(
@@ -409,10 +408,7 @@ final class DailySummaryUseCase {
             hrvRmssdMilliseconds: snapshot.hrvRmssdMilliseconds,
             restingHeartRate: snapshot.restingHeartRate,
             sleepHeartRate: nil,
-            respiratoryRate: snapshot.respiratoryRate,
-            hrvObservedAt: snapshot.hrvObservedAt,
-            rhrObservedAt: snapshot.rhrObservedAt,
-            hrvObservedWindow: snapshot.hrvObservedWindow
+            respiratoryRate: snapshot.respiratoryRate
         )
         
         let recoveryBaseline = RecoveryMetricSummary(
@@ -1202,11 +1198,7 @@ final class DailySummaryUseCase {
                 hrvRmssdMilliseconds: record.hrvRmssdMilliseconds,
                 restingHeartRate: record.restingHeartRate,
                 sleepHeartRate: nil,
-                respiratoryRate: record.respiratoryRate,
-                hrvObservedAt: snapshot.hrvObservedAt,
-                rhrObservedAt: snapshot.rhrObservedAt,
-                hrvObservedWindow: snapshot.hrvObservedWindow,
-                rhrObservedWindow: snapshot.rhrObservedWindow
+                respiratoryRate: record.respiratoryRate
             ),
             recoveryBaseline: RecoveryMetricSummary(),
             strain: strain,
@@ -1226,7 +1218,6 @@ final class DailySummaryUseCase {
                 heightCm: UserProfileSettings.heightCentimeters(),
                 bmi: record.bmi,
                 oxygenSaturation: record.oxygenSaturation,
-                oxygenSaturationObservedAt: snapshot.spo2ObservedAt,
                 bodyTemperature: record.wristTemperature
             ),
             workouts: snapshot.workouts,

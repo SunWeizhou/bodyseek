@@ -184,25 +184,11 @@ extension VelaMetricDetailView {
     }
 
     var metricUpdatedAtLabel: String {
-        if observedAtForMetric == nil,
-           hasMetricData,
-           [.hrv, .rhr, .bloodOxygen].contains(metric) {
-            return "观测时间未知"
-        }
-        let date = observedAtForMetric ?? currentMetricResult?.lastUpdated ?? effectiveDate
+        let date = currentMetricResult?.lastUpdated ?? effectiveDate
         let timestamp = date.formatted(
             Date.FormatStyle(date: .abbreviated, time: .shortened, locale: Locale(identifier: "zh_CN"))
         )
         return "更新于 \(timestamp)"
-    }
-
-    private var observedAtForMetric: Date? {
-        switch metric {
-        case .hrv: return dashboard.recoveryMetrics.hrvObservedAt
-        case .rhr: return dashboard.recoveryMetrics.rhrObservedAt
-        case .bloodOxygen: return dashboard.extendedMetrics.oxygenSaturationObservedAt
-        default: return nil
-        }
     }
 
     var metricMissingSummary: String? {

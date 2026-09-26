@@ -497,10 +497,6 @@ final class DailySnapshotBuilder {
             if let hrvRmssd = recovery.hrvRmssdMilliseconds { snapshot.hrvRmssdMilliseconds = hrvRmssd }
             if let rhr = recovery.restingHeartRate { snapshot.restingHeartRate = rhr }
             if let rr = recovery.respiratoryRate { snapshot.respiratoryRate = rr }
-            snapshot.hrvObservedAt = recovery.hrvObservedAt
-            snapshot.rhrObservedAt = recovery.rhrObservedAt
-            snapshot.hrvObservedWindow = recovery.hrvObservedWindow
-            snapshot.rhrObservedWindow = recovery.rhrObservedWindow
         }
 
         // Populate strain
@@ -548,7 +544,6 @@ final class DailySnapshotBuilder {
 
         // Populate extended
         if let spo2 = extended.oxygenSaturation { snapshot.oxygenSaturation = HealthUnitNormalizer.normalizeOxygenSaturation(spo2) }
-        snapshot.spo2ObservedAt = extended.oxygenSaturationObservedAt
         if let temp = extended.bodyTemperature { snapshot.wristTemperature = temp }
 
         return Result(snapshot: snapshot, queryFailures: queryFailures, diagnostics: diagnostics)

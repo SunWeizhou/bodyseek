@@ -11,11 +11,6 @@ struct DailyScoreEvidenceEnvelope: Codable, Hashable {
     var stress: MetricResult
     var energy: MetricResult
     var persistedAt: Date
-    var hrvObservedAt: Date?
-    var rhrObservedAt: Date?
-    var spo2ObservedAt: Date?
-    var hrvObservedWindow: DateInterval?
-    var rhrObservedWindow: DateInterval?
 
     init(
         version: Int = currentVersion,
@@ -24,12 +19,7 @@ struct DailyScoreEvidenceEnvelope: Codable, Hashable {
         strain: MetricResult,
         stress: MetricResult,
         energy: MetricResult,
-        persistedAt: Date = Date(),
-        hrvObservedAt: Date? = nil,
-        rhrObservedAt: Date? = nil,
-        spo2ObservedAt: Date? = nil,
-        hrvObservedWindow: DateInterval? = nil,
-        rhrObservedWindow: DateInterval? = nil
+        persistedAt: Date = Date()
     ) {
         self.version = version
         self.sleep = sleep
@@ -38,11 +28,6 @@ struct DailyScoreEvidenceEnvelope: Codable, Hashable {
         self.stress = stress
         self.energy = energy
         self.persistedAt = persistedAt
-        self.hrvObservedAt = hrvObservedAt
-        self.rhrObservedAt = rhrObservedAt
-        self.spo2ObservedAt = spo2ObservedAt
-        self.hrvObservedWindow = hrvObservedWindow
-        self.rhrObservedWindow = rhrObservedWindow
     }
 
     init(evidence: ScoredHealthEvidence, persistedAt: Date = Date()) {
@@ -55,16 +40,6 @@ struct DailyScoreEvidenceEnvelope: Codable, Hashable {
             persistedAt: persistedAt
         )
     }
-}
-
-private struct PersistedDailyEvidence: Codable {
-    var formatVersion: Int = 1
-    var evidence: DailyScoreEvidenceEnvelope?
-    var hrvObservedAt: Date?
-    var rhrObservedAt: Date?
-    var spo2ObservedAt: Date?
-    var hrvObservedWindow: DateInterval?
-    var rhrObservedWindow: DateInterval?
 }
 
 struct IntradaySignalPoint: Hashable, Sendable {
@@ -449,30 +424,12 @@ final class DailyHealthSummaryRecord {
         self.updatedAt = updatedAt
     }
 
-    func apply(scoreEvidence: DailyScoreEvidenceEnvelope?, observations: DailyHealthSnapshot? = nil) throws {
+    func apply(scoreEvidence: DailyScoreEvidenceEnvelope?) throws {
         guard let scoreEvidence else {
-            if let observations {
-                scoreEvidenceData = try JSONEncoder().encode(PersistedDailyEvidence(
-                    evidence: nil,
-                    hrvObservedAt: observations.hrvObservedAt,
-                    rhrObservedAt: observations.rhrObservedAt,
-                    spo2ObservedAt: observations.spo2ObservedAt,
-                    hrvObservedWindow: observations.hrvObservedWindow
-                    , rhrObservedWindow: observations.rhrObservedWindow
-                ))
-            } else {
-                scoreEvidenceData = nil
-            }
+            scoreEvidenceData = nil
             return
         }
-        scoreEvidenceData = try JSONEncoder().encode(PersistedDailyEvidence(
-            evidence: scoreEvidence,
-            hrvObservedAt: observations?.hrvObservedAt ?? scoreEvidence.hrvObservedAt,
-            rhrObservedAt: observations?.rhrObservedAt ?? scoreEvidence.rhrObservedAt,
-            spo2ObservedAt: observations?.spo2ObservedAt ?? scoreEvidence.spo2ObservedAt,
-            hrvObservedWindow: observations?.hrvObservedWindow ?? scoreEvidence.hrvObservedWindow
-            , rhrObservedWindow: observations?.rhrObservedWindow ?? scoreEvidence.rhrObservedWindow
-        ))
+        scoreEvidenceData = try JSONEncoder().encode(scoreEvidence)
         configVersion = [
             scoreEvidence.sleep.algorithmVersion,
             scoreEvidence.recovery.algorithmVersion,
@@ -489,21 +446,7 @@ final class DailyHealthSummaryRecord {
 
     func decodedScoreEvidence() -> DailyScoreEvidenceEnvelope? {
         guard let scoreEvidenceData else { return nil }
-        if let persisted = try? JSONDecoder().decode(PersistedDailyEvidence.self, from: scoreEvidenceData), persisted.formatVersion == 1 {
-            return persisted.evidence
-        }
         return try? JSONDecoder().decode(DailyScoreEvidenceEnvelope.self, from: scoreEvidenceData)
-    }
-
-    private func persistedObservations() -> PersistedDailyEvidence? {
-        guard let scoreEvidenceData else { return nil }
-        if let persisted = try? JSONDecoder().decode(PersistedDailyEvidence.self, from: scoreEvidenceData), persisted.formatVersion == 1 {
-            return persisted
-        }
-        if let legacy = try? JSONDecoder().decode(DailyScoreEvidenceEnvelope.self, from: scoreEvidenceData) {
-            return PersistedDailyEvidence(evidence: legacy, hrvObservedAt: legacy.hrvObservedAt, rhrObservedAt: legacy.rhrObservedAt, spo2ObservedAt: legacy.spo2ObservedAt, hrvObservedWindow: legacy.hrvObservedWindow, rhrObservedWindow: legacy.rhrObservedWindow)
-        }
-        return nil
     }
 
     static func dayIdentifier(for date: Date, calendar: Calendar = .current) -> String {
@@ -526,7 +469,6 @@ final class DailyHealthSummaryRecord {
     }
 
     func toSnapshot() -> DailyHealthSnapshot {
-        let observations = persistedObservations()
         return DailyHealthSnapshot(
             date: date,
             createdAt: createdAt,
@@ -571,12 +513,7 @@ final class DailyHealthSummaryRecord {
             awakeEpisodeCount: awakeEpisodeCount,
             deepSleepMinutes: deepSleepMinutes,
             remSleepMinutes: remSleepMinutes,
-            workouts: decodedWorkouts(),
-            hrvObservedAt: observations?.hrvObservedAt,
-            rhrObservedAt: observations?.rhrObservedAt,
-            spo2ObservedAt: observations?.spo2ObservedAt,
-            hrvObservedWindow: observations?.hrvObservedWindow,
-            rhrObservedWindow: observations?.rhrObservedWindow
+            workouts: decodedWorkouts()
         )
     }
 

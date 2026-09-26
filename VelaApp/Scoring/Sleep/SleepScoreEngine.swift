@@ -131,21 +131,12 @@ public struct SleepScoreEngine: ScoreEngine {
             components["duration"] = durationScore!
             componentWeights["duration"] = 50.0
             
-            let actualText = Self.durationText(totalSleep)
-            let targetText = Self.targetDurationText(target)
-            let completion: String
-            if totalSleep >= target {
-                let excess = totalSleep - target
-                completion = excess > 0
-                    ? "已达成个人作息目标 \(targetText)；超过目标\(Self.excessDurationText(excess))"
-                    : "已达成个人作息目标 \(targetText)"
-            } else {
-                completion = "未达成个人作息目标 \(targetText)"
-            }
+            let hrs = Int(totalSleep) / 60
+            let mins = Int(totalSleep) % 60
             if target < 420 {
-                reasons.append("睡眠时长 \(actualText)（\(completion)；注：依据 AASM 成人共识，成人健康睡眠建议为 7–9 小时，达成个人作息目标不代表生理充分满足）")
+                reasons.append("睡眠时长 \(hrs)小时\(mins)分钟（达成个人作息目标 \(Int(target) / 60)小时；注：依据 AASM 成人共识，成人健康睡眠建议为 7–9 小时，达成个人作息目标不代表生理充分满足）")
             } else {
-                reasons.append("睡眠时长 \(actualText)（\(completion)）")
+                reasons.append("睡眠时长 \(hrs)小时\(mins)分钟（目标 \(Int(target) / 60)小时）")
             }
         } else {
             missingInputs.append("totalSleepMinutes")
@@ -293,25 +284,6 @@ public struct SleepScoreEngine: ScoreEngine {
             algorithmVersion: ScoringAlgorithmVersions.sleep,
             lastUpdated: input.asOf
         )
-    }
-
-    private static func durationText(_ minutes: Double) -> String {
-        let roundedMinutes = max(0, Int(minutes.rounded(.towardZero)))
-        return "\(roundedMinutes / 60)小时\(roundedMinutes % 60)分钟"
-    }
-
-    private static func targetDurationText(_ minutes: Double) -> String {
-        let roundedMinutes = max(0, Int(minutes.rounded(.towardZero)))
-        return roundedMinutes % 60 == 0
-            ? "\(roundedMinutes / 60)小时"
-            : durationText(minutes)
-    }
-
-    private static func excessDurationText(_ minutes: Double) -> String {
-        let roundedMinutes = max(0, Int(minutes.rounded(.towardZero)))
-        return roundedMinutes < 60
-            ? "\(roundedMinutes)分钟"
-            : durationText(minutes)
     }
 
     private func calculateLegacyBuysse(from input: SleepScoreInput) -> SleepDetailAnalysis {
