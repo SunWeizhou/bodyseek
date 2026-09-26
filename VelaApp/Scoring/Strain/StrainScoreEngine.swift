@@ -123,6 +123,9 @@ public struct StrainScoreInput: Hashable {
     
     public var last28DaysDailyLoads: [Double] = [] // historical daily loads
     public var validObservedDaysCount: Int? = nil
+    /// Evidence-preserving daily history. When supplied, this takes precedence
+    /// over the legacy numeric array for baseline and training-load gates.
+    public var dailyLoadObservations: [DailyLoadObservation]? = nil
     
     // Legacy support fields
     public var activeEnergyBaseline: Double?
@@ -141,6 +144,7 @@ public struct StrainScoreInput: Hashable {
         biologicalSex: String? = nil,
         last28DaysDailyLoads: [Double] = [],
         validObservedDaysCount: Int? = nil,
+        dailyLoadObservations: [DailyLoadObservation]? = nil,
         activeEnergyBaseline: Double? = nil,
         exerciseMinutesBaseline: Double? = nil,
         workoutIntensityLoad: Double? = nil,
@@ -156,6 +160,7 @@ public struct StrainScoreInput: Hashable {
         self.biologicalSex = biologicalSex
         self.last28DaysDailyLoads = last28DaysDailyLoads
         self.validObservedDaysCount = validObservedDaysCount
+        self.dailyLoadObservations = dailyLoadObservations
         self.activeEnergyBaseline = activeEnergyBaseline
         self.exerciseMinutesBaseline = exerciseMinutesBaseline
         self.workoutIntensityLoad = workoutIntensityLoad
@@ -200,6 +205,24 @@ public struct StrainScoreEngine: ScoreEngine {
                 "stepCount"
             ])
             reasons.append("需要训练、活动能量、运动分钟或步数中的至少一项，才会给出负荷评分。")
+            return MetricResult(
+                domain: .strain,
+                name: "Strain Score",
+                value: nil,
+                band: .low,
+                confidence: .low,
+                components: [:],
+                componentWeights: [:],
+                reasons: reasons,
+                missingInputs: missingInputs,
+                dataWindow: DateInterval(
+                    start: Calendar.current.date(byAdding: .day, value: -28, to: input.asOf) ?? input.asOf,
+                    end: input.asOf
+                ),
+                source: .healthKit,
+                algorithmVersion: ScoringAlgorithmVersions.strain,
+                lastUpdated: input.asOf
+            )
         }
 
         let hasHeartRateReserve = input.restingHR > 0 && input.maxHR > input.restingHR
@@ -264,7 +287,14 @@ public struct StrainScoreEngine: ScoreEngine {
         let dailyLoad = totalWorkoutLoad + activityLoad
 
         // 3. Baseline & Score Mapping
-        let historyToUse = input.last28DaysDailyLoads.filter { $0 > 0 }
+        let observedHistoryValues: [Double] = if let observations = input.dailyLoadObservations {
+            observations
+                .filter(\.isObservedValue)
+                .compactMap(\.value)
+        } else {
+            input.last28DaysDailyLoads
+        }
+        let historyToUse = observedHistoryValues.filter { $0 > 0 }
         // A static reference scale is only used until a personal load history exists.
         // It must never be described as the user's baseline.
         let hasPersonalLoadBaseline = !historyToUse.isEmpty
@@ -298,7 +328,15 @@ public struct StrainScoreEngine: ScoreEngine {
         // 4. Training Load Status (ATL / CTL)
         // `last28DaysDailyLoads` is newest-first (see personalBaselineHistory).
         // EWMA must iterate oldest→newest ending at today, so reverse it.
-        let ascendingHistory = input.last28DaysDailyLoads.reversed()
+        let ascendingHistory: [Double] = if let observations = input.dailyLoadObservations {
+            observations
+                .sorted { $0.date < $1.date }
+                .map { observation in
+                    observation.availability.contributesToLoad ? (observation.value ?? 0.0) : 0.0
+                }
+        } else {
+            Array(input.last28DaysDailyLoads.reversed())
+        }
         let loadsIncludingToday = ascendingHistory + [dailyLoad]
         let atl = ewma(loadsIncludingToday, lambda: 2.0 / (7.0 + 1.0))
         let ctl28 = ewma(loadsIncludingToday, lambda: 2.0 / (28.0 + 1.0))
@@ -311,7 +349,11 @@ public struct StrainScoreEngine: ScoreEngine {
             reasons.append("缺少个人静息心率或最大心率，心率数据未用于个体化负荷计算。")
         }
         
-        let observedDays = input.validObservedDaysCount ?? historyToUse.count
+        let observedDays = input.dailyLoadObservations?
+            .filter(\.isObservedValue)
+            .count
+            ?? input.validObservedDaysCount
+            ?? historyToUse.count
         if observedDays < 7 {
             // Insufficient history for ATL/CTL
             baseConfidence = .low

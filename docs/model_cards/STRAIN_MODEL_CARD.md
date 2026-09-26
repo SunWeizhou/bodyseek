@@ -1,7 +1,7 @@
 # 训练负荷/耗力指标模型卡 (Strain Score Model Card)
 
-指标及算法版本：StrainScoreEngine v1.0 (`ScoringAlgorithmVersions.strain`)
-状态：工程回归已验证 / 生理有效性未验证 / 无真实运动人体科学实验室（摄氧量/乳酸阈值）金标准标定
+指标及算法版本：StrainScoreEngine v2.1.0 (`ScoringAlgorithmVersions.strain`)
+状态：v2.1 生产失败样例已复现，修复后生产回归通过（全量 598/598） / 生理有效性未验证 / 无真实运动人体科学实验室（摄氧量/乳酸阈值）金标准标定
 
 ## 1. 用途与不适用用途
 - **适用用途**：结合训练期间心率储备指数（Banister TRIMP）、非运动日常基础活动（活动能量、步数、活动时长）以及过去 28 天慢性负荷基线，输出 0–100 的日度耗力评分及 ATL/CTL 训练负荷状态比，用于日常运动强度管理。
@@ -20,9 +20,10 @@
 - `exerciseMinutesToday`：分钟 (min)，Apple 锻炼分钟数。
 - `stepCount`：步数 (steps)，Apple 计步器步数。
 - `restingHR`：次/分 (bpm)，个人近期静息心率。
-- `maxHR`：次/分 (bpm)，个人最大心率（由用户配置或 Tanaka 公式估计）。
+- `maxHR`：次/分 (bpm)，个人最大心率（当前 profile 采用用户配置或 `220-age` 估计；不是 Tanaka 公式）。
 - `biologicalSex`：字符串 ("male", "female", other)，决定 Banister 指数增长系数。
-- `last28DaysDailyLoads`：[Double]，过去 28 天连续日历负荷数组（缺失天填 0）。
+- `dailyLoadObservations`：[DailyLoadObservation]，生产路径的连续日历负荷网格，保留 `observed`、`knownZero`、`missing`、`excluded`。缺失日期仅参与时间衰减，不构成零负荷观测或有效天数。
+- `last28DaysDailyLoads`：[Double]，兼容旧调用的负荷数组；当前生产路径以 typed observations 为准。
 - `validObservedDaysCount`：整数，过去 28 天中实际有佩戴和活动记录的天数。
 
 ## 5. 个人基线窗口、有效天数与源/方法变化政策
@@ -31,10 +32,11 @@
   - 有效观测天数 $< 7$ 天：**严格停用 ATL/CTL 负荷状态评估**（不给出过载/减量结论），置信度标记为 `low`；
   - 有效天数在 7–27 天：启用估算评估，置信度标记为 `medium`；
   - 有效天数 $\ge 28$ 天：基线稳固，置信度为 `high`。
-- **断续日期衰减政策**：采用基于真实日历时间的 EWMA 衰减，未佩戴或休息日负荷记为 0 并正常进行生理衰减，严禁压缩时间轴。
+- **断续日期衰减政策**：采用基于真实日历时间的 EWMA 衰减。未佩戴且无活动观测的日期保留为 missing；明确观测的零保留为 knownZero。两者都不压缩时间轴，但只有后者增加有效观测天数。
 
 ## 6. 缺失、零值、排除窗口、异常值政策
-- **输入缺失政策**：训练、活动能量、运动分钟与步数全为空时，耗力评分严格不可估计（输出 `nil`），显示 `--`。
+- **输入缺失政策**：训练为空且活动能量、运动分钟与步数全为 nil 时，耗力评分严格不可估计（输出 `nil`），不发布 `daily_load`、ATL/CTL 或训练状态，写回 snapshot 的 `dailyLoad` 仍为 nil。任一来源有明确零观测时继续计算，不丢弃其他可用来源。
+- **旧零记录兼容**：旧 snapshot 的 `dailyLoad=0`，且 workouts 为空、activeCalories/activeMinutes/workoutDuration/steps 全缺失时，按 missing 处理。存在任一原始活动观测的零保持 knownZero；正数历史值继续兼容。
 - **心率储备缺失**：若缺少静息心率或最大心率，退化使用 Foster RPE（$load = \text{duration} \times \text{rpe} \times 0.3$）或时长保底估计（$load = \text{duration} \times 1.5$），置信度降为 `low`。
 - **重复训练去重**：训练列表强制按 UUID 去重，防止同一运动记录重复积分。
 
@@ -67,21 +69,19 @@
   - 0–100 对数饱和曲线参数（0.75）；
   - 非运动日常活动估算参数（0.02/0.0015/0.5）以及 0.35 重复抑制乘数；
   - 未指定性别参数插值（0.75 / 1.80）；
-  - 推荐负荷区间由当日恢复评分线性映射（$\text{Recovery} \times 0.5 + 25$）。
+  - 推荐区间按恢复评分分段：缺失时 40–70，低于 40 时 15–40，40..<70 时 35–65，70 及以上时 55–85。
 
 ## 10. 结果刻度/方向/状态文案
 - **刻度**：0–100 分。
-- **状态分段**：
-  - 0–30：Low / Light（轻度活动）
-  - 31–60：Moderate（中度负荷）
-  - 61–85：Strenuous（较高负荷）
-  - 86–100：Maximum / Extreme（极限负荷）
+- **引擎 band**：通用 `ScoringMath.band` 为 `<25 veryLow`、`25..<45 low`、`45..<75 normal`、`75..<90 high`、`>=90 veryHigh`。ATL/CTL 的 TrainingLoadStatus 是另一输出；值高代表负荷大，不等于健康更好。
 
 ## 11. 数据质量与模型不确定性如何分开
-- **数据质量**：依赖输入层次。逐秒心率样本计算为高精度（Method A），均值心率为中精度（Method B），无心率降级为低精度（Method C/D）。
+- **数据质量**：逐点心率、平均心率、RPE 和时长是不同输入方法，不直接构成已验证的精度等级。当前 confidence 同时取决于活动能量是否可用、心率储备和历史覆盖；缺少心率储备时 low 可被后续 7–27 天历史分支覆盖为 medium，属于已记录、尚未在本次修复的限制。
 - **模型不确定性**：在 `reasons` 明确注明所采用的计算方式（如“缺少个人静息心率或最大心率，心率数据未用于个体化负荷计算”）。
 
 ## 12. 已执行工程测试与结果
+- **2026-09-22 v2.1**：生产红测复现全活动 missing 发布 `daily_load=0`，连续写回七日后错误启用负荷比 3.625。新测试同时保留有原始 steps=0 证据的历史零，避免一律删除零值。生产回归命令和结果记录在对应 GitHub PR；固定反例见 `VelaAppTests/ScoringEngineTests.swift` 与 `VelaAppTests/StrainReplaySensitivityTests.swift`。
+- 以下为此前工程记录，不自动表示 v2.1 回归已经完成：
 - `StrainEngineTests.swift`：全面覆盖 4 种计算分支（Method A/B/C/D）、训练 UUID 去重、ATL/CTL 连续日历网格衰减与不足 7 天停用门控，全部通过。
 
 ## 13. 对照基线、留出策略与真实样本
@@ -97,6 +97,7 @@
 - 炎热或脱水环境下相同功率导致的心血管漂移（Cardiac Drift）会被误计为真实机械负荷增加。
 
 ## 16. 新旧版本影响/下游连锁
+- **v2.1 语义修订**：只修全活动缺失的输出和旧零历史兼容，不改变 TRIMP、活动系数、饱和曲线、推荐区间或 EWMA 参数。复合缓存版本随 Strain 版本更新；七日 missing 不再被当作七日有观测休息，从而避免下游凭伪历史额外扣 10 分。
 - **下游消费**：昨日负荷传入次日 `RecoveryScoreEngine` 作为惩罚因子（15%）；当日负荷传入 `EnergyBankEngine` 作为能量耗竭驱动量。
 - **隔离控制**：当负荷为 `nil` 时，能量引擎不扣减运动能量，保持基线代谢消耗。
 

@@ -115,6 +115,7 @@ func localizedStressBand(_ band: MetricBand) -> String {
 func localizedEnergy(_ status: EnergyBankStatus) -> String {
     guard AppLanguage.stored.isChinese else { return status.rawValue }
     switch status {
+    case .unknown: return "未知"
     case .depleted: return "耗尽"
     case .low: return "偏低"
     case .stable: return "稳定"

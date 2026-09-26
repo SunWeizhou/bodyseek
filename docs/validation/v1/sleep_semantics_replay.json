@@ -1,0 +1,199 @@
+[
+  {
+    "algorithmVersion" : "sleep.v2.2.0",
+    "components" : {
+      "awake" : {
+        "availability" : "observed",
+        "value" : 30
+      },
+      "deep" : {
+        "availability" : "observed",
+        "value" : 80
+      },
+      "episodeCount" : {
+        "availability" : "estimated",
+        "reason" : "由清醒片段估算醒来次数",
+        "value" : 2
+      },
+      "inBed" : {
+        "availability" : "observed",
+        "value" : 480
+      },
+      "rem" : {
+        "availability" : "observed",
+        "value" : 90
+      },
+      "totalSleep" : {
+        "availability" : "observed",
+        "value" : 450
+      }
+    },
+    "confidence" : "low",
+    "dataCoverage" : "partial",
+    "freshness" : "today",
+    "missingInputs" : [
+      "todayBedtime",
+      "recentBedtimesHistory"
+    ],
+    "newValue" : 73.57142857142858,
+    "oldValue" : 78,
+    "queryOutcome" : "data",
+    "reasons" : [
+      "睡眠时长 7小时30分钟（已达成个人作息目标 7小时30分钟）",
+      "最近 13 晚有效睡眠记录不足 5 晚，一致性得分已降级",
+      "睡眠中断 30分钟（醒来频率约 2次 · 估算）",
+      "部分睡眠组件由其他观测估算，置信度已降低",
+      "由于缺少质量与一致性指标，该评分已降为低置信度（最大限制为 79 分）",
+      "睡眠分析根据 Apple 公开结构建模，非官方指标。"
+    ],
+    "scenario" : "observed_complete"
+  },
+  {
+    "algorithmVersion" : "sleep.v2.2.0",
+    "components" : {
+      "awake" : {
+        "availability" : "observed",
+        "value" : 30
+      },
+      "deep" : {
+        "availability" : "missing",
+        "reason" : "HealthKit 未提供 Deep 阶段"
+      },
+      "episodeCount" : {
+        "availability" : "missing",
+        "reason" : "缺少清醒次数数据"
+      },
+      "inBed" : {
+        "availability" : "estimated",
+        "reason" : "由睡眠时长与清醒时长推导卧床时长",
+        "value" : 480
+      },
+      "rem" : {
+        "availability" : "missing",
+        "reason" : "HealthKit 未提供 REM 阶段"
+      },
+      "totalSleep" : {
+        "availability" : "observed",
+        "value" : 450
+      }
+    },
+    "confidence" : "low",
+    "dataCoverage" : "partial",
+    "freshness" : "today",
+    "missingInputs" : [
+      "remMinutes",
+      "deepMinutes",
+      "awakeEpisodeCount",
+      "todayBedtime",
+      "recentBedtimesHistory"
+    ],
+    "newValue" : 71.42857142857143,
+    "oldValue" : 70,
+    "queryOutcome" : "data",
+    "reasons" : [
+      "睡眠时长 7小时30分钟（已达成个人作息目标 7小时30分钟）",
+      "最近 13 晚有效睡眠记录不足 5 晚，一致性得分已降级",
+      "睡眠中断 30分钟（醒来频率约 3次 · 估算）",
+      "部分睡眠组件由其他观测估算，置信度已降低",
+      "由于缺少质量与一致性指标，该评分已降为低置信度（最大限制为 79 分）",
+      "睡眠分析根据 Apple 公开结构建模，非官方指标。"
+    ],
+    "scenario" : "estimated_efficiency"
+  },
+  {
+    "algorithmVersion" : "sleep.v2.2.0",
+    "components" : {
+      "awake" : {
+        "availability" : "missing",
+        "reason" : "查询失败"
+      },
+      "deep" : {
+        "availability" : "missing",
+        "reason" : "查询失败"
+      },
+      "episodeCount" : {
+        "availability" : "missing",
+        "reason" : "查询失败"
+      },
+      "inBed" : {
+        "availability" : "missing",
+        "reason" : "查询失败"
+      },
+      "rem" : {
+        "availability" : "missing",
+        "reason" : "查询失败"
+      },
+      "totalSleep" : {
+        "availability" : "observed",
+        "value" : 450
+      }
+    },
+    "confidence" : "low",
+    "dataCoverage" : "partial",
+    "freshness" : "stale",
+    "missingInputs" : [
+      "inBedMinutes",
+      "remMinutes",
+      "deepMinutes",
+      "awakeEpisodeCount",
+      "todayBedtime",
+      "recentBedtimesHistory",
+      "awakeMinutes"
+    ],
+    "newValue" : 79,
+    "oldValue" : 75,
+    "queryOutcome" : "transient",
+    "reasons" : [
+      "睡眠数据来自上次可信同步，当前结果已标记为陈旧",
+      "睡眠查询状态：transient",
+      "睡眠时长 7小时30分钟（已达成个人作息目标 7小时30分钟）",
+      "最近 13 晚有效睡眠记录不足 5 晚，一致性得分已降级",
+      "缺少睡眠阶段中断数据",
+      "由于缺少质量与一致性指标，该评分已降为低置信度（最大限制为 79 分）",
+      "睡眠分析根据 Apple 公开结构建模，非官方指标。"
+    ],
+    "scenario" : "stale_retained"
+  },
+  {
+    "algorithmVersion" : "sleep.v2.2.0",
+    "components" : {
+      "awake" : {
+        "availability" : "missing",
+        "reason" : "没有清醒阶段"
+      },
+      "deep" : {
+        "availability" : "missing",
+        "reason" : "没有 Deep 阶段"
+      },
+      "episodeCount" : {
+        "availability" : "missing",
+        "reason" : "没有清醒次数"
+      },
+      "inBed" : {
+        "availability" : "missing",
+        "reason" : "没有卧床阶段"
+      },
+      "rem" : {
+        "availability" : "missing",
+        "reason" : "没有 REM 阶段"
+      },
+      "totalSleep" : {
+        "availability" : "missing",
+        "reason" : "没有有效睡眠片段"
+      }
+    },
+    "confidence" : "low",
+    "dataCoverage" : "unavailable",
+    "freshness" : "stale",
+    "missingInputs" : [
+      "totalSleepMinutes"
+    ],
+    "queryOutcome" : "noData",
+    "reasons" : [
+      "缺少睡眠时长数据",
+      "睡眠数据来自上次可信同步，当前查询结果已过期",
+      "睡眠查询状态：noData"
+    ],
+    "scenario" : "no_valid_sleep"
+  }
+]

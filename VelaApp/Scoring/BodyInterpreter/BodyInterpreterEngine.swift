@@ -131,8 +131,8 @@ struct BodyInterpreterEngine {
         let hrvMs = dashboard.recoveryMetrics.hrvMilliseconds
         let rhrBpm = dashboard.recoveryMetrics.restingHeartRate
         let hrvZScore = dashboard.recovery.metrics["hrv_z_score"] ?? 0
-        let sleepScore = dashboard.sleepScore.score
-        let sleepEfficiency = dashboard.sleepScore.metrics["sleep_efficiency"] ?? 0
+        let sleepScore = dashboard.sleepScore.value
+        let sleepEfficiency = dashboard.sleepScore.metrics["sleep_efficiency"]
         let strainScore = dashboard.strain.score
         let stressIndex = dashboard.stress.stressIndex
 
@@ -201,12 +201,17 @@ struct BodyInterpreterEngine {
         }
 
         // Sleep deficit
-        if sleepScore < 70 {
+        if let sleepScore, sleepScore < 70 {
+            let efficiencyText = sleepEfficiency.map { String(format: "%.0f", $0) } ?? "暂无"
+            var sleepMetrics: [String: Double] = ["sleep_score": sleepScore]
+            if let sleepEfficiency {
+                sleepMetrics["sleep_efficiency"] = sleepEfficiency
+            }
             sources.append(FatigueSource(
                 category: .sleepRelated,
                 contribution: sleepScore < 50 ? 0.35 : 0.20,
-                evidence: ["Sleep score \(Int(sleepScore))/100, efficiency \(String(format: "%.0f", sleepEfficiency))%"],
-                metrics: ["sleep_score": sleepScore, "sleep_efficiency": sleepEfficiency]
+                evidence: ["Sleep score \(Int(sleepScore))/100, efficiency \(efficiencyText)%"],
+                metrics: sleepMetrics
             ))
             confidence["sleep"] = .high
         }
@@ -273,9 +278,9 @@ struct BodyInterpreterEngine {
         }
 
         let recoveryScore = dashboard.recovery.score
-        let sleepScore = dashboard.sleepScore.score
+        let sleepScore = dashboard.sleepScore.value
         let hrvZScore = dashboard.recovery.metrics["hrv_z_score"] ?? 0
-        let tsb = dashboard.energy.metrics["tsb"] ?? 0
+        let tsb = dashboard.energy.metrics["tsb"]
         let stressIndex = dashboard.stress.stressIndex
 
         // Check autonomic first (HRV + RHR)
@@ -293,7 +298,7 @@ struct BodyInterpreterEngine {
         }
 
         // Check training load
-        if tsb < -15 {
+        if let tsb, tsb < -15 {
             return PrimaryLimiter(
                 system: "Training Load Balance",
                 metricName: "TSB (Training Stress Balance)",
@@ -307,7 +312,7 @@ struct BodyInterpreterEngine {
         }
 
         // Check sleep
-        if sleepScore < 75 {
+        if let sleepScore, sleepScore < 75 {
             return PrimaryLimiter(
                 system: "Sleep Recovery",
                 metricName: "Sleep Score",
@@ -353,10 +358,10 @@ struct BodyInterpreterEngine {
     ) -> [PrimaryLimiter] {
         var limiters: [PrimaryLimiter] = []
 
-        let sleepScore = dashboard.sleepScore.score
+        let sleepScore = dashboard.sleepScore.value
         let strainScore = dashboard.strain.score
 
-        if dashboard.sleepScore.hasData, primary.metricName != "Sleep Score" && sleepScore < 80 {
+        if let sleepScore, primary.metricName != "Sleep Score" && sleepScore < 80 {
             limiters.append(PrimaryLimiter(
                 system: "Sleep Recovery",
                 metricName: "Sleep Score",
@@ -404,8 +409,8 @@ struct BodyInterpreterEngine {
             )
         }
 
-        let tsb = dashboard.energy.metrics["tsb"] ?? 0
-        let sleepScore = dashboard.sleepScore.score
+        let tsb = dashboard.energy.metrics["tsb"]
+        let sleepScore = dashboard.sleepScore.value
         let lang = AppLanguage.stored
 
         let isOpen: Bool
@@ -443,16 +448,16 @@ struct BodyInterpreterEngine {
 
         // TSB override
         let finalIntensity: String
-        if tsb < -15 && intensity == "high" {
+        if let tsb, tsb < -15 && intensity == "high" {
             finalIntensity = "moderate"
-        } else if tsb > 10 && intensity == "low" {
+        } else if let tsb, tsb > 10 && intensity == "low" {
             finalIntensity = "moderate"
         } else {
             finalIntensity = intensity
         }
 
         var constraints: [String] = []
-        if sleepScore < 70 {
+        if let sleepScore, sleepScore < 70 {
             constraints.append(lang.isChinese ? "睡眠不足，训练后恢复效率降低" : "Sleep deficit may slow post-training recovery")
         }
         if primaryLimiter.severity > 0.5 {
@@ -477,7 +482,7 @@ struct BodyInterpreterEngine {
             recommendedIntensity: finalIntensity,
             maxDurationMinutes: maxDuration,
             targetHRZone: hrZone,
-            bestTimeOfDay: sleepScore < 70 ? (lang.isChinese ? "下午" : "Afternoon") : (lang.isChinese ? "上午或下午" : "Morning or Afternoon"),
+            bestTimeOfDay: sleepScore.map { $0 < 70 ? (lang.isChinese ? "下午" : "Afternoon") : (lang.isChinese ? "上午或下午" : "Morning or Afternoon") },
             constraints: constraints,
             narrative: narrative
         )

@@ -11,7 +11,7 @@
         ],
         "newQuality" : "low",
         "oldQuality" : "unavailable",
-        "version" : "sleep.v2.0.0"
+        "version" : "sleep.v2.2.0"
       },
       {
         "domain" : "Recovery",
@@ -37,7 +37,7 @@
         ],
         "newQuality" : "low",
         "oldQuality" : "unavailable",
-        "version" : "strain.v2.0.0"
+        "version" : "strain.v2.1.0"
       },
       {
         "domain" : "Stress",
@@ -56,12 +56,15 @@
           "overnightStabilitySignals",
           "recoveryScore",
           "sleepScore",
+          "trainingLoadHistory",
+          "todayLoad",
+          "strainScore",
           "stressIndex",
           "wakeTime"
         ],
         "newQuality" : "low",
         "oldQuality" : "unavailable",
-        "version" : "energy.v2.0.0"
+        "version" : "energy.v2.1.0"
       }
     ],
     "scenario" : "empty"
@@ -72,8 +75,12 @@
     "metrics" : [
       {
         "domain" : "Sleep",
-        "keyReason" : "睡眠时长 7小时0分钟（目标 7小时）",
+        "keyReason" : "睡眠时长 7小时0分钟（未达成个人作息目标 7小时30分钟）",
         "missingInputs" : [
+          "inBedMinutes",
+          "remMinutes",
+          "deepMinutes",
+          "awakeEpisodeCount",
           "todayBedtime",
           "recentBedtimesHistory",
           "awakeMinutes"
@@ -82,7 +89,7 @@
         "newValue" : 79,
         "oldQuality" : "medium",
         "oldValue" : 70,
-        "version" : "sleep.v2.0.0"
+        "version" : "sleep.v2.2.0"
       },
       {
         "domain" : "Recovery",
@@ -107,7 +114,7 @@
         ],
         "newQuality" : "low",
         "oldQuality" : "unavailable",
-        "version" : "strain.v2.0.0"
+        "version" : "strain.v2.1.0"
       },
       {
         "domain" : "Stress",
@@ -127,13 +134,16 @@
         "keyReason" : "缺少夜间体温、呼吸率与血氧信号，夜间稳定性按基准中值 50 估计。",
         "missingInputs" : [
           "overnightStabilitySignals",
+          "trainingLoadHistory",
+          "todayLoad",
+          "strainScore",
           "wakeTime"
         ],
         "newQuality" : "low",
         "newValue" : 56.89375,
         "oldQuality" : "high",
         "oldValue" : 65,
-        "version" : "energy.v2.0.0"
+        "version" : "energy.v2.1.0"
       }
     ],
     "scenario" : "partial"
@@ -152,7 +162,7 @@
         "newValue" : 25.91817793182821,
         "oldQuality" : "medium",
         "oldValue" : 45,
-        "version" : "strain.v2.0.0"
+        "version" : "strain.v2.1.0"
       }
     ],
     "scenario" : "baselineForming"
@@ -165,6 +175,10 @@
         "domain" : "Sleep",
         "keyReason" : "正常作息达成",
         "missingInputs" : [
+          "inBedMinutes",
+          "remMinutes",
+          "deepMinutes",
+          "awakeEpisodeCount",
           "todayBedtime",
           "recentBedtimesHistory",
           "awakeMinutes"
@@ -173,7 +187,7 @@
         "newValue" : 79,
         "oldQuality" : "high",
         "oldValue" : 77.43,
-        "version" : "sleep.v2.0.0"
+        "version" : "sleep.v2.2.0"
       },
       {
         "domain" : "Recovery",
@@ -197,7 +211,7 @@
         "newValue" : 30.46453900060073,
         "oldQuality" : "high",
         "oldValue" : 63.67,
-        "version" : "strain.v2.0.0"
+        "version" : "strain.v2.1.0"
       },
       {
         "domain" : "Stress",
@@ -206,7 +220,7 @@
 
         ],
         "newQuality" : "high",
-        "newValue" : 30.60838475520521,
+        "newValue" : 30.608384755205215,
         "oldQuality" : "high",
         "oldValue" : 21.08,
         "version" : "physiologicalStress.v2.0.0"
@@ -221,7 +235,7 @@
         "newValue" : 53.183283675996854,
         "oldQuality" : "high",
         "oldValue" : 42.31,
-        "version" : "energy.v2.0.0"
+        "version" : "energy.v2.1.0"
       }
     ],
     "scenario" : "normalHealthy"
@@ -258,7 +272,7 @@
         "newValue" : 18.331351740188918,
         "oldQuality" : "compacted",
         "oldValue" : 50,
-        "version" : "strain.v2.0.0"
+        "version" : "strain.v2.1.0"
       }
     ],
     "scenario" : "discontinuousGaps"
@@ -289,6 +303,10 @@
         "domain" : "Sleep",
         "keyReason" : "跨日作息时间与醒来时间连续计算",
         "missingInputs" : [
+          "inBedMinutes",
+          "remMinutes",
+          "deepMinutes",
+          "awakeEpisodeCount",
           "recentBedtimesHistory",
           "awakeMinutes"
         ],
@@ -296,7 +314,7 @@
         "newValue" : 79,
         "oldQuality" : "medium",
         "oldValue" : 75,
-        "version" : "sleep.v2.0.0"
+        "version" : "sleep.v2.2.0"
       }
     ],
     "scenario" : "crossTimezone"
@@ -321,13 +339,14 @@
         "keyReason" : "说明运动负荷已包含消耗，无压力回弹假象",
         "missingInputs" : [
           "overnightStabilitySignals",
+          "trainingLoadHistory",
           "wakeTime"
         ],
         "newQuality" : "low",
         "newValue" : 40.35107165165988,
         "oldQuality" : "rebounded",
         "oldValue" : 50,
-        "version" : "energy.v2.0.0"
+        "version" : "energy.v2.1.0"
       }
     ],
     "scenario" : "postWorkoutExclusion"

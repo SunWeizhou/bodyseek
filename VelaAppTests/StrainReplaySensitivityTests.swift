@@ -50,6 +50,16 @@ final class StrainReplaySensitivityTests: XCTestCase {
         XCTAssertEqual(result.algorithmVersion, ScoringAlgorithmVersions.strain)
     }
 
+    func testMissingActivityDoesNotPublishLoadOrTrainingStatusWithHistory() {
+        var input = missingActivityInput()
+        input.last28DaysDailyLoads = Array(repeating: 60, count: 28)
+        let result = StrainScoreEngine().calculate(from: input)
+        XCTAssertNil(result.value)
+        XCTAssertNil(result.components["daily_load"])
+        XCTAssertNil(result.components["training_load_ratio"])
+        XCTAssertEqual(result.trainingLoadStatus, .unknown)
+    }
+
     private func baselineInput() -> StrainScoreInput {
         StrainScoreInput(
             asOf: asOf,

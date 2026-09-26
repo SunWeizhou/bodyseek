@@ -1,4 +1,5 @@
 import Foundation
+import BodySeekDomain
 
 enum UserProfileSettings {
     static let ageKey = "vela_user_age"
@@ -80,6 +81,87 @@ enum UserProfileSettings {
     }
 }
 
+/// Adapter that makes the Foundation-only Domain Core the production Sleep
+/// fact source while keeping the app's existing presentation contract stable.
+/// HealthKit and SwiftData types stop at the caller; only value semantics cross
+/// this boundary.
+enum DomainSleepScoreAdapter {
+    static func calculate(
+        asOf: Date,
+        totalSleepMinutes: Double?,
+        sleepTargetMinutes: Double,
+        todayBedtime: Date?,
+        recentBedtimes: [Date],
+        awakeMinutes: Double?,
+        awakeEpisodeCount: Int?,
+        remMinutes: Double?,
+        deepMinutes: Double?,
+        inBedMinutes: Double?,
+        evidence: SleepEvidenceContext?,
+        calendar: Calendar = .current
+    ) -> MetricResult {
+        let input = BodySeekDomain.SleepScoreInput(
+            asOf: asOf,
+            totalSleepMinutes: totalSleepMinutes,
+            sleepTargetMinutes: sleepTargetMinutes,
+            todayBedtime: todayBedtime,
+            recentBedtimes: recentBedtimes,
+            awakeMinutes: awakeMinutes,
+            awakeEpisodeCount: awakeEpisodeCount,
+            remMinutes: remMinutes,
+            deepMinutes: deepMinutes,
+            inBedMinutes: inBedMinutes,
+            evidence: evidence.map(mapEvidence)
+        )
+        return mapResult(BodySeekDomain.SleepScoreEngine(calendar: calendar).calculate(from: input))
+    }
+
+    private static func mapEvidence(_ value: SleepEvidenceContext) -> BodySeekDomain.SleepEvidenceContext {
+        BodySeekDomain.SleepEvidenceContext(
+            queryOutcome: value.queryOutcome.flatMap { BodySeekDomain.HealthQueryOutcomeKind(rawValue: $0.rawValue) },
+            freshness: value.freshness.flatMap { BodySeekDomain.DataFreshness(rawValue: $0.rawValue) },
+            totalSleep: mapObservation(value.totalSleep),
+            bedtime: mapObservation(value.bedtime),
+            wakeTime: mapObservation(value.wakeTime),
+            inBed: mapObservation(value.inBed),
+            awake: mapObservation(value.awake),
+            rem: mapObservation(value.rem),
+            deep: mapObservation(value.deep),
+            episodeCount: mapObservation(value.episodeCount)
+        )
+    }
+
+    private static func mapObservation(_ value: SleepComponentObservation) -> BodySeekDomain.SleepComponentObservation {
+        BodySeekDomain.SleepComponentObservation(
+            value: value.value,
+            availability: BodySeekDomain.SleepObservationAvailability(rawValue: value.availability.rawValue) ?? .missing,
+            reason: value.reason,
+            observedWindow: value.observedWindow
+        )
+    }
+
+    private static func mapResult(_ value: BodySeekDomain.MetricResult) -> MetricResult {
+        MetricResult(
+            domain: ScoredHealthDomain(rawValue: value.domain.rawValue),
+            name: value.name,
+            value: value.value,
+            band: MetricBand(rawValue: value.band.rawValue) ?? .low,
+            confidence: MetricConfidence(rawValue: value.confidence.rawValue) ?? .low,
+            components: value.components,
+            componentWeights: value.componentWeights,
+            reasons: value.reasons,
+            missingInputs: value.missingInputs,
+            dataWindow: value.dataWindow,
+            source: MetricSource(rawValue: value.source.rawValue) ?? .derived,
+            algorithmVersion: value.algorithmVersion,
+            lastUpdated: value.lastUpdated,
+            observedWindow: value.observedWindow,
+            observedAt: value.observedAt,
+            computedAt: value.computedAt
+        )
+    }
+}
+
 /// Display-only projections derived from canonical Daily Health Computation results.
 enum DashboardMetricProjection {
     // MARK: - Health Age
@@ -104,7 +186,9 @@ enum DashboardMetricProjection {
             let leanRatio = lean / weight
             factors.append(.init(name: "Lean mass ratio", direction: leanRatio >= 0.65 ? .positive : .neutral))
         }
-        factors.append(.init(name: "Sleep duration", direction: sleepScore.score >= 70 ? .positive : .negative))
+        if let value = sleepScore.value {
+            factors.append(.init(name: "Sleep duration", direction: value >= 70 ? .positive : .negative))
+        }
         factors.append(.init(name: "Recovery trend", direction: recovery.score >= 70 ? .positive : (recovery.score < 40 ? .negative : .neutral)))
         factors.append(.init(name: "Activity consistency", direction: strain.confidence == .high ? .positive : .neutral))
         return HealthAgeTrendInput(factors: factors)
@@ -173,28 +257,190 @@ struct ScoredHealthEvidence: Hashable {
     }
 }
 
+/// The origin of a resolved profile value.  The score engines must never need
+/// to know whether a value came from UserDefaults, HealthKit, or the wiki.
+enum ProfileValueSource: String, Codable, Hashable, Sendable {
+    case manual
+    case healthKit
+    case wiki
+    case inferred
+}
+
+/// A profile value with enough provenance to explain a score input later.
+/// This is deliberately small and value typed so it can be used by replay
+/// fixtures without opening SwiftData, HealthKit, or the filesystem.
+struct ProfileValue<Value: Codable & Hashable & Sendable>: Codable, Hashable, Sendable {
+    let value: Value
+    let source: ProfileValueSource
+    let resolvedAt: Date
+
+    init(value: Value, source: ProfileValueSource, resolvedAt: Date) {
+        self.value = value
+        self.source = source
+        self.resolvedAt = resolvedAt
+    }
+}
+
+/// Canonical, resolved inputs that affect deterministic scoring.
+///
+/// Adapters resolve source priority once, then pass this snapshot into the
+/// scoring module.  Keeping provenance here prevents UI and AI callers from
+/// silently re-resolving the same field through a different fallback chain.
+struct ProfileSnapshot: Codable, Hashable, Sendable {
+    static let schemaVersion = "profile.snapshot.v1"
+
+    let schemaVersion: String
+    let age: ProfileValue<Int>?
+    let maxHeartRate: ProfileValue<Double>?
+    let biologicalSex: ProfileValue<String>?
+
+    init(
+        age: ProfileValue<Int>?,
+        maxHeartRate: ProfileValue<Double>?,
+        biologicalSex: ProfileValue<String>?,
+        schemaVersion: String = Self.schemaVersion
+    ) {
+        self.schemaVersion = schemaVersion
+        self.age = age
+        self.maxHeartRate = maxHeartRate
+        self.biologicalSex = biologicalSex
+    }
+
+    /// Resolves the existing manual → HealthKit → wiki priority without
+    /// changing any score formula or fallback semantics.
+    static func resolve(
+        manualAge: Int?,
+        healthKitAge: Int?,
+        wikiAge: Int?,
+        manualMaxHeartRate: Double?,
+        wikiMaxHeartRate: Double?,
+        manualBiologicalSex: String?,
+        healthKitBiologicalSex: String?,
+        resolvedAt: Date = Date()
+    ) -> ProfileSnapshot {
+        let age = firstValid(
+            (manualAge, .manual),
+            (healthKitAge, .healthKit),
+            (wikiAge, .wiki),
+            where: { (10...100).contains($0) }
+        ).map { ProfileValue(value: $0.value, source: $0.source, resolvedAt: resolvedAt) }
+
+        let maxHeartRate = firstValid(
+            (manualMaxHeartRate, .manual),
+            (wikiMaxHeartRate, .wiki),
+            where: { (100...240).contains($0) }
+        ).map { ProfileValue(value: $0.value, source: $0.source, resolvedAt: resolvedAt) }
+
+        let biologicalSex = firstValid(
+            (manualBiologicalSex, .manual),
+            (healthKitBiologicalSex, .healthKit),
+            where: { ["male", "female", "other"].contains($0) }
+        ).map { ProfileValue(value: $0.value, source: $0.source, resolvedAt: resolvedAt) }
+
+        let resolvedMaxHeartRate = maxHeartRate
+            ?? age.map {
+                ProfileValue(
+                    value: UserProfileSettings.inferredMaxHeartRate(age: $0.value),
+                    source: .inferred,
+                    resolvedAt: resolvedAt
+                )
+            }
+
+        return ProfileSnapshot(
+            age: age,
+            maxHeartRate: resolvedMaxHeartRate,
+            biologicalSex: biologicalSex
+        )
+    }
+
+    private static func firstValid<Value>(
+        _ candidates: (Value?, ProfileValueSource)...,
+        where predicate: (Value) -> Bool
+    ) -> (value: Value, source: ProfileValueSource)? {
+        for candidate in candidates {
+            let (value, source) = candidate
+            guard let value, predicate(value) else { continue }
+            return (value, source)
+        }
+        return nil
+    }
+}
+
+/// The complete value contract consumed by `DailyHealthComputation`.
+/// `profile` is immutable and can be serialized alongside a replay fixture.
+struct ScoringContext: Codable, Hashable, Sendable {
+    static let schemaVersion = "scoring.context.v1"
+
+    let schemaVersion: String
+    let sleepTargetMinutes: Double
+    let profile: ProfileSnapshot
+
+    var maxHeartRate: Double? { profile.maxHeartRate?.value }
+    var biologicalSex: String? { profile.biologicalSex?.value }
+
+    init(
+        sleepTargetMinutes: Double,
+        profile: ProfileSnapshot,
+        schemaVersion: String = Self.schemaVersion
+    ) {
+        self.schemaVersion = schemaVersion
+        self.sleepTargetMinutes = sleepTargetMinutes
+        self.profile = profile
+    }
+
+    static func current(
+        ageFallback: Int? = nil,
+        biologicalSexFallback: String? = nil,
+        resolvedAt: Date = Date(),
+        defaults: UserDefaults = .standard
+    ) -> ScoringContext {
+        let profile = ProfileSnapshot.resolve(
+            manualAge: UserProfileSettings.age(defaults: defaults),
+            healthKitAge: ageFallback,
+            wikiAge: WikiFileService.getAgeFromWiki(),
+            manualMaxHeartRate: UserProfileSettings.maxHeartRate(defaults: defaults),
+            wikiMaxHeartRate: WikiFileService.getMaxHeartRateFromWiki(),
+            manualBiologicalSex: UserProfileSettings.biologicalSex(defaults: defaults),
+            healthKitBiologicalSex: biologicalSexFallback,
+            resolvedAt: resolvedAt
+        )
+        return ScoringContext(
+            sleepTargetMinutes: SleepTargetSettings.targetMinutes(),
+            profile: profile
+        )
+    }
+}
+
+/// Compatibility projection retained for existing replay fixtures and tests.
+/// New production callers should pass `ScoringContext` directly.
 struct DailyHealthComputationProfile: Sendable {
     let sleepTargetMinutes: Double
     let maxHeartRate: Double?
     let biologicalSex: String?
 
+    init(sleepTargetMinutes: Double, maxHeartRate: Double?, biologicalSex: String?) {
+        self.sleepTargetMinutes = sleepTargetMinutes
+        self.maxHeartRate = maxHeartRate
+        self.biologicalSex = biologicalSex
+    }
+
+    init(context: ScoringContext) {
+        self.init(
+            sleepTargetMinutes: context.sleepTargetMinutes,
+            maxHeartRate: context.maxHeartRate,
+            biologicalSex: context.biologicalSex
+        )
+    }
+
     static func current(
         ageFallback: Int? = nil,
         biologicalSexFallback: String? = nil
     ) -> DailyHealthComputationProfile {
-        // M2 修复：与展示/AI 层同源——手动 → HealthKit → wiki。
-        // 此前引擎是 manual → wiki → HK，wiki 陈旧年龄会压过 HealthKit 出生日期，
-        // 评分与 AI 对同一用户年龄看法不一致。
-        let age = UserProfileSettings.age()
-            ?? ageFallback
-            ?? WikiFileService.getAgeFromWiki()
-        return DailyHealthComputationProfile(
-            sleepTargetMinutes: SleepTargetSettings.targetMinutes(),
-            maxHeartRate: UserProfileSettings.maxHeartRate()
-                ?? WikiFileService.getMaxHeartRateFromWiki()
-                ?? age.map(UserProfileSettings.inferredMaxHeartRate),
-            biologicalSex: UserProfileSettings.biologicalSex()
-                ?? biologicalSexFallback
+        DailyHealthComputationProfile(
+            context: ScoringContext.current(
+                ageFallback: ageFallback,
+                biologicalSexFallback: biologicalSexFallback
+            )
         )
     }
 }
@@ -216,24 +462,63 @@ final class DailyHealthComputation {
         self.profile = profile
     }
 
+    init(
+        calendar: Calendar = .current,
+        now: Date = Date(),
+        scoringContext: ScoringContext
+    ) {
+        self.calendar = calendar
+        self.now = now
+        self.profile = DailyHealthComputationProfile(context: scoringContext)
+    }
+
     func compute(
         for snapshot: DailyHealthSnapshot,
         history: [DailyHealthSnapshot],
-        longTermBaselines: LongTermBaselineReport? = nil
+        longTermBaselines: LongTermBaselineReport? = nil,
+        sleepEvidence: SleepEvidenceContext? = nil
     ) -> ScoredHealthEvidence {
         let asOf = evaluationDate(for: snapshot)
         let baselineHistory = personalBaselineHistory(for: snapshot, from: history)
-        let (dailyLoadGrid, validDailyLoadDays) = continuousDailyLoadGrid(for: snapshot, from: history, maxDays: 42)
+        let sleepHistoryStart = calendar.date(
+            byAdding: .day,
+            value: -13,
+            to: calendar.startOfDay(for: snapshot.date)
+        ) ?? .distantPast
+        let recentBedtimes = baselineHistory
+            .filter { calendar.startOfDay(for: $0.date) >= sleepHistoryStart }
+            .compactMap(\.bedtime)
+        let (dailyLoadObservations, validDailyLoadDays) = continuousDailyLoadGrid(for: snapshot, from: history, maxDays: 42)
         let hrvHistory = baselineHistory.compactMap(\.hrvAverage)
         let hrvRmssdHistory = baselineHistory.compactMap(\.hrvRmssdMilliseconds)
         let rhrHistory = baselineHistory.compactMap(\.restingHeartRate)
         let respiratoryHistory = baselineHistory.compactMap(\.respiratoryRate)
-        let dailyLoadHistory = dailyLoadGrid
+        // Keep the numeric array only for legacy StrainScoreInput callers. The
+        // typed observations carry the authoritative missing/zero/excluded
+        // semantics through the current scoring path.
+        let dailyLoadHistory = dailyLoadObservations.map { observation in
+            observation.availability.contributesToLoad ? (observation.value ?? 0.0) : 0.0
+        }
         let temperatureDelta = wristTemperatureDelta(
             current: snapshot.wristTemperature,
             history: baselineHistory
         )
 
+        let sleep = DomainSleepScoreAdapter.calculate(
+            asOf: asOf,
+            totalSleepMinutes: snapshot.sleepHours.map { $0 * 60 },
+            sleepTargetMinutes: profile.sleepTargetMinutes,
+            todayBedtime: snapshot.bedtime,
+            recentBedtimes: recentBedtimes,
+            awakeMinutes: snapshot.awakeMinutes,
+            awakeEpisodeCount: snapshot.awakeEpisodeCount,
+            remMinutes: snapshot.remSleepMinutes,
+            deepMinutes: snapshot.deepSleepMinutes,
+            inBedMinutes: sleepEvidence?.inBed.value,
+            evidence: sleepEvidence,
+            calendar: calendar
+        )
+        /*
         let sleep = SleepScoreEngine().calculate(from: SleepScoreInput(
             asOf: asOf,
             totalSleepMinutes: snapshot.sleepHours.map { $0 * 60 },
@@ -243,8 +528,11 @@ final class DailyHealthComputation {
             awakeMinutes: snapshot.awakeMinutes,
             awakeEpisodeCount: snapshot.awakeEpisodeCount,
             remMinutes: snapshot.remSleepMinutes,
-            deepMinutes: snapshot.deepSleepMinutes
+            deepMinutes: snapshot.deepSleepMinutes,
+            inBedMinutes: sleepEvidence?.inBed.value,
+            evidence: sleepEvidence,
         ))
+        */
 
         let yesterday = calendar.date(byAdding: .day, value: -1, to: snapshot.date) ?? snapshot.date
         let yesterdayStrain = baselineHistory.first {
@@ -291,6 +579,7 @@ final class DailyHealthComputation {
             biologicalSex: profile.biologicalSex,
             last28DaysDailyLoads: Array(dailyLoadHistory.prefix(28)),
             validObservedDaysCount: min(28, validDailyLoadDays),
+            dailyLoadObservations: Array(dailyLoadObservations.prefix(28)),
             recoveryScore: recovery.value
         ))
 
@@ -334,7 +623,13 @@ final class DailyHealthComputation {
             rhrBaseline: PersonalBaselineEngine.median(rhrHistory),
             sleepHours: snapshot.sleepHours,
             strainHistory: dailyLoadHistory,
+            trainingLoadHistory: dailyLoadObservations,
             todayLoad: strain.components["daily_load"],
+            todayLoadObservation: todayLoadObservation(
+                for: snapshot,
+                dailyLoad: strain.components["daily_load"],
+                asOf: asOf
+            ),
             bodyTempDelta: temperatureDelta,
             hoursSinceWake: hoursSinceWake(snapshot: snapshot, asOf: asOf),
             respiratoryRateZ: respiratoryRateZ,
@@ -390,7 +685,7 @@ final class DailyHealthComputation {
         for snapshot: DailyHealthSnapshot,
         from history: [DailyHealthSnapshot],
         maxDays: Int = 42
-    ) -> (grid: [Double], validDays: Int) {
+    ) -> (grid: [DailyLoadObservation], validDays: Int) {
         let dayStart = calendar.startOfDay(for: snapshot.date)
         var loadsByDay: [Date: Double] = [:]
         var earliestDate: Date?
@@ -401,7 +696,10 @@ final class DailyHealthComputation {
                 if earliestDate == nil || itemDay < earliestDate! {
                     earliestDate = itemDay
                 }
-                if let load = item.dailyLoad {
+                // Older snapshots may contain a fabricated zero from a day
+                // with no activity inputs. Only preserve zero when the original
+                // snapshot also contains an activity observation.
+                if let load = item.dailyLoad, load != 0 || hasActivityEvidence(in: item) {
                     loadsByDay[itemDay] = max(loadsByDay[itemDay] ?? 0.0, load)
                 }
             }
@@ -413,24 +711,68 @@ final class DailyHealthComputation {
 
         let totalDays = min(maxDays, max(1, calendar.dateComponents([.day], from: earliest, to: dayStart).day ?? 1))
 
-        var grid: [Double] = []
+        var grid: [DailyLoadObservation] = []
         var validDays = 0
         grid.reserveCapacity(totalDays)
 
         for offset in 1...totalDays {
             guard let targetDate = calendar.date(byAdding: .day, value: -offset, to: dayStart) else { break }
             if let load = loadsByDay[targetDate] {
-                grid.append(load)
+                grid.append(DailyLoadObservation(
+                    date: targetDate,
+                    value: load,
+                    availability: load == 0 ? .knownZero : .observed,
+                    observedWindow: DateInterval(start: targetDate, duration: 24 * 60 * 60)
+                ))
                 if offset <= 28 {
                     validDays += 1
                 }
             } else {
-                // Gap day within tracked period: decays EWMA
-                grid.append(0.0)
+                // Gap day keeps its calendar position for decay but is not a
+                // measured zero and does not increase valid observed days.
+                grid.append(DailyLoadObservation(
+                    date: targetDate,
+                    value: nil,
+                    availability: .missing,
+                    reason: "缺少该日负荷覆盖",
+                    observedWindow: DateInterval(start: targetDate, duration: 24 * 60 * 60)
+                ))
             }
         }
 
         return (grid, validDays)
+    }
+
+    private func hasActivityEvidence(in snapshot: DailyHealthSnapshot) -> Bool {
+        !snapshot.workouts.isEmpty
+            || snapshot.activeCalories != nil
+            || snapshot.activeMinutes != nil
+            || snapshot.workoutDuration != nil
+            || snapshot.steps != nil
+    }
+
+    private func todayLoadObservation(
+        for snapshot: DailyHealthSnapshot,
+        dailyLoad: Double?,
+        asOf: Date
+    ) -> DailyLoadObservation {
+        let day = calendar.startOfDay(for: asOf)
+        guard hasActivityEvidence(in: snapshot) else {
+            return DailyLoadObservation(
+                date: day,
+                value: nil,
+                availability: .missing,
+                reason: "今日没有训练或活动覆盖证据"
+            )
+        }
+
+        let value = dailyLoad ?? 0.0
+        return DailyLoadObservation(
+            date: day,
+            value: value,
+            availability: value == 0 ? .knownZero : .observed,
+            reason: dailyLoad == nil ? "今日活动已覆盖，但负荷尚未计算" : nil
+        )
     }
 
     private func personalBaselineHistory(

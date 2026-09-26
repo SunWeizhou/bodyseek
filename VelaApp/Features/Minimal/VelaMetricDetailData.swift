@@ -919,6 +919,7 @@ extension VelaMetricDetailView {
 
     func energyStatusLabel(_ status: EnergyBankStatus) -> String {
         switch status {
+        case .unknown: return "未知"
         case .depleted: return "耗竭"
         case .low: return "偏低"
         case .stable: return "稳定"

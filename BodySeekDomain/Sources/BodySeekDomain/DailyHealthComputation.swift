@@ -76,7 +76,7 @@ public struct DailyHealthComputation: Sendable {
         _ = longTermBaselines
         let asOf = evaluationDate(for: snapshot)
         let dayStart = calendar.startOfDay(for: snapshot.date)
-        let earliest = calendar.date(byAdding: .day, value: -42, to: dayStart) ?? .distantPast
+        let earliest = calendar.date(byAdding: .day, value: -13, to: dayStart) ?? .distantPast
         let baselineHistory = history
             .filter {
                 let date = calendar.startOfDay(for: $0.date)
@@ -91,7 +91,7 @@ public struct DailyHealthComputation: Sendable {
             totalSleepMinutes: snapshot.sleepHours.map { $0 * 60 },
             sleepTargetMinutes: profile.sleepTargetMinutes,
             todayBedtime: snapshot.bedtime,
-            recentBedtimes: baselineHistory.prefix(13).compactMap(\.bedtime),
+            recentBedtimes: baselineHistory.compactMap(\.bedtime),
             awakeMinutes: snapshot.awakeMinutes,
             awakeEpisodeCount: snapshot.awakeEpisodeCount,
             remMinutes: snapshot.remSleepMinutes,
