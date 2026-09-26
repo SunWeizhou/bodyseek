@@ -213,47 +213,6 @@ struct VelaTodayView: View {
     }
 
     @ViewBuilder
-    private var notableChangeCard: some View {
-        if let notable = dashboard.personalHealthBrief?.notableChanges.first {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 6) {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(VelaTheme.rhythmDeep)
-                    Text("最值得关注的变化")
-                        .font(.system(.caption, design: .default, weight: .bold))
-                        .foregroundStyle(VelaTheme.rhythmDeep)
-                    Spacer()
-                    Button {
-                        dispatchToday(.openTrends)
-                    } label: {
-                        HStack(spacing: 2) {
-                            Text("查看趋势")
-                            Image(systemName: "chevron.right")
-                        }
-                        .font(.system(.caption2, design: .default, weight: .medium))
-                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                    }
-                }
-
-                Text(notable.summary)
-                    .font(.system(.footnote, design: .default, weight: .medium))
-                    .foregroundStyle(VelaTheme.rhythmInk)
-                    .lineSpacing(2)
-            }
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
-            .overlay(
-                RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
-                    .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
-            )
-            .padding(.horizontal, VelaTheme.pagePadding)
-            .padding(.top, 16)
-        }
-    }
-
-    @ViewBuilder
     private var velaInterpretationSection: some View {
         if let insight = todayAIInsight {
             aiInsightCard(insight)
@@ -463,9 +422,6 @@ struct VelaTodayView: View {
                         .padding(.top, 12)
                     }
                 }
-
-                // ─── Block 2: Today's Most Notable Change (if present) ───
-                notableChangeCard
 
                 VStack(alignment: .leading, spacing: 24) {
                     // ─── Block 5: Feedback + data coverage ───
