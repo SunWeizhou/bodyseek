@@ -45,6 +45,12 @@ public enum HealthTrendHorizon: String, Codable, Hashable, CaseIterable, Sendabl
         case .threeYears: return 1095
         }
     }
+
+    /// Inclusive day count before `end`. Trends fetches this window only;
+    /// the three-year span is not loaded for a shorter selected scale.
+    public func historyFetchStart(endingExclusive end: Date, calendar: Calendar = .current) -> Date {
+        calendar.date(byAdding: .day, value: -windowDays, to: end) ?? end
+    }
 }
 
 public enum HealthTrendDirection: String, Codable, Hashable, Sendable {

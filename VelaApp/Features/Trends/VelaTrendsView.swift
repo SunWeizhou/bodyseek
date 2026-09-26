@@ -51,6 +51,7 @@ struct VelaTrendsView: View {
     @State private var dailyRecords: [DailyHealthSummaryRecord] = []
     @State private var dailyRecordsLoadError: String?
     @State private var trendStates: [CoreHealthMetric: TrendsViewState] = [:]
+    @State private var trendReloadGeneration = 0
     @State private var selectedRecoveryTrendDate: Date?
 
     private var dashboard: DashboardSummary { dashboardVM.dashboard }
@@ -140,11 +141,11 @@ struct VelaTrendsView: View {
             .background(VelaTheme.rhythmCanvas.opacity(0.96))
         }
         .toolbar(.hidden, for: .navigationBar)
-        .onAppear(perform: loadDailyRecords)
-        .onChange(of: dashboardVM.selectedDate) { _, _ in loadDailyRecords() }
-        .onChange(of: appState.localDataRevision) { _, _ in loadDailyRecords() }
+        .onAppear(perform: scheduleTrendLoad)
+        .onChange(of: dashboardVM.selectedDate) { _, _ in scheduleTrendLoad() }
+        .onChange(of: appState.localDataRevision) { _, _ in scheduleTrendLoad() }
         .onChange(of: selectedHorizon) { _, _ in
-            reloadTrendStores()
+            scheduleTrendLoad()
         }
         .sheet(item: $selectedMetricForDetail) { metric in
             NavigationStack {
@@ -564,11 +565,26 @@ struct VelaTrendsView: View {
         }
     }
 
-    private func loadDailyRecords() {
+    /// Lets the horizon control paint before the history read. A newer
+    /// selection supersedes an in-flight load, and the visible series stays
+    /// until that load finishes.
+    private func scheduleTrendLoad() {
+        trendReloadGeneration &+= 1
+        let generation = trendReloadGeneration
+        let horizon = selectedHorizon
+        let selectedDate = dashboardVM.selectedDate
+        Task { @MainActor in
+            await Task.yield()
+            guard generation == trendReloadGeneration else { return }
+            loadDailyRecords(generation: generation, horizon: horizon, selectedDate: selectedDate)
+        }
+    }
+
+    private func loadDailyRecords(generation: Int, horizon: HealthTrendHorizon, selectedDate: Date) {
         let calendar = Calendar.current
-        let endDay = calendar.startOfDay(for: dashboardVM.selectedDate)
+        let endDay = calendar.startOfDay(for: selectedDate)
         let end = calendar.date(byAdding: .day, value: 1, to: endDay) ?? endDay
-        let start = calendar.date(byAdding: .day, value: -HealthTrendHorizon.threeYears.windowDays, to: end) ?? end
+        let start = horizon.historyFetchStart(endingExclusive: end, calendar: calendar)
         let descriptor = FetchDescriptor<DailyHealthSummaryRecord>(
             predicate: #Predicate { $0.date >= start && $0.date < end },
             sortBy: [SortDescriptor(\.date, order: .forward)]
@@ -585,10 +601,10 @@ struct VelaTrendsView: View {
                 "趋势历史暂时无法读取，请重试后再查看。"
             )
         }
-        reloadTrendStores()
+        reloadTrendStores(generation: generation, horizon: horizon, selectedDate: selectedDate)
     }
 
-    private func reloadTrendStores() {
+    private func reloadTrendStores(generation: Int, horizon: HealthTrendHorizon, selectedDate: Date) {
         var snapshots = dailyRecords.map { record in
             var snapshot = DailyHealthSnapshot(date: record.date, createdAt: record.updatedAt)
             snapshot.sleepScore = record.sleepScore
@@ -612,7 +628,7 @@ struct VelaTrendsView: View {
         var isPreview = false
         #if DEBUG
         if DailySummaryUseCase.isPreviewDashboardEnabled() {
-            snapshots = PreviewDataFactory.makeTrendSnapshots(endingAt: dashboardVM.selectedDate)
+            snapshots = PreviewDataFactory.makeTrendSnapshots(endingAt: selectedDate)
             isPreview = true
         }
         #endif
@@ -621,19 +637,20 @@ struct VelaTrendsView: View {
             findings: allTrends,
             isPreview: isPreview
         )
-        Task {
+        Task { @MainActor in
             var states: [CoreHealthMetric: TrendsViewState] = [:]
-            for metric in scoreMetrics {
+            for metric in scoreDescriptors.map(\.metric) {
+                guard generation == trendReloadGeneration else { return }
                 let store = TrendsStore(
                     provider: provider,
-                    selectedDay: dashboardVM.selectedDate,
-                    horizon: selectedHorizon,
+                    selectedDay: selectedDate,
+                    horizon: horizon,
                     metric: metric
                 )
                 await store.send(.appear)
                 states[metric] = store.state
             }
-            guard !Task.isCancelled else { return }
+            guard generation == trendReloadGeneration else { return }
             trendStates = states
         }
     }
@@ -703,7 +720,7 @@ struct VelaTrendsView: View {
                 title: "趋势历史暂时无法读取",
                 message: dailyRecordsLoadError,
                 actionTitle: "重试",
-                action: loadDailyRecords
+                action: scheduleTrendLoad
             )
             .accessibilityIdentifier("trends-history-error")
         }

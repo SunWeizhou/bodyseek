@@ -369,6 +369,21 @@ final class HealthTrendAndBriefTests: XCTestCase {
         XCTAssertEqual(brief.subheadline, "恢复 82。")
     }
 
+    func testSelectedTrendHorizonFetchesItsOwnWindow() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let end = calendar.date(from: DateComponents(year: 2026, month: 9, day: 27))!
+        let spans = HealthTrendHorizon.allCases.map { horizon in
+            calendar.dateComponents(
+                [.day],
+                from: horizon.historyFetchStart(endingExclusive: end, calendar: calendar),
+                to: end
+            ).day
+        }
+        XCTAssertEqual(spans, HealthTrendHorizon.allCases.map(\.windowDays))
+        XCTAssertLessThan(HealthTrendHorizon.thirtyDays.windowDays, HealthTrendHorizon.threeYears.windowDays)
+    }
+
     func testThreeYearDerivedScoreUsesPersistedDailySeries() {
         let calendar = Calendar(identifier: .gregorian)
         let today = calendar.startOfDay(for: Date())
