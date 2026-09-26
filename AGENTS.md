@@ -1,7 +1,7 @@
 # BodySeek / Vela 工程约定
 
 - 权威产品与术语文档：`docs/PRD.md`、`CONTEXT.md`；平台与架构以 Accepted ADR（特别是 `docs/adr/0017-bodyseek-architecture-and-product-baseline-v2.md`）为准，旧平台描述不覆盖 ADR 0017。
-- 对外产品名 BodySeek；仓库、Xcode 工程、bundle 与 Swift 标识保持 Vela。Today、Trends、五项详情优先，不新增总健康分或扩张产品线。
+- 对外产品名 BodySeek；GitHub 仓库为 `SunWeizhou/bodyseek`，本地目录、Xcode 工程、bundle 与 Swift 标识保持 Vela。Today、Trends、五项详情优先，不新增总健康分或扩张产品线。
 - 先核对当前源码和生产入口；`BodySeekDomain` 测试不能替代 Vela iOS 生产评分验证。区分 unknown、known zero、excluded(reason)，不得把缺失静默当零。
 - 记录 HEAD、dirty 状态、命令、退出码、配置与产物；不 reset/clean/stash/pull/merge/push/真机部署或发布，除非明确授权。保留用户改动。
 - HealthKit→snapshot→持久化→计算→UI 的时间、来源、覆盖与原因必须可追溯；历史评分不得使用未来数据。算法/输入语义变化要分版本。
