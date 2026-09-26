@@ -708,38 +708,43 @@ struct HealthTrendEngine: Sendable {
         var parts: [String] = []
 
         if let rec = dashboard.recovery.value {
-            if rec >= 67 {
-                parts.append("恢复得分达 \(Int(rec.rounded()))%，各项核心体征处于基线良好区间")
-            } else if rec >= 35 {
-                parts.append("恢复得分保持在 \(Int(rec.rounded()))% 基准区间")
-            } else {
-                parts.append("恢复得分处于 \(Int(rec.rounded()))% 较低区间，提示生理负荷有所累积")
-            }
+            parts.append("恢复 \(Int(rec.rounded()))")
         }
 
-        if let sleep = notableChanges.first(where: { $0.metric == .sleepScore })
-            ?? notableChanges.first(where: { $0.metric == .sleepDuration }) {
-            if sleep.direction == .declining {
-                parts.append(sleep.metric == .sleepScore
-                    ? "近两周睡眠得分较个人基线有所下降"
-                    : "近两周睡眠时长较平时基线略有减少")
-            }
-        } else if let hrv = notableChanges.first(where: { $0.metric == .hrv }) {
-            if hrv.direction == .improving {
-                parts.append("HRV 呈现向上改善走势")
-            } else if hrv.direction == .declining {
-                parts.append("HRV 较近期基线偏低")
-            }
-        } else if let rhr = notableChanges.first(where: { $0.metric == .restingHeartRate }) {
-            if rhr.direction == .declining {
-                parts.append("静息心率较基线略有升高")
-            }
+        if let clause = notableDeviationClause(notableChanges) {
+            parts.append(clause)
         }
 
         if parts.isEmpty {
             return "各项核心体征平稳运行在个人基线范围内。"
         }
         return parts.joined(separator: "，") + "。"
+    }
+
+    /// One already-computed deviation. Sleep duration may be named when the
+    /// sleep score itself is not notable; it never replaces that score.
+    private func notableDeviationClause(_ notableChanges: [HealthTrendFinding]) -> String? {
+        if let sleep = notableChanges.first(where: { $0.metric == .sleepScore }),
+           sleep.direction == .declining {
+            return "近两周睡眠得分较个人基线有所下降"
+        }
+        if let duration = notableChanges.first(where: { $0.metric == .sleepDuration }),
+           duration.direction == .declining {
+            return "近两周睡眠时长较平时基线略有减少"
+        }
+        if let hrv = notableChanges.first(where: { $0.metric == .hrv }) {
+            if hrv.direction == .improving {
+                return "HRV 呈现向上改善走势"
+            }
+            if hrv.direction == .declining {
+                return "HRV 较近期基线偏低"
+            }
+        }
+        if let rhr = notableChanges.first(where: { $0.metric == .restingHeartRate }),
+           rhr.direction == .declining {
+            return "静息心率较基线略有升高"
+        }
+        return nil
     }
 
     private func inferDrivers(
@@ -750,16 +755,21 @@ struct HealthTrendEngine: Sendable {
 
         let hrvLow = notableChanges.contains { $0.metric == .hrv && $0.direction == .declining }
         let rhrHigh = notableChanges.contains { $0.metric == .restingHeartRate && $0.direction == .declining }
-        let sleepLow = notableChanges.contains {
-            ($0.metric == .sleepScore || $0.metric == .sleepDuration) && $0.direction == .declining
+        let sleepScoreLow = notableChanges.contains {
+            $0.metric == .sleepScore && $0.direction == .declining
+        }
+        let sleepDurationLow = notableChanges.contains {
+            $0.metric == .sleepDuration && $0.direction == .declining
         }
         let strainHigh = dashboard.strain.value.map { $0 >= 70 } ?? false
 
         if hrvLow && rhrHigh {
             drivers.append("观察到 HRV 偏低与静息心率升高在近期协同出现，提示生理恢复负荷有所累积")
         }
-        if sleepLow {
-            drivers.append("近期睡眠状态偏离个人基线，可能与恢复感受变化相关")
+        if sleepScoreLow {
+            drivers.append("近期睡眠得分偏离个人基线，可能与恢复感受变化相关")
+        } else if sleepDurationLow {
+            drivers.append("近期睡眠时长偏离个人基线，可能与恢复感受变化相关")
         }
         if strainHigh {
             drivers.append("近期日常活动与训练负荷相对较高，构成当前体征波动的潜在背景")
@@ -878,7 +888,9 @@ struct HealthTrendEngine: Sendable {
             return "\(Int(val.rounded())) bpm"
         case .sleepDuration:
             return String(format: "%.1f h", val)
-        case .sleepScore, .recovery, .energy, .oxygenSaturation, .bodyFat:
+        case .sleepScore:
+            return "\(Int(val.rounded()))"
+        case .recovery, .energy, .oxygenSaturation, .bodyFat:
             return "\(Int(val.rounded()))%"
         case .strain, .stress:
             return "\(Int(val.rounded()))"

@@ -125,7 +125,8 @@ public enum CoreHealthMetric: String, Codable, Hashable, CaseIterable, Sendable,
         switch self {
         case .hrv: return "HRV"
         case .restingHeartRate: return "静息心率"
-        case .sleepDuration, .sleepScore: return "睡眠"
+        case .sleepDuration: return "睡眠时长"
+        case .sleepScore: return "睡眠"
         case .recovery: return "恢复"
         case .strain: return "耗力"
         case .stress: return "压力"
@@ -144,7 +145,7 @@ public enum CoreHealthMetric: String, Codable, Hashable, CaseIterable, Sendable,
         case .hrv: return "ms"
         case .restingHeartRate: return "bpm"
         case .sleepDuration: return "h"
-        case .sleepScore: return "%"
+        case .sleepScore: return "分"
         case .recovery: return "%"
         case .strain: return ""
         case .stress: return ""
@@ -155,6 +156,19 @@ public enum CoreHealthMetric: String, Codable, Hashable, CaseIterable, Sendable,
         case .bodyFat: return "%"
         case .steps: return "步"
         case .activeCalories: return "kcal"
+        }
+    }
+
+    /// Today ring that this metric may emphasize. Sleep duration is not the
+    /// sleep-score ring; a short night must not be read as a score deviation.
+    public var todayScoreRingID: String? {
+        switch self {
+        case .recovery: return "recovery"
+        case .sleepScore: return "sleep"
+        case .strain: return "strain"
+        case .stress: return "stress"
+        case .energy: return "energy"
+        default: return nil
         }
     }
 

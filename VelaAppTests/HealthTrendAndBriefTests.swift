@@ -321,13 +321,14 @@ final class HealthTrendAndBriefTests: XCTestCase {
         )
         dashboard.sleepSummary.totalSleepMinutes = 480
 
-        let findings = HealthTrendEngine().analyze(
+        let result = HealthTrendEngine().analyze(
             dashboard: dashboard,
             snapshots: snapshots,
             longTermBaselines: nil,
             today: today,
             calendar: calendar
-        ).findings
+        )
+        let findings = result.findings
 
         let score = findings.first { $0.metric == .sleepScore && $0.horizon == .thirtyDays }
         let duration = findings.first { $0.metric == .sleepDuration && $0.horizon == .thirtyDays }
@@ -335,6 +336,37 @@ final class HealthTrendAndBriefTests: XCTestCase {
         XCTAssertEqual(score?.valueDirection, .falling)
         XCTAssertEqual(score?.assessment, .unfavorable)
         XCTAssertEqual(duration?.valueDirection, .stable)
+
+        XCTAssertEqual(CoreHealthMetric.sleepScore.todayScoreRingID, "sleep")
+        XCTAssertNil(CoreHealthMetric.sleepDuration.todayScoreRingID)
+        XCTAssertEqual(CoreHealthMetric.sleepDuration.shortTitle, "睡眠时长")
+        XCTAssertEqual(CoreHealthMetric.sleepScore.shortTitle, "睡眠")
+        XCTAssertEqual(score?.currentValueFormatted, "62")
+        XCTAssertFalse(result.brief.subheadline.contains("%"))
+        XCTAssertFalse(result.brief.subheadline.contains("各项核心体征处于基线良好"))
+        XCTAssertTrue(result.brief.subheadline.contains("恢复 70"))
+        XCTAssertTrue(result.brief.subheadline.contains("睡眠得分"))
+        XCTAssertFalse(result.brief.subheadline.contains("睡眠时长"))
+    }
+
+    func testHighRecoveryGuidanceDoesNotDeclareEverySignalGood() {
+        let today = Date()
+        var dashboard = DashboardSummary.empty(date: today)
+        dashboard.recovery = MetricResult(
+            domain: .recovery, name: "Recovery", value: 82, band: .high, confidence: .high,
+            components: [:], componentWeights: [:], reasons: [], missingInputs: [],
+            dataWindow: DateInterval(start: today, duration: 86_400), source: .healthKit,
+            algorithmVersion: "1.0", lastUpdated: today
+        )
+
+        let brief = HealthTrendEngine().analyze(
+            dashboard: dashboard,
+            snapshots: [],
+            longTermBaselines: nil,
+            today: today
+        ).brief
+
+        XCTAssertEqual(brief.subheadline, "恢复 82。")
     }
 
     func testThreeYearDerivedScoreUsesPersistedDailySeries() {
@@ -800,7 +832,7 @@ final class HealthTrendAndBriefTests: XCTestCase {
             date: date,
             overallState: .optimal,
             headline: "身体机能处于良好水平",
-            subheadline: "恢复得分达 80%，各项核心体征处于基线良好区间。",
+            subheadline: "恢复 80。",
             notableChanges: [],
             stableSignals: [],
             confidence: .high,
@@ -823,7 +855,7 @@ final class HealthTrendAndBriefTests: XCTestCase {
         )
 
         XCTAssertEqual(experience.hero.decisionTitle, "身体机能处于良好水平")
-        XCTAssertEqual(experience.hero.summary, "恢复得分达 80%，各项核心体征处于基线良好区间。")
+        XCTAssertEqual(experience.hero.summary, "恢复 80。")
     }
 
     // MARK: - WidgetKit Snapshot & Provider Tests (P3)

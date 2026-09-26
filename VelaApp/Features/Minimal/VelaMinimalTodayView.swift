@@ -69,14 +69,7 @@ struct VelaTodayView: View {
     private var deviatedScoreIDs: Set<String> {
         Set(dashboard.personalHealthBrief?.notableChanges.compactMap { finding in
             guard finding.isNotable else { return nil }
-            switch finding.metric {
-            case .recovery: return "recovery"
-            case .sleepDuration: return "sleep"
-            case .strain: return "strain"
-            case .stress: return "stress"
-            case .energy: return "energy"
-            default: return nil
-            }
+            return finding.metric.todayScoreRingID
         } ?? [])
     }
 
@@ -222,7 +215,7 @@ struct VelaTodayView: View {
                 assessment: vitalAssessment("spo2"), trend: trends["spo2"] ?? []
             ),
             TodayVitalCardModel(
-                kind: .sleep, label: "睡眠",
+                kind: .sleep, label: "睡眠时长",
                 value: sleepMin > 0 ? "\(sleepMin / 60):\(String(format: "%02d", sleepMin % 60))" : "--", unit: "时",
                 status: vitalStatusText(kind: .sleep, hasData: sleepMin > 0, observedAt: dashboard.sleepSummary.wakeTime, syncedAt: updatedDate),
                 assessment: vitalAssessment("sleep"), trend: trends["sleep"] ?? []
