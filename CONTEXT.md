@@ -1,7 +1,7 @@
 # Vela Health Intelligence — Domain Glossary
 
 > Status: Canonical
-> Last verified: 2026-08-23
+> Last verified: 2026-10-06
 > Scope: Vela 全局唯一领域术语定义与受控词汇表（Domain Ubiquitous Language）
 > Does not define: 页面结构与 UI 组件（见 [docs/PRD.md](docs/PRD.md)）、代码实现细节（见 [docs/TECH_ARCHITECTURE.md](docs/TECH_ARCHITECTURE.md)）
 
@@ -19,7 +19,7 @@ BodySeek（工程身份 Vela）是建立在 Apple 健康之上的个人身体状
 _Avoid_: BoySeek, Vela（在对外产品文案中）
 
 **Vela**:
-当前工程、仓库、Xcode 项目、bundle identity 和既有 Swift 类型使用的名称；在未完成独立迁移前不做全局重命名。
+当前工程、仓库、Xcode 项目、bundle identity 和既有 Swift 类型使用的名称；在未完成独立迁移前不做全局重命名。主屏幕显示名是 BodySeek，iPhone bundle 仍是 `com.sunweizhou.Vela4`。
 _Avoid_: 把 Vela 与 BodySeek 当成两个产品
 
 ### Product boundary
@@ -35,8 +35,8 @@ _Avoid_: Active day, engagement day, compliant day, decision-only day
 ### Health evidence
 
 **Health Signal**:
-A measured or user-entered health fact with a source, timestamp, freshness, unit, and availability state.
-_Avoid_: Metric value, raw field, data point
+A measured or user-entered health fact with a source, timestamp, freshness, unit, and availability state. Missing data stays missing; it is not written as 0 and it is not forged.
+_Avoid_: Metric value, raw field, data point, missing-as-zero
 
 **Daily Health Snapshot**:
 The normalized set of Health Signals assigned to one calendar day before scores or recommendations are derived.
@@ -93,8 +93,8 @@ The canonical daily choice to keep, reduce, swap, or recover, with reasons and c
 _Avoid_: AI recommendation, workout verdict, readiness label
 
 **Daily Operating Plan**:
-A locally available plan created for every day that protects Health Rhythm through one primary action and at most two supporting actions across training, movement, eating, stress recovery, and sleep. Deterministic evidence establishes safety constraints, the Agent expresses and organizes them naturally, and the Primary User may edit, delete, reschedule, or replace any action. It does not become a general work or calendar manager.
-_Avoid_: Today card, generated brief, coach plan
+A locally available plan created for every day that protects Health Rhythm through one primary action and at most two supporting actions across training, movement, eating, stress recovery, and sleep. Deterministic evidence establishes safety constraints, the Agent expresses and organizes them naturally, and the Primary User may edit, delete, reschedule, or replace any action. A saved canonical action sequence stays in place when body state changes; Plan shows a candidate instead of replacing it. It does not become a general work or calendar manager.
+_Avoid_: Today card, generated brief, coach plan, silent regeneration
 
 **Plan Proposal**:
 A reviewable, material candidate change to an existing Daily Operating Plan produced from new context or Coach reasoning. It shows the proposed diff and expected trade-offs, but becomes canonical only after explicit user confirmation; direct user edits do not require Agent approval.

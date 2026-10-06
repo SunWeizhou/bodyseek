@@ -1,7 +1,7 @@
 # Vela Design Language — Calm Rhythm
 
 > Status: Canonical
-> Last verified: 2026-08-24
+> Last verified: 2026-10-06
 > Scope: Vela 视觉系统、排版层级、颜色规范、交互原则与设计质量门禁
 > Does not define: 数据计算算法（见 [SCORING_SYSTEM_V1_0.md](SCORING_SYSTEM_V1_0.md)）、产品业务需求（见 [PRD.md](PRD.md)）
 
@@ -28,7 +28,7 @@ Vela 采用专属的 **Rhythm（节律）** 视觉体系：
 - **文字体系**：深墨文字（`rhythmInk` `#10201C` / Dark `#E8F0EC`）
 - **品牌与核心行动色**：低饱和节律绿（`accent` `#17A35C` / Dark `#3FC97F`）
 - **品牌主对象**：
-  - **临时 Rhythm Horizon 标记**：在公开产品名与商业 Logo 确认前，App Icon、Launch 与应用内统一使用同一个节律地平线符号；
+  - **主屏幕**：名称是 BodySeek，图标是既有深色字母 B。节律地平线不再充当 App Icon；
   - **健康地平线（Rhythm Horizon）**：作为个人基线、时间序列与偏离检测的趋势语言，主要用于 Trends，不再占据 Today Hero；
   - **训练节律（Training Rhythm）**：展示背、胸、肩、腿、手臂/核心的柔性轮转路径。
 

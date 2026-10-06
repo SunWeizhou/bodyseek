@@ -1,3 +1,5 @@
+> 归档：这不是现行产品规格。现行版本以 `docs/PRD.md`、`CONTEXT.md` 与分支 `cursor/today-brief-ui-clarity-6bf9` 的源码为准。2026-10-06 从仓库根目录移入。
+
 # Original User Request
 
 ## Initial Request — 2026-08-05T11:04:42+08:00

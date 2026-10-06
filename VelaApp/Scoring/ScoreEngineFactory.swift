@@ -518,21 +518,6 @@ final class DailyHealthComputation {
             evidence: sleepEvidence,
             calendar: calendar
         )
-        /*
-        let sleep = SleepScoreEngine().calculate(from: SleepScoreInput(
-            asOf: asOf,
-            totalSleepMinutes: snapshot.sleepHours.map { $0 * 60 },
-            sleepTargetMinutes: profile.sleepTargetMinutes,
-            todayBedtime: snapshot.bedtime,
-            recentBedtimes: baselineHistory.prefix(13).compactMap(\.bedtime),
-            awakeMinutes: snapshot.awakeMinutes,
-            awakeEpisodeCount: snapshot.awakeEpisodeCount,
-            remMinutes: snapshot.remSleepMinutes,
-            deepMinutes: snapshot.deepSleepMinutes,
-            inBedMinutes: sleepEvidence?.inBed.value,
-            evidence: sleepEvidence,
-        ))
-        */
 
         let yesterday = calendar.date(byAdding: .day, value: -1, to: snapshot.date) ?? snapshot.date
         let yesterdayStrain = baselineHistory.first {

@@ -1,7 +1,7 @@
 # Vela 文档导航与权威层级（Documentation Map）
 
 > Status: Canonical
-> Last reviewed: 2026-09-06（交接导航与文档状态）
+> Last reviewed: 2026-10-06（现行版本锁定；根目录旧文稿已归档）
 > Scope: Vela 仓库文档信息架构、权威层级、阅读顺序与冲突裁决原则
 > Does not define: 产品业务细节、代码实现细节
 
@@ -56,11 +56,11 @@
 | [`docs/validation/`](validation/) | 真机测试截图、回归验证报告、UI 证据库 |
 
 ### 2.3 归档历史档案（Archived Documents）
-历史归档主要位于 `docs/archive/`。根目录 `START_HERE.md`、`FIRST_MESSAGE.md`、`NEXT_MESSAGE.md` 及 `tasks/`、`reference/` 是此前导入的接手/执行资料，仍按其原基点保留；新 UI 开发者从 [`collaboration/ONBOARDING.md`](collaboration/ONBOARDING.md) 开始。**严禁将其作为当前代码实现的依据**：
+历史归档主要位于 `docs/archive/`。根目录不再放置 `START_HERE.md`、`FIRST_MESSAGE.md`、`NEXT_MESSAGE.md`、`DESIGN.md`、`Vela_4.0.md`、`PROGRESS.md`、`ORIGINAL_REQUEST.md`。新 UI 开发者从 [`collaboration/ONBOARDING.md`](collaboration/ONBOARDING.md) 开始。**归档不能作为当前实现的依据**：
 
 | 归档子目录 | 包含内容 |
 | :--- | :--- |
-| [`docs/archive/product-eras/`](archive/product-eras/) | 历史 PRD、旧蓝图（`VELA_FULL_STRENGTH_PRODUCT_BLUEPRINT`、`TRAINING_INTELLIGENCE_V3`）、旧方向文档 |
+| [`docs/archive/product-eras/`](archive/product-eras/) | 历史 PRD、旧蓝图、旧方向文档，以及 2026-10-06 从根目录移入的 `DESIGN-signal-intelligence.md`、`Vela_4.0.md`、`PROGRESS-q0-s8-board.md`、`ORIGINAL_REQUEST-2026-08-05.md` |
 | [`docs/archive/audits/`](archive/audits/) | 历史稳定性审计与 UI 走查报告（`VELA_3_AUDIT`、`VELA_4_STABILIZATION_REPORT` 等） |
 | [`docs/archive/handoffs/`](archive/handoffs/) | 历史 Agent 交接记录（`AGENT_HANDOFF_*`） |
 | [`docs/archive/plans/`](archive/plans/) | 历史 Bevel 对标计划、已完成或废弃的实施计划（`superpowers-plans` 等） |
@@ -72,8 +72,9 @@
 
 当不同文档之间出现描述不一致时，严格遵循以下优先级判定：
 
-1. **产品定位与需求冲突**：以 [`docs/PRD.md`](PRD.md) 为最高准则；
-2. **术语与概念冲突**：以 [`CONTEXT.md`](../CONTEXT.md) 为最高准则；
-3. **实现与代码冲突**：以当前代码实际实现与 [`docs/TECH_ARCHITECTURE.md`](TECH_ARCHITECTURE.md) 为准；
-4. **架构决策背书**：以 [`docs/adr/README.md`](adr/README.md) 中标记为 `Accepted` 的最新有效 ADR 为准；`Superseded` 仅供追溯，未接受的方向不得单独改变代码或发布契约；
-5. **归档文档无效原则**：任何位于 `docs/archive/` 下的内容若与当前 Canonical 文档冲突，一律视归档内容为已废弃历史。
+1. **文档与现行源码冲突**：以当前分支上的 App 源码为准，改正文档，不改代码去迁就过时文稿；
+2. **产品定位与需求冲突**：以 [`docs/PRD.md`](PRD.md) 为最高准则；
+3. **术语与概念冲突**：以 [`CONTEXT.md`](../CONTEXT.md) 为最高准则；
+4. **实现描述冲突**：以当前代码实际实现与 [`docs/TECH_ARCHITECTURE.md`](TECH_ARCHITECTURE.md) 为准；
+5. **架构决策背书**：以 [`docs/adr/README.md`](adr/README.md) 中标记为 `Accepted` 的最新有效 ADR 为准；`Superseded` 仅供追溯，未接受的方向不得单独改变代码或发布契约；
+6. **归档文档无效原则**：任何位于 `docs/archive/` 下的内容若与当前 Canonical 文档或现行源码冲突，一律视归档内容为已废弃历史。

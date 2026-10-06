@@ -1,11 +1,11 @@
 # Vela Technical Architecture Specification
 
 > Status: Canonical
-> Last verified: 2026-08-23
+> Last verified: 2026-10-06
 > Scope: Vela 当前工程的技术架构、模块分层、数据流管道、持久化模型与状态管理规范
 > Does not define: 业务需求与产品优先级（见 [docs/PRD.md](PRD.md)）、领域术语定义（见 [../CONTEXT.md](../CONTEXT.md)）
 
-> 交接补充（2026-09-06，源码检查）：`DailyHealthComputation` 定义于 `VelaApp/Scoring/ScoreEngineFactory.swift`，生产评分仍在 Vela App target；`BodySeekDomain` 不能作为已迁移证明。Today 由 `VelaMinimalShell` 持有 `TodayStore`；Trends 的恢复图已部分接入 `TrendsStore`，其他宿主路径仍保留兼容逻辑。页面/共享文件地图见 [UI 工作流](collaboration/UI_WORKFLOW.md)。下文算法表是概要，旧 v1 评分文档与 Energy 模型卡仍待对齐，不据此宣称当前版本已验证。
+> 现行源码（2026-10-06）：`DailyHealthComputation` 定义于 `VelaApp/Scoring/ScoreEngineFactory.swift`。生产睡眠分经 `DomainSleepScoreAdapter` 调用 `BodySeekDomain.SleepScoreEngine`。恢复、负荷、压力、能量仍由 Vela App target 内的引擎计算。`BodySeekDomain` 不能当成五项都已迁移的证明。Today 由 `VelaMinimalShell` 持有 `TodayStore`。趋势按所选时间窗取数。页面/共享文件地图见 [UI 工作流](collaboration/UI_WORKFLOW.md)。下文算法表是概要，旧 v1 评分文档与 Energy 模型卡仍待对齐，不据此宣称公式已经重新验证。
 
 ---
 
@@ -63,7 +63,7 @@ Tab 0: Today            Tab 1: Trends           Tab 2: Plan             Tab 3: C
 | 规范类型 | 算法引擎 / 逻辑 | 生产者 | 消费者 | 状态 |
 | :--- | :--- | :--- | :--- | :--- |
 | **`RecoveryScore`** | HRV log-SDNN MAD Z-score (35%) + RHR Z (25%) + Sleep (25%) + prior_strain (15%，昨日负荷) | `RecoveryScoreEngine` | `DashboardSummary`, `PersonalHealthBrief` | **Implemented** |
-| **`SleepScore`** | Duration (0-50) + Consistency (0-30) + Interruption (0-20) | `SleepScoreEngine` | `DashboardSummary`, `PersonalHealthBrief` | **Implemented** |
+| **`SleepScore`** | Duration (0-50) + Consistency (0-30) + Interruption (0-20) | 生产路径：`DomainSleepScoreAdapter` → `BodySeekDomain.SleepScoreEngine` | `DashboardSummary`, `PersonalHealthBrief` | **Implemented** |
 | **`StrainScore`** | Lucia/Banister TRIMP + Session RPE → ATL/CTL/ACWR | `StrainScoreEngine` | `DashboardSummary`, `PersonalHealthBrief` | **Implemented** |
 | **`StressIndex`** | 6 因子加权: RHR↑, HRV↓, RR↑, Temp, SleepDebt, Load | `StressIndexEngine` | `DashboardSummary`, `PersonalHealthBrief` | **Implemented** |
 | **`EnergyBank`** | Firstbeat-inspired 充放电模型 + TSB | `EnergyBankEngine` | `DashboardSummary`, `PersonalHealthBrief` | **Implemented** |

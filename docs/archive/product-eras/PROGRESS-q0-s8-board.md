@@ -1,3 +1,5 @@
+> 归档：这不是现行产品规格。现行版本以 `docs/PRD.md`、`CONTEXT.md` 与分支 `cursor/today-brief-ui-clarity-6bf9` 的源码为准。2026-10-06 从仓库根目录移入。
+
 # 执行进度｜初始状态
 
 所有任务目前均未由本包执行。填写时区分 IMPLEMENTED、VERIFIED、BLOCKED，不把文件存在视为验证。

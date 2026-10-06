@@ -1,11 +1,13 @@
 # CLAUDE.md — Agent & Developer Workspace Handbook
 
 > Status: Canonical
-> Last reviewed: 2026-09-06（交接入口、平台和构建步骤；未重新验证全文）
+> Last reviewed: 2026-10-06（现行版本锁定：主屏幕名 BodySeek，bundle `com.sunweizhou.Vela4`，四个一级表面；未重新验证全文）
 > Scope: Agent 工作方式、构建/测试/部署命令、工程规则与关键代码入口
 > Does not define: 产品业务需求（见 [docs/PRD.md](docs/PRD.md)）、领域语言定义（见 [CONTEXT.md](CONTEXT.md)）
 
 > 平台状态：Accepted ADR 0017 确定 iOS 17 / watchOS 10 shipping floor；ADR 0013–0016 已被取代。Xcode 工具链要求以 `.xcode-version` 和当前 CI 为准。
+>
+> 现行版本：分支 `cursor/today-brief-ui-clarity-6bf9`。主屏幕名 BodySeek，图标是既有深色字母 B。四个一级表面是 Today / Trends / Plan / Coach。生产睡眠分经 `DomainSleepScoreAdapter` 调用 `BodySeekDomain.SleepScoreEngine`；恢复、负荷、压力、能量仍由 `VelaApp/Scoring` 计算。`VelaApp/Scoring/Sleep/SleepScoreEngine.swift` 仍供预览和现行测试使用。文档与源码冲突时改文档。
 
 ---
 
@@ -76,8 +78,8 @@ VelaApp/
 │   ├── Services/HealthKitSyncEngine.swift # HealthKit 两阶段同步与日快照管道
 │   └── Coverage/                       # 数据覆盖度计算
 ├── Scoring/
-│   ├── ScoreEngineFactory.swift        # DailyHealthComputation 唯一确定性评分入口
-│   └── Recovery/ Sleep/ Strain/ Stress # 各独立指标评分引擎（0-100 标准化）
+│   ├── ScoreEngineFactory.swift        # DailyHealthComputation 唯一确定性评分入口；睡眠分走 BodySeekDomain
+│   └── Recovery/ Sleep/ Strain/ Stress # 恢复、负荷、压力、能量的生产引擎；应用内 Sleep 引擎保留给预览与测试
 └── TrainingIntelligence/
     ├── Services/                       # 训练分析、局部肌群疲劳分析、e1RM
     └── Views/                          # 训练详情、活动摘要与历史视图

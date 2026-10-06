@@ -2,6 +2,8 @@
 
 个人身体面板与 AI 健康分析助手：建立在 Apple 健康之上，帮助看见当前身体状态和长期趋势，理解变化原因，并将理解转化为训练与生活调整建议。
 
+现行版本的主屏幕名是 BodySeek，四个一级表面是 Today / Trends / Plan / Coach，部署底线是 iOS 17 / watchOS 10。工程 bundle 仍是 `com.sunweizhou.Vela4`。
+
 > 产品规格与领域语言以 `docs/PRD.md` 与 `CONTEXT.md` 为唯一权威；工程规范见 [CLAUDE.md](CLAUDE.md)。
 
 ## 技术栈
