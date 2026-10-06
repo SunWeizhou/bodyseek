@@ -1522,7 +1522,7 @@
 				MARKETING_VERSION = 4.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sunweizhou.Vela4;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				INFOPLIST_KEY_CFBundleDisplayName = "Vela 4.0";
+				INFOPLIST_KEY_CFBundleDisplayName = BodySeek;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -1553,7 +1553,7 @@
 				MARKETING_VERSION = 4.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sunweizhou.Vela4;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				INFOPLIST_KEY_CFBundleDisplayName = "Vela 4.0";
+				INFOPLIST_KEY_CFBundleDisplayName = BodySeek;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
