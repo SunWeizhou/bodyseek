@@ -26,15 +26,20 @@ enum PreviewDataFactory {
     static func makeDashboard(date: Date = Date()) -> DashboardSummary {
         let sleepSummary = PreviewHealthDataProvider.sleepSummary(for: date)
 
-        // Sleep
-        let sleepInput = SleepScoreInput(
+        // Sleep — same production path as Today: DomainSleepScoreAdapter → BodySeekDomain.SleepScoreEngine.
+        let sleepScore = DomainSleepScoreAdapter.calculate(
             asOf: date,
             totalSleepMinutes: Double(sleepSummary.totalSleepMinutes),
             sleepTargetMinutes: 450,
-            bedtimeOffsetMinutes: 45,
-            wakeOffsetMinutes: 20
+            todayBedtime: nil,
+            recentBedtimes: [],
+            awakeMinutes: nil,
+            awakeEpisodeCount: nil,
+            remMinutes: nil,
+            deepMinutes: nil,
+            inBedMinutes: nil,
+            evidence: nil
         )
-        let sleepScore = SleepScoreEngine().calculate(from: sleepInput)
 
         // Recovery — simulate a user with HRV slightly below baseline (mild fatigue)
         let recoveryInput = RecoveryScoreInput(

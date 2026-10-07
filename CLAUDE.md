@@ -7,7 +7,7 @@
 
 > 平台状态：Accepted ADR 0017 确定 iOS 17 / watchOS 10 shipping floor；ADR 0013–0016 已被取代。Xcode 工具链要求以 `.xcode-version` 和当前 CI 为准。
 >
-> 现行版本：分支 `cursor/today-brief-ui-clarity-6bf9`。主屏幕名 BodySeek，图标是既有深色字母 B。四个一级表面是 Today / Trends / Plan / Coach。生产睡眠分经 `DomainSleepScoreAdapter` 调用 `BodySeekDomain.SleepScoreEngine`；恢复、负荷、压力、能量仍由 `VelaApp/Scoring` 计算。`VelaApp/Scoring/Sleep/SleepScoreEngine.swift` 仍供预览和现行测试使用。文档与源码冲突时改文档。
+> 现行版本：分支 `cursor/today-brief-ui-clarity-6bf9`。主屏幕名 BodySeek，图标是既有深色字母 B。四个一级表面是 Today / Trends / Plan / Coach。生产睡眠分经 `DomainSleepScoreAdapter` 调用 `BodySeekDomain.SleepScoreEngine`；恢复、负荷、压力、能量仍由 `VelaApp/Scoring` 计算。应用内不再保留一份 `SleepScoreEngine`。睡眠证据与作息目标在 `VelaApp/Scoring/Sleep/SleepEvidence.swift`。文档与源码冲突时改文档。
 
 ---
 

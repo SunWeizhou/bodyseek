@@ -7,7 +7,8 @@
 ### Changed（2026-10-06 版本锁定）
 
 - 现行版本是分支 `cursor/today-brief-ui-clarity-6bf9`：主屏幕名 BodySeek，四个一级表面，部署底线仍是 iOS 17 / watchOS 10。
-- 与现行界面矛盾的根目录旧文稿移入 `docs/archive/product-eras/`。Finder 重复的设计副本已删除。生产路径里注释掉的旧睡眠分调用已去掉；应用内 `SleepScoreEngine` 仍留给预览和现行测试。
+- 与现行界面矛盾的根目录旧文稿移入 `docs/archive/product-eras/`。Finder 重复的设计副本已删除。生产路径里注释掉的旧睡眠分调用已去掉。
+- 删除未走上生产路径的应用内 `VelaApp/Scoring/Sleep/SleepScoreEngine.swift`。预览改走 `DomainSleepScoreAdapter`。锁定睡眠分行为的测试改打 `BodySeekDomain.SleepScoreEngine`。计分公式未改。
 
 ### Fixed（2026-08-23 工程标准审计 C1/C2/H2/H5/H7）
 
