@@ -7,7 +7,7 @@
 
 > 平台状态：Accepted ADR 0017 确定 iOS 17 / watchOS 10 shipping floor；ADR 0013–0016 已被取代。Xcode 工具链要求以 `.xcode-version` 和当前 CI 为准。
 >
-> 现行版本：分支 `cursor/today-brief-ui-clarity-6bf9`。主屏幕名 BodySeek，图标是既有深色字母 B。四个一级表面是 Today / Trends / Plan / Coach。生产睡眠分经 `DomainSleepScoreAdapter` 调用 `BodySeekDomain.SleepScoreEngine`；恢复、负荷、压力、能量仍由 `VelaApp/Scoring` 计算。应用内不再保留一份 `SleepScoreEngine`。睡眠证据与作息目标在 `VelaApp/Scoring/Sleep/SleepEvidence.swift`。文档与源码冲突时改文档。
+> 现行版本：主屏幕名 BodySeek，图标是既有深色字母 B。四个一级表面是 Today / Trends / Plan / Coach。部署底线 iOS 17 / watchOS 10。五项分数各自独立。生产睡眠分经 `DomainSleepScoreAdapter` 调用 `BodySeekDomain.SleepScoreEngine`；恢复、负荷、压力、能量仍由 `VelaApp/Scoring` 计算。应用内不再保留一份 `SleepScoreEngine`。睡眠证据与作息目标在 `VelaApp/Scoring/Sleep/SleepEvidence.swift`。文档与源码冲突时改文档。
 
 ---
 
@@ -79,7 +79,7 @@ VelaApp/
 │   └── Coverage/                       # 数据覆盖度计算
 ├── Scoring/
 │   ├── ScoreEngineFactory.swift        # DailyHealthComputation 唯一确定性评分入口；睡眠分走 BodySeekDomain
-│   └── Recovery/ Sleep/ Strain/ Stress # 恢复、负荷、压力、能量的生产引擎；应用内 Sleep 引擎保留给预览与测试
+│   └── Recovery/ Sleep/ Strain/ Stress # 恢复、负荷、压力、能量仍在 App 内计算；Sleep/ 只留证据与作息目标，睡眠分走 BodySeekDomain
 └── TrainingIntelligence/
     ├── Services/                       # 训练分析、局部肌群疲劳分析、e1RM
     └── Views/                          # 训练详情、活动摘要与历史视图

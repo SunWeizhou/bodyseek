@@ -75,6 +75,6 @@ iPhone 验收由各自机器选择本机设备和已有开发团队配置。签�
 
 - 每次 PR 更新触及的页面规则、数据合同或算法模型卡；目标规范与当前实现分别说明。
 - `docs/SCORING_SYSTEM_V1_0.md` 是旧设计参考；Energy 模型卡的 v1 内容也未对齐当前 v2 生产版本。UI 以当前输出字段为准，逐公式核对由算法任务完成。
-- 根目录不再放置 `START_HERE.md`、`FIRST_MESSAGE.md`、`NEXT_MESSAGE.md`、`PROGRESS.md`、`DESIGN.md`、`Vela_4.0.md`、`ORIGINAL_REQUEST.md`。与现行界面矛盾的旧文稿在 `docs/archive/product-eras/`，不能当作现行规格。
+- 根目录不再放置 `START_HERE.md`、`FIRST_MESSAGE.md`、`NEXT_MESSAGE.md`、`PROGRESS.md`、`DESIGN.md`、`Vela_4.0.md`、`ORIGINAL_REQUEST.md`。与现行界面矛盾的旧文稿在 `docs/archive/`（`product-eras/` 与 `handoffs/`），不能当作现行规格。同一份历史原文若有两个归档文件名，两份都只是归档。
 - 交接事实放在对应 PR，可复核证据放在 `docs/validation/` 已有报告。不要依赖一份不存在的中央 `TAKEOVER.md`。
 - 文档重新导航不需要移动 Swift 源码或重排 Xcode 工程。文件移动属于另外的可验证变更。

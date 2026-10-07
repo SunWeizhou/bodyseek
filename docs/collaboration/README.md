@@ -12,7 +12,7 @@
 | 修改 SwiftUI、交互、视觉 | [`UI_WORKFLOW.md`](UI_WORKFLOW.md)、[`docs/VELA_DESIGN_LANGUAGE.md`](../VELA_DESIGN_LANGUAGE.md) |
 | 开始一个 GitHub 任务 | [`GITHUB_WORKFLOW.md`](GITHUB_WORKFLOW.md)、[`TASK_TEMPLATE.md`](TASK_TEMPLATE.md) |
 | 把工作交给对方 | [`HANDOFF_TEMPLATE.md`](HANDOFF_TEMPLATE.md) |
-| 查当前产品事实 | [`docs/PRD.md`](../PRD.md) 与当前分支源码；证据在对应 PR 和 [`docs/validation/`](../validation/) |
+| 查当前产品事实 | [`docs/PRD.md`](../PRD.md) 与当前源码；证据在对应 PR 和 [`docs/validation/`](../validation/) |
 
 ## 目录边界
 

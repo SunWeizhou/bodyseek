@@ -56,13 +56,13 @@
 | [`docs/validation/`](validation/) | 真机测试截图、回归验证报告、UI 证据库 |
 
 ### 2.3 归档历史档案（Archived Documents）
-历史归档主要位于 `docs/archive/`。根目录不再放置 `START_HERE.md`、`FIRST_MESSAGE.md`、`NEXT_MESSAGE.md`、`DESIGN.md`、`Vela_4.0.md`、`PROGRESS.md`、`ORIGINAL_REQUEST.md`。新 UI 开发者从 [`collaboration/ONBOARDING.md`](collaboration/ONBOARDING.md) 开始。**归档不能作为当前实现的依据**：
+历史归档主要位于 `docs/archive/`。根目录不再放置 `START_HERE.md`、`FIRST_MESSAGE.md`、`NEXT_MESSAGE.md`、`DESIGN.md`、`Vela_4.0.md`、`PROGRESS.md`、`ORIGINAL_REQUEST.md`。这些旧文稿只留在归档里，不是现行规格。新 UI 开发者从 [`collaboration/ONBOARDING.md`](collaboration/ONBOARDING.md) 开始。**归档不能作为当前实现的依据**：
 
 | 归档子目录 | 包含内容 |
 | :--- | :--- |
-| [`docs/archive/product-eras/`](archive/product-eras/) | 历史 PRD、旧蓝图、旧方向文档，以及 2026-10-06 从根目录移入的 `DESIGN-signal-intelligence.md`、`Vela_4.0.md`、`PROGRESS-q0-s8-board.md`、`ORIGINAL_REQUEST-2026-08-05.md` |
+| [`docs/archive/product-eras/`](archive/product-eras/) | 历史 PRD、旧蓝图、旧方向文档。从根目录移入的 `DESIGN-signal-intelligence.md`、`Vela_4.0.md`、`PROGRESS-q0-s8-board.md`、`ORIGINAL_REQUEST-2026-08-05.md`。同一份 `Vela_4.0` 历史评述也以 `Vela_4.0-product-review.md` 留在这里，两份都是归档，不是现行文稿。 |
 | [`docs/archive/audits/`](archive/audits/) | 历史稳定性审计与 UI 走查报告（`VELA_3_AUDIT`、`VELA_4_STABILIZATION_REPORT` 等） |
-| [`docs/archive/handoffs/`](archive/handoffs/) | 历史 Agent 交接记录（`AGENT_HANDOFF_*`） |
+| [`docs/archive/handoffs/`](archive/handoffs/) | 历史 Agent 交接记录（`AGENT_HANDOFF_*`）；含已归档的 `ORIGINAL_REQUEST-2026-08-05.md`（旧 orchestrator 缺陷修复清单，非当前产品规格） |
 | [`docs/archive/plans/`](archive/plans/) | 历史 Bevel 对标计划、已完成或废弃的实施计划（`superpowers-plans` 等） |
 | [`docs/archive/v2/`](archive/v2/) | Vela 2.0 时代历史架构与规格文档 |
 
@@ -72,7 +72,7 @@
 
 当不同文档之间出现描述不一致时，严格遵循以下优先级判定：
 
-1. **文档与现行源码冲突**：以当前分支上的 App 源码为准，改正文档，不改代码去迁就过时文稿；
+1. **文档与现行源码冲突**：以当前 App 源码为准，改正文档，不改代码去迁就过时文稿；
 2. **产品定位与需求冲突**：以 [`docs/PRD.md`](PRD.md) 为最高准则；
 3. **术语与概念冲突**：以 [`CONTEXT.md`](../CONTEXT.md) 为最高准则；
 4. **实现描述冲突**：以当前代码实际实现与 [`docs/TECH_ARCHITECTURE.md`](TECH_ARCHITECTURE.md) 为准；
