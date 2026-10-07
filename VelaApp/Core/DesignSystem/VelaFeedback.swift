@@ -172,6 +172,13 @@ struct MessageBubble: View {
         parseMessageContent(parsedParts.mainContent)
     }
 
+    private var containsInternalProtocol: Bool {
+        let markers = ["<|", "tool_calls", "function_call", "DSML"]
+        return markers.contains {
+            parsedParts.mainContent.localizedCaseInsensitiveContains($0)
+        }
+    }
+
     var body: some View {
         Group {
             if isUser {
@@ -253,13 +260,7 @@ struct MessageBubble: View {
                             switch segment {
                             case .text(let content):
                                 if !content.isEmpty {
-                                    MarkdownText(
-                                        markdown: content,
-                                        font: VelaTheme.body(),
-                                        color: VelaTheme.rhythmInk,
-                                        isStreaming: isStreaming
-                                    )
-                                    .lineSpacing(6)
+                                    assistantTextBlock(content)
                                 }
                             case .artifact(let type, let key):
                                 ArtifactRendererView(type: type, key: key)
@@ -278,6 +279,64 @@ struct MessageBubble: View {
         .accessibilityElement(children: .contain)
     }
 
+    @ViewBuilder
+    private func assistantTextBlock(_ content: String) -> some View {
+        if containsInternalProtocol {
+            Label("这条回复没有完成，请重新提问", systemImage: "arrow.clockwise.circle")
+                .font(VelaTheme.footnote().weight(.medium))
+                .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(VelaTheme.rhythmMist.opacity(0.45), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        } else {
+        let sections = CoachResponseLayout.split(content, isStreaming: isStreaming)
+
+        if let lead = sections.lead {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("结论")
+                    .font(VelaTheme.caption2().weight(.semibold))
+                    .foregroundStyle(VelaTheme.rhythmDeep)
+
+                MarkdownText(
+                    markdown: lead,
+                    font: VelaTheme.subheadline().weight(.semibold),
+                    color: VelaTheme.rhythmInk,
+                    isStreaming: false
+                )
+                .lineSpacing(3)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(VelaTheme.rhythmCanvasRaised)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+            )
+
+            if let detail = sections.detail {
+                MarkdownText(
+                    markdown: detail,
+                    font: VelaTheme.body(),
+                    color: VelaTheme.rhythmInk,
+                    isStreaming: isStreaming
+                )
+                .lineSpacing(4)
+            }
+        } else {
+            MarkdownText(
+                markdown: sections.detail ?? content,
+                font: VelaTheme.body(),
+                color: VelaTheme.rhythmInk,
+                isStreaming: isStreaming
+            )
+            .lineSpacing(4)
+        }
+        }
+    }
+
     private var analystControls: some View {
         HStack(spacing: 4) {
             if !time.isEmpty {
@@ -288,7 +347,7 @@ struct MessageBubble: View {
 
             Spacer(minLength: 4)
 
-            if !isStreaming && !parsedParts.mainContent.isEmpty {
+            if !isStreaming && !parsedParts.mainContent.isEmpty && !containsInternalProtocol {
                 Button(action: copyToClipboard) {
                     Label(
                         showCopiedIndicator ? "已复制" : "复制",

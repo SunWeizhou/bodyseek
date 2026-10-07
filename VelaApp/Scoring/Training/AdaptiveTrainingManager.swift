@@ -521,7 +521,7 @@ enum PostWorkoutAIGenerator {
             bodyState: bodyState,
             trainingDecision: input.canonicalTrainingDecision(for: bodyState),
             dataCoverage: nil,
-            profileAge: nil,
+            scoringContext: dashboard.scoringContext,
             dailyOperatingPlan: AIContextBuilder.compactDailyOperatingPlan(input.dailyOperatingPlan),
             activePlan: input.activePlan?.dto,
             generatedAt: Date()

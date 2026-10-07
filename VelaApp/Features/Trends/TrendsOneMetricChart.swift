@@ -8,7 +8,7 @@ import Charts
 struct TrendsOneMetricChart: View {
     let series: TrendsMetricSeries
     @Binding var selectedDate: Date?
-    var tint: Color = .accentColor
+    var tint: Color = VelaTheme.rhythmDeep
 
     var body: some View {
         Chart {
@@ -22,6 +22,13 @@ struct TrendsOneMetricChart: View {
                     yEnd: .value("Baseline upper", baselineBand.upperBound)
                 )
                 .foregroundStyle(tint.opacity(0.10))
+
+                RuleMark(y: .value("Baseline lower", baselineBand.lowerBound))
+                    .foregroundStyle(tint.opacity(0.28))
+                    .lineStyle(StrokeStyle(lineWidth: 0.8, dash: [3, 4]))
+                RuleMark(y: .value("Baseline upper", baselineBand.upperBound))
+                    .foregroundStyle(tint.opacity(0.28))
+                    .lineStyle(StrokeStyle(lineWidth: 0.8, dash: [3, 4]))
             }
 
             ForEach(Array(series.nonMissingSegments.enumerated()), id: \.offset) { index, segment in
@@ -38,9 +45,16 @@ struct TrendsOneMetricChart: View {
                 }
             }
 
+            ForEach(missingPoints, id: \.date) { point in
+                RuleMark(x: .value("Missing date", point.date, unit: .day))
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary.opacity(0.22))
+                    .lineStyle(StrokeStyle(lineWidth: 0.8, dash: [2, 4]))
+            }
+
             if let selected = selectedPoint {
                 RuleMark(x: .value("Selected date", selected.date, unit: .day))
-                    .foregroundStyle(.secondary.opacity(0.5))
+                    .foregroundStyle(tint.opacity(0.55))
+                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
                 if let value = selected.value {
                     PointMark(
                         x: .value("Selected point date", selected.date, unit: .day),
@@ -51,9 +65,21 @@ struct TrendsOneMetricChart: View {
             }
         }
         .chartXSelection(value: $selectedDate)
-        .frame(height: 180)
+        .chartPlotStyle { plotArea in
+            plotArea
+                .background(VelaTheme.rhythmCanvasRaised.opacity(0.7))
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        .frame(height: 198)
+        .padding(.horizontal, 4)
+        .padding(.vertical, 8)
+        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+        )
         .accessibilityLabel("\(series.metric.title)趋势图")
-        .accessibilityValue("真实读数 \(series.points.compactMap(\.value).count) 个")
+        .accessibilityValue(accessibilityValue)
     }
 
     private var selectedPoint: TrendsChartPoint? {
@@ -61,5 +87,23 @@ struct TrendsOneMetricChart: View {
         return series.points.min {
             abs($0.date.timeIntervalSince(selectedDate)) < abs($1.date.timeIntervalSince(selectedDate))
         }
+    }
+
+    private var missingPoints: [TrendsChartPoint] {
+        series.points.filter { $0.value == nil }.prefix(60).map { $0 }
+    }
+
+    private var accessibilityValue: String {
+        let observedCount = series.points.compactMap(\.value).count
+        let missingCount = series.points.count - observedCount
+        var parts = ["真实读数 \(observedCount) 个"]
+        if missingCount > 0 { parts.append("\(missingCount) 个日期缺失") }
+        if let baselineBand = series.baselineBand {
+            parts.append("个人基线 \(Int(baselineBand.lowerBound.rounded())) 到 \(Int(baselineBand.upperBound.rounded()))")
+        }
+        if let selectedPoint {
+            parts.append(selectedPoint.value.map { "选中 \(Int($0.rounded()))" } ?? "选中日期暂无数据")
+        }
+        return parts.joined(separator: "，")
     }
 }

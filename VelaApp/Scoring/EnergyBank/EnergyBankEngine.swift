@@ -13,9 +13,14 @@ public struct EnergyBankInput: Hashable {
     public var rhrBaseline: Double?
     public var sleepHours: Double?
     public var strainHistory: [Double]?
+    /// Evidence-preserving history. When supplied, this takes precedence over
+    /// the legacy numeric history and keeps missing calendar days distinct from
+    /// measured zero-load days.
+    public var trainingLoadHistory: [DailyLoadObservation]?
     /// 今日真实训练负荷（TRIMP 域，与 strainHistory 同单位）。
     /// ATL/CTL/TSB 计算必须使用该值；strainScore 是 0-100 评分域，只用于能量消耗 drain。
     public var todayLoad: Double?
+    public var todayLoadObservation: DailyLoadObservation?
     public var bodyTempDelta: Double?
     
     // New fields for Core Metrics v1
@@ -40,7 +45,9 @@ public struct EnergyBankInput: Hashable {
         rhrBaseline: Double? = nil,
         sleepHours: Double? = nil,
         strainHistory: [Double]? = nil,
+        trainingLoadHistory: [DailyLoadObservation]? = nil,
         todayLoad: Double? = nil,
+        todayLoadObservation: DailyLoadObservation? = nil,
         bodyTempDelta: Double? = nil,
         hoursSinceWake: Double? = nil,
         respiratoryRateZ: Double? = nil,
@@ -62,7 +69,9 @@ public struct EnergyBankInput: Hashable {
         self.rhrBaseline = rhrBaseline
         self.sleepHours = sleepHours
         self.strainHistory = strainHistory
+        self.trainingLoadHistory = trainingLoadHistory
         self.todayLoad = todayLoad
+        self.todayLoadObservation = todayLoadObservation
         self.bodyTempDelta = bodyTempDelta
         self.hoursSinceWake = hoursSinceWake
         self.respiratoryRateZ = respiratoryRateZ
@@ -149,19 +158,39 @@ public struct EnergyBankEngine: ScoreEngine {
         }
 
         let trainingLoad = calculateTrainingLoad(
-            strainHistory: input.strainHistory,
-            // todayLoad 缺失视为「无活动证据」置 0，绝不回退到 0-100 评分域
-            // strainScore——ATL/CTL/TSB/ACWR 必须与 strainHistory 同属 TRIMP 域。
-            todayStrain: input.todayLoad ?? 0.0
+            history: input.trainingLoadHistory ?? legacyTrainingLoadHistory(input),
+            today: input.todayLoadObservation ?? legacyTodayLoadObservation(input)
         )
-        components["atl"] = trainingLoad.atl
-        components["ctl"] = trainingLoad.ctl
-        components["tsb"] = trainingLoad.tsb
-        components["acwr"] = trainingLoad.acwr
+        if let atl = trainingLoad.atl,
+           let ctl = trainingLoad.ctl,
+           let tsb = trainingLoad.tsb,
+           let acwr = trainingLoad.acwr {
+            components["atl"] = atl
+            components["ctl"] = ctl
+            components["tsb"] = tsb
+            components["acwr"] = acwr
+        } else {
+            if trainingLoad.observedDays < 7 {
+                missingInputs.append("trainingLoadHistory")
+                reasons.append("历史负荷有效观测不足 7 天，未发布 ATL、CTL、TSB 或 ACWR。")
+            }
+            if !trainingLoad.todayAvailability.contributesToLoad {
+                missingInputs.append("todayLoad")
+                reasons.append("今日训练负荷缺失或被排除，未发布当日负荷状态。")
+            }
+        }
 
         // 3. Day Drain Calculations
         let strainScore = input.strainScore ?? 0.0
         let strainDrain = 0.35 * strainScore
+        if input.strainScore == nil {
+            // A missing strain score contributes no drain, but it is still
+            // unknown evidence. Preserve that distinction for coverage and
+            // downstream explanations instead of silently treating it as a
+            // measured zero.
+            missingInputs.append("strainScore")
+            reasons.append("负荷评分数据缺失，未计入训练消耗。")
+        }
 
         let stressDrain: Double
         if let stress = input.stressIndex {
@@ -311,22 +340,76 @@ public struct EnergyBankEngine: ScoreEngine {
         return 0.6 * hrvScore + 0.4 * rhrScore
     }
 
+    private struct TrainingLoadProjection {
+        let atl: Double?
+        let ctl: Double?
+        let tsb: Double?
+        let acwr: Double?
+        let observedDays: Int
+        let todayAvailability: TrainingLoadAvailability
+    }
+
     private func calculateTrainingLoad(
-        strainHistory: [Double]?,
-        todayStrain: Double
-    ) -> (atl: Double, ctl: Double, tsb: Double, acwr: Double) {
-        let history = strainHistory ?? []
-        // `strainHistory` (from personalBaselineHistory) is newest-first; EWMA must
-        // iterate oldest→newest ending at today, so reverse before appending today.
-        let loadsIncludingToday = history.reversed() + [todayStrain]
+        history: [DailyLoadObservation],
+        today: DailyLoadObservation
+    ) -> TrainingLoadProjection {
+        let orderedHistory = history.sorted { $0.date < $1.date }
+        let observedDays = orderedHistory.filter(\.isObservedValue).count
+        // Missing/excluded dates contribute calendar decay but are not counted
+        // as measured zero-load days. Known zero remains a real observation.
+        let loadsIncludingToday = orderedHistory.map { observation in
+            observation.availability.contributesToLoad ? (observation.value ?? 0.0) : 0.0
+        } + (today.availability.contributesToLoad ? [today.value ?? 0.0] : [])
+
+        guard observedDays >= 7,
+              today.availability.contributesToLoad,
+              !loadsIncludingToday.isEmpty else {
+            return TrainingLoadProjection(
+                atl: nil,
+                ctl: nil,
+                tsb: nil,
+                acwr: nil,
+                observedDays: observedDays,
+                todayAvailability: today.availability
+            )
+        }
 
         let atl = ewma(loadsIncludingToday, lambda: 2.0 / (7.0 + 1.0))
         let ctl = ewma(loadsIncludingToday, lambda: 2.0 / (42.0 + 1.0))
 
         let ctl28 = ewma(loadsIncludingToday, lambda: 2.0 / (28.0 + 1.0))
-        let acwr = ctl28 > 0 ? atl / ctl28 : 1.0
+        let acwr = ctl28 > 0 ? atl / ctl28 : nil
 
-        return (atl: atl, ctl: ctl, tsb: ctl - atl, acwr: acwr)
+        return TrainingLoadProjection(
+            atl: atl,
+            ctl: ctl,
+            tsb: ctl - atl,
+            acwr: acwr,
+            observedDays: observedDays,
+            todayAvailability: today.availability
+        )
+    }
+
+    private func legacyTrainingLoadHistory(_ input: EnergyBankInput) -> [DailyLoadObservation] {
+        let calendar = Calendar.current
+        let day = calendar.startOfDay(for: input.asOf)
+        return (input.strainHistory ?? []).enumerated().map { index, value in
+            DailyLoadObservation(
+                date: calendar.date(byAdding: .day, value: -(index + 1), to: day) ?? day,
+                value: value,
+                availability: .observed,
+                reason: "兼容旧版数值历史"
+            )
+        }
+    }
+
+    private func legacyTodayLoadObservation(_ input: EnergyBankInput) -> DailyLoadObservation {
+        DailyLoadObservation(
+            date: Calendar.current.startOfDay(for: input.asOf),
+            value: input.todayLoad,
+            availability: input.todayLoad == nil ? .missing : (input.todayLoad == 0 ? .knownZero : .observed),
+            reason: input.todayLoad == nil ? "今日负荷未提供" : nil
+        )
     }
 
     private func ewma(_ values: [Double], lambda: Double) -> Double {

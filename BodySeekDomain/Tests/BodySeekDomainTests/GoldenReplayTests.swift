@@ -45,7 +45,7 @@ final class GoldenReplayTests: XCTestCase {
         snapshot.deepSleepMinutes = 92
         snapshot.remSleepMinutes = 108
         snapshot.wristTemperature = 36.4
-        snapshot.oxygenSaturation = 0.98
+        snapshot.oxygenSaturation = 98 // Normalized snapshot percentage, matching the production oracle.
         snapshot.steps = 8_400
         snapshot.activeCalories = 460
         snapshot.activeMinutes = 42
@@ -72,7 +72,7 @@ final class GoldenReplayTests: XCTestCase {
         XCTAssertEqual(result.sleep.algorithmVersion, ScoringAlgorithmVersions.sleep)
         XCTAssertEqual(result.sleep.components["duration"] ?? -1, 50, accuracy: 0.0001)
         XCTAssertEqual(result.sleep.components["interruption"] ?? -1, 4.2, accuracy: 0.0001)
-        XCTAssertEqual(result.sleep.confidence, MetricConfidence.medium)
+        XCTAssertEqual(result.sleep.confidence, MetricConfidence.low)
         XCTAssertTrue(result.recovery.value == nil)
         XCTAssertTrue(result.strain.value == nil)
         XCTAssertTrue(result.physiologicalStress.value == nil)

@@ -67,11 +67,54 @@ public enum ScoreDataCoverage: String, Codable, Hashable {
 }
 
 enum ScoringAlgorithmVersions {
-    static let sleep = "sleep.v2.0.0"
+    static let sleep = "sleep.v2.2.0"
     static let recovery = "recovery.v2.0.0"
-    static let strain = "strain.v2.0.0"
+    static let strain = "strain.v2.1.0"
     static let physiologicalStress = "physiologicalStress.v2.0.0"
-    static let energy = "energy.v2.0.0"
+    static let energy = "energy.v2.1.0"
+}
+
+/// Availability of a daily training-load observation. This is an in-memory
+/// evidence contract; it does not alter the SwiftData schema. In particular,
+/// `missing` is never silently represented as a measured zero.
+public enum TrainingLoadAvailability: String, Codable, Hashable, Sendable {
+    case observed
+    case knownZero
+    case missing
+    case excluded
+
+    public var contributesToLoad: Bool {
+        switch self {
+        case .observed, .knownZero: return true
+        case .missing, .excluded: return false
+        }
+    }
+}
+
+public struct DailyLoadObservation: Codable, Hashable, Sendable {
+    public var date: Date
+    public var value: Double?
+    public var availability: TrainingLoadAvailability
+    public var reason: String?
+    public var observedWindow: DateInterval?
+
+    public init(
+        date: Date,
+        value: Double?,
+        availability: TrainingLoadAvailability,
+        reason: String? = nil,
+        observedWindow: DateInterval? = nil
+    ) {
+        self.date = date
+        self.value = value
+        self.availability = availability
+        self.reason = reason
+        self.observedWindow = observedWindow
+    }
+
+    public var isObservedValue: Bool {
+        availability.contributesToLoad && value != nil
+    }
 }
 
 public enum StrainTargetStatus: String, Codable, Hashable {
@@ -81,6 +124,7 @@ public enum StrainTargetStatus: String, Codable, Hashable {
 }
 
 public enum EnergyBankStatus: String, Codable, Hashable {
+    case unknown = "Unknown"
     case depleted = "Depleted"
     case low = "Low"
     case stable = "Stable"
@@ -206,7 +250,8 @@ public struct MetricResult: Codable, Hashable, Sendable {
     public var morningEnergy: Double { components["morningEnergy"] ?? (value ?? 0) }
     public var currentEnergy: Double { value ?? 0 }
     public var status: EnergyBankStatus {
-        switch value ?? 0 {
+        guard let value else { return .unknown }
+        switch value {
         case ..<25: return .depleted
         case ..<50: return .low
         case ..<75: return .stable

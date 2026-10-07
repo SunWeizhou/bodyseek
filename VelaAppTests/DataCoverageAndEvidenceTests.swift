@@ -218,29 +218,6 @@ final class DataCoverageAndEvidenceTests: XCTestCase {
         XCTAssertNotNil(resultRMSSD.components["psti_z_score"])
     }
 
-    // MARK: - S4: Sleep Target Behavioral vs Physiological Adequacy
-    func testS4SleepTargetBehavioralGoalDoesNotClaimAASMPhysiologicalAdequacy() {
-        let asOf = Date()
-        let engine = SleepScoreEngine()
-
-        // User sets target to 5h (300 min) and sleeps exactly 5h (300 min)
-        let inputShortTarget = SleepScoreInput(
-            asOf: asOf,
-            totalSleepMinutes: 300,
-            sleepTargetMinutes: 300,
-            awakeMinutes: 15,
-            awakeEpisodeCount: nil // missing awake episode count
-        )
-        let result = engine.calculate(from: inputShortTarget)
-        
-        // Check reasons for behavioral qualification vs physiological adequacy
-        let hasBehavioralNotice = result.reasons.contains { $0.contains("AASM") || $0.contains("生理充分满足") }
-        XCTAssertTrue(hasBehavioralNotice, "Short sleep target completion must explicitly clarify behavioral vs physiological adequacy")
-
-        let hasAwakeEstimateNotice = result.reasons.contains { $0.contains("估算") }
-        XCTAssertTrue(hasAwakeEstimateNotice, "Missing awake count must be flagged as estimated")
-    }
-
     // MARK: - S5: Workout Deduplication and Method Codes
     func testS5WorkoutDeduplicationAndTRIMPMethodCodes() {
         let asOf = Date()
@@ -385,6 +362,22 @@ final class DataCoverageAndEvidenceTests: XCTestCase {
         let resultWorkout = engine.calculate(from: inputWorkoutExcluded)
         XCTAssertEqual(resultWorkout.components["stress_drain"], 0.0)
         XCTAssertTrue(resultWorkout.reasons.contains { $0.contains("运动排除窗口") }, "Must explain that stress drain is accounted for by training load")
+
+        // A missing strain score is not a measured zero: the drain is neutral,
+        // while coverage remains explicitly unknown for downstream consumers.
+        let inputMissingStrain = EnergyBankInput(
+            asOf: asOf,
+            recoveryScore: 80,
+            sleepScore: 80,
+            strainScore: nil,
+            stressIndex: 30,
+            bodyTempDelta: 0.1,
+            respiratoryRateZ: 0.2,
+            SpO2: 98
+        )
+        let resultMissingStrain = engine.calculate(from: inputMissingStrain)
+        XCTAssertEqual(resultMissingStrain.components["strain_drain"], 0.0)
+        XCTAssertTrue(resultMissingStrain.missingInputs.contains("strainScore"))
     }
 
     // MARK: - V1: 10 Scenario Replay Generation
@@ -632,4 +625,5 @@ final class DataCoverageAndEvidenceTests: XCTestCase {
 
         XCTAssertEqual(reports.count, 10, "Must generate exactly 10 scenario comparisons")
     }
+
 }

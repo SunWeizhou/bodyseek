@@ -5,19 +5,41 @@ import Foundation
 /// When engine algorithms change, previews update automatically — no manual sync needed.
 enum PreviewDataFactory {
 
+    /// Synthetic, read-only history for native chart previews. Missing days
+    /// deliberately remain gaps; these snapshots are never written to HealthKit or SwiftData.
+    static func makeTrendSnapshots(endingAt date: Date, calendar: Calendar = .current) -> [DailyHealthSnapshot] {
+        (0..<30).compactMap { offset in
+            guard ![10, 11, 12].contains(offset),
+                  let day = calendar.date(byAdding: .day, value: -offset, to: calendar.startOfDay(for: date)) else { return nil }
+            let dashboard = makeDashboard(date: day)
+            var snapshot = DailyHealthSnapshot(date: day, createdAt: day)
+            snapshot.recoveryScore = dashboard.recovery.value
+            snapshot.sleepScore = dashboard.sleepScore.value
+            snapshot.strainScore = dashboard.strain.value
+            snapshot.stressIndex = dashboard.stress.value
+            snapshot.currentEnergy = dashboard.energy.value
+            return snapshot
+        }
+    }
+
     /// A realistic "healthy user" seed input that produces moderate-to-high scores.
     static func makeDashboard(date: Date = Date()) -> DashboardSummary {
         let sleepSummary = PreviewHealthDataProvider.sleepSummary(for: date)
 
-        // Sleep
-        let sleepInput = SleepScoreInput(
+        // Sleep — same production path as Today: DomainSleepScoreAdapter → BodySeekDomain.SleepScoreEngine.
+        let sleepScore = DomainSleepScoreAdapter.calculate(
             asOf: date,
             totalSleepMinutes: Double(sleepSummary.totalSleepMinutes),
             sleepTargetMinutes: 450,
-            bedtimeOffsetMinutes: 45,
-            wakeOffsetMinutes: 20
+            todayBedtime: nil,
+            recentBedtimes: [],
+            awakeMinutes: nil,
+            awakeEpisodeCount: nil,
+            remMinutes: nil,
+            deepMinutes: nil,
+            inBedMinutes: nil,
+            evidence: nil
         )
-        let sleepScore = SleepScoreEngine().calculate(from: sleepInput)
 
         // Recovery — simulate a user with HRV slightly below baseline (mild fatigue)
         let recoveryInput = RecoveryScoreInput(

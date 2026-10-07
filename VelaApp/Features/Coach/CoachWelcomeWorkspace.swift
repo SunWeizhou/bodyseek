@@ -3,8 +3,7 @@ import SwiftData
 
 // MARK: - Coach welcome workspace
 
-/// Coach opens on evidence, not a generic chat greeting. The score hierarchy
-/// mirrors Today while keeping this surface focused on explanation and follow-up.
+/// A compact dated context leaves room for the conversation and its next question.
 struct CoachWelcomeWorkspace: View {
     @ObservedObject var vm: CoachChatVM
     let todayOperatingPlan: DailyOperatingPlanRecord?
@@ -20,14 +19,6 @@ struct CoachWelcomeWorkspace: View {
 
     private var dashboard: DashboardSummary { dashboardVM.dashboard }
 
-    private var primaryMetrics: [CoachWelcomeMetric] {
-        [
-            .init(id: "recovery", title: "恢复", metric: dashboard.recovery, domain: .recovery),
-            .init(id: "sleep", title: "睡眠", metric: dashboard.sleepScore, domain: .sleep),
-            .init(id: "strain", title: "负荷", metric: dashboard.strain, domain: .strain)
-        ]
-    }
-
     private var questions: [String] {
         Array(vm.contextualQuickQuestions(
             todayPlan: todayOperatingPlan,
@@ -35,26 +26,12 @@ struct CoachWelcomeWorkspace: View {
         ).prefix(3))
     }
 
-    private var agentSentence: String {
-        if let brief = dashboard.personalHealthBrief,
-           !brief.headline.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return brief.headline
-        }
-        if primaryMetrics.contains(where: { $0.value != nil }) {
-            return "这些分数描述不同侧面，点一下让我解释它们之间的联系。"
-        }
-        return "同步 Apple 健康后，我会从这些分数开始解释。"
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
-            Text("今天想理解什么？")
-                .font(VelaTheme.title1())
-                .tracking(-0.65)
+            Text("今天想聊什么？")
+                .font(VelaTheme.largeTitle())
                 .foregroundStyle(VelaTheme.rhythmInk)
-                .padding(.top, 4)
                 .accessibilityIdentifier("coach-welcome-greeting")
-
             currentContextSection
             questionSection
             workspaceSection
@@ -62,174 +39,48 @@ struct CoachWelcomeWorkspace: View {
     }
 
     private var currentContextSection: some View {
-        VStack(alignment: .leading, spacing: 13) {
-            Group {
-                if dynamicTypeSize.isAccessibilitySize {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("当前身体上下文")
-                            .font(VelaTheme.headline())
-                            .foregroundStyle(VelaTheme.rhythmInk)
-                        Button("查看今日") {
-                            VelaHaptic.selection()
-                            appState.routeToToday()
-                        }
-                        .font(VelaTheme.caption1().weight(.semibold))
-                        .foregroundStyle(VelaTheme.rhythmDeep)
-                    }
-                } else {
-                    HStack(alignment: .firstTextBaseline) {
-                        Text("当前身体上下文")
-                            .font(VelaTheme.headline())
-                            .foregroundStyle(VelaTheme.rhythmInk)
-                        Spacer()
-                        Button("查看今日") {
-                            VelaHaptic.selection()
-                            appState.routeToToday()
-                        }
-                        .font(VelaTheme.caption1().weight(.semibold))
-                        .foregroundStyle(VelaTheme.rhythmDeep)
-                    }
-                }
-            }
-
-            primaryScoreRow
-
-            if dynamicTypeSize.isAccessibilitySize {
-                VStack(spacing: 12) {
-                    secondaryMetrics
-                }
-            } else {
-                HStack(spacing: 12) {
-                    secondaryMetrics
-                }
-            }
-
-            Button {
-                VelaHaptic.selection()
-                onSendMessage("请结合我的五个身体分数和个人基线，解释今天最值得关注的变化以及它们之间可能的联系。")
-            } label: {
-                HStack(spacing: 9) {
-                    Image(systemName: "sparkles")
-                        .font(VelaTheme.footnote().weight(.semibold))
-                        .foregroundStyle(VelaTheme.rhythmDeep)
-                    Text(agentSentence)
-                        .font(VelaTheme.footnote())
-                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                        .multilineTextAlignment(.leading)
-                    Spacer(minLength: 4)
+        Button {
+            VelaHaptic.selection()
+            appState.routeToToday()
+        } label: {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text(dashboard.date, format: .dateTime.month().day())
+                    Spacer()
+                    Text("查看状态")
                     Image(systemName: "chevron.right")
-                        .font(VelaTheme.caption2().weight(.bold))
-                        .foregroundStyle(VelaTheme.rhythmInkSecondary.opacity(0.55))
+                        .imageScale(.small)
                 }
-                .contentShape(Rectangle())
+                .font(VelaTheme.subheadline())
+                .foregroundStyle(VelaTheme.rhythmInkSecondary)
+
+                Text(contextSummary)
+                    .font(VelaTheme.body())
+                    .foregroundStyle(VelaTheme.rhythmInk)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .buttonStyle(.plain)
-            .frame(minHeight: VelaTheme.minimumHitTarget)
-            .accessibilityHint("让 Vela 解释当前身体状态")
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
+            .contentShape(Rectangle())
         }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: VelaTheme.radiusFeature, style: .continuous)
-                .fill(VelaTheme.rhythmCanvasRaised)
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: VelaTheme.radiusFeature, style: .continuous)
-                .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
-        }
-        .shadow(color: VelaTheme.cardShadow(colorScheme), radius: 14, x: 0, y: 6)
+        .buttonStyle(.plain)
         .accessibilityIdentifier("coach-current-context")
     }
 
-    @ViewBuilder
-    private var secondaryMetrics: some View {
-        secondaryMetric(
-            title: "压力",
-            metric: dashboard.stress,
-            domain: .stress
-        )
-        secondaryMetric(
-            title: "能量",
-            metric: dashboard.energy,
-            domain: .energy
-        )
-    }
-
-    @ViewBuilder
-    private var primaryScoreRow: some View {
-        if dynamicTypeSize.isAccessibilitySize {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 92), spacing: 12)], spacing: 14) {
-                primaryScoreRings
-            }
-        } else {
-            HStack(spacing: 12) {
-                primaryScoreRings
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var primaryScoreRings: some View {
-        ForEach(primaryMetrics) { item in
-            Button {
-                VelaHaptic.selection()
-                onSendMessage(item.question)
-            } label: {
-                VelaMetricScoreRing(
-                    score: item.value,
-                    label: item.title,
-                    domain: item.domain,
-                    size: dynamicTypeSize.isAccessibilitySize ? 82 : 74
-                )
-                .frame(maxWidth: .infinity)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityHint("询问这个分数的影响因素")
-        }
-    }
-
-    private func secondaryMetric(
-        title: String,
-        metric: MetricResult,
-        domain: VelaMetricDomain
-    ) -> some View {
-        Button {
-            VelaHaptic.selection()
-            let value = metric.value.map { String(Int($0.rounded())) } ?? "暂无"
-            onSendMessage("请解释我今天的\(title)分数（\(value)）以及它和其他身体信号、个人基线的关系。")
-        } label: {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text(title)
-                        .font(VelaTheme.caption1().weight(.semibold))
-                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                    Spacer(minLength: 4)
-                    Text(metric.formattedScore)
-                        .font(VelaTheme.headline().monospacedDigit())
-                        .foregroundStyle(VelaTheme.rhythmInk)
-                }
-
-                ProgressView(value: metric.value ?? 0, total: 100)
-                    .tint(domain.color)
-                    .accessibilityHidden(true)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .frame(maxWidth: .infinity, minHeight: 60, alignment: .leading)
-            .background(VelaTheme.rhythmMist.opacity(0.38), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("\(title)，\(metric.hasData ? "\(metric.formattedScore) 分" : "暂无数据")")
-        .accessibilityHint("询问这个分数的影响因素")
+    private var contextSummary: String {
+        let metrics: [(String, MetricResult)] = [
+            ("恢复", dashboard.recovery), ("睡眠", dashboard.sleepScore),
+            ("负荷", dashboard.strain), ("压力", dashboard.stress), ("能量", dashboard.energy)
+        ]
+        return metrics.map { title, metric in
+            "\(title) \(metric.value.map { String(Int($0.rounded())) } ?? "—")"
+        }.joined(separator: " · ")
     }
 
     private var questionSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("继续追问")
-                .font(VelaTheme.headline())
-                .foregroundStyle(VelaTheme.rhythmInk)
-
             VStack(spacing: 0) {
                 ForEach(Array(questions.enumerated()), id: \.offset) { index, question in
                     Button {
@@ -237,13 +88,8 @@ struct CoachWelcomeWorkspace: View {
                         onSendMessage(question)
                     } label: {
                         HStack(spacing: 12) {
-                            Image(systemName: promptIcon(at: index))
-                                .font(VelaTheme.footnote().weight(.semibold))
-                                .foregroundStyle(VelaTheme.rhythmDeep)
-                                .frame(width: 28, height: 28)
-                                .background(VelaTheme.rhythmDeep.opacity(0.09), in: Circle())
                             Text(question)
-                                .font(VelaTheme.subheadline().weight(.medium))
+                                .font(VelaTheme.body())
                                 .foregroundStyle(VelaTheme.rhythmInk)
                                 .multilineTextAlignment(.leading)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -253,7 +99,7 @@ struct CoachWelcomeWorkspace: View {
                                 .foregroundStyle(VelaTheme.rhythmInkSecondary.opacity(0.55))
                         }
                         .padding(.horizontal, 14)
-                        .padding(.vertical, 12)
+                        .padding(.vertical, 18)
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
@@ -261,7 +107,7 @@ struct CoachWelcomeWorkspace: View {
                     if index < questions.count - 1 {
                         Divider()
                             .overlay(VelaTheme.rhythmMist)
-                            .padding(.leading, 54)
+                            .padding(.horizontal, 14)
                     }
                 }
             }
@@ -362,28 +208,8 @@ struct CoachWelcomeWorkspace: View {
         .contentShape(Rectangle())
     }
 
-    private func promptIcon(at index: Int) -> String {
-        switch index {
-        case 0: return "waveform.path.ecg"
-        case 1: return "point.3.connected.trianglepath.dotted"
-        default: return "chart.xyaxis.line"
-        }
-    }
 }
 
-private struct CoachWelcomeMetric: Identifiable {
-    let id: String
-    let title: String
-    let metric: MetricResult
-    let domain: VelaMetricDomain
-
-    var value: Double? { metric.value }
-
-    var question: String {
-        let valueText = value.map { String(Int($0.rounded())) } ?? "暂无数据"
-        return "请解释我今天的\(title)分数（\(valueText)）及其主要影响因素，并与我的个人基线比较。"
-    }
-}
 
 struct VelaReportsView: View {
     @Environment(\.modelContext) private var modelContext

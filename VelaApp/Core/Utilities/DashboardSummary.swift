@@ -14,6 +14,9 @@ struct DashboardSummary: Hashable, Sendable {
     var healthAge: HealthAgeTrendResult
     var bodyMetrics: BodyMetricsSummary
     var extendedMetrics: ExtendedHealthMetrics
+    /// The exact profile inputs used for this dashboard computation. AI must
+    /// consume this value instead of re-reading today's mutable preferences.
+    var scoringContext: ScoringContext? = nil
     var workouts: [WorkoutSummary]
     var dailyInsight: String
     var source: DataSource
@@ -120,7 +123,8 @@ struct DashboardSummary: Hashable, Sendable {
         dailyInsight: String,
         source: DataSource,
         longTermBaselines: LongTermBaselineReport? = nil,
-        bodyModelState: BodyModelState? = nil
+        bodyModelState: BodyModelState? = nil,
+        scoringContext: ScoringContext? = nil
     ) {
         self.date = date
         self.sleepSummary = sleepSummary
@@ -134,6 +138,7 @@ struct DashboardSummary: Hashable, Sendable {
         self.healthAge = healthAge
         self.bodyMetrics = bodyMetrics
         self.extendedMetrics = extendedMetrics
+        self.scoringContext = scoringContext
         self.workouts = workouts
         self.dailyInsight = dailyInsight
         self.source = source

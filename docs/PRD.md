@@ -1,9 +1,9 @@
 # Vela Product Requirements Document (PRD)
 
 > Status: Canonical
-> Last verified: 2026-09-04
-> Scope: Vela 当前阶段唯一正式产品规格、核心主线、信息架构与功能边界
-> External product name: BodySeek; engineering/repository identity: Vela
+> Last verified: 2026-10-06
+> Scope: 现行 BodySeek 的唯一正式产品规格、核心主线、信息架构与功能边界
+> External product name: BodySeek; home-screen name: BodySeek; bundle: `com.sunweizhou.Vela4`; engineering/repository identity: Vela
 > Does not define: 领域术语严格定义（见 [CONTEXT.md](../CONTEXT.md)）、技术代码架构细节（见 [TECH_ARCHITECTURE.md](TECH_ARCHITECTURE.md)）、架构决策背景（见 [adr/](adr/)）
 > Supersedes: `docs/archive/product-eras/PRD-active-coach-os-2026-07-13.md`, `docs/archive/product-eras/VELA_PERSONAL_PRODUCT_DIRECTION.md`
 
@@ -90,7 +90,8 @@ Vela App
 - **核心定位**：用最短路径回答“我现在怎么样？是否与我的感觉一致？”；
 - **首屏元素**：
   - **固定 3+2 状态仪表**：Recovery、Sleep、Strain 固定为第一视觉层级并使用圆环；Physiological Stress 以当前值和紧凑趋势线呈现，Energy 以身体电量/余量槽呈现；不生成总分；
-  - **主卡内 Agent 指导**：紧跟三项主圆环，只保留一句由确定性事实选择内容、由 Agent 自然表达的指导；事实不变时文案保持稳定，离线时使用本地表达，点击后携带今日状态进入 Coach 追问；
+  - **主卡内 Agent 指导**：紧跟三项主圆环，只保留一句指导。有恢复分时引用「恢复 82」这样的整数，不用百分号，也不从单一恢复阈值宣布各项体征都好。事实不变时文案保持稳定，离线时使用本地表达，点击后携带今日状态进入 Coach 追问；
+  - **睡眠圆环**：只使用睡眠分。睡眠时长是独立信号，不点亮睡眠分圆环；
   - **偏离与缺失**：Personal Baseline Deviation 只用克制标记表达“对你而言不寻常”；缺失值显示 `--`，不伪装正常；
   - **初始基线形成**：首次连接后的前 7 个有效观察日，只在五分区域显示一行紧凑进度；各指标仍按自己的有效样本独立启用，达到初始门槛后进度自动退出，不能把“首周完成”描述成长期基线已经稳定；
   - **Lived State 校准**：看完分数后可选“符合感受 / 感觉更差 / 感觉更好 / 不确定”，并可继续追问；
@@ -101,7 +102,7 @@ Vela App
 ### 5.2 Tab 2 · Trends（多尺度趋势与指标详情）
 - **核心定位**：回答“最近身体发生了什么长期变化？”；
 - **首屏元素**：
-  - **多尺度时间维度**：支持 7 天、30 天、6 个月、3 年的历史基线对比；
+  - **多尺度时间维度**：支持 7 天、30 天、6 个月、3 年的历史基线对比；取数跟随当前所选窗口，不总是预取三年；
   - **五分时间序列优先**：首屏固定展示 Recovery Score、Sleep Score、Strain、Physiological Stress、Energy 五条时间序列；Sleep Score 与原始睡眠时长必须独立建模，不得混用；
   - **基线偏离标记**：直观展示指标是处于稳态区间，还是显著偏离个人历史基线；
   - **二级详情页**：提供高精细度历史图表、内日分布与统计分位数。
@@ -114,7 +115,7 @@ Vela App
   - 计划只覆盖训练、运动、饮食节律、压力恢复与睡眠，不接管通用日历或待办；
   - 用户可直接编辑、删除、改期或替换行动，拥有最终决定权；
   - Agent 后续提出实质变更时展示完整候选行动；当前正式计划保持可见，用户明确确认后才生效；
-  - 计划一旦包含用户完成、编辑或排期状态，后台刷新不得静默覆盖。
+  - 已保存的正式行动序列在身体状态变化时保持不动。Plan 出示候选，用户确认后才替换。用户完成、编辑或排期同样不得被后台刷新静默覆盖。
 
 ### 5.4 Tab 4 · Coach（AI 分析、追问与记忆）
 - **核心定位**：回答“为什么会这样？还需要追问什么？Vela 应记住什么？”；
@@ -166,14 +167,12 @@ Vela App
 
 ---
 
-## 8. 当前阶段优先级与演进路径
+## 8. 本版已固定
 
-1. **P0 · 核心体验闭环打磨**：
-   - 先完成 Today 三方案、五数据状态的高保真原型门禁，再按 Today → Trends → Plan → Coach 垂直迁移生产界面；
-   - 完善 `PersonalHealthBrief` 与 `AgentFactSnapshot`，让四个工作区共享同一确定性事实源；
-   - 保证 Apple Watch 数据同步、五分时间序列、个人基线和偏离检测本地可用。
-2. **P1 · 解释与上下文深度增强**：
-   - 优化 AI Agent 对长期多尺度趋势（30天/6个月/3年）的统计洞察与候选因素关联质量；
-   - 健全 Wiki 记忆档案的自愈与提炼机制。
-3. **P2 · 个人响应模型校准**：
-   - 支持对 Agent 洞察进行轻量标记（正确/部分正确/不正确），持续校准个人基线模型。
+本版就是现行软件。下面这些事实以当前源码为准，不再把原型门禁或旧信息架构写成未完成规格：
+
+- 主屏幕名称是 BodySeek。工程 bundle 仍是 `com.sunweizhou.Vela4`。手表目标的显示名仍是 Vela。
+- 四个一级表面是 Today / Trends / Plan / Coach。Today 仍是 3+2：恢复、睡眠、负荷为圆环，压力与能量为次级。没有总健康分，也没有健康年龄或生物年龄。
+- 部署底线是 iOS 17 / watchOS 10，见 ADR 0017。
+- 五项分数各自独立。缺失数据显示 `--`，不写成 0，也不伪造成一个正常值。
+- 原始 HealthKit 采样不上云。联网 Agent 只接收裁剪后的结构化上下文。

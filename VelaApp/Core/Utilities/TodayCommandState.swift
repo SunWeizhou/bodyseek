@@ -62,8 +62,26 @@ struct TodayCommandState: Codable, Hashable, Sendable {
 /// 决策反馈回灌：按同类历史反馈的准确率校准置信度（服务 Trusted Decision Day 北极星）。
 /// DailyDecisionFeedbackRecord 此前只写不回，本校准器把它接回决策展示。
 enum DecisionFeedbackCalibrator {
+    /// Input-evidence policy only; the confidence and volume formulas are unchanged.
+    static let evidencePolicyVersion = "feedback-evidence-asof.v2"
     static let minimumSamples = 3
     static let recencyWindowDays = 28
+
+    /// Today's evidence stops at evaluation time. A completed historical day
+    /// includes that whole local calendar day, including DST transitions.
+    /// Future days have no available feedback evidence.
+    static func evidenceCutoff(
+        for selectedDate: Date,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> Date? {
+        let selectedDay = calendar.startOfDay(for: selectedDate)
+        let today = calendar.startOfDay(for: now)
+        guard selectedDay <= today else { return nil }
+        if selectedDay == today { return now }
+        guard let interval = calendar.dateInterval(of: .day, for: selectedDay) else { return nil }
+        return Date(timeIntervalSinceReferenceDate: interval.end.timeIntervalSinceReferenceDate.nextDown)
+    }
 
     static func calibratedConfidence(
         base: Double,
@@ -77,6 +95,8 @@ enum DecisionFeedbackCalibrator {
             matches(decision: decision, recordDecisionType: $0.decisionType)
                 && $0.accuracyRating != nil
                 && $0.createdAt >= cutoff
+                && $0.createdAt <= now
+                && $0.updatedAt <= now
         }
         guard rated.count >= minimumSamples else { return base }
         // PR9：「部分准确」按 0.5 计分，不再被误判为不准确。
@@ -128,7 +148,12 @@ enum DecisionFeedbackCalibrator {
         calendar: Calendar = .current
     ) -> String {
         let cutoff = now.addingTimeInterval(-Double(recencyWindowDays) * 86_400)
-        let recent = records.filter { $0.accuracyRating != nil && $0.createdAt >= cutoff }
+        // An edited record has no versioned history: do not project its newer
+        // rating backward even when the original record was created earlier.
+        let recent = records.filter {
+            $0.accuracyRating != nil && $0.createdAt >= cutoff
+                && $0.createdAt <= now && $0.updatedAt <= now
+        }
         let byDecision = Dictionary(grouping: recent, by: \.decisionType)
         var lines: [String] = []
         for (decision, group) in byDecision.sorted(by: { $0.key < $1.key }) {

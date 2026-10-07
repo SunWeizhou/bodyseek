@@ -719,9 +719,9 @@ struct TrainingResponseInsightService {
     }
 
     private func hasSleepSourceData(_ snapshot: DailyHealthSnapshot) -> Bool {
-        (snapshot.sleepHours ?? 0) > 0
-            || (snapshot.deepSleepMinutes ?? 0) > 0
-            || (snapshot.remSleepMinutes ?? 0) > 0
+        snapshot.sleepHours.map { $0 > 0 } == true
+            || snapshot.deepSleepMinutes.map { $0 > 0 } == true
+            || snapshot.remSleepMinutes.map { $0 > 0 } == true
     }
 
     private func delta(_ lhs: Double?, _ rhs: Double?) -> Double? {

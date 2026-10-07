@@ -29,6 +29,17 @@ struct CoreMetricDetailHero: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 17) {
+            HStack(spacing: 8) {
+                BodySeekMetricGlyph(
+                    kind: glyphKind,
+                    size: 24,
+                    tint: color
+                )
+                Text("今日读数 / \(metric.accessibleTitle)")
+                    .font(.system(.caption, design: .monospaced, weight: .medium))
+                    .foregroundStyle(color)
+                    .tracking(1.1)
+            }
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 22) {
                     heroVisual
@@ -81,78 +92,12 @@ struct CoreMetricDetailHero: View {
         }
         .padding(18)
         .background {
-            if metric == .recovery {
-                ZStack(alignment: .top) {
-                    VelaTheme.rhythmCanvasRaised
-                    ForestLandscape()
-                        .frame(height: 124)
-                        .opacity(colorScheme == .dark ? 0.35 : 0.45)
-                        .mask(
-                            LinearGradient(
-                                colors: [.black, .black.opacity(0.6), .clear],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                }
-            } else if metric == .sleep {
-                ZStack(alignment: .top) {
-                    VelaTheme.rhythmCanvasRaised
-                    NightLandscape()
-                        .frame(height: 124)
-                        .opacity(colorScheme == .dark ? 0.40 : 0.50)
-                        .mask(
-                            LinearGradient(
-                                colors: [.black, .black.opacity(0.6), .clear],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                }
-            } else if metric == .strain {
-                ZStack(alignment: .top) {
-                    VelaTheme.rhythmCanvasRaised
-                    DesertLandscape()
-                        .frame(height: 124)
-                        .opacity(colorScheme == .dark ? 0.35 : 0.45)
-                        .mask(
-                            LinearGradient(
-                                colors: [.black, .black.opacity(0.6), .clear],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                }
-            } else if metric == .stress {
-                ZStack(alignment: .top) {
-                    VelaTheme.rhythmCanvasRaised
-                    CoastalLandscape()
-                        .frame(height: 124)
-                        .opacity(colorScheme == .dark ? 0.35 : 0.45)
-                        .mask(
-                            LinearGradient(
-                                colors: [.black, .black.opacity(0.6), .clear],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                }
-            } else if metric == .energy {
-                ZStack(alignment: .top) {
-                    VelaTheme.rhythmCanvasRaised
-                    MeadowLandscape()
-                        .frame(height: 124)
-                        .opacity(colorScheme == .dark ? 0.35 : 0.45)
-                        .mask(
-                            LinearGradient(
-                                colors: [.black, .black.opacity(0.6), .clear],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                }
-            } else {
+            ZStack(alignment: .topTrailing) {
                 VelaTheme.rhythmCanvasRaised
+                BodySeekArtwork(kind: artworkKind, tint: color)
+                    .frame(width: 180, height: 200)
+                    .opacity(colorSchemeContrast == .increased ? 0 : 0.13)
+                    .allowsHitTesting(false)
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: VelaTheme.radiusFeature, style: .continuous))
@@ -166,6 +111,26 @@ struct CoreMetricDetailHero: View {
                 )
         }
         .accessibilityIdentifier("metric-detail-hero")
+    }
+
+    private var artworkKind: BodySeekArtworkKind {
+        switch metric {
+        case .sleep: return .sleep
+        case .strain: return .strain
+        case .stress: return .stress
+        case .energy: return .energy
+        default: return .recovery
+        }
+    }
+
+    private var glyphKind: BodySeekMetricGlyphKind {
+        switch metric {
+        case .sleep: return .sleep
+        case .strain, .activeCalories, .activeMinutes, .steps: return .strain
+        case .stress, .hrv, .respiratoryRate: return .stress
+        case .energy, .weight, .bodyFat: return .energy
+        case .recovery, .rhr, .bloodOxygen: return .recovery
+        }
     }
 
     @ViewBuilder
@@ -1733,5 +1698,4 @@ struct SleepTimelineCard: View {
         }
     }
 }
-
 

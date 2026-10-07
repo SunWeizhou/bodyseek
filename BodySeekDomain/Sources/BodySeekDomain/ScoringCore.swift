@@ -34,6 +34,36 @@ public enum MetricSource: String, Codable, Hashable, Sendable {
     case mixed
 }
 
+/// Platform-neutral outcome of a health data read.  This deliberately lives
+/// in the calculation package so adapters can preserve permission, no-data,
+/// and transient failures without importing HealthKit.
+public enum HealthQueryOutcomeKind: String, Codable, Hashable, Sendable {
+    case data
+    case noData
+    case denied
+    case unavailable
+    case transient
+    case failed
+
+    public var isFailure: Bool {
+        switch self {
+        case .denied, .unavailable, .transient, .failed: true
+        case .data, .noData: false
+        }
+    }
+}
+
+/// Freshness is intentionally broader than Sleep's current scoring policy;
+/// adapters may preserve live/recent values while the engine only needs to
+/// distinguish current, stale, and missing evidence.
+public enum DataFreshness: String, Codable, Hashable, CaseIterable, Sendable {
+    case live
+    case today
+    case recent
+    case stale
+    case missing
+}
+
 public enum ScoredHealthDomain: String, Codable, Hashable, CaseIterable, Sendable {
     case recovery
     case sleep
@@ -66,9 +96,9 @@ public enum ScoreDataCoverage: String, Codable, Hashable, Sendable {
 
 /// Version identifiers are part of the replay contract, not UI metadata.
 public enum ScoringAlgorithmVersions {
-    public static let sleep = "sleep.v2.0.0"
+    public static let sleep = "sleep.v2.2.0"
     public static let recovery = "recovery.v2.0.0"
-    public static let strain = "strain.v2.0.0"
+    public static let strain = "strain.v2.1.0"
     public static let physiologicalStress = "physiologicalStress.v2.0.0"
     public static let energy = "energy.v2.0.0"
 }

@@ -22,6 +22,12 @@ struct WikiProfileView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
+                BodySeekPageIntro(
+                    eyebrow: "MEMORY / YOUR STORY",
+                    title: "记住的，\n都由你决定。",
+                    subtitle: "查看长期记忆，确认来源，随时编辑或删除。",
+                    artwork: .profile
+                )
                 profileHeaderCard
 
                 if let baselineDoc {

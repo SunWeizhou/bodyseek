@@ -366,10 +366,12 @@ struct TodayHealthTool: AgentTool {
             if include("evidence") {
                 func evidenceSummary(_ metric: MetricResult) -> [String: Any] {
                     var dict: [String: Any] = [
-                        "value": metric.value.map { Int($0.rounded()) } as Any,
+                        "value": metric.value.map { Int($0.rounded()) } ?? NSNull(),
                         "band": metric.band.rawValue,
                         "confidence": metric.confidence.rawValue,
+                        "data_coverage": metric.dataCoverage.rawValue,
                         "source": metric.source.rawValue,
+                        "algorithm_version": metric.algorithmVersion,
                     ]
                     if !metric.components.isEmpty { dict["components"] = metric.components }
                     if !metric.componentWeights.isEmpty { dict["component_weights"] = metric.componentWeights }
@@ -396,12 +398,24 @@ struct TodayHealthTool: AgentTool {
 
             // ── Sleep detail ──
             if include("sleep") {
-                let totalMin = todayRecord?.sleepHours.map { $0 * 60 } ?? Double(dashboard.sleepSummary.totalSleepMinutes)
+                let totalMin: Double? = todayRecord?.sleepHours.map { $0 * 60 }
+                    ?? (dashboard.sleepScore.hasData ? Double(dashboard.sleepSummary.totalSleepMinutes) : nil)
                 var slp: [String: Any] = [
-                    "total_hours": (totalMin / 60.0 * 10).rounded() / 10,
-                    "efficiency_pct": todayRecord?.sleepEfficiency ?? dashboard.sleepScore.metrics["sleep_efficiency"] as Any,
-                    "deep_pct": todayRecord?.deepSleepPercent ?? dashboard.sleepScore.metrics["deep_pct"] as Any,
-                    "rem_pct": todayRecord?.remSleepPercent ?? dashboard.sleepScore.metrics["rem_pct"] as Any,
+                    "total_hours": totalMin.map { ($0 / 60.0 * 10).rounded() / 10 } ?? NSNull(),
+                    "efficiency_pct": todayRecord?.sleepEfficiency
+                        ?? dashboard.sleepScore.metrics["sleep_efficiency"]
+                        ?? NSNull(),
+                    "deep_pct": todayRecord?.deepSleepPercent
+                        ?? dashboard.sleepScore.metrics["deep_pct"]
+                        ?? NSNull(),
+                    "rem_pct": todayRecord?.remSleepPercent
+                        ?? dashboard.sleepScore.metrics["rem_pct"]
+                        ?? NSNull(),
+                    "algorithm_version": dashboard.sleepScore.algorithmVersion,
+                    "source": dashboard.sleepScore.source.rawValue,
+                    "data_coverage": dashboard.sleepScore.dataCoverage.rawValue,
+                    "confidence": dashboard.sleepScore.confidence.rawValue,
+                    "missing_inputs": dashboard.sleepScore.missingInputs,
                 ]
                 if let bt = todayRecord?.bedtime ?? dashboard.sleepSummary.bedtime {
                     let f = DateFormatter(); f.dateFormat = "HH:mm"; slp["bedtime"] = f.string(from: bt)
@@ -429,11 +443,20 @@ struct TodayHealthTool: AgentTool {
 
             // ── Energy Bank (ATL/CTL/TSB) ──
             if include("energy") {
+                func energyValue(_ recordValue: Double?, _ liveValue: Double?) -> Any {
+                    if let value = recordValue ?? liveValue {
+                        return value
+                    }
+                    return NSNull()
+                }
                 result["energy_detail"] = [
-                    "atl_7day": todayRecord?.atl ?? dashboard.energy.metrics["atl"] as Any,
-                    "ctl_42day": todayRecord?.ctl ?? dashboard.energy.metrics["ctl"] as Any,
-                    "tsb": todayRecord?.tsb ?? dashboard.energy.metrics["tsb"] as Any,
-                    "acwr": todayRecord?.acwr ?? dashboard.energy.metrics["acwr"] as Any,
+                    "atl_7day": energyValue(todayRecord?.atl, dashboard.energy.metrics["atl"]),
+                    "ctl_42day": energyValue(todayRecord?.ctl, dashboard.energy.metrics["ctl"]),
+                    "tsb": energyValue(todayRecord?.tsb, dashboard.energy.metrics["tsb"]),
+                    "acwr": energyValue(todayRecord?.acwr, dashboard.energy.metrics["acwr"]),
+                    "algorithm_version": dashboard.energy.algorithmVersion,
+                    "data_coverage": dashboard.energy.dataCoverage.rawValue,
+                    "missing_inputs": dashboard.energy.missingInputs,
                 ]
             }
 

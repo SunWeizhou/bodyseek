@@ -54,6 +54,7 @@ struct TodaySignalGrid: View {
         VStack(alignment: .leading, spacing: 20) {
             primaryScores
             secondaryScores
+            agentGuidance
         }
     }
 
@@ -82,7 +83,7 @@ struct TodaySignalGrid: View {
                         .fill(VelaTheme.stressColor)
                         .frame(width: 8, height: 8)
                     Text("\(deviatedScoreIDs.count) 项偏离个人基线")
-                        .font(VelaTheme.caption1().weight(.semibold))
+                        .font(VelaTheme.subheadline())
                         .foregroundStyle(VelaTheme.rhythmInk)
                     Spacer(minLength: 0)
                 }
@@ -94,49 +95,46 @@ struct TodaySignalGrid: View {
     }
 
     private func baselineLearningRow(label: String) -> some View {
-        HStack(spacing: 9) {
-            Image(systemName: "hourglass")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(VelaTheme.rhythmDeep)
-            Text(label)
-                .font(VelaTheme.caption1().weight(.semibold))
-                .foregroundStyle(VelaTheme.rhythmInk)
-                .lineLimit(1)
-            Spacer(minLength: 8)
-            ProgressView(value: model.baselineFormation.progress)
-                .tint(VelaTheme.rhythmDeep)
-                .frame(width: 72)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 9) {
+                Image(systemName: "hourglass")
+                    .font(VelaTheme.subheadline())
+                    .foregroundStyle(VelaTheme.rhythmDeep)
+                Text(label)
+                    .font(VelaTheme.subheadline())
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if !dynamicTypeSize.isAccessibilitySize {
+                    Spacer(minLength: 8)
+                    ProgressView(value: model.baselineFormation.progress)
+                        .tint(VelaTheme.rhythmDeep)
+                        .frame(width: 60)
+                }
+            }
+            if dynamicTypeSize.isAccessibilitySize {
+                ProgressView(value: model.baselineFormation.progress)
+                    .tint(VelaTheme.rhythmDeep)
+            }
         }
-        .padding(.horizontal, 4)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(
-            "初始个人基线已记录 \(model.baselineFormation.observedDays) 个有效日，共需 \(model.baselineFormation.requiredDays) 天；每项分数仍会按自己的有效数据独立启用"
-        )
+        .accessibilityLabel("初始个人基线已记录 \(model.baselineFormation.observedDays) 个有效日，共需 \(model.baselineFormation.requiredDays) 天；每项分数仍按自己的有效数据独立启用")
     }
 
     private var primaryScores: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text("今日状态")
-                    .font(VelaTheme.title3().weight(.bold))
+        VStack(alignment: .leading, spacing: 22) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("身体状态")
+                    .font(VelaTheme.title1())
                     .foregroundStyle(VelaTheme.rhythmInk)
                 Spacer()
                 DataFreshnessIndicator(freshness: freshness, showText: false)
             }
-
-            scoreCollection(primaryCards, ringSize: 88)
-
-            Divider()
-                .overlay(VelaTheme.rhythmMist)
-
-            agentGuidance
-
+            scoreCollection(primaryCards, ringSize: 92)
             if showsBaselineContext {
                 baselineContext
             }
         }
-        .padding(VelaTheme.space5)
-        .todayDashboardCard(radius: VelaTheme.radiusHero, depth: .featured)
+        .padding(.vertical, 8)
     }
 
     private var shouldUseStackedSecondaryLayout: Bool {
@@ -145,10 +143,6 @@ struct TodaySignalGrid: View {
 
     private var secondaryScores: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("压力与能量")
-                .font(VelaTheme.headline())
-                .foregroundStyle(VelaTheme.rhythmInk)
-
             if shouldUseStackedSecondaryLayout {
                 VStack(spacing: 12) {
                     stressPanel(stressCard)
@@ -174,16 +168,13 @@ struct TodaySignalGrid: View {
         } label: {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Image(systemName: "waveform.path.ecg")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(accentColor(card.accent))
                     Text(card.title)
                         .font(VelaTheme.subheadline().weight(.semibold))
                         .foregroundStyle(VelaTheme.rhythmInk)
                         .lineLimit(1)
                     if deviatedScoreIDs.contains(card.id) {
                         Circle()
-                            .fill(VelaTheme.stressColor)
+                            .fill(accentColor(card.accent))
                             .frame(width: 6, height: 6)
                             .accessibilityHidden(true)
                     }
@@ -200,10 +191,6 @@ struct TodaySignalGrid: View {
                     .frame(maxWidth: .infinity)
                     .frame(height: 20)
 
-                    Text(card.value == "--" ? "等待压力数据" : "当前生理压力")
-                        .font(VelaTheme.caption2())
-                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                        .lineLimit(1)
                 }
             }
             .padding(16)
@@ -219,23 +206,10 @@ struct TodaySignalGrid: View {
     }
 
     private func stressValue(_ card: TodayExperienceSignalCard) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 3) {
-            Text(card.value)
-                .font(VelaTheme.title3().weight(.bold).monospacedDigit())
-                .foregroundStyle(VelaTheme.rhythmInk)
-                .lineLimit(1)
-            if card.value != "--" {
-                Text(stressStateLabel(for: card.state))
-                    .font(VelaTheme.caption2().weight(.semibold))
-                    .foregroundStyle(VelaTheme.textColor(for: card.state))
-                    .lineLimit(1)
-            } else {
-                Text("待同步")
-                    .font(VelaTheme.caption2().weight(.semibold))
-                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                    .lineLimit(1)
-            }
-        }
+        Text(card.value)
+            .font(VelaTheme.title2().monospacedDigit())
+            .foregroundStyle(VelaTheme.rhythmInk)
+            .lineLimit(1)
     }
 
     private func stressStateLabel(for state: MetricState) -> String {
@@ -257,16 +231,13 @@ struct TodaySignalGrid: View {
         } label: {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Image(systemName: "bolt.fill")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(accentColor(card.accent))
                     Text(card.title)
                         .font(VelaTheme.subheadline().weight(.semibold))
                         .foregroundStyle(VelaTheme.rhythmInk)
                         .lineLimit(1)
                     if deviatedScoreIDs.contains(card.id) {
                         Circle()
-                            .fill(VelaTheme.stressColor)
+                            .fill(accentColor(card.accent))
                             .frame(width: 6, height: 6)
                             .accessibilityHidden(true)
                     }
@@ -283,10 +254,6 @@ struct TodaySignalGrid: View {
                     .frame(maxWidth: .infinity)
                     .frame(height: 20)
 
-                    Text(card.value == "--" ? "等待能量模型" : "当前电量储备")
-                        .font(VelaTheme.caption2())
-                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                        .lineLimit(1)
                 }
             }
             .padding(16)
@@ -302,26 +269,10 @@ struct TodaySignalGrid: View {
     }
 
     private func energyValue(_ card: TodayExperienceSignalCard) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 2) {
-            Text(card.value)
-                .font(VelaTheme.title3().weight(.bold).monospacedDigit())
-                .foregroundStyle(VelaTheme.rhythmInk)
-                .lineLimit(1)
-            if card.value != "--" {
-                Text("%")
-                    .font(VelaTheme.caption1().weight(.semibold))
-                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                Text(energyStateLabel(for: card.state))
-                    .font(VelaTheme.caption2().weight(.semibold))
-                    .foregroundStyle(VelaTheme.textColor(for: card.state))
-                    .lineLimit(1)
-            } else {
-                Text("待同步")
-                    .font(VelaTheme.caption2().weight(.semibold))
-                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                    .lineLimit(1)
-            }
-        }
+        Text(card.value)
+            .font(VelaTheme.title2().monospacedDigit())
+            .foregroundStyle(VelaTheme.rhythmInk)
+            .lineLimit(1)
     }
 
     private func energyStateLabel(for state: MetricState) -> String {
@@ -345,7 +296,7 @@ struct TodaySignalGrid: View {
         } else {
             stateText = card.value == "--" ? "待同步" : energyStateLabel(for: card.state)
         }
-        let value = card.value == "--" ? "暂无数据" : "\(card.value)\(card.id == "energy" ? "%" : "分")"
+        let value = card.value == "--" ? "暂无数据" : "\(card.value) 分"
         let deviation = deviatedScoreIDs.contains(card.id) ? "，偏离个人基线" : ""
         return "\(card.title)，\(value)，\(stateText)\(deviation)"
     }
@@ -356,20 +307,11 @@ struct TodaySignalGrid: View {
             onInspectGuidance()
         } label: {
             VStack(alignment: .leading, spacing: 7) {
-                HStack(spacing: 6) {
-                    Text("指导依据")
-                        .font(VelaTheme.caption1().weight(.semibold))
-                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                    Image(systemName: "sparkles")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(VelaTheme.rhythmDeep)
-                }
-
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
                     Text(agentSentence)
-                        .font(VelaTheme.body().weight(.semibold))
+                        .font(VelaTheme.body())
                         .foregroundStyle(VelaTheme.rhythmInk)
-                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
+                        .fixedSize(horizontal: false, vertical: true)
                         .multilineTextAlignment(.leading)
 
                     Spacer(minLength: 4)
@@ -401,16 +343,9 @@ struct TodaySignalGrid: View {
             }
         } else {
             HStack(alignment: .top, spacing: 0) {
-                ForEach(Array(cards.enumerated()), id: \.element.id) { index, card in
+                ForEach(cards) { card in
                     scoreLink(card, ringSize: ringSize, horizontal: false)
                         .frame(maxWidth: .infinity)
-
-                    if index < cards.count - 1 {
-                        Divider()
-                            .overlay(VelaTheme.rhythmMist.opacity(0.8))
-                            .frame(height: ringSize + 16)
-                            .padding(.horizontal, 4)
-                    }
                 }
             }
         }
@@ -564,6 +499,17 @@ struct TodaySignalGrid: View {
         default: return .neutral
         }
     }
+
+    private func glyphKind(for cardID: String) -> BodySeekMetricGlyphKind {
+        switch cardID {
+        case "recovery": return .recovery
+        case "sleep": return .sleep
+        case "strain": return .strain
+        case "stress": return .stress
+        case "energy": return .energy
+        default: return .recovery
+        }
+    }
 }
 
 private struct TodayStressGauge: View {
@@ -709,133 +655,67 @@ struct TodayDailyPlanCard: View {
     let onAction: (TodayExperienceAction) -> Void
     let onOpenPlan: () -> Void
 
-    private var primaryAction: TodayExperienceAction {
-        if let action = payload?.primaryAction {
+    private var primaryAction: TodayExperienceAction? {
+        if let payload, payload.hasCanonicalActionSequence {
+            guard let action = payload.nextIncompleteAction else { return nil }
             return TodayExperienceAction(
-                id: action.id,
-                title: action.title,
-                detail: action.detail,
-                destination: action.destination,
-                isPrimary: true,
-                evidence: action.evidence
+                id: action.id, title: action.title, detail: action.detail,
+                destination: action.destination, isPrimary: true, evidence: action.evidence
             )
         }
-        if let action = model.actions.first(where: \.isPrimary) ?? model.actions.first {
-            return action
-        }
-        return TodayExperienceAction(
-            id: "conservative_default",
-            title: "先保留今天的安排",
-            detail: "数据同步前不用额外加量；感觉不对时，随时把计划调轻一点。",
-            destination: "evidence",
-            isPrimary: true
-        )
-    }
-
-    private var supportingActions: [TodayExperienceAction] {
-        if let payload {
-            return payload.supportingActions.prefix(2).map { action in
-                TodayExperienceAction(
-                    id: action.id,
-                    title: action.title,
-                    detail: action.detail,
-                    destination: action.destination,
-                    isPrimary: false,
-                    evidence: action.evidence
-                )
-            }
-        }
-        return Array(model.actions.filter { !$0.isPrimary }.prefix(2))
+        return model.actions.first(where: \.isPrimary) ?? model.actions.first
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 13) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text("今日计划")
-                    .font(VelaTheme.headline())
-                    .foregroundStyle(VelaTheme.rhythmInk)
-
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(primaryAction == nil ? "今日安排" : "下一项")
+                    .font(VelaTheme.subheadline())
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
                 Spacer()
-
+                Button("查看计划", action: onOpenPlan)
+                    .font(VelaTheme.subheadline())
+                    .foregroundStyle(VelaTheme.rhythmDeep)
+                    .frame(minHeight: VelaTheme.minimumHitTarget)
+            }
+            if let action = primaryAction {
                 Button {
                     VelaHaptic.selection()
-                    onOpenPlan()
+                    onAction(action)
                 } label: {
-                    Label("调整", systemImage: "pencil")
-                        .font(VelaTheme.caption1().weight(.semibold))
-                        .foregroundStyle(VelaTheme.rhythmDeep)
-                }
-            }
-
-            Button {
-                VelaHaptic.selection()
-                onAction(primaryAction)
-            } label: {
-                VStack(alignment: .leading, spacing: 5) {
-                    HStack(spacing: 8) {
-                        Text(primaryAction.title)
-                            .font(VelaTheme.headline().weight(.semibold))
-                            .foregroundStyle(VelaTheme.rhythmInk)
-                            .multilineTextAlignment(.leading)
-
-                        Spacer(minLength: 4)
-
+                    HStack(alignment: .top, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(action.title)
+                                .font(VelaTheme.headline())
+                                .foregroundStyle(VelaTheme.rhythmInk)
+                            if !action.detail.isEmpty {
+                                Text(action.detail)
+                                    .font(VelaTheme.subheadline())
+                                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                            }
+                        }
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: 0)
                         Image(systemName: "chevron.right")
-                            .font(.caption2.weight(.bold))
+                            .font(VelaTheme.subheadline())
                             .foregroundStyle(VelaTheme.rhythmInkSecondary)
                     }
-
-                    Text(primaryAction.detail)
-                        .font(VelaTheme.footnote())
-                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                        .multilineTextAlignment(.leading)
-                        .lineLimit(2)
+                    .frame(minHeight: VelaTheme.minimumHitTarget, alignment: .leading)
+                    .contentShape(Rectangle())
                 }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-
-            if !supportingActions.isEmpty {
-                Divider()
-                    .overlay(VelaTheme.rhythmMist)
-
-                VStack(alignment: .leading, spacing: 9) {
-                    ForEach(supportingActions) { action in
-                        Button {
-                            VelaHaptic.selection()
-                            onAction(action)
-                        } label: {
-                            HStack(spacing: 9) {
-                                Circle()
-                                    .fill(VelaTheme.rhythmDeep)
-                                    .frame(width: 5, height: 5)
-                                Text(action.title)
-                                    .font(VelaTheme.footnote().weight(.medium))
-                                    .foregroundStyle(VelaTheme.rhythmInk)
-                                    .multilineTextAlignment(.leading)
-                                Spacer(minLength: 4)
-                                Image(systemName: "chevron.right")
-                                    .font(.caption2.weight(.bold))
-                                    .foregroundStyle(VelaTheme.rhythmInkSecondary.opacity(0.65))
-                            }
-                            .frame(minHeight: 30)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("today-next-action")
+            } else {
+                Text(payload?.allActionsCompleted == true ? "今天的安排已完成" : "今天没有待办安排")
+                    .font(VelaTheme.headline())
+                    .foregroundStyle(VelaTheme.rhythmInk)
+                    .accessibilityIdentifier("today-plan-finished")
             }
         }
-        .padding(16)
+        .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            VelaTheme.rhythmCanvasRaised,
-            in: RoundedRectangle(cornerRadius: VelaTheme.radiusCardStandard, style: .continuous)
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: VelaTheme.radiusCardStandard, style: .continuous)
-                .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
-        }
+        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
         .accessibilityElement(children: .contain)
     }
 }

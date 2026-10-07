@@ -928,6 +928,36 @@ final class VelaThemeTests: XCTestCase {
         XCTAssertFalse(VelaTabSelection.isActive(.trends, selectedTab: 2))
     }
 
+    func testBodySeekNavigationIntentAndPlanProjectionStayUIOnly() {
+        let intents: [BodySeekNavigationAction] = [
+            .select(.today),
+            .select(.trends),
+            .perform(.logLivedState),
+            .presentProfile
+        ]
+        XCTAssertEqual(Set(intents).count, 4)
+
+        let completion = PlanCompletionProjection(completed: 2, total: 4)
+        XCTAssertEqual(completion.progress, 0.5, accuracy: 0.0001)
+        XCTAssertEqual(
+            PlanCompletionProjection(completed: 0, total: 0).progress,
+            0
+        )
+    }
+
+    func testBodySeekPresentationContractsPreserveUnknownState() {
+        let day = Date(timeIntervalSince1970: 1_800_000_000)
+        let today = TodayViewState.initial(day: day).bodySeekPresentation
+        XCTAssertEqual(today.selectedDay, day)
+        XCTAssertEqual(today.scores.recovery.formattedScore, "--")
+        XCTAssertEqual(today.phase, .idle)
+
+        let trends = TrendsViewState.initial(selectedDay: day).bodySeekPresentation
+        XCTAssertEqual(trends.phase, .idle)
+        XCTAssertEqual(trends.observedPointCount, 0)
+        XCTAssertNil(trends.baselineBand)
+    }
+
     func testLegacyNavigationLazilyMountsVisitedSurfacesWithoutDroppingState() {
         var mounted: Set<VelaShell.VelaTab> = [.today]
         mounted = VelaLegacySurfaceMountPolicy.including(selectedTab: 3, in: mounted)
@@ -958,6 +988,32 @@ final class VelaThemeTests: XCTestCase {
             ),
             0
         )
+    }
+
+    func testCoachResponseLayoutPromotesShortConclusionWithoutDroppingEvidence() {
+        let split = CoachResponseLayout.split(
+            "恢复得分保持在基准区间。\n\nHRV 接近个人基线。\n建议今天保留余力。",
+            isStreaming: false
+        )
+
+        XCTAssertEqual(split.lead, "恢复得分保持在基准区间。")
+        XCTAssertEqual(split.detail, "HRV 接近个人基线。\n建议今天保留余力。")
+    }
+
+    func testCoachResponseLayoutKeepsStreamingContentInOneBlock() {
+        let raw = "正在生成中的回答\n\n尚未完成的证据"
+        let split = CoachResponseLayout.split(raw, isStreaming: true)
+
+        XCTAssertNil(split.lead)
+        XCTAssertEqual(split.detail, raw)
+    }
+
+    func testCoachResponseLayoutDoesNotPromoteInternalToolProtocol() {
+        let raw = "<|DSML|>tool_calls invoke name=health_check"
+        let split = CoachResponseLayout.split(raw, isStreaming: false)
+
+        XCTAssertNil(split.lead)
+        XCTAssertEqual(split.detail, raw)
     }
 
     func testLocalizedReasonTranslatesDataCoverageFallback() {
@@ -2821,7 +2877,8 @@ final class VelaThemeTests: XCTestCase {
                 decisionType: i < 4 ? "keep" : "reduce",
                 decisionTitle: "t",
                 accuracyRating: rating,
-                createdAt: now
+                createdAt: now,
+                updatedAt: now
             )
         }
         let summary = DecisionFeedbackCalibrator.feedbackSummary(records: records, now: now)

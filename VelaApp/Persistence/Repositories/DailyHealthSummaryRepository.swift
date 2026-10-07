@@ -33,12 +33,10 @@ final class SwiftDataDailyHealthSummaryRepository: DailyHealthSummaryRepository 
 
             if let existing = try modelContext.fetch(descriptor).first {
                 existing.apply(snapshot: snapshot, calendar: calendar)
-                if scoreEvidence != nil {
-                    try existing.apply(scoreEvidence: scoreEvidence)
-                }
+                try existing.apply(scoreEvidence: scoreEvidence, observations: snapshot)
             } else {
                 let record = DailyHealthSummaryRecord(snapshot: snapshot, calendar: calendar)
-                try record.apply(scoreEvidence: scoreEvidence)
+                try record.apply(scoreEvidence: scoreEvidence, observations: snapshot)
                 modelContext.insert(record)
             }
 

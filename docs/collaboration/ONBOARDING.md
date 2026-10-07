@@ -4,7 +4,7 @@
 
 ## 1. 先拿到同一份代码
 
-仓库为 [SunWeizhou/Vela](https://github.com/SunWeizhou/Vela)。各自克隆到非 iCloud 目录，例如 `~/Developer/Vela`；不复制另一台 Mac 的 build、数据库、Keychain、设备 ID 或 Codex 对话目录。
+仓库为 [SunWeizhou/bodyseek](https://github.com/SunWeizhou/bodyseek)。各自克隆到非 iCloud 目录，例如 `~/Developer/Vela`；不复制另一台 Mac 的 build、数据库、Keychain、设备 ID 或 Codex 对话目录。
 
 在仓库根目录记录：
 
@@ -65,7 +65,7 @@ iPhone 验收由各自机器选择本机设备和已有开发团队配置。签�
 再定向读 PRD、CONTEXT、ADR 0017 和设计语言文档。
 核对当前 HEAD、dirty 状态、工具链、真实 Today/Trends/详情入口，执行本机能运行的基线构建。
 先提交一份接手结果：页面入口、允许修改的文件、共享文件、基线结果和一个小 UI 任务的验收条件。
-本轮不改生产代码。后续按我指定的 Issue 开发，不自动执行根目录旧 FIRST_MESSAGE/NEXT_MESSAGE 的主开发任务。
+本轮不改生产代码。后续按我指定的 Issue 开发。根目录不再有旧的主开发提示。
 无法验证的项目明确写未验证；保留原有改动。未经授权不推送、合并、真机部署或发布。
 ```
 
@@ -75,6 +75,6 @@ iPhone 验收由各自机器选择本机设备和已有开发团队配置。签�
 
 - 每次 PR 更新触及的页面规则、数据合同或算法模型卡；目标规范与当前实现分别说明。
 - `docs/SCORING_SYSTEM_V1_0.md` 是旧设计参考；Energy 模型卡的 v1 内容也未对齐当前 v2 生产版本。UI 以当前输出字段为准，逐公式核对由算法任务完成。
-- 根目录旧 `START_HERE.md` / `FIRST_MESSAGE.md` / `NEXT_MESSAGE.md`、`tasks/`、`reference/` 保留原始基点；新 UI 开发者无需按顺序执行这些历史任务。
-- 当前交接事实与证据索引写入 `docs/validation/codex-takeover/TAKEOVER.md`。日常讨论与交接放对应 PR，避免两人同时改中央记录；集成时由一人汇总链接。
+- 根目录不再放置 `START_HERE.md`、`FIRST_MESSAGE.md`、`NEXT_MESSAGE.md`、`PROGRESS.md`、`DESIGN.md`、`Vela_4.0.md`、`ORIGINAL_REQUEST.md`。与现行界面矛盾的旧文稿在 `docs/archive/`（`product-eras/` 与 `handoffs/`），不能当作现行规格。同一份历史原文若有两个归档文件名，两份都只是归档。
+- 交接事实放在对应 PR，可复核证据放在 `docs/validation/` 已有报告。不要依赖一份不存在的中央 `TAKEOVER.md`。
 - 文档重新导航不需要移动 Swift 源码或重排 Xcode 工程。文件移动属于另外的可验证变更。

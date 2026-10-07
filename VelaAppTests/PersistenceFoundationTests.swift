@@ -8,6 +8,280 @@ private final class SyncExecutionCounter {
 }
 
 final class PersistenceFoundationTests: XCTestCase {
+    private enum PlanSaveProbeError: Error { case injected }
+
+    @MainActor
+    private func feedbackEvidence(
+        _ id: String,
+        at createdAt: Date,
+        updatedAt: Date? = nil,
+        decision: String = "keep",
+        accurate: Bool = false,
+        energetic: Bool = false
+    ) -> DailyDecisionFeedbackRecord {
+        DailyDecisionFeedbackRecord(
+            dayIdentifier: id,
+            bodyStateHash: "feedback-asof-test",
+            decisionType: decision,
+            decisionTitle: "test",
+            adoptionStatus: energetic ? "modified" : "followed",
+            accuracyRating: accurate ? "accurate" : "inaccurate",
+            actualAction: "keep",
+            energyRating: energetic ? 5 : 2,
+            fatigueRating: energetic ? 1 : 5,
+            satisfactionRating: energetic ? 4 : 2,
+            createdAt: createdAt,
+            updatedAt: updatedAt ?? createdAt
+        )
+    }
+
+    @MainActor
+    func testFeedbackAsOfDoesNotReachMinimumSamplesWithFutureRecord() throws {
+        let asOf = Date(timeIntervalSince1970: 1_780_000_000)
+        let records = [
+            feedbackEvidence("past-1", at: asOf.addingTimeInterval(-86_400)),
+            feedbackEvidence("past-2", at: asOf.addingTimeInterval(-172_800)),
+            feedbackEvidence("future", at: asOf.addingTimeInterval(1))
+        ]
+        XCTAssertEqual(DecisionFeedbackCalibrator.calibratedConfidence(base: 0.8, decision: .keep, records: records, now: asOf), 0.8, accuracy: 0.0001)
+        XCTAssertEqual(DecisionFeedbackCalibrator.feedbackSummary(records: records, now: asOf), "keep: 2 条反馈（准确 0、部分准确 0）")
+        let container = try VelaModelContainer.make(inMemory: true)
+        records.forEach { container.mainContext.insert($0) }
+        try container.mainContext.save()
+        let calibration = DailyDecisionFeedbackService().calculateFeedbackCalibration(modelContext: container.mainContext, now: asOf)
+        XCTAssertEqual(calibration.completedFeedbackCount, 2)
+        XCTAssertEqual(calibration.volumeAdjustmentMultiplier, 0)
+    }
+
+    @MainActor
+    func testFeedbackAsOfIgnoresFutureOppositeRatings() throws {
+        let asOf = Date(timeIntervalSince1970: 1_780_000_000)
+        let past = (1...3).map { feedbackEvidence("past-\($0)", at: asOf.addingTimeInterval(-Double($0) * 86_400), accurate: true, energetic: true) }
+        let future = (1...4).map { feedbackEvidence("future-\($0)", at: asOf.addingTimeInterval(Double($0))) }
+        let records = past + future
+        XCTAssertEqual(DecisionFeedbackCalibrator.calibratedConfidence(base: 0.8, decision: .keep, records: records, now: asOf), 0.8, accuracy: 0.0001)
+        XCTAssertEqual(DecisionFeedbackCalibrator.feedbackSummary(records: records, now: asOf), "keep: 3 条反馈（准确 3、部分准确 0）")
+        let container = try VelaModelContainer.make(inMemory: true)
+        records.forEach { container.mainContext.insert($0) }
+        try container.mainContext.save()
+        let calibration = DailyDecisionFeedbackService().calculateFeedbackCalibration(modelContext: container.mainContext, now: asOf)
+        XCTAssertEqual(calibration.completedFeedbackCount, 3)
+        XCTAssertEqual(calibration.volumeAdjustmentMultiplier, 0.05, accuracy: 0.0001)
+    }
+
+    @MainActor
+    func testFeedbackAsOfExcludesRecordEditedAfterCutoff() throws {
+        let asOf = Date(timeIntervalSince1970: 1_780_000_000)
+        let records = [
+            feedbackEvidence("past-1", at: asOf.addingTimeInterval(-86_400)),
+            feedbackEvidence("past-2", at: asOf.addingTimeInterval(-172_800)),
+            feedbackEvidence("edited-later", at: asOf.addingTimeInterval(-259_200), updatedAt: asOf.addingTimeInterval(1))
+        ]
+        XCTAssertEqual(DecisionFeedbackCalibrator.calibratedConfidence(base: 0.8, decision: .keep, records: records, now: asOf), 0.8, accuracy: 0.0001)
+        XCTAssertEqual(DecisionFeedbackCalibrator.feedbackSummary(records: records, now: asOf), "keep: 2 条反馈（准确 0、部分准确 0）")
+        let container = try VelaModelContainer.make(inMemory: true)
+        records.forEach { container.mainContext.insert($0) }
+        try container.mainContext.save()
+        let calibration = DailyDecisionFeedbackService().calculateFeedbackCalibration(modelContext: container.mainContext, now: asOf)
+        XCTAssertEqual(calibration.completedFeedbackCount, 2)
+        XCTAssertEqual(calibration.volumeAdjustmentMultiplier, 0)
+    }
+
+    @MainActor
+    func testFeedbackAsOfIncludesExactWindowAndUpperBoundaries() throws {
+        let asOf = Date(timeIntervalSince1970: 1_780_000_000)
+        let records = [
+            feedbackEvidence("upper", at: asOf),
+            feedbackEvidence("recent", at: asOf.addingTimeInterval(-86_400)),
+            feedbackEvidence("volume-lower", at: asOf.addingTimeInterval(-14 * 86_400)),
+            feedbackEvidence("confidence-lower", at: asOf.addingTimeInterval(-28 * 86_400)),
+            feedbackEvidence("expired", at: asOf.addingTimeInterval(-28 * 86_400 - 1), accurate: true)
+        ]
+        XCTAssertEqual(DecisionFeedbackCalibrator.calibratedConfidence(base: 0.8, decision: .keep, records: records, now: asOf), 0.48, accuracy: 0.0001)
+        XCTAssertEqual(DecisionFeedbackCalibrator.feedbackSummary(records: records, now: asOf), "keep: 4 条反馈（准确 0、部分准确 0）")
+        let container = try VelaModelContainer.make(inMemory: true)
+        records.forEach { container.mainContext.insert($0) }
+        try container.mainContext.save()
+        let calibration = DailyDecisionFeedbackService().calculateFeedbackCalibration(modelContext: container.mainContext, now: asOf)
+        XCTAssertEqual(calibration.completedFeedbackCount, 3)
+        XCTAssertEqual(calibration.volumeAdjustmentMultiplier, -0.05, accuracy: 0.0001)
+    }
+
+    @MainActor
+    func testHistoricalOperatingPlanCalibrationUsesSelectedDayEnd() throws {
+        let calendar = Calendar.current
+        let selectedDay = try XCTUnwrap(calendar.date(byAdding: .day, value: -2, to: calendar.startOfDay(for: Date())))
+        let selectedNoon = try XCTUnwrap(calendar.date(bySettingHour: 12, minute: 0, second: 0, of: selectedDay))
+        let laterDay = try XCTUnwrap(calendar.date(byAdding: .day, value: 1, to: selectedNoon))
+        let bodyState = BodyStateKernel().build(input: BodyStateInput(dashboard: .preview(date: selectedDay), activeStatus: "active", generatedAt: selectedDay))
+        let decision = TrainingDecisionKernel().decide(input: TrainingDecisionInput(bodyState: bodyState))
+        XCTAssertGreaterThan(decision.confidence, 0)
+        let container = try VelaModelContainer.make(inMemory: true)
+        let context = container.mainContext
+        for i in 0..<3 {
+            context.insert(feedbackEvidence("historical-\(i)", at: selectedNoon, decision: decision.decision.rawValue))
+        }
+        for i in 0..<6 {
+            context.insert(feedbackEvidence("later-\(i)", at: laterDay, decision: decision.decision.rawValue, accurate: true))
+        }
+        try context.save()
+        let plan = try DailyOperatingPlanCoordinator.upsert(bodyState: bodyState, decision: decision, modelContext: context, calendar: calendar)
+        XCTAssertEqual(plan.confidence, decision.confidence * 0.6, accuracy: 0.0001, "Include feedback during the selected historical day; exclude later feedback.")
+        XCTAssertEqual(plan.source, decision.source)
+        XCTAssertEqual(plan.operatingPlanPayload?.feedbackEvidencePolicyVersion, "feedback-evidence-asof.v2")
+        let recordedCutoff = try XCTUnwrap(plan.operatingPlanPayload?.feedbackEvidenceAsOf)
+        XCTAssertTrue(calendar.isDate(recordedCutoff, inSameDayAs: selectedDay))
+        let artifact = try XCTUnwrap(context.fetch(FetchDescriptor<AgentArtifactRecord>()).first)
+        XCTAssertEqual(artifact.source, plan.source)
+        let artifactPayload = try JSONDecoder().decode(DailyOperatingPlanPayload.self, from: Data(artifact.payloadJSON.utf8))
+        XCTAssertEqual(artifactPayload.feedbackEvidencePolicyVersion, plan.operatingPlanPayload?.feedbackEvidencePolicyVersion)
+        XCTAssertEqual(artifactPayload.feedbackEvidenceAsOf, recordedCutoff)
+        XCTAssertEqual(plan.trainingDecision?.source, plan.source)
+    }
+
+    @MainActor
+    func testHistoricalDashboardCalibrationIgnoresLaterFeedbackOnBothLoadPaths() async throws {
+        let calendar = Calendar.current
+        let selectedDay = try XCTUnwrap(calendar.date(byAdding: .day, value: -2, to: calendar.startOfDay(for: Date())))
+        let laterDay = try XCTUnwrap(calendar.date(byAdding: .day, value: 1, to: selectedDay))
+        let container = try VelaModelContainer.make(inMemory: true)
+        let context = container.mainContext
+        let record = DailyHealthSummaryRecord(dayIdentifier: DailyHealthSummaryRecord.dayIdentifier(for: selectedDay), date: selectedDay)
+        record.recoveryScore = 82
+        record.sleepScore = 86
+        record.hrvAverage = 50
+        context.insert(record)
+        try context.save()
+        let viewModel = DashboardViewModel()
+        viewModel.selectDate(selectedDay)
+        let hydrated = await viewModel.hydrateFromCache(modelContext: context)
+        XCTAssertTrue(hydrated)
+        let initial = try XCTUnwrap(viewModel.todayCommandState)
+        XCTAssertGreaterThan(initial.readinessDecision.confidence, 0)
+        for i in 0..<3 {
+            context.insert(feedbackEvidence("later-\(i)", at: laterDay, decision: initial.readinessDecision.decision.rawValue))
+        }
+        try context.save()
+        viewModel.applyFeedbackCalibration(modelContext: context)
+        XCTAssertEqual(try XCTUnwrap(viewModel.todayCommandState).readinessDecision.confidence, initial.readinessDecision.confidence, accuracy: 0.0001)
+        await viewModel.loadSecondaryData(modelContext: context, force: true)
+        XCTAssertEqual(try XCTUnwrap(viewModel.todayCommandState).readinessDecision.confidence, initial.readinessDecision.confidence, accuracy: 0.0001)
+        XCTAssertNil(viewModel.secondaryDataErrorMessage)
+    }
+
+    @MainActor
+    func testDailyPlanNextActionAdvancesAfterPersistedCompletionAndEmptyIsNotCompleted() throws {
+        let container = try VelaModelContainer.make(inMemory: true)
+        let context = container.mainContext
+        let now = Date()
+        let bodyState = BodyStateKernel().build(input: BodyStateInput(dashboard: .empty(date: now), generatedAt: now))
+        let decision = TrainingDecisionKernel().decide(input: TrainingDecisionInput(bodyState: bodyState))
+        let plan = try DailyOperatingPlanCoordinator.upsert(bodyState: bodyState, decision: decision, modelContext: context)
+        var payload = try XCTUnwrap(plan.operatingPlanPayload)
+        payload.primaryAction = DailyOperatingPlanAction(id: "move", domain: .movement, title: "散步", detail: "", destination: "recovery", evidence: nil)
+        payload.supportingActions = [
+            DailyOperatingPlanAction(id: "sleep", domain: .sleep, title: "早点休息", detail: "", destination: "evidence", evidence: nil)
+        ]
+        XCTAssertEqual(payload.nextIncompleteAction?.id, "move")
+        XCTAssertFalse(payload.allActionsCompleted)
+        let firstCompleted = DailyOperatingPlanEditor.applying(.toggleCompletion(actionID: "move", at: now), to: payload)
+        try DailyOperatingPlanEditor.persist(firstCompleted, to: plan, modelContext: context)
+        let reopened = ModelContext(container)
+        let stored = try XCTUnwrap(reopened.fetch(FetchDescriptor<DailyOperatingPlanRecord>()).first?.operatingPlanPayload)
+        XCTAssertEqual(stored.nextIncompleteAction?.id, "sleep")
+        XCTAssertFalse(stored.allActionsCompleted)
+
+        let allCompleted = DailyOperatingPlanEditor.applying(.toggleCompletion(actionID: "sleep", at: now), to: stored)
+        XCTAssertNil(allCompleted.nextIncompleteAction)
+        XCTAssertTrue(allCompleted.allActionsCompleted)
+        let reopenedAction = DailyOperatingPlanEditor.applying(.toggleCompletion(actionID: "move", at: now), to: allCompleted)
+        XCTAssertEqual(reopenedAction.nextIncompleteAction?.id, "move")
+        XCTAssertFalse(reopenedAction.allActionsCompleted)
+        let withoutPrimary = DailyOperatingPlanEditor.applying(.delete(actionID: "move", at: now), to: allCompleted)
+        let empty = DailyOperatingPlanEditor.applying(.delete(actionID: "sleep", at: now), to: withoutPrimary)
+        XCTAssertTrue(empty.allActions.isEmpty)
+        XCTAssertNil(empty.nextIncompleteAction)
+        XCTAssertFalse(empty.allActionsCompleted)
+    }
+
+    @MainActor
+    func testDailyPlanFailedSaveRestoresPlanAndArtifactWithoutDiscardingOtherEdits() throws {
+        let container = try VelaModelContainer.make(inMemory: true)
+        let context = container.mainContext
+        let now = Date()
+        let bodyState = BodyStateKernel().build(input: BodyStateInput(dashboard: .empty(date: now), generatedAt: now))
+        let decision = TrainingDecisionKernel().decide(input: TrainingDecisionInput(bodyState: bodyState))
+        let plan = try DailyOperatingPlanCoordinator.upsert(bodyState: bodyState, decision: decision, modelContext: context)
+        let artifact = try XCTUnwrap(context.fetch(FetchDescriptor<AgentArtifactRecord>()).first)
+        let originalPayload = plan.payloadJSON
+        let originalArtifactPayload = artifact.payloadJSON
+        let originalHash = plan.bodyStateHash
+        let originalGeneratedAt = plan.generatedAt
+        let journal = JournalEntryRecord(createdAt: now, tags: [], note: "saved")
+        context.insert(journal)
+        try context.save()
+        journal.note = "unrelated unsaved edit"
+        let payload = try XCTUnwrap(plan.operatingPlanPayload)
+        let action = try XCTUnwrap(payload.primaryAction)
+        let completed = DailyOperatingPlanEditor.applying(.toggleCompletion(actionID: action.id, at: now), to: payload)
+
+        XCTAssertThrowsError(try DailyOperatingPlanEditor.persist(completed, to: plan, modelContext: context, saveChanges: { _ in
+            throw PlanSaveProbeError.injected
+        }))
+        XCTAssertEqual(plan.payloadJSON, originalPayload)
+        XCTAssertEqual(artifact.payloadJSON, originalArtifactPayload)
+        XCTAssertEqual(journal.note, "unrelated unsaved edit")
+
+        XCTAssertThrowsError(try DailyOperatingPlanEditor.acknowledgeCurrentPlan(completed, record: plan, bodyStateHash: "new-context", modelContext: context, saveChanges: { _ in
+            throw PlanSaveProbeError.injected
+        }))
+        XCTAssertEqual(plan.bodyStateHash, originalHash)
+        XCTAssertEqual(plan.generatedAt, originalGeneratedAt)
+        XCTAssertEqual(artifact.sourceContextHash, originalHash)
+        XCTAssertEqual(plan.payloadJSON, originalPayload)
+
+        try DailyOperatingPlanEditor.persist(completed, to: plan, modelContext: context)
+        let reopened = ModelContext(container)
+        XCTAssertEqual(try reopened.fetch(FetchDescriptor<DailyOperatingPlanRecord>()).first?.operatingPlanPayload?.primaryAction?.completedAt, now)
+        XCTAssertEqual(try reopened.fetch(FetchDescriptor<JournalEntryRecord>()).first?.note, "unrelated unsaved edit")
+    }
+
+    @MainActor
+    func testDailyPlanFailedCreationLeavesNoPlanOrArtifactAndCanRetry() throws {
+        let container = try VelaModelContainer.make(inMemory: true)
+        let context = container.mainContext
+        let now = Date()
+        let bodyState = BodyStateKernel().build(input: BodyStateInput(dashboard: .empty(date: now), generatedAt: now))
+        let decision = TrainingDecisionKernel().decide(input: TrainingDecisionInput(bodyState: bodyState))
+        XCTAssertThrowsError(try DailyOperatingPlanCoordinator.upsert(bodyState: bodyState, decision: decision, modelContext: context, saveChanges: { _ in
+            throw PlanSaveProbeError.injected
+        }))
+        try context.save()
+        XCTAssertTrue(try context.fetch(FetchDescriptor<DailyOperatingPlanRecord>()).isEmpty)
+        XCTAssertTrue(try context.fetch(FetchDescriptor<AgentArtifactRecord>()).isEmpty)
+        try DailyOperatingPlanCoordinator.upsert(bodyState: bodyState, decision: decision, modelContext: context)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<DailyOperatingPlanRecord>()), 1)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<AgentArtifactRecord>()), 1)
+    }
+
+    @MainActor
+    func testDailyPlanReadOnlyGateRejectsBeforeChangingUserPlan() throws {
+        let container = try VelaModelContainer.make(inMemory: true)
+        let context = container.mainContext
+        let now = Date()
+        let bodyState = BodyStateKernel().build(input: BodyStateInput(dashboard: .empty(date: now), generatedAt: now))
+        let decision = TrainingDecisionKernel().decide(input: TrainingDecisionInput(bodyState: bodyState))
+        let plan = try DailyOperatingPlanCoordinator.upsert(bodyState: bodyState, decision: decision, modelContext: context)
+        let payload = try XCTUnwrap(plan.operatingPlanPayload)
+        let original = plan.payloadJSON
+        let action = try XCTUnwrap(payload.primaryAction)
+        let edited = DailyOperatingPlanEditor.applying(.delete(actionID: action.id, at: now), to: payload)
+        PersistenceWriteGate.shared.setReadOnly(true)
+        defer { PersistenceWriteGate.shared.setReadOnly(false) }
+        XCTAssertThrowsError(try DailyOperatingPlanEditor.persist(edited, to: plan, modelContext: context))
+        XCTAssertEqual(plan.payloadJSON, original)
+    }
+
     /// The write gate is shared by foreground and background work. Its
     /// read-only flag must remain race-free even when a safety-mode transition
     /// overlaps callers checking whether persistence is currently allowed.
@@ -864,6 +1138,11 @@ final class PersistenceFoundationTests: XCTestCase {
             usedPersistedDecision: true,
             persistedPayload: payload
         ))
+        XCTAssertFalse(DailyOperatingPlanRefreshPolicy.shouldRegenerate(
+            usedPersistedDecision: false,
+            persistedPayload: payload
+        ))
+        XCTAssertEqual(payload.decision.todayDecisionTitle, "保持")
     }
 
     @MainActor
@@ -945,7 +1224,7 @@ final class PersistenceFoundationTests: XCTestCase {
             generatedAt: now
         )
         let adaptation = try XCTUnwrap(aiContext.envelope.strengthTraining?["training_adaptation"])
-        let input = AgentFactInputLoader().load(modelContext: context, asOf: now)
+        let input = AgentFactInputLoader().load(modelContext: context, asOf: now, now: now)
         let persistedForAgent = input.canonicalTrainingDecision(for: bodyState)
         let canonicalFacts = AIContextBuilder().buildFacts(
             dashboard: .empty(date: now),

@@ -1,3 +1,5 @@
+> 归档：这不是现行产品规格。现行版本以 `docs/PRD.md`、`CONTEXT.md` 与分支 `cursor/today-brief-ui-clarity-6bf9` 的源码为准。2026-10-06 从仓库根目录移入。
+
 ---
 name: Vela Signal Intelligence
 description: A local-first iOS body intelligence agent for Apple Watch users. Native iOS clarity, a focused daily health story, restrained signal color, and Liquid Glass navigation. Target device: iPhone 16 Pro (390×844pt). Chinese + English bilingual, Light + Dark adaptive. Shipping floor is iOS 17 / watchOS 10 (ADR 0017); iOS 26 Liquid Glass language below is progressive enhancement / design aspiration, not the deployment floor.

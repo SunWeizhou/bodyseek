@@ -2,9 +2,15 @@
 
 所有值得记录的变更。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
-## [Unreleased] — 2026-08-23
+## [Unreleased]
 
-### Fixed（工程标准审计 C1/C2/H2/H5/H7）
+### Changed（2026-10-06 版本锁定）
+
+- 现行版本是分支 `cursor/today-brief-ui-clarity-6bf9`：主屏幕名 BodySeek，四个一级表面，部署底线仍是 iOS 17 / watchOS 10。
+- 与现行界面矛盾的根目录旧文稿移入 `docs/archive/product-eras/`。Finder 重复的设计副本已删除。生产路径里注释掉的旧睡眠分调用已去掉。
+- 删除未走上生产路径的应用内 `VelaApp/Scoring/Sleep/SleepScoreEngine.swift`。预览改走 `DomainSleepScoreAdapter`。锁定睡眠分行为的测试改打 `BodySeekDomain.SleepScoreEngine`。计分公式未改。
+
+### Fixed（2026-08-23 工程标准审计 C1/C2/H2/H5/H7）
 
 - **SwiftData schema 版本守卫**：新增 `VelaSchemaV3Frozen` 冻结快照（脚本生成）与 `scripts/schema_fingerprint.py --check` CI 门禁；模型图变更必须与版本提升同提交原子完成。
 - **HealthKit 错误不再被吞成「无数据」**：仅 `errorNoData` 走空数据分支；授权/参数/数据库错误按组件分类记录并保持当日 dirty 重试；`lastSuccessfulSyncAt` 仅在无失败日推进。

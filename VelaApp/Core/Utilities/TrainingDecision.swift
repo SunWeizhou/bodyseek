@@ -6,6 +6,16 @@ enum DailyTrainingDecisionType: String, Codable, Hashable, Sendable {
     case reduce
     case swap
     case rest
+
+    /// Short Plan headline. Completion progress is not this decision.
+    var todayDecisionTitle: String {
+        switch self {
+        case .keep: return "保持"
+        case .reduce: return "减量"
+        case .swap: return "替换"
+        case .rest: return "恢复"
+        }
+    }
 }
 
 struct DailyTrainingDecision: Codable, Hashable, Sendable {

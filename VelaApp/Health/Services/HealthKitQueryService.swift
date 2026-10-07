@@ -6,6 +6,12 @@ struct HeartRateRecoverySample: Hashable, Sendable {
     var bpm: Double
 }
 
+private struct QuantityObservation {
+    var value: Double
+    var observedAt: Date
+    var window: DateInterval
+}
+
 enum WorkoutHeartRateRecoveryMatcher {
     static func match(
         samples: [HeartRateRecoverySample],
@@ -120,15 +126,25 @@ final class HealthKitQueryService: HealthQueryService {
         async let sleepHR = sleepHeartRate(in: range)
         async let respiratoryRate = averageQuantity(.respiratoryRate, unit: HKUnit.count().unitDivided(by: .minute()), range: range)
 
-        return try await RecoveryMetricSummary(
-            hrvMilliseconds: hrv,
+        let hrvValue = try await hrv
+        let rhrValue = try await rhr
+        let hrvObservation = try? await quantityObservation(.hrvSDNN, range: range)
+        let rhrObservation = try? await quantityObservation(.restingHR, range: range)
+        let sleepHeartRateValue = try await sleepHR
+        let respiratoryRateValue = try await respiratoryRate
+        return RecoveryMetricSummary(
+            hrvMilliseconds: hrvValue,
             // HealthKit 仅暴露 SDNN（heartRateVariabilitySDNN），不存在 RMSSD 采样标识符。
             // RMSSD 是派生模型输入：PSTI 管道在 RMSSD 缺失时回退 SDNN（见 RecoveryScoreEngine），
             // 此处保持 nil 是有意为之，勿改为伪造采样。
             hrvRmssdMilliseconds: nil,
-            restingHeartRate: rhr,
-            sleepHeartRate: sleepHR,
-            respiratoryRate: respiratoryRate
+            restingHeartRate: rhrValue,
+            sleepHeartRate: sleepHeartRateValue,
+            respiratoryRate: respiratoryRateValue,
+            hrvObservedAt: hrvObservation?.observedAt,
+            rhrObservedAt: rhrObservation?.observedAt,
+            hrvObservedWindow: hrvObservation?.window,
+            rhrObservedWindow: rhrObservation?.window
         )
     }
 
@@ -184,6 +200,30 @@ final class HealthKitQueryService: HealthQueryService {
 
     private func averageQuantity(_ signal: HealthSignal, unit: HKUnit, range: DateRangeQuery) async throws -> Double? {
         try await statisticsQuantity(signal, unit: unit, options: .discreteAverage, range: range)
+    }
+
+    private func quantityObservation(_ signal: HealthSignal, range: DateRangeQuery) async throws -> QuantityObservation? {
+        guard let quantityType = HealthSignalCatalog.objectType(for: signal) as? HKQuantityType else { return nil }
+        return try await withCheckedThrowingContinuation { continuation in
+            let predicate = HKQuery.predicateForSamples(withStart: range.start, end: range.end, options: [])
+            let sort = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: true)
+            let query = HKSampleQuery(sampleType: quantityType, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: [sort]) { _, samples, error in
+                if let error {
+                    if Self.isBenignHealthKitDataError(error) { continuation.resume(returning: nil) }
+                    else { continuation.resume(throwing: error) }
+                    return
+                }
+                let quantitySamples = (samples as? [HKQuantitySample]) ?? []
+                guard !quantitySamples.isEmpty else { continuation.resume(returning: nil); return }
+                let dates = quantitySamples.map(\.endDate)
+                continuation.resume(returning: QuantityObservation(
+                    value: 0,
+                    observedAt: dates.last!,
+                    window: DateInterval(start: dates.first!, end: dates.last!)
+                ))
+            }
+            healthStore.execute(query)
+        }
     }
 
     private func statisticsQuantity(
@@ -243,6 +283,24 @@ final class HealthKitQueryService: HealthQueryService {
 
                 let sample = samples?.first as? HKQuantitySample
                 continuation.resume(returning: sample?.quantity.doubleValue(for: unit))
+            }
+            healthStore.execute(query)
+        }
+    }
+
+    private func mostRecentQuantityObservation(_ signal: HealthSignal, unit: HKUnit, range: DateRangeQuery) async throws -> QuantityObservation? {
+        guard let quantityType = HealthSignalCatalog.objectType(for: signal) as? HKQuantityType else { return nil }
+        return try await withCheckedThrowingContinuation { continuation in
+            let predicate = HKQuery.predicateForSamples(withStart: range.start, end: range.end, options: [])
+            let sort = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
+            let query = HKSampleQuery(sampleType: quantityType, predicate: predicate, limit: 1, sortDescriptors: [sort]) { _, samples, error in
+                if let error {
+                    if Self.isBenignHealthKitDataError(error) { continuation.resume(returning: nil) }
+                    else { continuation.resume(throwing: error) }
+                    return
+                }
+                guard let sample = samples?.first as? HKQuantitySample else { continuation.resume(returning: nil); return }
+                continuation.resume(returning: QuantityObservation(value: sample.quantity.doubleValue(for: unit), observedAt: sample.endDate, window: DateInterval(start: sample.startDate, end: sample.endDate)))
             }
             healthStore.execute(query)
         }
@@ -334,7 +392,7 @@ final class HealthKitQueryService: HealthQueryService {
 
         // Cardiovascular
         async let walkingHeartRateAvg = averageQuantity(.walkingHeartRate, unit: HKUnit.count().unitDivided(by: .minute()), range: range)
-        async let oxygenSaturation = mostRecentQuantity(.oxygenSaturation, unit: .percent(), range: range)
+        async let oxygenSaturation = mostRecentQuantityObservation(.oxygenSaturation, unit: .percent(), range: range)
         async let bloodPressureSystolic = mostRecentQuantity(.bloodPressureSystolic, unit: .millimeterOfMercury(), range: range)
         async let bloodPressureDiastolic = mostRecentQuantity(.bloodPressureDiastolic, unit: .millimeterOfMercury(), range: range)
 
@@ -381,7 +439,11 @@ final class HealthKitQueryService: HealthQueryService {
         do { m.bodyFatPercent = try await bodyFatPercent } catch { recordDiagnostic(component: "extended.bodyFat", error: error) }
 
         do { m.walkingHeartRateAvg = try await walkingHeartRateAvg } catch { recordDiagnostic(component: "extended.walkingHeartRate", error: error) }
-        do { m.oxygenSaturation = try await oxygenSaturation } catch { recordDiagnostic(component: "extended.oxygenSaturation", error: error) }
+        do {
+            let observation = try await oxygenSaturation
+            m.oxygenSaturation = observation?.value
+            m.oxygenSaturationObservedAt = observation?.observedAt
+        } catch { recordDiagnostic(component: "extended.oxygenSaturation", error: error) }
         do { m.bloodPressureSystolic = try await bloodPressureSystolic } catch { recordDiagnostic(component: "extended.bloodPressureSystolic", error: error) }
         do { m.bloodPressureDiastolic = try await bloodPressureDiastolic } catch { recordDiagnostic(component: "extended.bloodPressureDiastolic", error: error) }
 

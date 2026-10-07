@@ -43,7 +43,7 @@ private enum TodayPR0GoldenFixture {
         snapshot.deepSleepMinutes = 92
         snapshot.remSleepMinutes = 108
         snapshot.wristTemperature = 36.4
-        snapshot.oxygenSaturation = 0.98
+        snapshot.oxygenSaturation = 98
         snapshot.steps = 8_400
         snapshot.activeCalories = 460
         snapshot.activeMinutes = 42
@@ -198,6 +198,7 @@ final class TodayStoreTests: XCTestCase {
         var openedTrends = 0
         var openedQuickCoach = 0
         var requestedWeather = 0
+        var refreshedWeather = 0
         var requestedCoverage = 0
         var viewedHashes: [String] = []
         var actionEvents: [(String, String)] = []
@@ -216,6 +217,10 @@ final class TodayStoreTests: XCTestCase {
         func openQuickCoach() async { openedQuickCoach += 1 }
         func requestWeather() async -> TodayWeatherProjection? {
             requestedWeather += 1
+            return nil
+        }
+        func refreshWeatherFromKnownLocation() async -> TodayWeatherProjection? {
+            refreshedWeather += 1
             return nil
         }
         func requestCoverage() async -> DataCoverageSummaryModel? {
@@ -462,6 +467,21 @@ final class TodayStoreTests: XCTestCase {
     }
 
     @MainActor
+    func testLocationDeliveryDoesNotRequestPermissionOrRestartLocationAcquisition() async {
+        let reader = RecordingReader()
+        let effects = RecordingEffects()
+        let store = TodayStore(reader: reader, clock: FixedAppClock(now: now), calendar: calendar, effects: effects)
+
+        await store.send(.appear)
+        XCTAssertEqual(effects.requestedWeather, 0)
+        await store.send(.weatherLocationChanged)
+        XCTAssertEqual(effects.refreshedWeather, 1)
+        XCTAssertEqual(effects.requestedWeather, 0)
+        await store.send(.requestWeather)
+        XCTAssertEqual(effects.requestedWeather, 1)
+    }
+
+    @MainActor
     func testWeatherCoverageAndAnalyticsRemainStoreOwnedEffects() async {
         let reader = RecordingReader()
         let effects = RecordingEffects()
@@ -499,13 +519,13 @@ final class TodayViewStateTests: XCTestCase {
         )
 
         let expected: [(TodayMetricID, Double, String, MetricSource, [String])] = [
-            (.recovery, 60.70, ScoringAlgorithmVersions.recovery, .healthKit, []),
+            (.recovery, 68.70, ScoringAlgorithmVersions.recovery, .healthKit, []),
             // The fixture intentionally has no historical bedtime values;
             // preserve the engine's explicit consistency-data gap.
             (.sleep, 77.43, ScoringAlgorithmVersions.sleep, .healthKit, ["recentBedtimesHistory"]),
             (.strain, 63.67, ScoringAlgorithmVersions.strain, .healthKit, []),
             (.stress, 21.08, ScoringAlgorithmVersions.physiologicalStress, .derived, []),
-            (.energy, 42.31, ScoringAlgorithmVersions.energy, .derived, [])
+            (.energy, 47.91, ScoringAlgorithmVersions.energy, .derived, [])
         ]
         XCTAssertEqual(state.phase, .ready)
         XCTAssertEqual(state.source, .healthKit)

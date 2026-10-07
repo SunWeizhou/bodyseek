@@ -1,6 +1,58 @@
 import SwiftUI
 import SwiftData
 
+// MARK: - Plan presentation contract
+
+enum PlanLoadPhase: Equatable, Sendable {
+    case idle
+    case loading(previous: Bool)
+    case ready
+    case empty
+    case failed
+}
+
+enum PlanError: Equatable, Sendable, LocalizedError {
+    case unavailable(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .unavailable(let message): return message
+        }
+    }
+}
+
+struct PlanCompletionProjection: Equatable, Sendable {
+    let completed: Int
+    let total: Int
+
+    var progress: Double {
+        guard total > 0 else { return 0 }
+        return min(max(Double(completed) / Double(total), 0), 1)
+    }
+}
+
+/// Immutable plan read model used by the redesigned page. Persistence and
+/// mutation remain behind the existing plan adapter until the full migration
+/// is complete.
+struct PlanViewState: Equatable, Sendable {
+    var selectedDay: Date
+    var activePlan: TodayPlanProjection?
+    var pendingProposal: TodayPendingPlanProjection?
+    var completion: PlanCompletionProjection
+    var phase: PlanLoadPhase
+    var error: PlanError?
+}
+
+enum PlanAction: Hashable, Sendable {
+    case complete(actionID: String)
+    case edit(actionID: String)
+    case delete(actionID: String)
+    case acceptProposal
+    case rejectProposal
+    case openTraining
+    case askCoach
+}
+
 /// The user's daily operating plan. Training is one downstream action domain,
 /// not the organizing principle of the primary workspace.
 struct VelaPlanView: View {
@@ -16,6 +68,7 @@ struct VelaPlanView: View {
     @State private var showTraining = false
     @State private var lastHandledTrainingRequest = 0
     @State private var planRevision = 0
+    @State private var planError: PlanError?
 
     private var payload: DailyOperatingPlanPayload? {
         plan?.operatingPlanPayload
@@ -30,16 +83,18 @@ struct VelaPlanView: View {
     }
 
     private var candidatePayload: DailyOperatingPlanPayload? {
-        guard let plan, payload?.hasUserEdits == true,
+        guard let plan, let payload,
               plan.bodyStateHash != dashboardVM.dashboard.bodyState.hash else {
             return nil
         }
-        return DailyOperatingPlanBuilder.build(
+        let candidate = DailyOperatingPlanBuilder.build(
             bodyState: dashboardVM.dashboard.bodyState,
             decision: currentDecision,
             brief: dashboardVM.dashboard.personalHealthBrief,
             language: AppLanguage.stored
         )
+        guard candidate.actionOutline != payload.actionOutline else { return nil }
+        return candidate
     }
 
     private var currentDecision: DailyTrainingDecision {
@@ -53,6 +108,32 @@ struct VelaPlanView: View {
 
     private var dayIdentifier: String {
         DailyHealthSummaryRecord.dayIdentifier(for: dashboardVM.selectedDate)
+    }
+
+    private var planViewState: PlanViewState {
+        let payload = plan?.operatingPlanPayload
+        let currentActions = payload?.allActions ?? []
+        let phase: PlanLoadPhase
+        if planError != nil {
+            phase = .failed
+        } else if plan == nil {
+            phase = .loading(previous: false)
+        } else if payload == nil || currentActions.isEmpty {
+            phase = .empty
+        } else {
+            phase = .ready
+        }
+        return PlanViewState(
+            selectedDay: dashboardVM.selectedDate,
+            activePlan: payload.map(TodayPlanProjection.init),
+            pendingProposal: nil,
+            completion: PlanCompletionProjection(
+                completed: currentActions.filter { $0.completedAt != nil }.count,
+                total: currentActions.count
+            ),
+            phase: phase,
+            error: planError
+        )
     }
 
     var body: some View {
@@ -76,7 +157,16 @@ struct VelaPlanView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: VelaTheme.sectionGap) {
-                    rhythmSummary
+                    if let error = planViewState.error {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(error.localizedDescription)
+                                .font(VelaTheme.footnote())
+                            Button("重新读取计划") { loadOrCreatePlan() }
+                        }
+                        .foregroundStyle(VelaTheme.stressColor)
+                        .accessibilityIdentifier("plan-save-error")
+                    }
+                        rhythmSummary
 
                     if let candidatePayload {
                         candidateCard(candidatePayload)
@@ -133,42 +223,44 @@ struct VelaPlanView: View {
     }
 
     private var rhythmSummary: some View {
-        let total = actions.count
-        let progress = total == 0 ? 0 : Double(completedCount) / Double(total)
+        let completion = planViewState.completion
+        let total = completion.total
+        let progress = completion.progress
+        let completed = completion.completed
+        let decisionTitle = payload?.decision.todayDecisionTitle
         return VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(total == 0 ? "今天由你决定" : primaryRhythmTitle)
+            VStack(alignment: .leading, spacing: 4) {
+                if total == 0 {
+                    Text("今天由你决定")
+                        .font(.system(.title2, design: .default, weight: .semibold))
+                        .tracking(-0.35)
+                        .foregroundStyle(VelaTheme.rhythmInk)
+                    Text("添加一项真正有帮助的行动")
+                        .font(.footnote)
+                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                } else {
+                    if let decisionTitle {
+                        Text(decisionTitle)
+                            .font(.system(.caption, design: .default, weight: .semibold))
+                            .foregroundStyle(VelaTheme.rhythmDeep)
+                    }
+                    Text(primaryRhythmTitle)
                         .font(.system(.title2, design: .default, weight: .semibold))
                         .tracking(-0.35)
                         .foregroundStyle(VelaTheme.rhythmInk)
                         .fixedSize(horizontal: false, vertical: true)
-                    Text(total == 0 ? "添加一项真正有帮助的行动" : "先完成最重要的一件事")
+                    Text(completed == total ? "今天的安排已完成" : "已完成 \(completed)/\(total)")
                         .font(.footnote)
                         .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                        .accessibilityLabel("已完成 \(completed) 项，共 \(total) 项")
                 }
-                Spacer(minLength: 16)
-                HStack(alignment: .firstTextBaseline, spacing: 2) {
-                    Text("\(completedCount)")
-                        .font(.system(.largeTitle, design: .rounded, weight: .semibold).monospacedDigit())
-                        .foregroundStyle(VelaTheme.rhythmInk)
-                    Text("/\(total)")
-                        .font(.system(.footnote, design: .rounded, weight: .semibold))
-                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                }
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("已完成 \(completedCount) 项，共 \(total) 项")
             }
 
-            GeometryReader { proxy in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(VelaTheme.rhythmMist.opacity(0.72))
-                    Capsule()
-                        .fill(VelaTheme.rhythmDeep)
-                        .frame(width: proxy.size.width * progress)
-                }
-            }
-            .frame(height: 7)
+            BodySeekPlanProgressRail(
+                completed: completed,
+                total: total,
+                tint: VelaTheme.rhythmDeep
+            )
             .animation(VelaTheme.dataAnimation(reduceMotion: reduceMotion), value: progress)
         }
         .padding(VelaTheme.cardPadding)
@@ -278,7 +370,7 @@ struct VelaPlanView: View {
                 .background(VelaTheme.rhythmDeep, in: Capsule())
                 .buttonStyle(.cardPress)
 
-                Button("保留我的安排") {
+                Button(payload?.hasUserEdits == true ? "保留我的安排" : "先保持现在的安排") {
                     keepCurrentPlan()
                 }
                 .font(.system(.footnote, design: .default, weight: .semibold))
@@ -356,45 +448,55 @@ struct VelaPlanView: View {
     }
 
     private func loadOrCreatePlan() {
+        if plan?.dayIdentifier != dayIdentifier { plan = nil }
         var descriptor = FetchDescriptor<DailyOperatingPlanRecord>(
             predicate: #Predicate<DailyOperatingPlanRecord> { $0.dayIdentifier == dayIdentifier },
             sortBy: [SortDescriptor(\.generatedAt, order: .reverse)]
         )
         descriptor.fetchLimit = 1
-        if let stored = try? modelContext.fetch(descriptor).first {
-            plan = stored
+        do {
+            if let stored = try modelContext.fetch(descriptor).first {
+                plan = stored
+            } else {
+                guard Calendar.current.isDate(dashboardVM.dashboard.bodyState.date, inSameDayAs: dashboardVM.selectedDate) else {
+                    throw PlanError.unavailable("所选日期的身体状态仍在读取，请稍后重试。")
+                }
+                plan = try DailyOperatingPlanCoordinator.upsert(
+                    bodyState: dashboardVM.dashboard.bodyState,
+                    decision: currentDecision,
+                    brief: dashboardVM.dashboard.personalHealthBrief,
+                    modelContext: modelContext
+                )
+            }
+            planError = nil
             planRevision += 1
-            return
+        } catch {
+            planError = .unavailable("计划未能读取或保存：\(error.localizedDescription)")
         }
-
-        plan = try? DailyOperatingPlanCoordinator.upsert(
-            bodyState: dashboardVM.dashboard.bodyState,
-            decision: currentDecision,
-            brief: dashboardVM.dashboard.personalHealthBrief,
-            modelContext: modelContext
-        )
-        planRevision += 1
     }
 
-    private func mutate(_ mutation: DailyOperatingPlanMutation) {
-        guard let plan, let payload else { return }
-        let updated = DailyOperatingPlanEditor.applying(mutation, to: payload)
-        do {
-            try DailyOperatingPlanEditor.persist(updated, to: plan, modelContext: modelContext)
-            planRevision += 1
-            appState.markLocalDataChanged()
-        } catch {
-            appState.logDebug("[VelaPlanView] failed to persist plan edit: \(error.localizedDescription)")
+    private func mutate(_ mutation: DailyOperatingPlanMutation) throws {
+        guard let plan, let payload else {
+            throw PlanError.unavailable("计划尚未准备好，修改未保存。请稍后重试。")
         }
+        let updated = DailyOperatingPlanEditor.applying(mutation, to: payload)
+        try DailyOperatingPlanEditor.persist(updated, to: plan, modelContext: modelContext)
+        planError = nil
+        planRevision += 1
+        appState.markLocalDataChanged()
     }
 
     private func toggle(_ action: DailyOperatingPlanAction) {
         let wasComplete = action.completedAt != nil
-        mutate(.toggleCompletion(actionID: action.id, at: Date()))
-        if wasComplete {
-            VelaHaptic.selection()
-        } else {
-            VelaHaptic.success()
+        do {
+            try mutate(.toggleCompletion(actionID: action.id, at: Date()))
+            if wasComplete {
+                VelaHaptic.selection()
+            } else {
+                VelaHaptic.success()
+            }
+        } catch {
+            planError = .unavailable("完成状态未保存：\(error.localizedDescription)")
         }
     }
 
@@ -415,21 +517,30 @@ struct VelaPlanView: View {
         )
     }
 
-    private func save(_ draft: PlanActionDraft) {
+    private func save(_ draft: PlanActionDraft) -> Result<Void, Error> {
         let action = draft.action
-        if draft.originalActionID == nil {
-            mutate(.add(action: action, at: Date()))
-        } else {
-            mutate(.update(action: action, at: Date()))
+        do {
+            if draft.originalActionID == nil {
+                try mutate(.add(action: action, at: Date()))
+            } else {
+                try mutate(.update(action: action, at: Date()))
+            }
+            VelaHaptic.success()
+            return .success(())
+        } catch {
+            return .failure(error)
         }
-        VelaHaptic.success()
     }
 
     private func deletePendingAction() {
         guard let action = pendingDelete else { return }
-        pendingDelete = nil
-        mutate(.delete(actionID: action.id, at: Date()))
-        VelaHaptic.selection()
+        do {
+            try mutate(.delete(actionID: action.id, at: Date()))
+            pendingDelete = nil
+            VelaHaptic.selection()
+        } catch {
+            planError = .unavailable("行动未删除：\(error.localizedDescription)")
+        }
     }
 
     private func accept(_ candidate: DailyOperatingPlanPayload) {
@@ -441,10 +552,11 @@ struct VelaPlanView: View {
                 modelContext: modelContext
             )
             planRevision += 1
+            planError = nil
             appState.markLocalDataChanged()
             VelaHaptic.success()
         } catch {
-            appState.logDebug("[VelaPlanView] failed to accept candidate plan: \(error.localizedDescription)")
+            planError = .unavailable("新计划未保存，原计划仍保留：\(error.localizedDescription)")
         }
     }
 
@@ -458,10 +570,11 @@ struct VelaPlanView: View {
                 modelContext: modelContext
             )
             planRevision += 1
+            planError = nil
             appState.markLocalDataChanged()
             VelaHaptic.selection()
         } catch {
-            appState.logDebug("[VelaPlanView] failed to retain current plan: \(error.localizedDescription)")
+            planError = .unavailable("保留安排的确认未保存：\(error.localizedDescription)")
         }
     }
 
@@ -597,9 +710,10 @@ private struct PlanActionRow: View {
 private struct PlanActionEditorSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var draft: PlanActionDraft
-    let onSave: (PlanActionDraft) -> Void
+    @State private var saveError: String?
+    let onSave: (PlanActionDraft) -> Result<Void, Error>
 
-    init(draft: PlanActionDraft, onSave: @escaping (PlanActionDraft) -> Void) {
+    init(draft: PlanActionDraft, onSave: @escaping (PlanActionDraft) -> Result<Void, Error>) {
         _draft = State(initialValue: draft)
         self.onSave = onSave
     }
@@ -607,6 +721,15 @@ private struct PlanActionEditorSheet: View {
     var body: some View {
         NavigationStack {
             Form {
+                if let saveError {
+                    Section {
+                        Text("未保存：\(saveError)")
+                            .foregroundStyle(VelaTheme.stressColor)
+                        Text("修改内容仍保留在这里，可以再次点击保存。")
+                            .font(.footnote)
+                    }
+                    .accessibilityIdentifier("plan-editor-save-error")
+                }
                 Section("行动") {
                     Picker("类别", selection: $draft.domain) {
                         ForEach(draft.availableDomains, id: \.self) { domain in
@@ -640,8 +763,12 @@ private struct PlanActionEditorSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") {
-                        onSave(draft)
-                        dismiss()
+                        switch onSave(draft) {
+                        case .success:
+                            dismiss()
+                        case .failure(let error):
+                            saveError = error.localizedDescription
+                        }
                     }
                     .fontWeight(.semibold)
                     .disabled(draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)

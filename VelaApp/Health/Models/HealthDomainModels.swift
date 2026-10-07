@@ -4,7 +4,7 @@ import Foundation
 /// Outcome of a HealthKit read. `noData` is intentionally distinct from a
 /// failed read so callers can preserve missing-data semantics without hiding
 /// permission, availability, or transient system failures.
-enum HealthQueryOutcomeKind: String, Codable, Equatable, Sendable {
+public enum HealthQueryOutcomeKind: String, Codable, Equatable, Sendable {
     case data
     case noData
     case denied
@@ -12,7 +12,7 @@ enum HealthQueryOutcomeKind: String, Codable, Equatable, Sendable {
     case transient
     case failed
 
-    var isFailure: Bool {
+    public var isFailure: Bool {
         switch self {
         case .denied, .unavailable, .transient, .failed:
             return true
@@ -25,13 +25,13 @@ enum HealthQueryOutcomeKind: String, Codable, Equatable, Sendable {
 /// Machine-readable diagnostic attached to one HealthKit component/query.
 /// Error text is deliberately omitted: localized descriptions are unstable
 /// and should never drive product behaviour or persistence decisions.
-struct HealthQueryDiagnostic: Codable, Equatable, Hashable, Sendable {
-    var component: String
-    var outcome: HealthQueryOutcomeKind
-    var errorDomain: String?
-    var errorCode: Int?
+public struct HealthQueryDiagnostic: Codable, Equatable, Hashable, Sendable {
+    public var component: String
+    public var outcome: HealthQueryOutcomeKind
+    public var errorDomain: String?
+    public var errorCode: Int?
 
-    init(
+    public init(
         component: String,
         outcome: HealthQueryOutcomeKind,
         error: Error? = nil
@@ -120,6 +120,7 @@ struct DailyHealthSnapshot: Identifiable, Hashable, Sendable {
     var rhrObservedAt: Date?
     var spo2ObservedAt: Date?
     var hrvObservedWindow: DateInterval?
+    var rhrObservedWindow: DateInterval?
 }
 
 enum SleepStage: String, Codable, Hashable, CaseIterable {
@@ -168,6 +169,10 @@ struct RecoveryMetricSummary: Codable, Hashable {
     var restingHeartRate: Double?
     var sleepHeartRate: Double?
     var respiratoryRate: Double?
+    var hrvObservedAt: Date? = nil
+    var rhrObservedAt: Date? = nil
+    var hrvObservedWindow: DateInterval? = nil
+    var rhrObservedWindow: DateInterval? = nil
 }
 
 struct StrainActivitySummary: Codable, Hashable {
@@ -234,6 +239,7 @@ struct ExtendedHealthMetrics: Codable, Hashable {
     // Cardiovascular advanced
     var walkingHeartRateAvg: Double?    // bpm
     var oxygenSaturation: Double?      // 0-100 %
+    var oxygenSaturationObservedAt: Date? = nil
     var bloodPressureSystolic: Double?  // mmHg
     var bloodPressureDiastolic: Double? // mmHg
 

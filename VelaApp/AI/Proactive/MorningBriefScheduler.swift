@@ -128,6 +128,7 @@ final class MorningBriefScheduler: ObservableObject {
                 trainingResponses: input.trainingResponses,
                 onboardingState: input.onboardingState,
                 bodyState: input.bodyState(dashboard: dashboard),
+                scoringContext: dashboard.scoringContext,
                 dailyOperatingPlan: AIContextBuilder.compactDailyOperatingPlan(input.dailyOperatingPlan),
                 activePlan: input.activePlan?.dto,
                 generatedAt: contextAsOf

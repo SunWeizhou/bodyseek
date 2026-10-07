@@ -98,6 +98,16 @@ enum TrendsLoadPhase: Equatable, Sendable {
     case failed
 }
 
+struct TrendsPresentationState: Equatable, Sendable {
+    let selectedDay: Date
+    let horizon: HealthTrendHorizon
+    let metric: CoreHealthMetric
+    let phase: TrendsLoadPhase
+    let finding: HealthTrendFinding?
+    let baselineBand: ClosedRange<Double>?
+    let observedPointCount: Int
+}
+
 struct TrendsViewState: Equatable, Sendable {
     var selectedDay: Date
     var horizon: HealthTrendHorizon
@@ -106,6 +116,18 @@ struct TrendsViewState: Equatable, Sendable {
     var series: TrendsMetricSeries?
     var selectedPoint: TrendsChartPoint?
     var errorMessage: String?
+
+    var bodySeekPresentation: TrendsPresentationState {
+        TrendsPresentationState(
+            selectedDay: selectedDay,
+            horizon: horizon,
+            metric: metric,
+            phase: phase,
+            finding: series?.finding,
+            baselineBand: series?.baselineBand,
+            observedPointCount: series?.points.compactMap(\.value).count ?? 0
+        )
+    }
 
     static func initial(
         selectedDay: Date,

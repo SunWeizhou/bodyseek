@@ -138,6 +138,7 @@ final class HealthKitSyncEngine {
             calendar: calendar
         )
         var failedDayIdentifiers = Set<String>()
+        var sleepEvidenceByDayIdentifier: [String: SleepEvidenceContext] = [:]
 
         for dayStart in plan.rawRefreshDays {
             // Build raw daily snapshot from HealthKit and local workouts
@@ -149,6 +150,7 @@ final class HealthKitSyncEngine {
             )
             let snapshot = buildResult.snapshot
             let dayIdentifier = DailyHealthSummaryRecord.dayIdentifier(for: dayStart, calendar: calendar)
+            sleepEvidenceByDayIdentifier[dayIdentifier] = buildResult.sleepEvidence
 
             // 查询失败（区别于「无数据」）的组件必须让当天保持 dirty 以便重试，
             // 同时把失败写入诊断链（Trust Center 可见）。核心健康组件全部失败时
@@ -215,6 +217,7 @@ final class HealthKitSyncEngine {
                 existingSnapshots = []
             }
             guard var snapshot = existingSnapshots.first(where: { calendar.isDate($0.date, inSameDayAs: dayStart) }) else { continue }
+            let dayIdentifier = DailyHealthSummaryRecord.dayIdentifier(for: dayStart, calendar: calendar)
             
             // Fetch past 42 days of historical snapshots (which already have raw data from Pass 1!)
             let pastSnapshots: [DailyHealthSnapshot]
@@ -248,7 +251,7 @@ final class HealthKitSyncEngine {
             let pipeline = DailyHealthComputation(
                 calendar: calendar,
                 now: dayCutoff,
-                profile: .current(
+                scoringContext: .current(
                     ageFallback: hkCharacteristics?.age,
                     biologicalSexFallback: hkCharacteristics?.biologicalSex
                 )
@@ -256,7 +259,8 @@ final class HealthKitSyncEngine {
             let metrics = pipeline.compute(
                 for: snapshot,
                 history: historicalSnapshots,
-                longTermBaselines: dayLongTermReport
+                longTermBaselines: dayLongTermReport,
+                sleepEvidence: sleepEvidenceByDayIdentifier[dayIdentifier]
             )
 
             snapshot = metrics.applying(to: snapshot)
@@ -378,6 +382,7 @@ final class DailySnapshotBuilder {
         var snapshot: DailyHealthSnapshot
         var queryFailures: [HealthSnapshotComponent]
         var diagnostics: [HealthQueryDiagnostic] = []
+        var sleepEvidence: SleepEvidenceContext
 
         /// 核心健康组件（sleep/recovery/strain/body）是否至少有一个成功。
         /// 全部失败时没有可信数据，调用方不应持久化「无数据」快照覆盖已有记录。
@@ -467,29 +472,44 @@ final class DailySnapshotBuilder {
         
         // Populate sleep
         if let sleep = sleep {
-            snapshot.sleepHours = Double(sleep.totalSleepMinutes) / 60.0
-            let rawEfficiency = sleep.stageMinutes[.inBed].map { inBed in
-                inBed > 0 ? Double(sleep.totalSleepMinutes) / Double(inBed) : 0.85
-            } ?? 0.85
-            snapshot.sleepEfficiency = HealthUnitNormalizer.normalizeSleepEfficiency(rawEfficiency)
-            
             let total = Double(sleep.totalSleepMinutes)
             if total > 0 {
-                let rawDeep = (sleep.stageMinutes[.deep].map { Double($0) } ?? 0.0) / total
-                let rawRem = (sleep.stageMinutes[.rem].map { Double($0) } ?? 0.0) / total
-                snapshot.deepSleepPercent = HealthUnitNormalizer.normalizeSleepStagePercent(rawDeep)
-                snapshot.remSleepPercent = HealthUnitNormalizer.normalizeSleepStagePercent(rawRem)
+                snapshot.sleepHours = total / 60.0
+                if let inBed = sleep.stageMinutes[.inBed], inBed > 0 {
+                    let rawEfficiency = total / Double(inBed)
+                    snapshot.sleepEfficiency = HealthUnitNormalizer.normalizeSleepEfficiency(rawEfficiency)
+                } else {
+                    snapshot.sleepEfficiency = nil
+                }
+                snapshot.deepSleepPercent = sleep.stageMinutes[.deep].map {
+                    HealthUnitNormalizer.normalizeSleepStagePercent(Double($0) / total)
+                }
+                snapshot.remSleepPercent = sleep.stageMinutes[.rem].map {
+                    HealthUnitNormalizer.normalizeSleepStagePercent(Double($0) / total)
+                }
+            } else {
+                snapshot.sleepHours = nil
+                snapshot.sleepEfficiency = nil
+                snapshot.deepSleepPercent = nil
+                snapshot.remSleepPercent = nil
             }
-            if let bedtime = sleep.bedtime { snapshot.bedtime = bedtime }
-            if let wakeTime = sleep.wakeTime { snapshot.wakeTime = wakeTime }
+            snapshot.bedtime = sleep.bedtime
+            snapshot.wakeTime = sleep.wakeTime
             
             // Core Metrics v1.3 sub-metrics
-            if let awake = sleep.stageMinutes[.awake].map({ Double($0) }) { snapshot.awakeMinutes = awake }
+            snapshot.awakeMinutes = sleep.stageMinutes[.awake].map { Double($0) }
             let awakeEpisodes = sleep.segments.filter { $0.stage == .awake && $0.end.timeIntervalSince($0.start) >= 120 }.count
-            if awakeEpisodes > 0 || snapshot.awakeEpisodeCount == nil { snapshot.awakeEpisodeCount = awakeEpisodes }
-            if let deep = sleep.stageMinutes[.deep].map({ Double($0) }) { snapshot.deepSleepMinutes = deep }
-            if let rem = sleep.stageMinutes[.rem].map({ Double($0) }) { snapshot.remSleepMinutes = rem }
+            snapshot.awakeEpisodeCount = awakeEpisodes
+            snapshot.deepSleepMinutes = sleep.stageMinutes[.deep].map { Double($0) }
+            snapshot.remSleepMinutes = sleep.stageMinutes[.rem].map { Double($0) }
         }
+
+        let sleepEvidence = makeSleepEvidence(
+            summary: sleep,
+            existingSnapshot: snapshot,
+            diagnostic: sleepDiagnostic,
+            range: DateInterval(start: range.start, end: range.end)
+        )
 
         // Populate recovery
         if let recovery = recovery {
@@ -497,6 +517,10 @@ final class DailySnapshotBuilder {
             if let hrvRmssd = recovery.hrvRmssdMilliseconds { snapshot.hrvRmssdMilliseconds = hrvRmssd }
             if let rhr = recovery.restingHeartRate { snapshot.restingHeartRate = rhr }
             if let rr = recovery.respiratoryRate { snapshot.respiratoryRate = rr }
+            snapshot.hrvObservedAt = recovery.hrvObservedAt
+            snapshot.rhrObservedAt = recovery.rhrObservedAt
+            snapshot.hrvObservedWindow = recovery.hrvObservedWindow
+            snapshot.rhrObservedWindow = recovery.rhrObservedWindow
         }
 
         // Populate strain
@@ -544,9 +568,155 @@ final class DailySnapshotBuilder {
 
         // Populate extended
         if let spo2 = extended.oxygenSaturation { snapshot.oxygenSaturation = HealthUnitNormalizer.normalizeOxygenSaturation(spo2) }
+        snapshot.spo2ObservedAt = extended.oxygenSaturationObservedAt
         if let temp = extended.bodyTemperature { snapshot.wristTemperature = temp }
 
-        return Result(snapshot: snapshot, queryFailures: queryFailures, diagnostics: diagnostics)
+        return Result(
+            snapshot: snapshot,
+            queryFailures: queryFailures,
+            diagnostics: diagnostics,
+            sleepEvidence: sleepEvidence
+        )
+    }
+
+    private static func makeSleepEvidence(
+        summary: SleepSummary?,
+        existingSnapshot: DailyHealthSnapshot,
+        diagnostic: HealthQueryDiagnostic?,
+        range: DateInterval
+    ) -> SleepEvidenceContext {
+        let outcome = diagnostic?.outcome ?? (summary == nil ? .noData : .data)
+        let freshness: DataFreshness = outcome == .data ? .today : .stale
+
+        func observation(
+            _ value: Double?,
+            availability: SleepObservationAvailability,
+            reason: String? = nil
+        ) -> SleepComponentObservation {
+            SleepComponentObservation(
+                value: value,
+                availability: availability,
+                reason: reason,
+                observedWindow: range
+            )
+        }
+
+        guard outcome == .data, let summary else {
+            return SleepEvidenceContext(
+                queryOutcome: outcome,
+                freshness: freshness,
+                totalSleep: observation(
+                    existingSnapshot.sleepHours.map { $0 * 60 },
+                    availability: existingSnapshot.sleepHours.map { $0 > 0 } == true ? .observed : .missing,
+                    reason: "本次睡眠查询未成功，保留上次可信值"
+                ),
+                bedtime: observation(
+                    existingSnapshot.bedtime?.timeIntervalSinceReferenceDate,
+                    availability: existingSnapshot.bedtime == nil ? .missing : .observed,
+                    reason: "本次睡眠查询未成功，保留上次可信值"
+                ),
+                wakeTime: observation(
+                    existingSnapshot.wakeTime?.timeIntervalSinceReferenceDate,
+                    availability: existingSnapshot.wakeTime == nil ? .missing : .observed,
+                    reason: "本次睡眠查询未成功，保留上次可信值"
+                ),
+                inBed: {
+                    if let total = existingSnapshot.sleepHours.map({ $0 * 60 }),
+                       let awake = existingSnapshot.awakeMinutes,
+                       total > 0,
+                       awake >= 0 {
+                        return SleepComponentObservation(
+                            value: total + awake,
+                            availability: .estimated,
+                            reason: "由上次可信睡眠时长与清醒时长推导卧床时长",
+                            observedWindow: range
+                        )
+                    }
+                    return .missing("本次查询未提供卧床时长")
+                }(),
+                awake: observation(
+                    existingSnapshot.awakeMinutes,
+                    availability: existingSnapshot.awakeMinutes == nil ? .missing : .observed,
+                    reason: "本次睡眠查询未成功，保留上次可信值"
+                ),
+                rem: observation(
+                    existingSnapshot.remSleepMinutes,
+                    availability: existingSnapshot.remSleepMinutes == nil ? .missing : .observed,
+                    reason: "本次睡眠查询未成功，保留上次可信值"
+                ),
+                deep: observation(
+                    existingSnapshot.deepSleepMinutes,
+                    availability: existingSnapshot.deepSleepMinutes == nil ? .missing : .observed,
+                    reason: "本次睡眠查询未成功，保留上次可信值"
+                ),
+                episodeCount: observation(
+                    existingSnapshot.awakeEpisodeCount.map(Double.init),
+                    availability: existingSnapshot.awakeEpisodeCount == nil ? .missing : .observed,
+                    reason: "本次睡眠查询未成功，保留上次可信值"
+                )
+            )
+        }
+
+        let total = Double(summary.totalSleepMinutes)
+        let hasValidTotal = total > 0
+        let awake = summary.stageMinutes[.awake].map(Double.init)
+        let inBed = summary.stageMinutes[.inBed].map(Double.init)
+        let rem = summary.stageMinutes[.rem].map(Double.init)
+        let deep = summary.stageMinutes[.deep].map(Double.init)
+        let episodeCount = summary.segments.filter {
+            $0.stage == .awake && $0.end.timeIntervalSince($0.start) >= 120
+        }.count
+
+        return SleepEvidenceContext(
+            queryOutcome: .data,
+            freshness: .today,
+            totalSleep: observation(
+                hasValidTotal ? total : nil,
+                availability: hasValidTotal ? .observed : .missing,
+                reason: hasValidTotal ? nil : "查询窗口内没有有效睡眠片段"
+            ),
+            bedtime: observation(
+                summary.bedtime?.timeIntervalSinceReferenceDate,
+                availability: summary.bedtime == nil ? .missing : .observed
+            ),
+            wakeTime: observation(
+                summary.wakeTime?.timeIntervalSinceReferenceDate,
+                availability: summary.wakeTime == nil ? .missing : .observed
+            ),
+                inBed: {
+                    if let inBed, inBed > 0 {
+                        return observation(inBed, availability: .observed)
+                    }
+                    if total > 0, let awake, awake >= 0 {
+                        return observation(
+                            total + awake,
+                            availability: .estimated,
+                            reason: "由睡眠时长与清醒时长推导卧床时长"
+                        )
+                    }
+                    return .missing("HealthKit 未提供卧床阶段")
+                }(),
+            awake: observation(
+                awake,
+                availability: awake == nil ? .missing : .observed,
+                reason: awake == nil ? "HealthKit 未提供清醒阶段" : nil
+            ),
+            rem: observation(
+                rem,
+                availability: rem == nil ? .missing : .observed,
+                reason: rem == nil ? "HealthKit 未提供 REM 阶段" : nil
+            ),
+            deep: observation(
+                deep,
+                availability: deep == nil ? .missing : .observed,
+                reason: deep == nil ? "HealthKit 未提供 Deep 阶段" : nil
+            ),
+            episodeCount: observation(
+                Double(episodeCount),
+                availability: .estimated,
+                reason: "由清醒片段估算醒来次数"
+            )
+        )
     }
 
     /// 执行单个 HealthKit 查询组件：无数据（benign）→ 返回 nil 且不记为失败；

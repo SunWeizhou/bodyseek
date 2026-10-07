@@ -1,8 +1,10 @@
 # Architecture Decision Records (ADRs)
 
 > Status: Canonical
-> Last verified: 2026-09-26
+> Last verified: 2026-10-06
 > Scope: Vela 核心架构决策记录索引、状态与演进关系
+>
+> 现行软件仍遵守 Accepted ADR。ADR 0017 的部署底线、五项独立分数和 BodySeek/Vela 身份保持有效。Today 仍是 ADR 0012 的 3+2，不把 0012 标成被取代。Superseded 记录只供追溯。
 
 > 现行 shipping floor 与产品身份以 **ADR 0017 Accepted** 为准；ADR 0013–0016 均为 Superseded，不得再当作部署门槛或 Proposed 方向。
 

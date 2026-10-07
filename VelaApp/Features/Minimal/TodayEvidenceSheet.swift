@@ -4,6 +4,7 @@ struct TodayEvidenceSheet: View {
     let state: TodayCommandState
     let dashboard: DashboardSummary
     var onAskCoach: (String) -> Void
+    var onClose: (() -> Void)? = nil
 
     @Environment(\.dismiss) private var dismiss
 
@@ -34,11 +35,13 @@ struct TodayEvidenceSheet: View {
             }
             .scrollIndicators(.hidden)
             .background(VelaTheme.rhythmCanvas)
+            .accessibilityIdentifier("today-evidence-sheet")
             .navigationTitle("判断依据")
             .velaRhythmDetailChrome()
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("关闭") {
+                        onClose?()
                         dismiss()
                     }
                 }
@@ -51,9 +54,7 @@ struct TodayEvidenceSheet: View {
     private var decisionSummary: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 8) {
-                Circle()
-                    .fill(VelaTheme.rhythmDeep)
-                    .frame(width: 7, height: 7)
+                BodySeekBrandMark(size: 22)
                 Text("状态判断")
                     .font(.system(.caption2, design: .default, weight: .bold))
                     .foregroundStyle(VelaTheme.rhythmDeep)

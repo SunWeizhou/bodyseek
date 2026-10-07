@@ -65,7 +65,7 @@
 		C40400020000000000000002 /* VelaSchemaV2Frozen.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40410020000000000000002 /* VelaSchemaV2Frozen.swift */; };
 		0B1000350000000000000035 /* ScoringCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001360000000000000036 /* ScoringCore.swift */; };
 		0B1000350000000000000101 /* ScoreEngineFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001360000000000000101 /* ScoreEngineFactory.swift */; };
-		0B1000360000000000000036 /* SleepScoreEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001370000000000000037 /* SleepScoreEngine.swift */; };
+		0B1000360000000000000036 /* SleepEvidence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001370000000000000037 /* SleepEvidence.swift */; };
 		0B1000370000000000000037 /* RecoveryScoreEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001380000000000000038 /* RecoveryScoreEngine.swift */; };
 		0B1000380000000000000038 /* StrainScoreEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001390000000000000039 /* StrainScoreEngine.swift */; };
 		0B1000390000000000000039 /* StressIndexEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001400000000000000040 /* StressIndexEngine.swift */; };
@@ -326,7 +326,7 @@
 		C40410020000000000000002 /* VelaSchemaV2Frozen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence/SwiftDataModels/VelaSchemaV2Frozen.swift; sourceTree = "<group>"; };
 		0B1001360000000000000036 /* ScoringCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scoring/ScoringCore.swift; sourceTree = "<group>"; };
 		0B1001360000000000000101 /* ScoreEngineFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scoring/ScoreEngineFactory.swift; sourceTree = "<group>"; };
-		0B1001370000000000000037 /* SleepScoreEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scoring/Sleep/SleepScoreEngine.swift; sourceTree = "<group>"; };
+		0B1001370000000000000037 /* SleepEvidence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scoring/Sleep/SleepEvidence.swift; sourceTree = "<group>"; };
 		0B1001380000000000000038 /* RecoveryScoreEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scoring/Recovery/RecoveryScoreEngine.swift; sourceTree = "<group>"; };
 		0B1001390000000000000039 /* StrainScoreEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scoring/Strain/StrainScoreEngine.swift; sourceTree = "<group>"; };
 		0B1009020000000000000902 /* TrainingIntelligenceModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingIntelligence/Models/TrainingIntelligenceModels.swift; sourceTree = "<group>"; };
@@ -718,7 +718,7 @@
 				0B1001740000000000000074 /* HealthSnapshotRepository.swift */,
 				0B1001360000000000000036 /* ScoringCore.swift */,
 				0B1001360000000000000101 /* ScoreEngineFactory.swift */,
-				0B1001370000000000000037 /* SleepScoreEngine.swift */,
+				0B1001370000000000000037 /* SleepEvidence.swift */,
 				0B1001380000000000000038 /* RecoveryScoreEngine.swift */,
 				0B1001390000000000000039 /* StrainScoreEngine.swift */,
 				0B1001400000000000000040 /* StressIndexEngine.swift */,
@@ -893,6 +893,7 @@
 			name = Vela;
 			packageProductDependencies = (
 				286FFA53BD9D8961FD2A971E /* Sentry */,
+				E1B2C3D40000000000000002 /* BodySeekDomain */,
 			);
 			productName = Vela;
 			productReference = 0B0000060000000000000006 /* Vela.app */;
@@ -957,8 +958,13 @@
 		3366974B39BF06D2D2F4F6B8 /* XCRemoteSwiftPackageReference "sentry-cocoa" */ = {isa = XCRemoteSwiftPackageReference; repositoryURL = "https://github.com/getsentry/sentry-cocoa"; requirement = {kind = upToNextMajorVersion; minimumVersion = 8.0.0;}; };
 /* End XCRemoteSwiftPackageReference section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		E1B2C3D40000000000000001 /* XCLocalSwiftPackageReference "BodySeekDomain" */ = {isa = XCLocalSwiftPackageReference; relativePath = BodySeekDomain; };
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		286FFA53BD9D8961FD2A971E /* Sentry */ = {isa = XCSwiftPackageProductDependency; package = 3366974B39BF06D2D2F4F6B8 /* XCRemoteSwiftPackageReference "sentry-cocoa" */; productName = Sentry; };
+		E1B2C3D40000000000000002 /* BodySeekDomain */ = {isa = XCSwiftPackageProductDependency; package = E1B2C3D40000000000000001 /* XCLocalSwiftPackageReference "BodySeekDomain" */; productName = BodySeekDomain; };
 /* End XCSwiftPackageProductDependency section */
 
 
@@ -999,6 +1005,7 @@
 			projectRoot = "";
 			packageReferences = (
 				3366974B39BF06D2D2F4F6B8 /* XCRemoteSwiftPackageReference "sentry-cocoa" */,
+				E1B2C3D40000000000000001 /* XCLocalSwiftPackageReference "BodySeekDomain" */,
 			);
 			targets = (
 				0B0000050000000000000005 /* Vela */,
@@ -1215,7 +1222,7 @@
 				0B1000740000000000000074 /* HealthSnapshotRepository.swift in Sources */,
 				0B1000350000000000000035 /* ScoringCore.swift in Sources */,
 				0B1000350000000000000101 /* ScoreEngineFactory.swift in Sources */,
-				0B1000360000000000000036 /* SleepScoreEngine.swift in Sources */,
+				0B1000360000000000000036 /* SleepEvidence.swift in Sources */,
 				0B1000370000000000000037 /* RecoveryScoreEngine.swift in Sources */,
 				0B1000380000000000000038 /* StrainScoreEngine.swift in Sources */,
 				0B1000390000000000000039 /* StressIndexEngine.swift in Sources */,
@@ -1515,7 +1522,7 @@
 				MARKETING_VERSION = 4.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sunweizhou.Vela4;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				INFOPLIST_KEY_CFBundleDisplayName = "Vela 4.0";
+				INFOPLIST_KEY_CFBundleDisplayName = BodySeek;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -1546,7 +1553,7 @@
 				MARKETING_VERSION = 4.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sunweizhou.Vela4;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				INFOPLIST_KEY_CFBundleDisplayName = "Vela 4.0";
+				INFOPLIST_KEY_CFBundleDisplayName = BodySeek;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;

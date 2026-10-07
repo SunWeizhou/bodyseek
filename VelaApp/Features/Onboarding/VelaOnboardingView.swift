@@ -99,13 +99,11 @@ struct VelaOnboardingView: View {
 
     private var onboardingHeader: some View {
         HStack(spacing: 10) {
-            Circle()
-                .fill(VelaTheme.rhythmDeep)
-                .frame(width: 6, height: 6)
-            Text("VELA · RHYTHM")
-                .font(.system(.caption2, design: .default, weight: .bold))
-                .tracking(1.4)
-                .foregroundStyle(VelaTheme.rhythmInkSecondary)
+            BodySeekBrandMark(
+                size: 24,
+                showWordmark: true,
+                monochrome: true
+            )
 
             Spacer()
 
@@ -120,11 +118,6 @@ struct VelaOnboardingView: View {
     private var welcomeStep: some View {
         VStack(alignment: .leading, spacing: 24) {
             VStack(alignment: .leading, spacing: 12) {
-                Text("BODY STATE")
-                    .font(.system(.caption2, design: .default, weight: .bold))
-                    .tracking(1.6)
-                    .foregroundStyle(VelaTheme.rhythmDeep)
-
                 Text(L10n.t("See your body before judging your willpower.", "先看见身体，再决定今天。"))
                     .font(.system(.largeTitle, design: .default, weight: .semibold))
                     .tracking(-1.1)
@@ -147,11 +140,6 @@ struct VelaOnboardingView: View {
     private var agentControlStep: some View {
         VStack(alignment: .leading, spacing: 22) {
             VStack(alignment: .leading, spacing: 10) {
-                Text("AGENT CONTROL")
-                    .font(.system(.caption2, design: .default, weight: .bold))
-                    .tracking(1.6)
-                    .foregroundStyle(VelaTheme.rhythmDeep)
-
                 Text("Agent 解释，你做决定。")
                     .font(.system(.title, design: .default, weight: .semibold))
                     .tracking(-0.6)
@@ -197,11 +185,6 @@ struct VelaOnboardingView: View {
     private var healthStep: some View {
         VStack(alignment: .leading, spacing: 22) {
             VStack(alignment: .leading, spacing: 10) {
-                Text("APPLE HEALTH")
-                    .font(.system(.caption2, design: .default, weight: .bold))
-                    .tracking(1.6)
-                    .foregroundStyle(VelaTheme.rhythmDeep)
-
                 Text("连接 Apple 健康")
                     .font(.system(.title, design: .default, weight: .semibold))
                     .tracking(-0.6)
