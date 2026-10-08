@@ -173,6 +173,7 @@
 		0B25D0420000000000000042 /* BodyModelViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1420000000000000042 /* BodyModelViews.swift */; };
 		0B25D0380000000000000038 /* VelaMetricDetailWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1380000000000000038 /* VelaMetricDetailWidgets.swift */; };
 		R2D200020000000000000002 /* RecoveryDetailV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = R2D200010000000000000001 /* RecoveryDetailV2.swift */; };
+		R2D200060000000000000006 /* RecoveryDetailV2Editorial.swift in Sources */ = {isa = PBXBuildFile; fileRef = R2D200050000000000000005 /* RecoveryDetailV2Editorial.swift */; };
 		R2D200040000000000000004 /* RecoveryDetailV2Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = R2D200030000000000000003 /* RecoveryDetailV2Tests.swift */; };
 		0B25D0390000000000000039 /* VelaMetricDetailData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1390000000000000039 /* VelaMetricDetailData.swift */; };
 		0B25D0300000000000000030 /* VelaMetricDetailLandscapes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1300000000000000030 /* VelaMetricDetailLandscapes.swift */; };
@@ -446,6 +447,7 @@
 		0B25D1420000000000000042 /* BodyModelViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/BodyModelViews.swift; sourceTree = "<group>"; };
 		0B25D1380000000000000038 /* VelaMetricDetailWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/VelaMetricDetailWidgets.swift; sourceTree = "<group>"; };
 		R2D200010000000000000001 /* RecoveryDetailV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/RecoveryDetailV2.swift; sourceTree = "<group>"; };
+		R2D200050000000000000005 /* RecoveryDetailV2Editorial.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/RecoveryDetailV2Editorial.swift; sourceTree = "<group>"; };
 		R2D200030000000000000003 /* RecoveryDetailV2Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryDetailV2Tests.swift; sourceTree = "<group>"; };
 		0B25D1390000000000000039 /* VelaMetricDetailData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/VelaMetricDetailData.swift; sourceTree = "<group>"; };
 		0B25D1300000000000000030 /* VelaMetricDetailLandscapes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/VelaMetricDetailLandscapes.swift; sourceTree = "<group>"; };
@@ -630,6 +632,7 @@
 				0B25D1420000000000000042 /* BodyModelViews.swift */,
 				0B25D1380000000000000038 /* VelaMetricDetailWidgets.swift */,
 				R2D200010000000000000001 /* RecoveryDetailV2.swift */,
+				R2D200050000000000000005 /* RecoveryDetailV2Editorial.swift */,
 				0B25D1390000000000000039 /* VelaMetricDetailData.swift */,
 				0B25D1300000000000000030 /* VelaMetricDetailLandscapes.swift */,
 				0B25D1310000000000000031 /* SleepClockWheelView.swift */,
@@ -1136,6 +1139,7 @@
 				0B25D0420000000000000042 /* BodyModelViews.swift in Sources */,
 				0B25D0380000000000000038 /* VelaMetricDetailWidgets.swift in Sources */,
 				R2D200020000000000000002 /* RecoveryDetailV2.swift in Sources */,
+				R2D200060000000000000006 /* RecoveryDetailV2Editorial.swift in Sources */,
 				0B25D0390000000000000039 /* VelaMetricDetailData.swift in Sources */,
 				0B25D0300000000000000030 /* VelaMetricDetailLandscapes.swift in Sources */,
 				0B25D0310000000000000031 /* SleepClockWheelView.swift in Sources */,

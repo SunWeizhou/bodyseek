@@ -325,7 +325,7 @@ struct VelaMetricDetailView: View {
     private var recoveryDetailV2: some View {
         VStack(alignment: .leading, spacing: 16) {
             metricHistoryErrorCard
-            RecoveryDetailV2View(
+            RecoveryDetailV2EditorialView(
                 model: RecoveryDetailV2Builder.make(
                     dashboard: dashboard,
                     snapshots: dailyRecords.map { $0.toSnapshot() },
