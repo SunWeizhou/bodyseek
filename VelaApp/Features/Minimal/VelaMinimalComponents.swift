@@ -315,6 +315,35 @@ struct VelaMetricDetailView: View {
 
     @ViewBuilder
     private func coreMetricContent(isSleep: Bool) -> some View {
+        if metric == .recovery {
+            recoveryDetailV2
+        } else {
+            legacyCoreMetricContent(isSleep: isSleep)
+        }
+    }
+
+    private var recoveryDetailV2: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            metricHistoryErrorCard
+            RecoveryDetailV2View(
+                model: RecoveryDetailV2Builder.make(
+                    dashboard: dashboard,
+                    snapshots: dailyRecords.map { $0.toSnapshot() },
+                    range: selectedRange,
+                    endingAt: effectiveDate,
+                    baselineBand: nil,
+                    isSimulated: dashboard.source == .preview || dailyRecords.contains {
+                        $0.configVersion == DailySummaryUseCase.debugDemoConfigVersion
+                    }
+                ),
+                selectedRange: $selectedRange,
+                onAskCoach: openMetricCoach
+            )
+        }
+    }
+
+    @ViewBuilder
+    private func legacyCoreMetricContent(isSleep: Bool) -> some View {
         // 1. 主值 + 数据质量
         CoreMetricDetailHero(
             metric: metric,
