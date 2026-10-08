@@ -203,7 +203,7 @@ enum RecoveryDetailV2Builder {
         scenarioLabel: String? = nil
     ) -> RecoveryDetailV2Model {
         let recovery = dashboard.recovery
-        make(
+        return make(
             source: RecoveryDetailV2Source(
                 recoveryValue: recovery.value,
                 bandText: recovery.value == nil ? "暂无恢复分" : "\(bandLabel(recovery.band))恢复",
@@ -461,7 +461,6 @@ struct RecoveryDetailV2View: View {
             findingSection
         }
         .padding(.top, 8)
-        .accessibilityIdentifier("recovery-detail-v2")
         .onChange(of: selectedRange) { _, _ in
             scrubbedDate = nil
             showsEvidence = false
@@ -502,9 +501,7 @@ struct RecoveryDetailV2View: View {
         }
         .padding(16)
         .modifier(RecoveryDetailCard())
-        .accessibilityElement(children: .combine)
         .accessibilityIdentifier("metric-detail-hero")
-        .accessibilityLabel("当前恢复分 \(model.scoreText)，\(model.bandText)，覆盖度 \(model.coverageText)")
     }
 
     private var scoreRing: some View {
@@ -545,6 +542,7 @@ struct RecoveryDetailV2View: View {
             Text("今日恢复")
                 .font(VelaTheme.caption1().weight(.semibold))
                 .foregroundStyle(VelaTheme.recoveryColor)
+                .accessibilityIdentifier("metric-detail-hero")
             Text(model.bandText)
                 .font(VelaTheme.headline())
                 .foregroundStyle(VelaTheme.rhythmInk)

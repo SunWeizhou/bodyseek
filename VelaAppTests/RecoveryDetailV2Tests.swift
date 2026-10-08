@@ -30,8 +30,9 @@ final class RecoveryDetailV2Tests: XCTestCase {
 
     func testKnownZeroStaysZero() {
         let model = makeModel(
-            snapshots: [snapshot(offset: 0, score: 0)],
-            finding: availableFinding(sampleCount: 4, current: 0)
+        recoveryValue: 0,
+        snapshots: [snapshot(offset: 0, score: 0)],
+        finding: availableFinding(sampleCount: 4, current: 0)
         )
 
         XCTAssertEqual(model.points.last?.value, 0)
