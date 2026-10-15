@@ -83,13 +83,13 @@ struct VelaPlanView: View {
     }
 
     private var candidatePayload: DailyOperatingPlanPayload? {
-        guard let plan, let payload,
+        guard let plan, let payload, let decision = currentDecision,
               plan.bodyStateHash != dashboardVM.dashboard.bodyState.hash else {
             return nil
         }
         let candidate = DailyOperatingPlanBuilder.build(
             bodyState: dashboardVM.dashboard.bodyState,
-            decision: currentDecision,
+            decision: decision,
             brief: dashboardVM.dashboard.personalHealthBrief,
             language: AppLanguage.stored
         )
@@ -97,12 +97,10 @@ struct VelaPlanView: View {
         return candidate
     }
 
-    private var currentDecision: DailyTrainingDecision {
-        dashboardVM.dailyTrainingDecision ?? TrainingDecisionKernel().decide(
-            input: TrainingDecisionInput(
-                bodyState: dashboardVM.dashboard.bodyState,
-                personalHealthBrief: dashboardVM.dashboard.personalHealthBrief
-            )
+    private var currentDecision: DailyTrainingDecision? {
+        PlanTrainingDecisionResolver.resolve(
+            published: dashboardVM.dailyTrainingDecision,
+            persisted: plan?.trainingDecision
         )
     }
 
@@ -449,21 +447,18 @@ struct VelaPlanView: View {
 
     private func loadOrCreatePlan() {
         if plan?.dayIdentifier != dayIdentifier { plan = nil }
-        var descriptor = FetchDescriptor<DailyOperatingPlanRecord>(
-            predicate: #Predicate<DailyOperatingPlanRecord> { $0.dayIdentifier == dayIdentifier },
-            sortBy: [SortDescriptor(\.generatedAt, order: .reverse)]
-        )
-        descriptor.fetchLimit = 1
         do {
-            if let stored = try modelContext.fetch(descriptor).first {
+            if let stored = try DailyOperatingPlanRepository(modelContext: modelContext)
+                .fetchLatest(dayIdentifier: dayIdentifier) {
                 plan = stored
             } else {
-                guard Calendar.current.isDate(dashboardVM.dashboard.bodyState.date, inSameDayAs: dashboardVM.selectedDate) else {
+                guard Calendar.current.isDate(dashboardVM.dashboard.bodyState.date, inSameDayAs: dashboardVM.selectedDate),
+                      let decision = currentDecision else {
                     throw PlanError.unavailable("所选日期的身体状态仍在读取，请稍后重试。")
                 }
                 plan = try DailyOperatingPlanCoordinator.upsert(
                     bodyState: dashboardVM.dashboard.bodyState,
-                    decision: currentDecision,
+                    decision: decision,
                     brief: dashboardVM.dashboard.personalHealthBrief,
                     modelContext: modelContext
                 )
@@ -544,10 +539,14 @@ struct VelaPlanView: View {
     }
 
     private func accept(_ candidate: DailyOperatingPlanPayload) {
+        guard let decision = currentDecision else {
+            planError = .unavailable("今天的训练决定仍在读取，请稍后重试。")
+            return
+        }
         do {
             plan = try DailyOperatingPlanCoordinator.upsert(
                 bodyState: dashboardVM.dashboard.bodyState,
-                decision: currentDecision,
+                decision: decision,
                 brief: dashboardVM.dashboard.personalHealthBrief,
                 modelContext: modelContext
             )
@@ -906,20 +905,13 @@ private struct PlanDomainStyle {
 }
 
 struct VelaTrainingRotationView: View {
-    @Query(sort: \TrainingPlanRecord.updatedAt, order: .reverse)
-    private var plans: [TrainingPlanRecord]
-    @Query(sort: \WorkoutEventRecord.startedAt, order: .reverse)
-    private var events: [WorkoutEventRecord]
-    // 算法打通（批次 B）：BodyInterpreterEngine + AdaptiveTrainingEngine 产出的
-    // 计划调整提案（TrainingPlanAdaptationRecord）此前写在库里但没有任何页面读取——
-    // 旧日历页挂在死导航下。这里接上：今日提案展示 + 用户确认（ADR 0008）。
-    @Query(
-        filter: #Predicate<TrainingPlanAdaptationRecord> { $0.status == "proposed" },
-        sort: \TrainingPlanAdaptationRecord.createdAt
-    )
-    private var pendingAdaptations: [TrainingPlanAdaptationRecord]
+    @State private var plans: [TrainingPlanRecord] = []
+    @State private var events: [WorkoutEventRecord] = []
+    /// 待确认提案按创建时间从旧到新，和原先实时查询的默认顺序一致。
+    @State private var pendingAdaptations: [TrainingPlanAdaptationRecord] = []
     @EnvironmentObject private var dashboardVM: DashboardViewModel
     @Environment(\.modelContext) private var modelContext
+    @ObservedObject private var appState = VelaAppState.shared
 
     /// 今天的正式运营计划（决策面板数据源；无则退回恢复信号说明）。
     @State private var todayOperatingPlan: DailyOperatingPlanRecord?
@@ -968,11 +960,22 @@ struct VelaTrainingRotationView: View {
         .navigationTitle("训练计划")
         .velaRhythmDetailChrome()
         .task {
-            fetchTodayOperatingPlan()
+            loadRotation()
         }
         .onChange(of: dashboardVM.selectedDate) {
             fetchTodayOperatingPlan()
         }
+        .onChange(of: appState.localDataRevision) { _, _ in
+            loadRotation()
+        }
+    }
+
+    private func loadRotation() {
+        fetchTodayOperatingPlan()
+        plans = (try? TrainingPlanRepository(modelContext: modelContext).fetchAllSortedByUpdatedAt()) ?? []
+        events = (try? WorkoutHistoryRepository(modelContext: modelContext).fetchWorkoutEventsSortedByStart()) ?? []
+        pendingAdaptations = (try? TrainingPlanAdaptationRepository(modelContext: modelContext)
+            .fetchProposed(newestFirst: false)) ?? []
     }
 
     private func fetchTodayOperatingPlan() {
@@ -980,12 +983,8 @@ struct VelaTrainingRotationView: View {
             for: dashboardVM.selectedDate,
             calendar: .current
         )
-        var descriptor = FetchDescriptor<DailyOperatingPlanRecord>(
-            predicate: #Predicate<DailyOperatingPlanRecord> { $0.dayIdentifier == identifier },
-            sortBy: [SortDescriptor(\.generatedAt, order: .reverse)]
-        )
-        descriptor.fetchLimit = 1
-        todayOperatingPlan = (try? modelContext.fetch(descriptor))?.first
+        todayOperatingPlan = try? DailyOperatingPlanRepository(modelContext: modelContext)
+            .fetchLatest(dayIdentifier: identifier)
     }
 
     private var planHero: some View {
@@ -1156,19 +1155,18 @@ struct VelaTrainingRotationView: View {
     }
 
     private func acceptAdaptation(_ adaptation: TrainingPlanAdaptationRecord) {
-        guard let activePlan else { return }
-        if AdaptiveTrainingManager().applyAdaptation(adaptation, to: activePlan) {
-            adaptation.status = AdaptationStatus.accepted.rawValue
-            adaptation.acceptedAt = Date()
-            try? modelContext.save()
-            VelaAppState.shared.markLocalDataChanged()
-        }
+        guard let activePlan,
+              TodayTrainingPlanAdaptationDecision.accept(adaptation, in: activePlan) else { return }
+        try? modelContext.save()
+        VelaAppState.shared.markLocalDataChanged()
+        loadRotation()
     }
 
     private func rejectAdaptation(_ adaptation: TrainingPlanAdaptationRecord) {
-        adaptation.status = AdaptationStatus.rejected.rawValue
-        adaptation.rejectedAt = Date()
+        TodayTrainingPlanAdaptationDecision.reject(adaptation)
         try? modelContext.save()
+        VelaAppState.shared.markLocalDataChanged()
+        loadRotation()
     }
 
     private func adaptationLabel(_ adjustment: String) -> String {
@@ -1217,9 +1215,9 @@ struct VelaTrainingRotationView: View {
     /// 只看到计划文本、脱离当前身体证据。
     private var coachPlanQuestion: String {
         let dashboard = dashboardVM.dashboard
-        let recovery = dashboard.recovery.hasData ? "\(Int(dashboard.recovery.score.rounded()))" : "--"
-        let strain = dashboard.strain.hasData ? "\(Int(dashboard.strain.score.rounded()))" : "--"
-        let stress = dashboard.stress.hasData ? "\(Int(dashboard.stress.stressIndex.rounded()))" : "--"
+        let recovery = dashboard.recovery.formattedScore
+        let strain = dashboard.strain.formattedScore
+        let stress = dashboard.stress.formattedScore
         return "请根据我最新的恢复 \(recovery)、负荷 \(strain)、压力 \(stress)、局部疲劳、身体模型与健康档案，提出未来一周训练轮转的调整方案；修改前先让我确认。"
     }
 
@@ -1229,14 +1227,14 @@ struct VelaTrainingRotationView: View {
         let dashboard = dashboardVM.dashboard
         var parts: [String] = []
         if dashboard.recovery.hasData {
-            parts.append("恢复 \(Int(dashboard.recovery.score.rounded()))")
+            parts.append("恢复 \(dashboard.recovery.formattedScore)")
         }
         if dashboard.strain.hasData {
             let range = dashboard.strain.recommendedRange
-            parts.append("负荷 \(Int(dashboard.strain.score.rounded()))（目标 \(range.lowerBound)-\(range.upperBound)）")
+            parts.append("负荷 \(dashboard.strain.formattedScore)（目标 \(range.lowerBound)-\(range.upperBound)）")
         }
         if dashboard.stress.hasData {
-            parts.append("压力 \(Int(dashboard.stress.stressIndex.rounded()))")
+            parts.append("压力 \(dashboard.stress.formattedScore)")
         }
         return parts.isEmpty ? "恢复、负荷与压力信号尚未同步，先使用保守训练窗口。" : "依据：" + parts.joined(separator: " · ")
     }

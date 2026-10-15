@@ -84,11 +84,8 @@ struct AdaptiveTrainingManager {
 
         let dayIdentifier = DailyHealthSummaryRecord.dayIdentifier(for: date, calendar: calendar)
         let runID = "daily-plan-review:\(plan.id.uuidString):\(day.id.uuidString):\(dayIdentifier)"
-        var descriptor = FetchDescriptor<TrainingPlanAdaptationRecord>(
-            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
-        )
-        descriptor.fetchLimit = 100
-        if let existing = try modelContext.fetch(descriptor).first(where: { $0.agentRunId == runID }) {
+        let recentProposals = try TrainingPlanAdaptationRepository(modelContext: modelContext).fetchRecent(limit: 100)
+        if let existing = recentProposals.first(where: { $0.agentRunId == runID }) {
             return existing.status == AdaptationStatus.proposed.rawValue ? existing : nil
         }
 
@@ -288,9 +285,7 @@ struct WorkoutAdaptationService: Sendable {
         let today = calendar.startOfDay(for: now)
 
         // 1. Fetch active plan
-        let activePlans = (try? modelContext.fetch(FetchDescriptor<TrainingPlanRecord>(
-            predicate: #Predicate { $0.isActive }
-        ))) ?? []
+        let activePlans = (try? TrainingPlanRepository(modelContext: modelContext).fetchActivePlans()) ?? []
         guard let activePlan = activePlans.first else {
             return nil
         }
@@ -316,9 +311,9 @@ struct WorkoutAdaptationService: Sendable {
             modelContext: modelContext
         )) ?? DashboardSummary.empty(date: today)
 
-        let events = (try? modelContext.fetch(FetchDescriptor<WorkoutEventRecord>())) ?? []
-        let foods = (try? modelContext.fetch(FetchDescriptor<FoodLogRecord>())) ?? []
-        let journals = (try? modelContext.fetch(FetchDescriptor<JournalEntryRecord>())) ?? []
+        let events = (try? WorkoutHistoryRepository(modelContext: modelContext).fetchWorkoutEvents()) ?? []
+        let foods = (try? FoodLogRepository(modelContext: modelContext).fetchAll()) ?? []
+        let journals = (try? SwiftDataJournalRepository(modelContext: modelContext).fetchAll()) ?? []
 
         // 3. Trigger AdaptiveTrainingManager refreshDailyProposal
         let manager = AdaptiveTrainingManager()
@@ -392,10 +387,8 @@ struct WorkoutAdaptationService: Sendable {
             do {
                 let boundary = try await generate(aiKey, facts)
                 let runID = "ai-post-workout-\(completedWorkoutID?.uuidString ?? "unknown")"
-                let existingArtifacts = (try? ctx.fetch(FetchDescriptor<CoachArtifactRecord>(
-                    predicate: #Predicate<CoachArtifactRecord> { $0.sourceContextHash == runID }
-                ))) ?? []
-                let existingProposals = (try? ctx.fetch(FetchDescriptor<TrainingPlanAdaptationRecord>())) ?? []
+                let existingArtifacts = (try? CoachArtifactRepository(modelContext: ctx).fetchArtifacts(sourceContextHash: runID)) ?? []
+                let existingProposals = (try? TrainingPlanAdaptationRepository(modelContext: ctx).fetchAll()) ?? []
                 let alreadyHasArtifact = existingArtifacts.contains { $0.sourceContextHash == runID }
                 let alreadyHasProposal = existingProposals.contains { $0.agentRunId == runID }
 
@@ -425,7 +418,7 @@ struct WorkoutAdaptationService: Sendable {
                 // ② 下次训练边界建议 → 提案状态机（proposed，用户确认才生效）。
                 // 下一个训练日同样走 TrainingScheduleResolver：跳过今天已完成的计划日，
                 // 再退回「未完成 + 非休息」的简单兜底。
-                let events = (try? ctx.fetch(FetchDescriptor<WorkoutEventRecord>())) ?? []
+                let events = (try? WorkoutHistoryRepository(modelContext: ctx).fetchWorkoutEvents()) ?? []
                 let nextEvaluationDate = Calendar.current.date(byAdding: .day, value: 1, to: completedAt) ?? completedAt
                 let resolvedNextDay = TrainingScheduleResolver.resolve(
                     plan: plan.dto,

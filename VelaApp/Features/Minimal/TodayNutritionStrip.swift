@@ -380,8 +380,7 @@ struct VelaNutritionView: View {
     @EnvironmentObject private var dashboardVM: DashboardViewModel
     @ObservedObject private var appState = VelaAppState.shared
 
-    @Query(sort: \FoodLogRecord.createdAt, order: .reverse)
-    private var allRecords: [FoodLogRecord]
+    @State private var allRecords: [FoodLogRecord] = []
 
     @AppStorage("vela_daily_calorie_target") private var calorieTarget = 2000
     @AppStorage("vela_daily_protein_target") private var proteinTarget = 120
@@ -428,6 +427,13 @@ struct VelaNutritionView: View {
             .padding(.bottom, VelaTheme.bottomContentClearance)
         }
         .background(VelaTheme.rhythmCanvas)
+        .task { loadFoodLogs() }
+        .onChange(of: appState.localDataRevision) { _, _ in
+            loadFoodLogs()
+        }
+        .onChange(of: dashboardVM.selectedDate) { _, _ in
+            loadFoodLogs()
+        }
         .safeAreaInset(edge: .top) {
             HStack {
                 VelaDetailBackButton(tint: VelaTheme.energyColor)
@@ -840,6 +846,10 @@ struct VelaNutritionView: View {
                 .scrollIndicators(.hidden)
             }
         }
+    }
+
+    private func loadFoodLogs() {
+        allRecords = (try? FoodLogRepository(modelContext: modelContext).fetchAllSortedByCreatedAt()) ?? []
     }
 
     private var methodology: some View {

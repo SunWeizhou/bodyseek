@@ -98,16 +98,12 @@ struct FitnessActivitySummaryDetailView: View {
             let end = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: dashboardVM.selectedDate))
                 ?? dashboardVM.selectedDate
             let start = calendar.date(byAdding: .day, value: -35, to: end) ?? end
-            let recordsDescriptor = FetchDescriptor<DailyHealthSummaryRecord>(
-                predicate: #Predicate<DailyHealthSummaryRecord> { $0.date >= start && $0.date < end },
-                sortBy: [SortDescriptor(\.date, order: .forward)]
-            )
-            records = (try? modelContext.fetch(recordsDescriptor)) ?? []
-            let eventsDescriptor = FetchDescriptor<WorkoutEventRecord>(
-                predicate: #Predicate<WorkoutEventRecord> { $0.startedAt >= start && $0.startedAt < end },
-                sortBy: [SortDescriptor(\.startedAt, order: .forward)]
-            )
-            workoutEvents = (try? modelContext.fetch(eventsDescriptor)) ?? []
+            records = (try? SwiftDataDailyHealthSummaryRepository(modelContext: modelContext)
+                .fetch(in: DateRangeQuery(start: start, end: end))) ?? []
+            workoutEvents = (try? WorkoutHistoryRepository(modelContext: modelContext).fetchWorkoutEvents(
+                from: start,
+                until: end
+            )) ?? []
         }
     }
 

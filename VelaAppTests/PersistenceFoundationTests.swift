@@ -597,6 +597,1168 @@ final class PersistenceFoundationTests: XCTestCase {
     }
 
     @MainActor
+    func testCachedDashboardPublishesOneLongTermBaselineFromPersistedDays() async throws {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_790_000_000))
+        let yesterday = try XCTUnwrap(calendar.date(byAdding: .day, value: -1, to: today))
+        func record(day: Date, hrv: Double) -> DailyHealthSummaryRecord {
+            var snapshot = DailyHealthSnapshot(date: day)
+            snapshot.hrvAverage = hrv
+            snapshot.sleepScore = 70
+            return DailyHealthSummaryRecord(snapshot: snapshot, calendar: calendar)
+        }
+        let container = try VelaModelContainer.make(inMemory: true)
+        container.mainContext.insert(record(day: yesterday, hrv: 40))
+        container.mainContext.insert(record(day: today, hrv: 60))
+        try container.mainContext.save()
+
+        let dashboard = try await DailySummaryUseCase(calendar: calendar).loadCachedDashboard(
+            for: today,
+            modelContext: container.mainContext
+        )
+
+        let loaded = try XCTUnwrap(dashboard)
+        XCTAssertEqual(loaded.sleepScore.value, 70)
+        XCTAssertEqual(loaded.longTermBaselines?.daysOfData, 2)
+        XCTAssertNotNil(loaded.bodyModelState)
+    }
+
+    @MainActor
+    func testMetricDetailHistoryUsesExclusiveEndAndCanonicalSnapshot() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+        let selected = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 3, day: 10)))
+        let end = try XCTUnwrap(calendar.date(byAdding: .day, value: 1, to: selected))
+        let start = try XCTUnwrap(calendar.date(byAdding: .day, value: -3, to: end))
+        let before = try XCTUnwrap(calendar.date(byAdding: .day, value: -1, to: start))
+
+        func record(day: Date, sleep: Double, version: String) -> DailyHealthSummaryRecord {
+            var snapshot = DailyHealthSnapshot(date: day)
+            snapshot.sleepScore = sleep
+            let row = DailyHealthSummaryRecord(snapshot: snapshot, calendar: calendar)
+            row.configVersion = version
+            return row
+        }
+
+        let container = try VelaModelContainer.make(inMemory: true)
+        container.mainContext.insert(record(day: before, sleep: 10, version: "outside"))
+        container.mainContext.insert(record(day: selected, sleep: 77, version: DailySummaryUseCase.debugDemoConfigVersion))
+        container.mainContext.insert(record(day: end, sleep: 99, version: "boundary"))
+        try container.mainContext.save()
+
+        let days = try HealthSnapshotRepository(modelContext: container.mainContext, calendar: calendar)
+            .fetchHistory(from: start, until: end)
+
+        XCTAssertEqual(days.map { $0.snapshot.sleepScore }, [77])
+        XCTAssertEqual(days.map(\.configVersion), [DailySummaryUseCase.debugDemoConfigVersion])
+        XCTAssertEqual(days.first?.snapshot.date, selected)
+    }
+
+    @MainActor
+    func testPlanningBaselinePointsKeepHeartRateAndRequireThirtySamples() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+        let cutoff = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1)))
+        let prior = try XCTUnwrap(calendar.date(byAdding: .day, value: -1, to: cutoff))
+        func row(day: Date, heartRate: Double, hrv: Double) -> DailyHealthSummaryRecord {
+            var snapshot = DailyHealthSnapshot(date: day)
+            snapshot.restingHeartRate = heartRate
+            snapshot.hrvAverage = hrv
+            return DailyHealthSummaryRecord(snapshot: snapshot, calendar: calendar)
+        }
+        let container = try VelaModelContainer.make(inMemory: true)
+        container.mainContext.insert(row(day: prior, heartRate: 52, hrv: 48))
+        container.mainContext.insert(row(day: cutoff, heartRate: 90, hrv: 10))
+        try container.mainContext.save()
+
+        let points = try HealthSnapshotRepository(modelContext: container.mainContext, calendar: calendar)
+            .fetchAllBaselinePoints()
+        let usable = points.filter { $0.date < cutoff }
+        XCTAssertEqual(usable.map(\.restingHeartRate), [52])
+        XCTAssertEqual(usable.map(\.hrvAverage), [48])
+        XCTAssertNil(VelaTrainingView.longTermMedian(of: Array(repeating: 50, count: 29)))
+        let samples = Array(1...30).map(Double.init)
+        XCTAssertEqual(VelaTrainingView.longTermMedian(of: samples), ScoringMath.median(samples))
+    }
+
+    @MainActor
+    func testActiveTrainingPlansComeBackNewestUpdateFirst() throws {
+        let olderDate = Date(timeIntervalSince1970: 1_700_000_000)
+        let newerDate = olderDate.addingTimeInterval(86_400)
+        let older = TrainingPlanRecord(
+            title: "older",
+            goalDescription: "older",
+            isActive: true,
+            updatedAt: olderDate
+        )
+        let newer = TrainingPlanRecord(
+            title: "newer",
+            goalDescription: "newer",
+            isActive: true,
+            updatedAt: newerDate
+        )
+        let inactive = TrainingPlanRecord(
+            title: "inactive",
+            goalDescription: "inactive",
+            isActive: false,
+            updatedAt: newerDate.addingTimeInterval(86_400)
+        )
+        let container = try VelaModelContainer.make(inMemory: true)
+        container.mainContext.insert(older)
+        container.mainContext.insert(inactive)
+        container.mainContext.insert(newer)
+        try container.mainContext.save()
+
+        let repository = TrainingPlanRepository(modelContext: container.mainContext)
+        let plans = try repository.fetchActivePlans()
+        XCTAssertEqual(plans.map(\.title), ["newer", "older"])
+        XCTAssertEqual(try repository.fetchAllSortedByUpdatedAt().map(\.title), ["inactive", "newer", "older"])
+        XCTAssertEqual(try repository.fetchAll().count, 3)
+    }
+
+    @MainActor
+    func testWorkoutHistoryRepositoryReturnsStoredStrengthAndEvents() throws {
+        let started = Date(timeIntervalSince1970: 1_700_000_000)
+        let workout = StrengthWorkoutRecord(
+            title: "深蹲",
+            startedAt: started,
+            durationMinutes: 40,
+            exercises: []
+        )
+        let event = WorkoutEventRecord(
+            source: "manual",
+            startedAt: started,
+            endedAt: started.addingTimeInterval(2_400),
+            activityType: "strength",
+            title: "深蹲"
+        )
+        let container = try VelaModelContainer.make(inMemory: true)
+        container.mainContext.insert(workout)
+        container.mainContext.insert(event)
+        try container.mainContext.save()
+
+        let history = WorkoutHistoryRepository(modelContext: container.mainContext)
+        XCTAssertEqual(try history.fetchStrengthWorkouts().map(\.title), ["深蹲"])
+        XCTAssertEqual(try history.fetchWorkoutEvents().map(\.title), ["深蹲"])
+    }
+
+    @MainActor
+    func testWorkoutWindowIncludesBothEndsAndReturnsNewestFirst() throws {
+        let start = Date(timeIntervalSince1970: 1_700_000_000)
+        let end = start.addingTimeInterval(3_600)
+        func event(at date: Date, title: String) -> WorkoutEventRecord {
+            WorkoutEventRecord(
+                source: "manual",
+                startedAt: date,
+                endedAt: date.addingTimeInterval(600),
+                activityType: "strength",
+                title: title
+            )
+        }
+        let container = try VelaModelContainer.make(inMemory: true)
+        let context = container.mainContext
+        context.insert(event(at: start.addingTimeInterval(-1), title: "before"))
+        context.insert(event(at: start, title: "start"))
+        context.insert(event(at: end, title: "end"))
+        context.insert(event(at: end.addingTimeInterval(1), title: "after"))
+        context.insert(StrengthWorkoutRecord(
+            title: "end-strength",
+            startedAt: end,
+            durationMinutes: 20,
+            exercises: []
+        ))
+        try context.save()
+
+        let history = WorkoutHistoryRepository(modelContext: context)
+        XCTAssertEqual(try history.fetchWorkoutEvents(from: start, through: end).map(\.title), ["end", "start"])
+        XCTAssertEqual(
+            try history.fetchWorkoutEvents(from: start, through: end, limit: 1).map(\.title),
+            ["end"]
+        )
+        XCTAssertEqual(try history.fetchStrengthWorkouts(from: start, through: end).map(\.title), ["end-strength"])
+    }
+
+    @MainActor
+    func testWorkoutDayWindowExcludesTheEndInstant() throws {
+        let start = Date(timeIntervalSince1970: 1_700_000_000)
+        let end = start.addingTimeInterval(86_400)
+        func event(at date: Date, title: String) -> WorkoutEventRecord {
+            WorkoutEventRecord(
+                source: "manual",
+                startedAt: date,
+                endedAt: date.addingTimeInterval(600),
+                activityType: "run",
+                title: title
+            )
+        }
+        let container = try VelaModelContainer.make(inMemory: true)
+        let context = container.mainContext
+        context.insert(event(at: start, title: "midnight"))
+        context.insert(event(at: start.addingTimeInterval(3_600), title: "later"))
+        context.insert(event(at: end, title: "next-midnight"))
+        try context.save()
+
+        let history = WorkoutHistoryRepository(modelContext: context)
+        XCTAssertEqual(
+            try history.fetchWorkoutEvents(from: start, until: end).map(\.title),
+            ["midnight", "later"]
+        )
+        XCTAssertEqual(
+            try history.fetchWorkoutEvents(from: start, until: end, newestFirst: true).map(\.title),
+            ["later", "midnight"]
+        )
+    }
+
+    @MainActor
+    func testFullJournalAndFoodReadsUseTheirRepositories() throws {
+        let container = try VelaModelContainer.make(inMemory: true)
+        let context = container.mainContext
+        context.insert(JournalEntryRecord(tags: ["caffeine"], note: "下午咖啡"))
+        context.insert(FoodLogRecord(
+            mealName: "午餐",
+            foods: [FoodLogItem(name: "米饭", portion: "一碗", calories: 200)],
+            totalCalories: 200,
+            proteinGrams: 4,
+            carbsGrams: 45,
+            fatGrams: 1,
+            fiberGrams: 1,
+            healthScore: "ok",
+            source: .manual
+        ))
+        try context.save()
+
+        XCTAssertEqual(try SwiftDataJournalRepository(modelContext: context).fetchAll().map(\.note), ["下午咖啡"])
+        XCTAssertEqual(try FoodLogRepository(modelContext: context).fetchAll().map(\.mealName), ["午餐"])
+    }
+
+    @MainActor
+    func testJournalAndFoodWindowsIncludeBothEndsNewestFirst() throws {
+        let start = Date(timeIntervalSince1970: 1_700_000_000)
+        let end = start.addingTimeInterval(3_600)
+        let container = try VelaModelContainer.make(inMemory: true)
+        let context = container.mainContext
+        context.insert(JournalEntryRecord(createdAt: start.addingTimeInterval(-1), tags: [], note: "before"))
+        context.insert(JournalEntryRecord(createdAt: start, tags: [], note: "start"))
+        context.insert(JournalEntryRecord(createdAt: end, tags: [], note: "end"))
+        context.insert(JournalEntryRecord(createdAt: end.addingTimeInterval(1), tags: [], note: "after"))
+        func meal(_ name: String, at date: Date) -> FoodLogRecord {
+            FoodLogRecord(
+                mealName: name,
+                foods: [],
+                totalCalories: 1,
+                proteinGrams: 0,
+                carbsGrams: 0,
+                fatGrams: 0,
+                fiberGrams: 0,
+                healthScore: "ok",
+                source: .manual,
+                createdAt: date
+            )
+        }
+        context.insert(meal("before", at: start.addingTimeInterval(-1)))
+        context.insert(meal("start", at: start))
+        context.insert(meal("end", at: end))
+        context.insert(meal("after", at: end.addingTimeInterval(1)))
+        try context.save()
+
+        XCTAssertEqual(
+            try SwiftDataJournalRepository(modelContext: context).fetchEntries(from: start, through: end).map(\.note),
+            ["end", "start"]
+        )
+        XCTAssertEqual(
+            try FoodLogRepository(modelContext: context).fetchLogs(from: start, through: end).map(\.mealName),
+            ["end", "start"]
+        )
+        XCTAssertEqual(
+            try FoodLogRepository(modelContext: context).fetchLogs(from: start, until: end).map(\.mealName),
+            ["start"]
+        )
+    }
+
+    @MainActor
+    func testDailySummaryLookupUsesTheDayIdentifier() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+        let day = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 4, day: 2)))
+        var snapshot = DailyHealthSnapshot(date: day)
+        snapshot.sleepScore = 81
+        let record = DailyHealthSummaryRecord(snapshot: snapshot, calendar: calendar)
+        var next = DailyHealthSnapshot(date: try XCTUnwrap(calendar.date(byAdding: .day, value: 1, to: day)))
+        next.sleepScore = 40
+        let container = try VelaModelContainer.make(inMemory: true)
+        container.mainContext.insert(record)
+        container.mainContext.insert(DailyHealthSummaryRecord(snapshot: next, calendar: calendar))
+        try container.mainContext.save()
+
+        let repository = SwiftDataDailyHealthSummaryRepository(modelContext: container.mainContext)
+        let found = try repository.fetchRecord(dayIdentifier: record.dayIdentifier)
+        XCTAssertEqual(found?.sleepScore, 81)
+        XCTAssertNil(try repository.fetchRecord(dayIdentifier: "missing-day"))
+    }
+
+    @MainActor
+    func testDailySummaryRangeIncludesBothEndsAndHonorsLimit() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+        let start = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 5, day: 1)))
+        let middle = try XCTUnwrap(calendar.date(byAdding: .day, value: 1, to: start))
+        let end = try XCTUnwrap(calendar.date(byAdding: .day, value: 2, to: start))
+        let after = try XCTUnwrap(calendar.date(byAdding: .day, value: 3, to: start))
+        func row(_ day: Date, sleep: Double) -> DailyHealthSummaryRecord {
+            var snapshot = DailyHealthSnapshot(date: day)
+            snapshot.sleepScore = sleep
+            return DailyHealthSummaryRecord(snapshot: snapshot, calendar: calendar)
+        }
+        let container = try VelaModelContainer.make(inMemory: true)
+        for pair in [(start, 1.0), (middle, 2.0), (end, 3.0), (after, 4.0)] {
+            container.mainContext.insert(row(pair.0, sleep: pair.1))
+        }
+        try container.mainContext.save()
+
+        let repository = SwiftDataDailyHealthSummaryRepository(modelContext: container.mainContext)
+        let scores = try repository.fetchRecords(from: start, through: end).map(\.sleepScore)
+        XCTAssertEqual(scores, [1, 2, 3])
+        let newest = try repository.fetchRecords(from: start, through: end, newestFirst: true, limit: 1)
+        XCTAssertEqual(newest.map(\.sleepScore), [3])
+    }
+
+    @MainActor
+    func testSortedDailySummariesFollowCalendarDate() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+        let earlier = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 1, day: 2)))
+        let later = try XCTUnwrap(calendar.date(byAdding: .day, value: 3, to: earlier))
+        func row(_ day: Date, sleep: Double) -> DailyHealthSummaryRecord {
+            var snapshot = DailyHealthSnapshot(date: day)
+            snapshot.sleepScore = sleep
+            return DailyHealthSummaryRecord(snapshot: snapshot, calendar: calendar)
+        }
+        let container = try VelaModelContainer.make(inMemory: true)
+        container.mainContext.insert(row(later, sleep: 90))
+        container.mainContext.insert(row(earlier, sleep: 70))
+        try container.mainContext.save()
+
+        let repository = SwiftDataDailyHealthSummaryRepository(modelContext: container.mainContext)
+        XCTAssertEqual(try repository.fetchAllSortedByDate().map(\.sleepScore), [70, 90])
+        XCTAssertEqual(try repository.fetchAllSortedByDate(newestFirst: true).map(\.sleepScore), [90, 70])
+    }
+
+    @MainActor
+    func testSortedJournalsAndStrengthWorkoutsFollowTheirTimestamps() throws {
+        let earlier = Date(timeIntervalSince1970: 1_700_000_000)
+        let later = earlier.addingTimeInterval(86_400)
+        let container = try VelaModelContainer.make(inMemory: true)
+        let context = container.mainContext
+        context.insert(JournalEntryRecord(createdAt: later, tags: [], note: "later"))
+        context.insert(JournalEntryRecord(createdAt: earlier, tags: [], note: "earlier"))
+        context.insert(StrengthWorkoutRecord(title: "later", startedAt: later, durationMinutes: 30, exercises: []))
+        context.insert(StrengthWorkoutRecord(title: "earlier", startedAt: earlier, durationMinutes: 30, exercises: []))
+        try context.save()
+
+        XCTAssertEqual(
+            try SwiftDataJournalRepository(modelContext: context).fetchAllSortedByCreatedAt().map(\.note),
+            ["earlier", "later"]
+        )
+        XCTAssertEqual(
+            try SwiftDataJournalRepository(modelContext: context).fetchAllSortedByCreatedAt(newestFirst: true).map(\.note),
+            ["later", "earlier"]
+        )
+        let history = WorkoutHistoryRepository(modelContext: context)
+        XCTAssertEqual(try history.fetchStrengthWorkoutsSortedByStart().map(\.title), ["earlier", "later"])
+        XCTAssertEqual(
+            try history.fetchStrengthWorkoutsSortedByStart(newestFirst: true, limit: 1).map(\.title),
+            ["later"]
+        )
+    }
+
+    @MainActor
+    func testTemplatesSortByTitleAndDeletedWorkoutsStayComplete() throws {
+        let container = try VelaModelContainer.make(inMemory: true)
+        let context = container.mainContext
+        context.insert(WorkoutTemplateRecord(title: "腿", exercises: []))
+        context.insert(WorkoutTemplateRecord(title: "背", exercises: []))
+        context.insert(DeletedWorkoutRecord(id: "template:腿"))
+        context.insert(DeletedWorkoutRecord(id: "hk-1"))
+        try context.save()
+
+        XCTAssertEqual(
+            try WorkoutTemplateRepository(modelContext: context).fetchAllSortedByTitle().map(\.title),
+            ["背", "腿"]
+        )
+        XCTAssertEqual(try WorkoutTemplateRepository(modelContext: context).fetchAll().count, 2)
+        XCTAssertEqual(
+            Set(try DeletedWorkoutRepository(modelContext: context).fetchAll().map(\.id)),
+            ["template:腿", "hk-1"]
+        )
+    }
+
+    @MainActor
+    func testAsOfAndOpenStartQueriesKeepTheBoundaryRow() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+        let boundary = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 6, day: 10, hour: 12)))
+        let before = boundary.addingTimeInterval(-3_600)
+        let after = boundary.addingTimeInterval(3_600)
+        let earlierDay = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 6, day: 9)))
+        let boundaryDay = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 6, day: 10)))
+        let laterDay = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 6, day: 11)))
+        func summary(_ day: Date, sleep: Double) -> DailyHealthSummaryRecord {
+            var snapshot = DailyHealthSnapshot(date: day)
+            snapshot.sleepScore = sleep
+            return DailyHealthSummaryRecord(snapshot: snapshot, calendar: calendar)
+        }
+        let container = try VelaModelContainer.make(inMemory: true)
+        let context = container.mainContext
+        context.insert(JournalEntryRecord(createdAt: before, tags: [], note: "before"))
+        context.insert(JournalEntryRecord(createdAt: boundary, tags: [], note: "boundary"))
+        context.insert(JournalEntryRecord(createdAt: after, tags: [], note: "after"))
+        context.insert(summary(earlierDay, sleep: 1))
+        context.insert(summary(boundaryDay, sleep: 2))
+        context.insert(summary(laterDay, sleep: 3))
+        try context.save()
+
+        XCTAssertEqual(
+            try SwiftDataJournalRepository(modelContext: context).fetchEntries(through: boundary).map(\.note),
+            ["boundary", "before"]
+        )
+        XCTAssertEqual(
+            try SwiftDataJournalRepository(modelContext: context).fetchEntries(through: boundary, limit: 1).map(\.note),
+            ["boundary"]
+        )
+        XCTAssertEqual(
+            try SwiftDataJournalRepository(modelContext: context).fetchEntries(onOrAfter: boundary).map(\.note),
+            ["after", "boundary"]
+        )
+        XCTAssertEqual(
+            try SwiftDataDailyHealthSummaryRepository(modelContext: context).fetchRecords(onOrAfter: boundaryDay).map(\.sleepScore),
+            [3, 2]
+        )
+    }
+
+    @MainActor
+    func testTrainingResponseWindowAndJournalDayWindowKeepTheirBounds() throws {
+        let start = Date(timeIntervalSince1970: 1_720_000_000)
+        let end = start.addingTimeInterval(86_400)
+        func response(at date: Date, sets: Int) -> TrainingResponseRecord {
+            TrainingResponseRecord(
+                workoutId: UUID(),
+                date: date,
+                nextDayDate: date.addingTimeInterval(86_400),
+                primaryMuscleGroups: ["legs"],
+                totalEffectiveSets: sets,
+                totalVolumeKg: 100
+            )
+        }
+        let container = try VelaModelContainer.make(inMemory: true)
+        let context = container.mainContext
+        context.insert(response(at: start.addingTimeInterval(-1), sets: 1))
+        context.insert(response(at: start, sets: 2))
+        context.insert(response(at: end, sets: 3))
+        context.insert(JournalEntryRecord(createdAt: start, tags: [], note: "day-start"))
+        context.insert(JournalEntryRecord(createdAt: end.addingTimeInterval(-1), tags: [], note: "inside"))
+        context.insert(JournalEntryRecord(createdAt: end, tags: [], note: "next-day"))
+        try context.save()
+
+        XCTAssertEqual(
+            try TrainingResponseRepository(modelContext: context).fetchResponses(from: start, through: end).map(\.totalEffectiveSets),
+            [3, 2]
+        )
+        XCTAssertEqual(
+            try SwiftDataJournalRepository(modelContext: context).fetchEntries(from: start, until: end).map(\.note),
+            ["inside", "day-start"]
+        )
+    }
+
+    @MainActor
+    func testTrainingResponsesForOneWorkoutStayTogether() throws {
+        let workoutId = UUID()
+        let otherId = UUID()
+        let day = Date(timeIntervalSince1970: 1_730_000_000)
+        func response(id: UUID, sets: Int) -> TrainingResponseRecord {
+            TrainingResponseRecord(
+                workoutId: id,
+                date: day,
+                nextDayDate: day.addingTimeInterval(86_400),
+                primaryMuscleGroups: ["back"],
+                totalEffectiveSets: sets,
+                totalVolumeKg: 80
+            )
+        }
+        let container = try VelaModelContainer.make(inMemory: true)
+        let context = container.mainContext
+        context.insert(response(id: workoutId, sets: 4))
+        context.insert(response(id: workoutId, sets: 6))
+        context.insert(response(id: otherId, sets: 9))
+        try context.save()
+
+        let matches = try TrainingResponseRepository(modelContext: context).fetchResponses(workoutId: workoutId)
+        XCTAssertEqual(Set(matches.map(\.totalEffectiveSets)), [4, 6])
+    }
+
+    @MainActor
+    func testWorkoutEventIdentityLooksStayOnTheirOwnLink() throws {
+        let eventId = UUID()
+        let healthKitId = UUID()
+        let strengthId = UUID()
+        let started = Date(timeIntervalSince1970: 1_740_000_000)
+        let event = WorkoutEventRecord(
+            id: eventId,
+            source: "healthKit",
+            startedAt: started,
+            endedAt: started.addingTimeInterval(1_800),
+            activityType: "run",
+            title: "晨跑",
+            linkedStrengthWorkoutId: strengthId,
+            linkedHealthKitWorkoutId: healthKitId
+        )
+        let container = try VelaModelContainer.make(inMemory: true)
+        container.mainContext.insert(event)
+        try container.mainContext.save()
+
+        let history = WorkoutHistoryRepository(modelContext: container.mainContext)
+        XCTAssertEqual(try history.fetchEvents(id: eventId).map(\.title), ["晨跑"])
+        XCTAssertEqual(try history.fetchEvents(linkedHealthKitWorkoutId: healthKitId).map(\.title), ["晨跑"])
+        XCTAssertEqual(try history.fetchEvents(linkedStrengthWorkoutId: strengthId).map(\.title), ["晨跑"])
+        XCTAssertEqual(try history.fetchEvents(relatedTo: strengthId).map(\.title), ["晨跑"])
+        XCTAssertTrue(try history.fetchEvents(idOrHealthKitWorkoutId: strengthId).isEmpty)
+    }
+
+    @MainActor
+    func testUnlinkedStrengthEventsStayInsideTheOpenDayWindow() throws {
+        let start = Date(timeIntervalSince1970: 1_750_000_000)
+        let end = start.addingTimeInterval(86_400)
+        let strengthId = UUID()
+        func event(at date: Date, title: String, strength: UUID?) -> WorkoutEventRecord {
+            WorkoutEventRecord(
+                source: "healthKit",
+                startedAt: date,
+                endedAt: date.addingTimeInterval(1_200),
+                activityType: "run",
+                title: title,
+                linkedStrengthWorkoutId: strength
+            )
+        }
+        let container = try VelaModelContainer.make(inMemory: true)
+        let context = container.mainContext
+        context.insert(event(at: start, title: "free", strength: nil))
+        context.insert(event(at: start.addingTimeInterval(3_600), title: "linked", strength: strengthId))
+        context.insert(event(at: end, title: "next", strength: nil))
+        try context.save()
+
+        let titles = try WorkoutHistoryRepository(modelContext: context)
+            .fetchEventsWithoutStrengthLink(from: start, until: end)
+            .map(\.title)
+        XCTAssertEqual(titles, ["free"])
+    }
+
+    @MainActor
+    func testLatestOperatingPlanIsTheOneForThatDay() throws {
+        func plan(day: String, title: String, at date: Date) -> DailyOperatingPlanRecord {
+            DailyOperatingPlanRecord(
+                dayIdentifier: day,
+                bodyStateHash: "hash",
+                generatedAt: date,
+                primaryActionType: "train",
+                title: title,
+                payloadJSON: "{}",
+                reasonsJSON: "[]",
+                confidence: 0.5
+            )
+        }
+        let container = try VelaModelContainer.make(inMemory: true)
+        let context = container.mainContext
+        context.insert(plan(day: "2026-06-01", title: "june", at: Date(timeIntervalSince1970: 1_760_000_000)))
+        context.insert(plan(day: "2026-06-02", title: "later", at: Date(timeIntervalSince1970: 1_760_100_000)))
+        try context.save()
+
+        let repository = DailyOperatingPlanRepository(modelContext: context)
+        XCTAssertEqual(try repository.fetchLatest(dayIdentifier: "2026-06-01")?.title, "june")
+        XCTAssertNil(try repository.fetchLatest(dayIdentifier: "missing"))
+    }
+
+    @MainActor
+    func testProposedPlanAdaptationsStayNewestFirstForThatPlan() throws {
+        let planA = UUID()
+        let planB = UUID()
+        let older = Date(timeIntervalSince1970: 1_800_000_000)
+        let newer = older.addingTimeInterval(3_600)
+        func proposal(plan: UUID, at date: Date, status: AdaptationStatus) -> TrainingPlanAdaptationRecord {
+            TrainingPlanAdaptationRecord(
+                planId: plan,
+                dayId: UUID(),
+                createdAt: date,
+                adjustment: .keep,
+                reason: "reason",
+                status: status
+            )
+        }
+        let container = try VelaModelContainer.make(inMemory: true)
+        let context = container.mainContext
+        context.insert(proposal(plan: planA, at: older, status: .proposed))
+        context.insert(proposal(plan: planA, at: newer, status: .proposed))
+        context.insert(proposal(plan: planA, at: newer.addingTimeInterval(10), status: .accepted))
+        context.insert(proposal(plan: planB, at: newer.addingTimeInterval(20), status: .proposed))
+        try context.save()
+
+        let repository = TrainingPlanAdaptationRepository(modelContext: context)
+        XCTAssertEqual(try repository.fetchProposed(planId: planA).map(\.createdAt), [newer, older])
+        XCTAssertEqual(try repository.fetchProposed().count, 3)
+        XCTAssertEqual(
+            try repository.fetchProposed(newestFirst: false).map(\.createdAt),
+            [older, newer, newer.addingTimeInterval(20)]
+        )
+    }
+
+    @MainActor
+    func testRecentPlanAdaptationsStopAtTheRequestedLimit() throws {
+        let oldest = Date(timeIntervalSince1970: 1_810_000_000)
+        let container = try VelaModelContainer.make(inMemory: true)
+        let context = container.mainContext
+        for offset in 0..<3 {
+            context.insert(TrainingPlanAdaptationRecord(
+                planId: UUID(),
+                dayId: UUID(),
+                createdAt: oldest.addingTimeInterval(Double(offset)),
+                adjustment: .keep,
+                reason: "reason",
+                agentRunId: "run-\(offset)"
+            ))
+        }
+        try context.save()
+
+        let recent = try TrainingPlanAdaptationRepository(modelContext: context).fetchRecent(limit: 2)
+        XCTAssertEqual(recent.map(\.agentRunId), ["run-2", "run-1"])
+    }
+
+    @MainActor
+    func testFoodLogsEventsAndReportsSortNewestFirst() throws {
+        let earlier = Date(timeIntervalSince1970: 1_820_000_000)
+        let later = earlier.addingTimeInterval(3_600)
+        let container = try VelaModelContainer.make(inMemory: true)
+        let context = container.mainContext
+        func meal(_ name: String, at date: Date) -> FoodLogRecord {
+            FoodLogRecord(
+                mealName: name,
+                foods: [],
+                totalCalories: 1,
+                proteinGrams: 0,
+                carbsGrams: 0,
+                fatGrams: 0,
+                fiberGrams: 0,
+                healthScore: "ok",
+                source: .manual,
+                createdAt: date
+            )
+        }
+        context.insert(meal("later", at: later))
+        context.insert(meal("earlier", at: earlier))
+        context.insert(WorkoutEventRecord(
+            source: "manual",
+            startedAt: earlier,
+            endedAt: earlier.addingTimeInterval(600),
+            activityType: "run",
+            title: "earlier"
+        ))
+        context.insert(WorkoutEventRecord(
+            source: "manual",
+            startedAt: later,
+            endedAt: later.addingTimeInterval(600),
+            activityType: "run",
+            title: "later"
+        ))
+        context.insert(AIReportRecord(
+            createdAt: earlier,
+            type: "brief",
+            title: "earlier",
+            markdownContent: "a",
+            serializedContextSnapshot: "{}"
+        ))
+        context.insert(AIReportRecord(
+            createdAt: later,
+            type: "brief",
+            title: "later",
+            markdownContent: "b",
+            serializedContextSnapshot: "{}"
+        ))
+        try context.save()
+
+        XCTAssertEqual(try FoodLogRepository(modelContext: context).fetchAllSortedByCreatedAt().map(\.mealName), ["later", "earlier"])
+        XCTAssertEqual(
+            try WorkoutHistoryRepository(modelContext: context).fetchWorkoutEventsSortedByStart().map(\.title),
+            ["later", "earlier"]
+        )
+        XCTAssertEqual(
+            try SwiftDataAIReportRepository(modelContext: context).fetchAllSortedByCreatedAt().map(\.title),
+            ["later", "earlier"]
+        )
+    }
+
+    @MainActor
+    func testRecentMorningBriefIsTheNewestOfThatType() throws {
+        let earlier = Date(timeIntervalSince1970: 1_830_000_000)
+        let later = earlier.addingTimeInterval(3_600)
+        let container = try VelaModelContainer.make(inMemory: true)
+        let context = container.mainContext
+        context.insert(AIReportRecord(
+            createdAt: earlier,
+            type: "morning_brief",
+            title: "earlier",
+            markdownContent: "a",
+            serializedContextSnapshot: "{}"
+        ))
+        context.insert(AIReportRecord(
+            createdAt: later,
+            type: "brief",
+            title: "other",
+            markdownContent: "b",
+            serializedContextSnapshot: "{}"
+        ))
+        context.insert(AIReportRecord(
+            createdAt: later.addingTimeInterval(10),
+            type: "morning_brief",
+            title: "latest",
+            markdownContent: "c",
+            serializedContextSnapshot: "{}"
+        ))
+        try context.save()
+
+        let repository = SwiftDataAIReportRepository(modelContext: context)
+        let recent = try repository.recent(type: "morning_brief", limit: 1)
+        XCTAssertEqual(recent.map(\.title), ["latest"])
+        XCTAssertEqual(try repository.fetch(type: "morning_brief").map(\.title), ["latest", "earlier"])
+        XCTAssertEqual(try repository.fetch(type: "brief").map(\.title), ["other"])
+    }
+
+    @MainActor
+    func testBiomarkersSortByMeasurementDateAndKeepTheLimit() throws {
+        let earlier = Date(timeIntervalSince1970: 1_850_000_000)
+        let later = earlier.addingTimeInterval(86_400)
+        let container = try VelaModelContainer.make(inMemory: true)
+        let context = container.mainContext
+        func marker(_ name: String, at date: Date) -> BiomarkerRecord {
+            BiomarkerRecord(
+                name: name,
+                value: 1,
+                unit: "mg/dL",
+                date: date,
+                referenceMin: 0,
+                referenceMax: 2
+            )
+        }
+        context.insert(marker("later", at: later))
+        context.insert(marker("middle", at: earlier.addingTimeInterval(3_600)))
+        context.insert(marker("earlier", at: earlier))
+        try context.save()
+
+        let repository = BiomarkerRepository(modelContext: context)
+        XCTAssertEqual(try repository.fetchAllSortedByDate().map(\.name), ["later", "middle", "earlier"])
+        XCTAssertEqual(
+            try repository.fetchAllSortedByDate(newestFirst: false).map(\.name),
+            ["earlier", "middle", "later"]
+        )
+        XCTAssertEqual(try repository.fetchAllSortedByDate(limit: 1).map(\.name), ["later"])
+    }
+
+    @MainActor
+    func testExerciseDefinitionsDraftsMirrorsAndAgentRunsUseTheirRepositories() throws {
+        let earlier = Date(timeIntervalSince1970: 1_860_000_000)
+        let later = earlier.addingTimeInterval(60)
+        let linked = UUID()
+        let container = try VelaModelContainer.make(inMemory: true)
+        let context = container.mainContext
+        context.insert(ExerciseDefinitionRecord(
+            canonicalKey: "bench",
+            name: "bench",
+            primaryMuscleGroup: "chest",
+            equipment: "barbell",
+            movementPattern: "push"
+        ))
+        context.insert(ExerciseDefinitionRecord(
+            canonicalKey: "squat",
+            name: "squat",
+            primaryMuscleGroup: "legs",
+            equipment: "barbell",
+            movementPattern: "squat"
+        ))
+        context.insert(ActiveWorkoutDraftRecord(title: "resume"))
+        context.insert(ActiveWorkoutDraftRecord(title: "other"))
+        context.insert(XunjiWorkoutMirrorRecord(
+            externalID: "linked",
+            datestr: "2026-10-15",
+            linkedStrengthWorkoutID: linked,
+            rawTrainData: Data("a".utf8)
+        ))
+        context.insert(XunjiWorkoutMirrorRecord(
+            externalID: "other",
+            datestr: "2026-10-14",
+            rawTrainData: Data("b".utf8)
+        ))
+        context.insert(AgentRunRecord(
+            agentName: "evening_wiki_sync",
+            startedAt: earlier,
+            status: .success
+        ))
+        context.insert(AgentRunRecord(
+            agentName: "evening_wiki_sync",
+            startedAt: later,
+            status: .failed
+        ))
+        context.insert(AgentRunRecord(
+            agentName: "evening_wiki_sync",
+            startedAt: later.addingTimeInterval(10),
+            status: .success
+        ))
+        context.insert(AgentRunRecord(
+            agentName: "morning_brief",
+            startedAt: later.addingTimeInterval(20),
+            status: .success
+        ))
+        try context.save()
+
+        let definitions = ExerciseDefinitionRepository(modelContext: context)
+        XCTAssertEqual(try definitions.fetchAllSortedByName().map(\.name), ["bench", "squat"])
+        XCTAssertEqual(try definitions.fetch(canonicalKey: "squat").map(\.name), ["squat"])
+        XCTAssertEqual(try definitions.fetch(name: "bench").map(\.canonicalKey), ["bench"])
+        XCTAssertEqual(
+            Set(try ActiveWorkoutDraftRepository(modelContext: context).fetchAll().map(\.title)),
+            ["resume", "other"]
+        )
+        let mirrors = XunjiWorkoutMirrorRepository(modelContext: context)
+        XCTAssertEqual(try mirrors.fetchAll().count, 2)
+        XCTAssertEqual(try mirrors.fetch(linkedStrengthWorkoutId: linked).map(\.externalID), ["linked"])
+        let runs = AgentRunRepository(modelContext: context)
+        XCTAssertEqual(
+            try runs.fetchAllSortedByStartedAt().map(\.agentName),
+            ["morning_brief", "evening_wiki_sync", "evening_wiki_sync", "evening_wiki_sync"]
+        )
+        XCTAssertEqual(
+            try runs.fetchSuccessful(agentName: "evening_wiki_sync").map(\.startedAt),
+            [later.addingTimeInterval(10), earlier]
+        )
+    }
+
+    @MainActor
+    func testExperimentsEventsAndMemoryQueriesUseTheirRepositories() throws {
+        let start = Date(timeIntervalSince1970: 1_870_000_000)
+        let middle = start.addingTimeInterval(3_600)
+        let end = start.addingTimeInterval(7_200)
+        let container = try VelaModelContainer.make(inMemory: true)
+        let context = container.mainContext
+        let olderExperiment = PersonalExperimentRecord(
+            templateID: "older",
+            title: "older",
+            hypothesis: "h",
+            protocolText: "p",
+            targetBehaviorTag: "tag",
+            startDate: start,
+            endDate: end,
+            status: "completed",
+            createdAt: start
+        )
+        let activeExperiment = PersonalExperimentRecord(
+            templateID: "active",
+            title: "active",
+            hypothesis: "h",
+            protocolText: "p",
+            targetBehaviorTag: "tag",
+            startDate: start,
+            endDate: end,
+            createdAt: end
+        )
+        context.insert(olderExperiment)
+        context.insert(activeExperiment)
+        let checkIn = ExperimentCheckInRecord(
+            experimentID: activeExperiment.id,
+            dayIdentifier: "2026-10-15",
+            date: end,
+            followedProtocol: true
+        )
+        context.insert(ExperimentCheckInRecord(
+            experimentID: olderExperiment.id,
+            dayIdentifier: "2026-10-14",
+            date: start,
+            followedProtocol: false
+        ))
+        context.insert(checkIn)
+        context.insert(VelaEventRecord(eventType: "sync", timestamp: start, title: "start"))
+        context.insert(VelaEventRecord(eventType: "sync", timestamp: middle, title: "middle"))
+        context.insert(VelaEventRecord(eventType: "sync", timestamp: end.addingTimeInterval(1), title: "after"))
+        context.insert(MemoryEventRecord(
+            createdAt: start,
+            source: "personal_response_model",
+            targetFile: "profile",
+            memoryType: .observation,
+            operation: "add",
+            content: "older",
+            evidence: "e",
+            confidence: 1,
+            status: .accepted
+        ))
+        context.insert(MemoryEventRecord(
+            createdAt: end,
+            source: "personal_response_model",
+            targetFile: "profile",
+            memoryType: .fact,
+            operation: "add",
+            content: "newer fact",
+            evidence: "e",
+            confidence: 1,
+            status: .proposed
+        ))
+        context.insert(MemoryEventRecord(
+            source: "training_response_model",
+            targetFile: "training",
+            memoryType: .observation,
+            operation: "add",
+            content: "training",
+            evidence: "e",
+            confidence: 1,
+            status: .accepted
+        ))
+        try context.save()
+
+        let experiments = PersonalExperimentRepository(modelContext: context)
+        XCTAssertEqual(try experiments.fetchAllSortedByCreatedAt().map(\.title), ["active", "older"])
+        XCTAssertEqual(try experiments.fetchActive().map(\.title), ["active"])
+        let checkIns = ExperimentCheckInRepository(modelContext: context)
+        XCTAssertEqual(try checkIns.fetchAllSortedByDate().map(\.dayIdentifier), ["2026-10-15", "2026-10-14"])
+        XCTAssertEqual(try checkIns.fetch(id: checkIn.id).map(\.experimentID), [activeExperiment.id])
+        let events = VelaEventRepository(modelContext: context)
+        XCTAssertEqual(try events.fetch(from: start, through: end).map(\.title), ["middle", "start"])
+        XCTAssertEqual(try events.fetchAll().count, 3)
+        let memory = MemoryLedger(modelContext: context)
+        XCTAssertEqual(Set(try memory.fetchAcceptedObservations().map(\.content)), ["older", "training"])
+        XCTAssertEqual(try memory.fetch(source: "training_response_model").map(\.content), ["training"])
+        XCTAssertEqual(
+            try memory.fetchNewest(source: "personal_response_model").map(\.content),
+            ["newer fact", "older"]
+        )
+    }
+
+    @MainActor
+    func testWikiDocumentsAndCoachSessionsUseTheirRepositories() throws {
+        let earlier = Date(timeIntervalSince1970: 1_880_000_000)
+        let later = earlier.addingTimeInterval(3_600)
+        let container = try VelaModelContainer.make(inMemory: true)
+        let context = container.mainContext
+        context.insert(UserWikiDocumentRecord(
+            filename: "profile.md",
+            title: "older",
+            markdownContent: "a",
+            updatedAt: earlier
+        ))
+        context.insert(UserWikiDocumentRecord(
+            filename: "training.md",
+            title: "newer",
+            markdownContent: "b",
+            updatedAt: later
+        ))
+        context.insert(CoachSessionRecord(title: "older", updatedAt: earlier))
+        context.insert(CoachSessionRecord(title: "newer", updatedAt: later))
+        context.insert(CoachSessionRecord(title: "archived", updatedAt: later.addingTimeInterval(10), isArchived: true))
+        try context.save()
+
+        let documents = UserWikiDocumentRepository(modelContext: context)
+        XCTAssertEqual(try documents.fetchAllSortedByUpdatedAt().map(\.title), ["newer", "older"])
+        XCTAssertEqual(try documents.fetchAll().count, 2)
+        XCTAssertEqual(
+            try CoachSessionRepository(modelContext: context).fetchUnarchived().map(\.title),
+            ["newer", "older"]
+        )
+    }
+
+    @MainActor
+    func testAgentArtifactsSortNewestFirst() throws {
+        let earlier = Date(timeIntervalSince1970: 1_840_000_000)
+        let later = earlier.addingTimeInterval(60)
+        let container = try VelaModelContainer.make(inMemory: true)
+        let context = container.mainContext
+        func artifact(title: String, at date: Date) -> AgentArtifactRecord {
+            AgentArtifactRecord(
+                type: "report",
+                title: title,
+                createdAt: date,
+                payloadJSON: "{}",
+                sourceContextHash: title,
+                status: "created",
+                confidence: 1,
+                source: "coach"
+            )
+        }
+        context.insert(artifact(title: "later", at: later))
+        context.insert(artifact(title: "earlier", at: earlier))
+        try context.save()
+
+        XCTAssertEqual(
+            try AgentArtifactRepository(modelContext: context).fetchAllSortedByCreatedAt().map(\.title),
+            ["later", "earlier"]
+        )
+    }
+
+    @MainActor
+    func testDailyPlanArtifactLookupMatchesTypeAndContextHash() throws {
+        let container = try VelaModelContainer.make(inMemory: true)
+        let context = container.mainContext
+        func artifact(type: String, title: String, hash: String) -> AgentArtifactRecord {
+            AgentArtifactRecord(
+                type: type,
+                title: title,
+                payloadJSON: "{}",
+                sourceContextHash: hash,
+                status: "active",
+                confidence: 1,
+                source: "plan"
+            )
+        }
+        context.insert(artifact(type: "daily_plan", title: "match", hash: "body-1"))
+        context.insert(artifact(type: "daily_plan", title: "other-hash", hash: "body-2"))
+        context.insert(artifact(type: "report", title: "other-type", hash: "body-1"))
+        try context.save()
+
+        XCTAssertEqual(
+            try AgentArtifactRepository(modelContext: context)
+                .fetch(type: "daily_plan", sourceContextHash: "body-1")
+                .map(\.title),
+            ["match"]
+        )
+    }
+
+    @MainActor
+    func testOpenWorkoutWindowAndPlanIdentityLookups() throws {
+        let start = Date(timeIntervalSince1970: 1_890_000_000)
+        let later = start.addingTimeInterval(3_600)
+        let container = try VelaModelContainer.make(inMemory: true)
+        let context = container.mainContext
+        context.insert(WorkoutEventRecord(
+            source: "manual",
+            startedAt: start.addingTimeInterval(-60),
+            endedAt: start,
+            activityType: "run",
+            title: "before"
+        ))
+        context.insert(WorkoutEventRecord(
+            source: "manual",
+            startedAt: start,
+            endedAt: later,
+            activityType: "run",
+            title: "start"
+        ))
+        context.insert(WorkoutEventRecord(
+            source: "manual",
+            startedAt: later,
+            endedAt: later.addingTimeInterval(600),
+            activityType: "run",
+            title: "later"
+        ))
+        let matched = TrainingPlanRecord(title: "matched", goalDescription: "goal")
+        matched.idempotencyKey = "key-1"
+        let other = TrainingPlanRecord(title: "other", goalDescription: "goal")
+        other.idempotencyKey = "key-2"
+        context.insert(matched)
+        context.insert(other)
+        try context.save()
+
+        XCTAssertEqual(
+            try WorkoutHistoryRepository(modelContext: context).fetchWorkoutEvents(onOrAfter: start).map(\.title),
+            ["later", "start"]
+        )
+        let plans = TrainingPlanRepository(modelContext: context)
+        XCTAssertEqual(try plans.fetch(id: matched.id).map(\.title), ["matched"])
+        XCTAssertEqual(try plans.fetch(idempotencyKey: "key-2").map(\.title), ["other"])
+        XCTAssertTrue(try plans.fetch(idempotencyKey: "missing").isEmpty)
+    }
+
+    @MainActor
+    func testDecisionFeedbackLookupUsesTheHealthDay() throws {
+        func feedback(day: String, title: String, at date: Date) -> DailyDecisionFeedbackRecord {
+            DailyDecisionFeedbackRecord(
+                dayIdentifier: day,
+                bodyStateHash: "hash",
+                decisionType: "train",
+                decisionTitle: title,
+                createdAt: date
+            )
+        }
+        let container = try VelaModelContainer.make(inMemory: true)
+        let context = container.mainContext
+        context.insert(feedback(day: "2026-07-01", title: "earlier", at: Date(timeIntervalSince1970: 1_770_000_000)))
+        context.insert(feedback(day: "2026-07-02", title: "later", at: Date(timeIntervalSince1970: 1_770_100_000)))
+        try context.save()
+
+        let repository = DailyDecisionFeedbackRepository(modelContext: context)
+        XCTAssertEqual(try repository.fetchRecord(dayIdentifier: "2026-07-01")?.decisionTitle, "earlier")
+        XCTAssertEqual(try repository.fetchAllSortedByCreatedAt().map(\.decisionTitle), ["later", "earlier"])
+        XCTAssertNil(try repository.fetchRecord(dayIdentifier: "missing"))
+    }
+
+    @MainActor
+    func testFeedbackUpdateWindowsKeepTheirBounds() throws {
+        let now = Date(timeIntervalSince1970: 1_780_000_000)
+        let cutoff = now.addingTimeInterval(-86_400)
+        func feedback(day: String, created: Date, updated: Date) -> DailyDecisionFeedbackRecord {
+            DailyDecisionFeedbackRecord(
+                dayIdentifier: day,
+                bodyStateHash: "hash",
+                decisionType: "train",
+                decisionTitle: day,
+                createdAt: created,
+                updatedAt: updated
+            )
+        }
+        let container = try VelaModelContainer.make(inMemory: true)
+        let context = container.mainContext
+        context.insert(feedback(day: "old", created: cutoff.addingTimeInterval(-10), updated: cutoff.addingTimeInterval(-1)))
+        context.insert(feedback(day: "touched", created: cutoff, updated: cutoff))
+        context.insert(feedback(day: "future-edit", created: cutoff, updated: now.addingTimeInterval(60)))
+        context.insert(feedback(day: "future-row", created: now.addingTimeInterval(60), updated: now))
+        try context.save()
+
+        let repository = DailyDecisionFeedbackRepository(modelContext: context)
+        XCTAssertEqual(
+            Set(try repository.fetchUpdated(onOrAfter: cutoff).map(\.dayIdentifier)),
+            ["touched", "future-edit", "future-row"]
+        )
+        XCTAssertEqual(
+            Set(try repository.fetchUpdated(from: cutoff, through: now, createdAtOrBefore: now).map(\.dayIdentifier)),
+            ["touched"]
+        )
+    }
+
+    @MainActor
+    func testLatestOnboardingAndArtifactWindowFollowTheirTimestamps() throws {
+        let older = Date(timeIntervalSince1970: 1_790_000_000)
+        let newer = older.addingTimeInterval(86_400)
+        let after = newer.addingTimeInterval(86_400)
+        let container = try VelaModelContainer.make(inMemory: true)
+        let context = container.mainContext
+        context.insert(OnboardingState(currentStep: "older", updatedAt: older))
+        context.insert(OnboardingState(currentStep: "newer", updatedAt: newer))
+        func artifact(title: String, at date: Date) -> CoachArtifactRecord {
+            CoachArtifactRecord(artifact: CoachArtifact(
+                type: .askCoachAnswer,
+                title: title,
+                summary: title,
+                createdAt: date,
+                confidence: 1,
+                reasons: [],
+                actions: [],
+                sourceContextHash: title
+            ))
+        }
+        context.insert(artifact(title: "before", at: older.addingTimeInterval(-1)))
+        context.insert(artifact(title: "start", at: older))
+        context.insert(artifact(title: "end", at: newer))
+        context.insert(artifact(title: "after", at: after))
+        try context.save()
+
+        XCTAssertEqual(try OnboardingRepository(modelContext: context).fetchLatest()?.currentStep, "newer")
+        XCTAssertEqual(
+            try CoachArtifactRepository(modelContext: context).fetchArtifacts(from: older, through: newer).map(\.title),
+            ["end", "start"]
+        )
+    }
+
+    @MainActor
     func testV1StoreMigratesToCurrentSchemaWithoutLosingDailyScores() throws {
         let root = FileManager.default.temporaryDirectory
             .appending(path: "VelaV1Migration-\(UUID().uuidString)", directoryHint: .isDirectory)
@@ -712,6 +1874,17 @@ final class PersistenceFoundationTests: XCTestCase {
                 in: DateRangeQuery(start: start, end: start.addingTimeInterval(86_400))
             ).count,
             2
+        )
+        let dayWindow = try repository.fetchIntradayBuckets(
+            from: start,
+            until: start.addingTimeInterval(86_400)
+        )
+        XCTAssertEqual(dayWindow.map(\.bucketStart), dayWindow.map(\.bucketStart).sorted())
+        XCTAssertEqual(dayWindow.count, 2)
+        let laterStart = try XCTUnwrap(dayWindow.map(\.bucketStart).max())
+        XCTAssertEqual(
+            try repository.fetchIntradayBuckets(from: start, until: laterStart).count,
+            1
         )
 
         try repository.reconcileIntradayBuckets(

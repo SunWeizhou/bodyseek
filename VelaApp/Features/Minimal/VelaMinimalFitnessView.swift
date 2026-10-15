@@ -14,9 +14,6 @@ struct VelaTrainingView: View {
     @EnvironmentObject private var services: VelaServices
     @ObservedObject private var appState = VelaAppState.shared
 
-    @Query(sort: \OnboardingState.updatedAt, order: .reverse)
-    private var onboardingStates: [OnboardingState]
-
     private static let lookbackDays = 90
     private var trainingLookbackStart: Date {
         Calendar.current.date(byAdding: .day, value: -Self.lookbackDays, to: dashboardVM.selectedDate) ?? dashboardVM.selectedDate
@@ -38,9 +35,7 @@ struct VelaTrainingView: View {
     private var activePlan: TrainingPlanRecord? {
         trainingPlans.first(where: { $0.isActive })
     }
-    private var trainingPreference: TrainingPreferenceProfile? {
-        onboardingStates.first?.trainingPreference
-    }
+    @State private var trainingPreference: TrainingPreferenceProfile?
     private var rotationFocus: String? {
         guard activePlan == nil else { return nil }
         return TrainingRotationResolver.nextFocus(
@@ -61,7 +56,10 @@ struct VelaTrainingView: View {
         )
     }
     private var todayDecision: DailyTrainingDecision? {
-        dashboardVM.dailyTrainingDecision ?? todayPlan?.trainingDecision
+        PlanTrainingDecisionResolver.resolve(
+            published: dashboardVM.dailyTrainingDecision,
+            persisted: todayPlan?.trainingDecision
+        )
     }
 
     @State private var previousMonthActiveTiers: [Int: Int] = [:]
@@ -78,7 +76,7 @@ struct VelaTrainingView: View {
     @State private var dynamicExertionWorkload: [Double] = []
     @State private var targetComparison: TrainingTargetComparison = .unavailable
     /// 训练节律热力图的每日快照记录（约 6 周窗口）。
-    @State private var heatmapRecords: [DailyHealthSummaryRecord] = []
+    @State private var heatmapRecords: [DailyHealthSnapshot] = []
     /// 热力图周数据缓存：数据加载后计算一次，body 重渲染不再重复聚合。
     @State private var memoHeatmapWeeks: [TrainingHeatmapWeek] = []
     /// Coach 参与的未来三天规划（nil = 未请求，显示本地推荐）。
@@ -278,6 +276,7 @@ struct VelaTrainingView: View {
             summaryWorkDates: summaryWorkDates,
             summaryPeakStrainText: summaryPeakStrainText,
             selectedDate: dashboardVM.selectedDate,
+            dashboard: dashboard,
             previousMonthActiveTiers: previousMonthActiveTiers,
             currentMonthActiveTiers: currentMonthActiveTiers,
             cardioSnapshot: cardioSnapshot,
@@ -495,9 +494,9 @@ struct VelaTrainingView: View {
 
     private var trainingAnalysisQuestion: String {
         let dashboard = dashboardVM.dashboard
-        let recovery = dashboard.recovery.hasData ? "\(Int(dashboard.recovery.score.rounded()))" : "--"
-        let strain = dashboard.strain.hasData ? "\(Int(dashboard.strain.score.rounded()))" : "--"
-        let stress = dashboard.stress.hasData ? "\(Int(dashboard.stress.stressIndex.rounded()))" : "--"
+        let recovery = dashboard.recovery.formattedScore
+        let strain = dashboard.strain.formattedScore
+        let stress = dashboard.stress.formattedScore
         let decisionText = todayDecision.map {
             switch $0.decision {
             case .keep: "保持"
@@ -517,20 +516,20 @@ struct VelaTrainingView: View {
         let dashboard = dashboardVM.dashboard
         var metrics: [String] = []
         if dashboard.recovery.hasData {
-            metrics.append("恢复 \(Int(dashboard.recovery.score.rounded()))")
+            metrics.append("恢复 \(dashboard.recovery.formattedScore)")
         }
         if dashboard.strain.hasData {
             let range = dashboard.strain.recommendedRange
-            metrics.append("负荷 \(Int(dashboard.strain.score.rounded()))（目标 \(range.lowerBound)-\(range.upperBound)）")
+            metrics.append("负荷 \(dashboard.strain.formattedScore)（目标 \(range.lowerBound)-\(range.upperBound)）")
         }
         if dashboard.stress.hasData, dashboard.stress.stressIndex > 75 {
-            metrics.append("压力 \(Int(dashboard.stress.stressIndex.rounded()))（>75）")
+            metrics.append("压力 \(dashboard.stress.formattedScore)（>75）")
         } else if let tsb = dashboard.energy.metrics["tsb"], tsb <= -15 {
             metrics.append("TSB \(String(format: "%+.0f", tsb))（深度为负）")
         } else if dashboard.energy.hasData, dashboard.energy.currentEnergy < 30 {
             metrics.append("能量 \(Int(dashboard.energy.currentEnergy.rounded()))（偏低）")
         } else if dashboard.sleepScore.hasData {
-            metrics.append("睡眠 \(Int(dashboard.sleepScore.score.rounded()))")
+            metrics.append("睡眠 \(dashboard.sleepScore.formattedScore)")
         }
         return metrics
     }
@@ -566,7 +565,7 @@ struct VelaTrainingView: View {
 
     /// 趋势卡使用的最近 30 天每日快照（恢复 / 负荷 / 压力同窗口、同源）。
     /// 热力图加载时已经取到 42 天窗口，这里只做内存过滤，不额外查询 SwiftData。
-    private var recentMetricRecords: [DailyHealthSummaryRecord] {
+    private var recentMetricRecords: [DailyHealthSnapshot] {
         let calendar = Calendar.current
         let end = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: dashboardVM.selectedDate))
             ?? dashboardVM.selectedDate
@@ -743,7 +742,7 @@ struct VelaTrainingView: View {
                 cachedWorkoutSummariesAt = Date()
                 cachedWorkoutSummariesAnchor = anchorDay
             }
-            let deletedRecords = (try? modelContext.fetch(FetchDescriptor<DeletedWorkoutRecord>())) ?? []
+            let deletedRecords = (try? DeletedWorkoutRepository(modelContext: modelContext).fetchAll()) ?? []
             let blacklistedIDs = Set(deletedRecords.map(\.id))
             let filteredHealthKit = healthKit.filter { !blacklistedIDs.contains($0.id.uuidString) }
 
@@ -829,6 +828,7 @@ struct VelaTrainingView: View {
     }
 
     private func loadRealFitnessData() {
+        trainingPreference = ((try? OnboardingRepository(modelContext: modelContext).fetchLatest()) ?? nil)?.trainingPreference
         let calendar = Calendar.current
         let now = dashboardVM.selectedDate
         
@@ -839,57 +839,27 @@ struct VelaTrainingView: View {
         // 热力图需要 5 周（35 天）+ 余量，取 -42 天兜底（此前 -29 天会让最老一行缺数据）。
         let lowerBound = min(previousMonthStart, calendar.date(byAdding: .day, value: -42, to: now) ?? now)
         let upperBound = nextMonthStart
-        let descriptor = FetchDescriptor<DailyHealthSummaryRecord>(
-            predicate: #Predicate<DailyHealthSummaryRecord> { record in
-                record.date >= lowerBound && record.date < upperBound
-            },
-            sortBy: [SortDescriptor(\DailyHealthSummaryRecord.date, order: .forward)]
-        )
-        
         do {
-            let allRecords: [DailyHealthSummaryRecord] = try modelContext.fetch(descriptor)
-            heatmapRecords = allRecords
-            let records = allRecords.filter { $0.date >= previousMonthStart && $0.date < nextMonthStart }
-            
-            var apTiers: [Int: Int] = [:]
-            var myTiers: [Int: Int] = [:]
-            
-            for record in records {
-                let day = calendar.component(.day, from: record.date)
-                
-                let count = record.workoutCount ?? 0
-                let calories = record.activeCalories ?? 0
-                let duration = record.workoutDuration ?? 0
-                
-                var tier = 0
-                if count >= 3 {
-                    tier = 3
-                } else if count == 2 {
-                    tier = 2
-                } else if count == 1 {
-                    tier = 1
-                } else if calories > 400 || duration > 45 {
-                    tier = 2
-                } else if calories > 150 || duration > 15 {
-                    tier = 1
-                }
-                
-                if calendar.isDate(record.date, equalTo: previousMonthStart, toGranularity: .month) {
-                    apTiers[day] = tier
-                } else if calendar.isDate(record.date, equalTo: currentMonthStart, toGranularity: .month) {
-                    myTiers[day] = tier
-                }
-            }
-            
-            previousMonthActiveTiers = apTiers
-            currentMonthActiveTiers = myTiers
+            let snapshots = try HealthSnapshotRepository(modelContext: modelContext)
+                .fetchHistory(from: lowerBound, until: upperBound)
+                .map(\.snapshot)
+            heatmapRecords = snapshots
+            let monthTiers = TrainingHeatmapData.monthDayTiers(
+                snapshots: snapshots,
+                previousMonthStart: previousMonthStart,
+                currentMonthStart: currentMonthStart,
+                nextMonthStart: nextMonthStart,
+                calendar: calendar
+            )
+            previousMonthActiveTiers = monthTiers.previous
+            currentMonthActiveTiers = monthTiers.current
             
             // 2. Fetch past 30 days of records for statistics
             let startDate30 = calendar.date(byAdding: .day, value: -29, to: now) ?? now
             let startOf30 = calendar.startOfDay(for: startDate30)
             let endOf30 = calendar.date(bySettingHour: 23, minute: 59, second: 59, of: now) ?? now
             
-            let records30 = allRecords.filter { $0.date >= startOf30 && $0.date <= endOf30 }
+            let records30 = snapshots.filter { $0.date >= startOf30 && $0.date <= endOf30 }
             if !records30.isEmpty {
                 // Calculate total duration in minutes
                 let totalMin = records30.compactMap { $0.workoutDuration }.reduce(0, +)
@@ -968,24 +938,16 @@ struct VelaTrainingView: View {
         let startLimit = calendar.startOfDay(for: calendar.date(byAdding: .day, value: -Self.lookbackDays, to: startOfDayRef) ?? startOfDayRef)
         let endLimit = calendar.date(byAdding: .day, value: 1, to: startOfDayRef) ?? startOfDayRef
         
-        let strengthDesc = FetchDescriptor<StrengthWorkoutRecord>(
-            predicate: #Predicate<StrengthWorkoutRecord> { $0.startedAt >= startLimit && $0.startedAt <= endLimit },
-            sortBy: [SortDescriptor(\.startedAt, order: .reverse)]
-        )
-        self.strengthWorkouts = (try? modelContext.fetch(strengthDesc)) ?? []
+        self.strengthWorkouts = (try? WorkoutHistoryRepository(modelContext: modelContext).fetchStrengthWorkouts(
+            from: startLimit,
+            through: endLimit
+        )) ?? []
 
-        let templatesDesc = FetchDescriptor<WorkoutTemplateRecord>(
-            sortBy: [SortDescriptor(\.title, order: .forward)]
-        )
-        self.workoutTemplates = (try? modelContext.fetch(templatesDesc)) ?? []
+        self.workoutTemplates = (try? WorkoutTemplateRepository(modelContext: modelContext).fetchAllSortedByTitle()) ?? []
 
         // P3-12 修复：直接按 isActive 谓词取活跃计划（此前 fetchLimit=10 会漏取
         // 更新较早的活跃计划，计划入口与 todaySession 消失）。
-        let plansDesc = FetchDescriptor<TrainingPlanRecord>(
-            predicate: #Predicate<TrainingPlanRecord> { $0.isActive },
-            sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
-        )
-        self.trainingPlans = (try? modelContext.fetch(plansDesc)) ?? []
+        self.trainingPlans = (try? TrainingPlanRepository(modelContext: modelContext).fetchActivePlans()) ?? []
 
         // 训练事件窗口覆盖完整活跃计划：TrainingScheduleResolver 需要看到
         // 计划开始以来的完成事件，否则长计划会被 90 天窗口截断。
@@ -993,11 +955,10 @@ struct VelaTrainingView: View {
             startLimit,
             self.trainingPlans.first(where: { $0.isActive })?.startDate ?? startLimit
         )
-        let eventsDesc = FetchDescriptor<WorkoutEventRecord>(
-            predicate: #Predicate<WorkoutEventRecord> { $0.startedAt >= eventStartLimit && $0.startedAt <= endLimit },
-            sortBy: [SortDescriptor(\.startedAt, order: .reverse)]
-        )
-        let planEvents = (try? modelContext.fetch(eventsDesc)) ?? []
+        let planEvents = (try? WorkoutHistoryRepository(modelContext: modelContext).fetchWorkoutEvents(
+            from: eventStartLimit,
+            through: endLimit
+        )) ?? []
         self.planResolutionEvents = planEvents
         // 展示层继续使用近 90 天窗口，避免热力图/最近记录被长计划全量事件撑大。
         self.localWorkoutEvents = planEvents.filter {
@@ -1010,12 +971,8 @@ struct VelaTrainingView: View {
         if let activePlan = self.trainingPlans.first(where: { $0.isActive }) {
             let upcomingDayIDs = Set(activePlan.days.filter { !$0.isCompleted }.map(\.id))
             let activePlanID = activePlan.id
-            let proposedForPlan = (try? modelContext.fetch(FetchDescriptor<TrainingPlanAdaptationRecord>(
-                predicate: #Predicate<TrainingPlanAdaptationRecord> {
-                    $0.planId == activePlanID && $0.status == "proposed"
-                },
-                sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
-            ))) ?? []
+            let proposedForPlan = (try? TrainingPlanAdaptationRepository(modelContext: modelContext)
+                .fetchProposed(planId: activePlanID)) ?? []
             self.pendingPlanAdaptations = proposedForPlan.filter {
                 upcomingDayIDs.contains($0.dayId)
             }
@@ -1024,18 +981,12 @@ struct VelaTrainingView: View {
         }
 
         let dayIdentifier = DailyHealthSummaryRecord.dayIdentifier(for: refDate, calendar: calendar)
-        var opPlansDesc = FetchDescriptor<DailyOperatingPlanRecord>(
-            predicate: #Predicate<DailyOperatingPlanRecord> { $0.dayIdentifier == dayIdentifier },
-            sortBy: [SortDescriptor(\.generatedAt, order: .reverse)]
-        )
-        opPlansDesc.fetchLimit = 1
-        self.operatingPlans = (try? modelContext.fetch(opPlansDesc)) ?? []
+        self.operatingPlans = ((try? DailyOperatingPlanRepository(modelContext: modelContext)
+            .fetchLatest(dayIdentifier: dayIdentifier)) ?? nil)
+            .map { [$0] } ?? []
 
-        let responseDesc = FetchDescriptor<TrainingResponseRecord>(
-            predicate: #Predicate<TrainingResponseRecord> { $0.date >= startLimit && $0.date <= endLimit },
-            sortBy: [SortDescriptor(\.date, order: .reverse)]
-        )
-        self.trainingResponses = (try? modelContext.fetch(responseDesc)) ?? []
+        self.trainingResponses = (try? TrainingResponseRepository(modelContext: modelContext)
+            .fetchResponses(from: startLimit, through: endLimit)) ?? []
 
         // 性能：个人纪录（需逐次传入历史先例）与肌群 7 天逐日组数只在数据加载后
         // 算一次并缓存，body 重渲染不再重复 O(n²) 扫描。
@@ -1078,28 +1029,19 @@ struct VelaTrainingView: View {
         let cacheKey = "\(dayIdentifier)-\(VelaAppState.shared.localDataRevision)"
         guard longTermMediansCacheKey != cacheKey else { return }
 
-        let allSummaries = (try? modelContext.fetch(FetchDescriptor<DailyHealthSummaryRecord>())) ?? []
         let longTermCutoff = Calendar.current.startOfDay(
             for: Calendar.current.date(byAdding: .day, value: -90, to: refDate) ?? refDate
         )
-        let oldRHR = allSummaries
-            .filter { $0.date < longTermCutoff }
-            .compactMap(\.restingHeartRate)
-        let oldHRV = allSummaries
-            .filter { $0.date < longTermCutoff }
-            .compactMap(\.hrvAverage)
-        self.memoLongTermRHRMedian = Self.median(of: oldRHR)
-        self.memoLongTermHRVMedian = Self.median(of: oldHRV)
+        let points = (try? HealthSnapshotRepository(modelContext: modelContext).fetchAllBaselinePoints()) ?? []
+        let prior = points.filter { $0.date < longTermCutoff }
+        self.memoLongTermRHRMedian = Self.longTermMedian(of: prior.compactMap(\.restingHeartRate))
+        self.memoLongTermHRVMedian = Self.longTermMedian(of: prior.compactMap(\.hrvAverage))
         self.longTermMediansCacheKey = cacheKey
     }
 
-    private static func median(of values: [Double]) -> Double? {
+    static func longTermMedian(of values: [Double]) -> Double? {
         guard values.count >= 30 else { return nil }
-        let sorted = values.sorted()
-        let middle = sorted.count / 2
-        return sorted.count.isMultiple(of: 2)
-            ? (sorted[middle - 1] + sorted[middle]) / 2
-            : sorted[middle]
+        return ScoringMath.median(values)
     }
     
     private func useEmptyFitnessDefaults() {
@@ -1136,6 +1078,7 @@ private struct TrainingDeepAnalysisView: View {
     let summaryWorkDates: [Date]
     let summaryPeakStrainText: String
     let selectedDate: Date
+    let dashboard: DashboardSummary
     let previousMonthActiveTiers: [Int: Int]
     let currentMonthActiveTiers: [Int: Int]
     let cardioSnapshot: CardioTrainingSnapshot
@@ -1144,7 +1087,7 @@ private struct TrainingDeepAnalysisView: View {
     let exerciseProgressLines: [String]
     let personalRecords: [PersonalRecord]
     /// 最近 30 天每日快照：恢复 / 负荷 / 压力趋势共用同一窗口与同一数据源。
-    let metricRecords: [DailyHealthSummaryRecord]
+    let metricRecords: [DailyHealthSnapshot]
     let strengthWorkout: (WorkoutSummary) -> StrengthWorkoutRecord?
 
     var body: some View {
@@ -1170,11 +1113,16 @@ private struct TrainingDeepAnalysisView: View {
                     summaryWorkDates: summaryWorkDates,
                     summaryPeakStrainText: summaryPeakStrainText,
                     selectedDate: selectedDate,
+                    dashboard: dashboard,
                     previousMonthActiveTiers: previousMonthActiveTiers,
                     currentMonthActiveTiers: currentMonthActiveTiers
                 )
 
-                RecoveryLoadStressTrendsCard(records: metricRecords)
+                RecoveryLoadStressTrendsCard(
+                    records: metricRecords,
+                    selectedDate: selectedDate,
+                    dashboard: dashboard
+                )
 
                 CardioStatusCard(snapshot: cardioSnapshot)
 

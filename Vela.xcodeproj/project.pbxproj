@@ -57,6 +57,11 @@
 		0B1000290000000000000029 /* HealthDataRefreshService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001300000000000000030 /* HealthDataRefreshService.swift */; };
 		0B1000300000000000000030 /* HealthCachePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001310000000000000031 /* HealthCachePolicy.swift */; };
 		0B1000310000000000000031 /* DailyHealthSummaryRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001320000000000000032 /* DailyHealthSummaryRepository.swift */; };
+		C5A5000D000000000000000D /* TrainingPlanRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A5100D000000000000000D /* TrainingPlanRepository.swift */; };
+		C5A5000E000000000000000E /* WorkoutHistoryRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A5100E000000000000000E /* WorkoutHistoryRepository.swift */; };
+		C5A5000F000000000000000F /* DailyOperatingPlanRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A5100F000000000000000F /* DailyOperatingPlanRepository.swift */; };
+		C5A500110000000000000011 /* DailyDecisionFeedbackRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A510110000000000000011 /* DailyDecisionFeedbackRepository.swift */; };
+		C5A500120000000000000012 /* ProfileRecordRepositories.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A510120000000000000012 /* ProfileRecordRepositories.swift */; };
 		0B1000320000000000000032 /* JournalRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001330000000000000033 /* JournalRepository.swift */; };
 		0B1000330000000000000033 /* AIReportRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001340000000000000034 /* AIReportRepository.swift */; };
 		0B1000340000000000000034 /* VelaModelContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001350000000000000035 /* VelaModelContainer.swift */; };
@@ -80,9 +85,12 @@
 		C5A500020000000000000002 /* TrendsStoreAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A510020000000000000002 /* TrendsStoreAction.swift */; };
 		C5A500030000000000000003 /* TrendsViewState.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A510030000000000000003 /* TrendsViewState.swift */; };
 		C5A500040000000000000004 /* TrendsOneMetricChart.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A510040000000000000004 /* TrendsOneMetricChart.swift */; };
+		C5A5000C000000000000000C /* PersistedTrendsWindowLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A5100C000000000000000C /* PersistedTrendsWindowLoader.swift */; };
 		C5A500060000000000000006 /* TrendsStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A530010000000000000001 /* TrendsStoreTests.swift */; };
 		C5A500070000000000000007 /* RecoveryReplaySensitivityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A530020000000000000002 /* RecoveryReplaySensitivityTests.swift */; };
 		C5A500080000000000000008 /* StrainReplaySensitivityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A530030000000000000003 /* StrainReplaySensitivityTests.swift */; };
+		C5A500090000000000000009 /* StressReplaySensitivityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A530040000000000000004 /* StressReplaySensitivityTests.swift */; };
+		C5A5000A000000000000000A /* EnergyReplaySensitivityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A530050000000000000005 /* EnergyReplaySensitivityTests.swift */; };
 		0B9900020000000000000002 /* PersonalHealthBrief.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B9900010000000000000001 /* PersonalHealthBrief.swift */; };
 		0B9900040000000000000004 /* HealthTrendEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B9900030000000000000003 /* HealthTrendEngine.swift */; };
 		0B9900060000000000000006 /* VelaTrendsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B9900050000000000000005 /* VelaTrendsView.swift */; };
@@ -321,6 +329,11 @@
 		0B1001300000000000000030 /* HealthDataRefreshService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Health/Services/HealthDataRefreshService.swift; sourceTree = "<group>"; };
 		0B1001310000000000000031 /* HealthCachePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence/Repositories/HealthCachePolicy.swift; sourceTree = "<group>"; };
 		0B1001320000000000000032 /* DailyHealthSummaryRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence/Repositories/DailyHealthSummaryRepository.swift; sourceTree = "<group>"; };
+		C5A5100D000000000000000D /* TrainingPlanRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence/Repositories/TrainingPlanRepository.swift; sourceTree = "<group>"; };
+		C5A5100E000000000000000E /* WorkoutHistoryRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence/Repositories/WorkoutHistoryRepository.swift; sourceTree = "<group>"; };
+		C5A5100F000000000000000F /* DailyOperatingPlanRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence/Repositories/DailyOperatingPlanRepository.swift; sourceTree = "<group>"; };
+		C5A510110000000000000011 /* DailyDecisionFeedbackRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence/Repositories/DailyDecisionFeedbackRepository.swift; sourceTree = "<group>"; };
+		C5A510120000000000000012 /* ProfileRecordRepositories.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence/Repositories/ProfileRecordRepositories.swift; sourceTree = "<group>"; };
 		0B1001330000000000000033 /* JournalRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence/Repositories/JournalRepository.swift; sourceTree = "<group>"; };
 		0B1001340000000000000034 /* AIReportRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence/Repositories/AIReportRepository.swift; sourceTree = "<group>"; };
 		0B1001350000000000000035 /* VelaModelContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence/SwiftDataModels/VelaModelContainer.swift; sourceTree = "<group>"; };
@@ -352,9 +365,12 @@
 		C5A510020000000000000002 /* TrendsStoreAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrendsStoreAction.swift; sourceTree = "<group>"; };
 		C5A510030000000000000003 /* TrendsViewState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrendsViewState.swift; sourceTree = "<group>"; };
 		C5A510040000000000000004 /* TrendsOneMetricChart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrendsOneMetricChart.swift; sourceTree = "<group>"; };
+		C5A5100C000000000000000C /* PersistedTrendsWindowLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistedTrendsWindowLoader.swift; sourceTree = "<group>"; };
 		C5A530010000000000000001 /* TrendsStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrendsStoreTests.swift; sourceTree = "<group>"; };
 		C5A530020000000000000002 /* RecoveryReplaySensitivityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryReplaySensitivityTests.swift; sourceTree = "<group>"; };
 		C5A530030000000000000003 /* StrainReplaySensitivityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StrainReplaySensitivityTests.swift; sourceTree = "<group>"; };
+		C5A530040000000000000004 /* StressReplaySensitivityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StressReplaySensitivityTests.swift; sourceTree = "<group>"; };
+		C5A530050000000000000005 /* EnergyReplaySensitivityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnergyReplaySensitivityTests.swift; sourceTree = "<group>"; };
 		0B9900010000000000000001 /* PersonalHealthBrief.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/Utilities/PersonalHealthBrief.swift; sourceTree = "<group>"; };
 		0B9900030000000000000003 /* HealthTrendEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scoring/HealthTrendEngine.swift; sourceTree = "<group>"; };
 		0B9900050000000000000005 /* VelaTrendsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Trends/VelaTrendsView.swift; sourceTree = "<group>"; };
@@ -721,6 +737,11 @@
 				3C47F96BE1FC2D34782EF610 /* VelaSchemaV3Frozen.swift */,
 				0B1001310000000000000031 /* HealthCachePolicy.swift */,
 				0B1001320000000000000032 /* DailyHealthSummaryRepository.swift */,
+				C5A5100D000000000000000D /* TrainingPlanRepository.swift */,
+				C5A5100E000000000000000E /* WorkoutHistoryRepository.swift */,
+				C5A5100F000000000000000F /* DailyOperatingPlanRepository.swift */,
+				C5A510110000000000000011 /* DailyDecisionFeedbackRepository.swift */,
+				C5A510120000000000000012 /* ProfileRecordRepositories.swift */,
 				0B1001330000000000000033 /* JournalRepository.swift */,
 				0B1001340000000000000034 /* AIReportRepository.swift */,
 				0B1001740000000000000074 /* HealthSnapshotRepository.swift */,
@@ -802,6 +823,8 @@
 				R2D200030000000000000003 /* RecoveryDetailV2Tests.swift */,
 				C5A530020000000000000002 /* RecoveryReplaySensitivityTests.swift */,
 				C5A530030000000000000003 /* StrainReplaySensitivityTests.swift */,
+				C5A530040000000000000004 /* StressReplaySensitivityTests.swift */,
+				C5A530050000000000000005 /* EnergyReplaySensitivityTests.swift */,
 			);
 			path = VelaAppTests;
 			sourceTree = "<group>";
@@ -879,6 +902,7 @@
 				C5A510020000000000000002 /* TrendsStoreAction.swift */,
 				C5A510030000000000000003 /* TrendsViewState.swift */,
 				C5A510040000000000000004 /* TrendsOneMetricChart.swift */,
+				C5A5100C000000000000000C /* PersistedTrendsWindowLoader.swift */,
 			);
 			name = Trends;
 			path = Features/Trends;
@@ -1108,6 +1132,7 @@
 				C5A500020000000000000002 /* TrendsStoreAction.swift in Sources */,
 				C5A500030000000000000003 /* TrendsViewState.swift in Sources */,
 				C5A500040000000000000004 /* TrendsOneMetricChart.swift in Sources */,
+				C5A5000C000000000000000C /* PersistedTrendsWindowLoader.swift in Sources */,
 				0B1000430000000000000043 /* DailySummaryUseCase.swift in Sources */,
 				0B1001A600000000000000A6 /* PreviewDataFactory.swift in Sources */,
 				0B1001B100000000000000B1 /* VelaError.swift in Sources */,
@@ -1228,6 +1253,11 @@
 				3848C89DE6723E0A72CB5D58 /* VelaSchemaV3Frozen.swift in Sources */,
 				0B1000300000000000000030 /* HealthCachePolicy.swift in Sources */,
 				0B1000310000000000000031 /* DailyHealthSummaryRepository.swift in Sources */,
+				C5A5000D000000000000000D /* TrainingPlanRepository.swift in Sources */,
+				C5A5000E000000000000000E /* WorkoutHistoryRepository.swift in Sources */,
+				C5A5000F000000000000000F /* DailyOperatingPlanRepository.swift in Sources */,
+				C5A500110000000000000011 /* DailyDecisionFeedbackRepository.swift in Sources */,
+				C5A500120000000000000012 /* ProfileRecordRepositories.swift in Sources */,
 				0B1000320000000000000032 /* JournalRepository.swift in Sources */,
 				0B1000330000000000000033 /* AIReportRepository.swift in Sources */,
 				0B1000740000000000000074 /* HealthSnapshotRepository.swift in Sources */,
@@ -1310,6 +1340,8 @@
 				R2D200040000000000000004 /* RecoveryDetailV2Tests.swift in Sources */,
 				C5A500070000000000000007 /* RecoveryReplaySensitivityTests.swift in Sources */,
 				C5A500080000000000000008 /* StrainReplaySensitivityTests.swift in Sources */,
+				C5A500090000000000000009 /* StressReplaySensitivityTests.swift in Sources */,
+				C5A5000A000000000000000A /* EnergyReplaySensitivityTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

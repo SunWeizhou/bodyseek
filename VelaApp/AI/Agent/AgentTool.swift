@@ -299,11 +299,9 @@ struct TodayHealthTool: AgentTool {
         return await MainActor.run {
             let today = Calendar.current.startOfDay(for: Date())
             let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: today)!
-            let descriptor = FetchDescriptor<DailyHealthSummaryRecord>(
-                predicate: #Predicate<DailyHealthSummaryRecord> { $0.date >= today && $0.date < tomorrow },
-                sortBy: [SortDescriptor(\.date, order: .reverse)]
-            )
-            let todayRecord = (try? executionContext.modelContext.fetch(descriptor))?.first
+            let todayRecord = try? SwiftDataDailyHealthSummaryRepository(modelContext: executionContext.modelContext)
+                .fetch(in: DateRangeQuery(start: today, end: tomorrow))
+                .last
             let dashboard = executionContext.dashboard
 
             let now = Date()
@@ -541,10 +539,8 @@ struct StrengthWorkoutHistoryTool: AgentTool {
         }()
 
         return await MainActor.run {
-            let descriptor = FetchDescriptor<StrengthWorkoutRecord>(
-                sortBy: [SortDescriptor(\.startedAt, order: .reverse)]
-            )
-            let records = Array(((try? executionContext.modelContext.fetch(descriptor)) ?? []).prefix(limit))
+            let records = (try? WorkoutHistoryRepository(modelContext: executionContext.modelContext)
+                .fetchStrengthWorkoutsSortedByStart(newestFirst: true, limit: limit)) ?? []
             let payload = records.map { record in
                 StrengthWorkoutHistoryPayload(workout: record)
             }
@@ -588,11 +584,8 @@ struct HealthTrendTool: AgentTool {
             let start = Calendar.current.startOfDay(
                 for: asOf.addingTimeInterval(-Double(request.days - 1) * 86_400)
             )
-            let descriptor = FetchDescriptor<DailyHealthSummaryRecord>(
-                predicate: #Predicate<DailyHealthSummaryRecord> { $0.date >= start && $0.date <= asOf },
-                sortBy: [SortDescriptor(\.date)]
-            )
-            let records = (try? executionContext.modelContext.fetch(descriptor)) ?? []
+            let records = (try? SwiftDataDailyHealthSummaryRepository(modelContext: executionContext.modelContext)
+                .fetchRecords(from: start, through: asOf)) ?? []
 
             let horizon: HealthTrendHorizon = {
                 if request.days <= 7 { return .sevenDays }
@@ -713,11 +706,8 @@ struct TrainingResponseHistoryTool: AgentTool {
         let request = Self.request(from: arguments)
         return await MainActor.run {
             let start = Date().addingTimeInterval(-Double(request.days) * 86_400)
-            let descriptor = FetchDescriptor<TrainingResponseRecord>(
-                predicate: #Predicate<TrainingResponseRecord> { $0.date >= start },
-                sortBy: [SortDescriptor(\.date, order: .reverse)]
-            )
-            let records = ((try? executionContext.modelContext.fetch(descriptor)) ?? []).filter {
+            let records = ((try? TrainingResponseRepository(modelContext: executionContext.modelContext)
+                .fetchResponses(onOrAfter: start)) ?? []).filter {
                 guard let muscle = request.muscleGroup else { return true }
                 return $0.primaryMuscleGroups.contains { $0.localizedCaseInsensitiveContains(muscle) }
             }
@@ -949,11 +939,8 @@ struct UnifiedWorkoutHistoryTool: AgentTool {
         let parsed = Self.parse(arguments: arguments)
         return await MainActor.run {
             let cutoff = Date().addingTimeInterval(-Double(parsed.days) * 24 * 3600)
-            let descriptor = FetchDescriptor<WorkoutEventRecord>(
-                predicate: #Predicate<WorkoutEventRecord> { $0.startedAt >= cutoff },
-                sortBy: [SortDescriptor(\.startedAt, order: .reverse)]
-            )
-            var events = (try? executionContext.modelContext.fetch(descriptor)) ?? []
+            var events = (try? WorkoutHistoryRepository(modelContext: executionContext.modelContext)
+                .fetchWorkoutEvents(onOrAfter: cutoff)) ?? []
             if let activityType = parsed.activityType?.trimmingCharacters(in: .whitespacesAndNewlines),
                !activityType.isEmpty {
                 let needle = activityType.lowercased()
@@ -988,8 +975,7 @@ struct UnifiedWorkoutHistoryTool: AgentTool {
     @MainActor
     private func fetchStrengthRecords(ids: Set<UUID>) -> [StrengthWorkoutRecord] {
         guard !ids.isEmpty else { return [] }
-        let descriptor = FetchDescriptor<StrengthWorkoutRecord>()
-        return ((try? executionContext.modelContext.fetch(descriptor)) ?? []).filter { ids.contains($0.id) }
+        return ((try? WorkoutHistoryRepository(modelContext: executionContext.modelContext).fetchStrengthWorkouts()) ?? []).filter { ids.contains($0.id) }
     }
 
     private static func parse(arguments: String) -> (days: Int, limit: Int, activityType: String?, includeStrengthDetails: Bool) {
@@ -1086,11 +1072,8 @@ struct HealthHistoryTool: AgentTool {
             let calendar = Calendar.current
             let dayStart = calendar.startOfDay(for: Date())
             let cutoff = calendar.date(byAdding: .day, value: -parsed.days, to: dayStart) ?? dayStart
-            let descriptor = FetchDescriptor<DailyHealthSummaryRecord>(
-                predicate: #Predicate<DailyHealthSummaryRecord> { $0.date >= cutoff },
-                sortBy: [SortDescriptor(\.date, order: .reverse)]
-            )
-            let records = (try? executionContext.modelContext.fetch(descriptor)) ?? []
+            let records = (try? SwiftDataDailyHealthSummaryRepository(modelContext: executionContext.modelContext)
+                .fetchRecords(onOrAfter: cutoff)) ?? []
             let payload = records.map { HealthHistoryDayPayload(record: $0, includeWorkouts: parsed.includeWorkouts) }
             let encoder = JSONEncoder()
             encoder.dateEncodingStrategy = .iso8601
@@ -1568,19 +1551,14 @@ struct CreateTrainingPlanTool: AgentTool {
         // Check idempotency: skip if a plan with this key already exists
         let idempotencyKey = input.idempotency_key ?? UUID().uuidString
         if let key = input.idempotency_key {
-            let keyFetch = FetchDescriptor<TrainingPlanRecord>(
-                predicate: #Predicate { $0.idempotencyKey == key }
-            )
-            if let existing = try? modelContext.fetch(keyFetch), let plan = existing.first {
-                return "Plan already exists: \(plan.title) (idempotency_key=\(key)). No duplicate created."
+            if let existing = (try? TrainingPlanRepository(modelContext: modelContext).fetch(idempotencyKey: key))?.first {
+                return "Plan already exists: \(existing.title) (idempotency_key=\(key)). No duplicate created."
             }
         }
 
         // Deactivate all existing plans first
-        let activeFetch = FetchDescriptor<TrainingPlanRecord>(
-            predicate: #Predicate { $0.isActive }
-        )
-        if let existingActivePlans = try? modelContext.fetch(activeFetch) {
+        let activeFetch = TrainingPlanRepository(modelContext: modelContext)
+        if let existingActivePlans = try? activeFetch.fetchActivePlans() {
             for p in existingActivePlans {
                 p.isActive = false
             }
@@ -1664,14 +1642,10 @@ struct RenderCorrelationChartTool: AgentTool {
             let outcome = outcomeMap[metricX.lowercased()] ?? "HRV"
 
             let threeYearsAgo = Date().addingTimeInterval(-1095 * 24 * 3600)
-            let journalDescriptor = FetchDescriptor<JournalEntryRecord>(
-                predicate: #Predicate<JournalEntryRecord> { $0.createdAt >= threeYearsAgo }
-            )
-            let journalEntries = (try? executionContext.modelContext.fetch(journalDescriptor)) ?? []
-            let healthDescriptor = FetchDescriptor<DailyHealthSummaryRecord>(
-                predicate: #Predicate<DailyHealthSummaryRecord> { $0.date >= threeYearsAgo }
-            )
-            let healthRecords = (try? executionContext.modelContext.fetch(healthDescriptor)) ?? []
+            let journalEntries = (try? SwiftDataJournalRepository(modelContext: executionContext.modelContext)
+                .fetchEntries(onOrAfter: threeYearsAgo)) ?? []
+            let healthRecords = (try? SwiftDataDailyHealthSummaryRepository(modelContext: executionContext.modelContext)
+                .fetchRecords(onOrAfter: threeYearsAgo)) ?? []
             let snapshots = healthRecords.map { $0.toSnapshot() }
 
             let insights = JournalCorrelationEngine().calculateInsights(
@@ -1728,10 +1702,7 @@ struct DeleteTrainingPlanTool: AgentTool {
                 return "Error: missing or invalid 'plan_id' argument."
             }
 
-            let descriptor = FetchDescriptor<TrainingPlanRecord>(
-                predicate: #Predicate<TrainingPlanRecord> { $0.id == planId }
-            )
-            if let plan = try modelContext.fetch(descriptor).first {
+            if let plan = try TrainingPlanRepository(modelContext: modelContext).fetch(id: planId).first {
                 modelContext.delete(plan)
                 try modelContext.save()
                 return "Successfully deleted training plan \(planId)."
@@ -1776,11 +1747,8 @@ struct GetDecisionFeedbackTool: AgentTool {
         let cutoff = Date().addingTimeInterval(-Double(days) * 86_400)
 
         return await MainActor.run {
-            let records = (try? executionContext.modelContext.fetch(
-                FetchDescriptor<DailyDecisionFeedbackRecord>(
-                    sortBy: [SortDescriptor<DailyDecisionFeedbackRecord>(\.createdAt, order: .reverse)]
-                )
-            )) ?? []
+            let records = (try? DailyDecisionFeedbackRepository(modelContext: executionContext.modelContext)
+                .fetchAllSortedByCreatedAt()) ?? []
             let recent = records.filter { $0.createdAt >= cutoff }
             guard !recent.isEmpty else {
                 return "{\"days\": \(days), \"total_feedback\": 0, \"note\": \"最近 \(days) 天没有决策反馈记录。\"}"

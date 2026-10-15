@@ -29,32 +29,24 @@ struct VelaTodayView: View {
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.scenePhase) private var scenePhase
-    @EnvironmentObject var dashboardVM: DashboardViewModel
     @Environment(\.todayLegacyRuntime) var todayLegacyRuntime
 
-    /// The reader and store are both supplied by the shell composition root.
-    /// The surface observes their state but never constructs its own load
-    /// coordinator, so SwiftUI reevaluation cannot fork TodayStore identity.
-    private let legacyTodayReader: LegacyTodayReadingModule
     @ObservedObject var todayStore: TodayStore
 
     init(
         showCoach: Binding<Bool>,
         showSettings: Binding<Bool>,
         showEvidence: Binding<Bool>,
-        todayStore: TodayStore,
-        todayReader: LegacyTodayReadingModule
+        todayStore: TodayStore
     ) {
         self._showCoach = showCoach
         self._showSettings = showSettings
         self._showEvidence = showEvidence
-        self.legacyTodayReader = todayReader
         self._todayStore = ObservedObject(wrappedValue: todayStore)
     }
     
-    /// Today renders the value snapshot published by the Store.  The shared
-    /// DashboardViewModel is retained only as a composition/compatibility
-    /// bridge for legacy navigation and date selection below.
+    /// Today renders the value snapshot published by the Store. Legacy
+    /// DashboardViewModel mirroring is owned by the shell, not this renderer.
     var dashboard: DashboardSummary { todayStore.state.dashboard }
     private var hrvValue: Double { dashboard.recoveryMetrics.hrvMilliseconds ?? 0 }
     private var rhrValue: Double { dashboard.recoveryMetrics.restingHeartRate ?? 0 }
@@ -196,9 +188,9 @@ struct VelaTodayView: View {
     }
 
     var todayShareText: String {
-        let recoveryText = dashboard.recovery.hasData ? "\(Int(dashboard.recovery.score.rounded()))" : "--"
-        let sleepText = dashboard.sleepScore.hasData ? "\(Int(dashboard.sleepScore.score.rounded()))" : "--"
-        let strainText = dashboard.strain.hasData ? "\(Int(dashboard.strain.score.rounded()))" : "--"
+        let recoveryText = dashboard.recovery.formattedScore
+        let sleepText = dashboard.sleepScore.formattedScore
+        let strainText = dashboard.strain.formattedScore
         return "\(dateHeaderString(for: todayStore.state.selectedDay))\n恢复 \(recoveryText) · 睡眠 \(sleepText) · 负荷 \(strainText)\n\(coachMessage)"
     }
 
@@ -471,7 +463,6 @@ struct VelaTodayView: View {
         .background(VelaTheme.rhythmCanvas)
         .task(id: isActiveSurface) {
             guard isActiveSurface else { return }
-            todayLegacyRuntime.bind(reader: legacyTodayReader, dashboardVM: dashboardVM)
             todayLegacyRuntime.setSelectedDay(todayStore.state.selectedDay)
             todayLegacyRuntime.startLocationUpdates()
             if pendingLocalDataRefresh {
@@ -553,8 +544,7 @@ struct VelaTodayView: View {
             TodayMetricDetailDownstreamAdapter(
                 metric: metric,
                 selectedDate: todayStore.state.selectedDay,
-                dashboardSnapshot: todayStore.state.dashboard,
-                dashboardVM: dashboardVM
+                dashboardSnapshot: todayStore.state.dashboard
             )
                 .presentationDetents([.large])
                 .velaSheetSurface()
@@ -725,26 +715,25 @@ struct VelaTodayView: View {
     }
 }
 
-/// Named boundary for the legacy metric detail surface. Today owns the
-/// presentation intent, while this adapter supplies the DashboardViewModel
-/// required by the downstream implementation without exposing a raw
-/// environment injection in the root renderer.
+/// Named boundary for the legacy metric detail surface. Today passes the
+/// selected day and dashboard snapshot; the detail view does not read the
+/// shared dashboard object.
 private struct TodayMetricDetailDownstreamAdapter: View {
     let metric: VelaMetricDetailView.MetricType
     let selectedDate: Date?
     let dashboardSnapshot: DashboardSummary?
-    let dashboardVM: DashboardViewModel
 
     var body: some View {
         NavigationStack {
-            VelaMetricDetailView(
-                metric: metric,
-                selectedDate: selectedDate,
-                dashboardSnapshot: dashboardSnapshot,
-                isPresentedInSheet: true
-            )
+            if let selectedDate, let dashboardSnapshot {
+                VelaMetricDetailView(
+                    metric: metric,
+                    selectedDate: selectedDate,
+                    dashboardSnapshot: dashboardSnapshot,
+                    isPresentedInSheet: true
+                )
+            }
         }
-        .environmentObject(dashboardVM)
     }
 }
 

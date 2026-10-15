@@ -173,13 +173,8 @@ struct DailyStressChartView: View {
         let range = HealthDayBoundary(calendar: .current).range(forLabelDate: selectedDate)
         let start = range.start
         let end = range.end
-        let descriptor = FetchDescriptor<IntradaySignalBucketRecord>(
-            predicate: #Predicate {
-                $0.bucketStart >= start && $0.bucketStart < end
-            },
-            sortBy: [SortDescriptor(\.bucketStart)]
-        )
-        let records = (try? modelContext.fetch(descriptor)) ?? []
+        let records = (try? HealthSnapshotRepository(modelContext: modelContext)
+            .fetchIntradayBuckets(from: start, until: end)) ?? []
         points = IntradayPhysiologySeriesBuilder.build(
             metric: metric,
             records: records,

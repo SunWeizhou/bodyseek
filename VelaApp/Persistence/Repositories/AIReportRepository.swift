@@ -34,4 +34,20 @@ final class SwiftDataAIReportRepository: AIReportRepository {
         descriptor.fetchLimit = limit
         return try modelContext.fetch(descriptor)
     }
+
+    /// Every report of one type. Callers that only need the newest row should use `recent(type:limit:)`.
+    func fetch(type: String, newestFirst: Bool = true) throws -> [AIReportRecord] {
+        let order: SortOrder = newestFirst ? .reverse : .forward
+        return try modelContext.fetch(FetchDescriptor<AIReportRecord>(
+            predicate: #Predicate { $0.type == type },
+            sortBy: [SortDescriptor(\.createdAt, order: order)]
+        ))
+    }
+
+    func fetchAllSortedByCreatedAt(newestFirst: Bool = true) throws -> [AIReportRecord] {
+        let order: SortOrder = newestFirst ? .reverse : .forward
+        return try modelContext.fetch(FetchDescriptor<AIReportRecord>(
+            sortBy: [SortDescriptor(\.createdAt, order: order)]
+        ))
+    }
 }

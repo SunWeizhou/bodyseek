@@ -125,7 +125,7 @@ enum ExerciseLibraryService {
 
     @MainActor
     static func seedDefaultsIfNeeded(modelContext: ModelContext) throws {
-        let existingDefinitions = try modelContext.fetch(FetchDescriptor<ExerciseDefinitionRecord>())
+        let existingDefinitions = try ExerciseDefinitionRepository(modelContext: modelContext).fetchAll()
         let existingKeys = Set(existingDefinitions.map(\.canonicalKey))
         let existingNames = Set(existingDefinitions.map(\.name))
         
@@ -135,7 +135,7 @@ enum ExerciseLibraryService {
             }
         }
 
-        let deletedRecords = try? modelContext.fetch(FetchDescriptor<DeletedWorkoutRecord>())
+        let deletedRecords = try? DeletedWorkoutRepository(modelContext: modelContext).fetchAll()
         let deletedTemplateTitles = Set(deletedRecords?.compactMap { rec -> String? in
             if rec.id.hasPrefix("template:") {
                 return String(rec.id.dropFirst("template:".count))
@@ -143,7 +143,7 @@ enum ExerciseLibraryService {
             return nil
         } ?? [])
 
-        let existingTemplates = try modelContext.fetch(FetchDescriptor<WorkoutTemplateRecord>())
+        let existingTemplates = try WorkoutTemplateRepository(modelContext: modelContext).fetchAll()
         let existingTitles = Set(existingTemplates.map(\.title))
         for template in defaultTemplates() where !existingTitles.contains(template.title) && !deletedTemplateTitles.contains(template.title) {
             modelContext.insert(template)

@@ -241,7 +241,7 @@ extension VelaMetricDetailView {
     }
 
     var chartPoints: [ChartPoint] {
-        let snapshots = dailyRecords.map { $0.toSnapshot() }
+        let snapshots = historyDays.map(\.snapshot)
         let calendar = Calendar.current
         let endDate = calendar.startOfDay(for: effectiveDate)
         let end = calendar.date(byAdding: .day, value: 1, to: endDate) ?? endDate
@@ -675,7 +675,7 @@ extension VelaMetricDetailView {
         case .steps:
             return dashboard.strain.metrics["steps_raw"].map { "\(Int($0)) 步" } ?? "--"
         case .activeCalories:
-            return dashboard.strain.hasData ? "\(Int(dashboard.strain.score.rounded())) / 100" : "--"
+            return dashboard.strain.hasData ? "\(dashboard.strain.formattedScore) / 100" : "--"
         case .activeMinutes:
             return dashboard.strain.metrics["exercise_minutes_raw"].map { "\(Int($0)) 分钟" } ?? "--"
         }
@@ -752,7 +752,7 @@ extension VelaMetricDetailView {
         CoreMetricTrendMapper.seriesList(
             for: metric,
             findings: dashboard.healthTrends,
-            snapshots: dailyRecords.map { $0.toSnapshot() },
+            snapshots: historyDays.map(\.snapshot),
             endingAt: effectiveDate
         )
     }

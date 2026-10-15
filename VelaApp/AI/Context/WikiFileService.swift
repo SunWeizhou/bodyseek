@@ -650,8 +650,7 @@ public enum WikiSyncManager {
     public static func sync(modelContext: ModelContext) {
         let allDocs = WikiFileService.loadAllDocuments()
         
-        let descriptor = FetchDescriptor<UserWikiDocumentRecord>()
-        let existingRecords = (try? modelContext.fetch(descriptor)) ?? []
+        let existingRecords = (try? UserWikiDocumentRepository(modelContext: modelContext).fetchAll()) ?? []
         
         let existingMap = Dictionary(uniqueKeysWithValues: existingRecords.map { ($0.filename, $0) })
         
@@ -737,7 +736,7 @@ public enum WikiSyncManager {
 @MainActor
 enum WikiProfileMaterializer {
     static func materializeIfNeeded(modelContext: ModelContext) {
-        if let onboarding = (try? modelContext.fetch(FetchDescriptor<OnboardingState>()))?.first {
+        if let onboarding = (try? OnboardingRepository(modelContext: modelContext).fetchLatest()) ?? nil {
             materializeProfileIfLocalEmpty(onboarding, modelContext: modelContext)
             materializePreferencesIfLocalEmpty(onboarding, modelContext: modelContext)
             materializeHabitsIfLocalEmpty(onboarding, modelContext: modelContext)

@@ -194,8 +194,7 @@ final class HealthKitSyncEngine {
         // 三年长线基准点（预拉取全量点集，在日循环中按各历史日 strict cutoff 过滤）：
         // 保证历史评分仅使用截至当天的已知数据，消除前视偏差（Lookahead bias），
         // 且两条评分路径的 Layer 3 修正语义一致。
-        let allBaselinePoints = ((try? modelContext.fetch(FetchDescriptor<DailyHealthSummaryRecord>())) ?? [])
-            .map(\.longTermBaselinePoint)
+        let allBaselinePoints = (try? HealthSnapshotRepository(modelContext: modelContext, calendar: calendar).fetchAllBaselinePoints()) ?? []
 
         // Pass 2: Calculate scores day-by-day, pulling correct rolling raw baselines
         for dayStart in plan.scoreRecomputeDays {
@@ -328,9 +327,9 @@ final class HealthKitSyncEngine {
     private func syncTrainingIntelligenceInsights(endingAt endDate: Date) throws {
         let snapshots = try HealthSnapshotRepository(modelContext: modelContext, calendar: calendar)
             .fetchSnapshots(days: 60, endingAt: endDate)
-        let strengthWorkouts = try modelContext.fetch(FetchDescriptor<StrengthWorkoutRecord>())
-        let foodLogs = try modelContext.fetch(FetchDescriptor<FoodLogRecord>())
-        let journalEntries = try modelContext.fetch(FetchDescriptor<JournalEntryRecord>())
+        let strengthWorkouts = try WorkoutHistoryRepository(modelContext: modelContext).fetchStrengthWorkouts()
+        let foodLogs = try FoodLogRepository(modelContext: modelContext).fetchAll()
+        let journalEntries = try SwiftDataJournalRepository(modelContext: modelContext).fetchAll()
         let service = TrainingResponseInsightService()
         _ = try service.captureTrainingResponses(
             modelContext: modelContext,
@@ -338,7 +337,7 @@ final class HealthKitSyncEngine {
             workouts: strengthWorkouts,
             calendar: calendar
         )
-        let responses = try modelContext.fetch(FetchDescriptor<TrainingResponseRecord>())
+        let responses = try TrainingResponseRepository(modelContext: modelContext).fetchAll()
         _ = try service.persistWeeklyBodyReportIfNeeded(
             modelContext: modelContext,
             snapshots: snapshots,
@@ -462,10 +461,8 @@ final class DailySnapshotBuilder {
         var snapshot = DailyHealthSnapshot(date: dayStart)
         if let modelContext {
             let dayIdentifier = DailyHealthSummaryRecord.dayIdentifier(for: dayStart, calendar: calendar)
-            let descriptor = FetchDescriptor<DailyHealthSummaryRecord>(
-                predicate: #Predicate<DailyHealthSummaryRecord> { $0.dayIdentifier == dayIdentifier }
-            )
-            if let existing = (try? modelContext.fetch(descriptor))?.first {
+            if let existing = try? SwiftDataDailyHealthSummaryRepository(modelContext: modelContext)
+                .fetchRecord(dayIdentifier: dayIdentifier) {
                 snapshot = existing.toSnapshot()
             }
         }
@@ -532,7 +529,7 @@ final class DailySnapshotBuilder {
             // Consolidate workouts using WorkoutAggregationService
             let aggregated: [WorkoutSummary]
             if let modelContext = modelContext {
-                let deletedRecords = (try? modelContext.fetch(FetchDescriptor<DeletedWorkoutRecord>())) ?? []
+                let deletedRecords = (try? DeletedWorkoutRepository(modelContext: modelContext).fetchAll()) ?? []
                 let blacklistedIDs = Set(deletedRecords.map(\.id))
                 let filteredWorkouts = strain.workouts.filter { !blacklistedIDs.contains($0.id.uuidString) }
 
@@ -910,7 +907,7 @@ struct HistoricalBackfillService {
         }
 
         // 已存在的日（create-only）
-        let all = (try? modelContext.fetch(FetchDescriptor<DailyHealthSummaryRecord>())) ?? []
+        let all = (try? SwiftDataDailyHealthSummaryRepository(modelContext: modelContext).fetchAll()) ?? []
         var existing = Set<String>()
         for record in all {
             let day = calendar.startOfDay(for: record.date)

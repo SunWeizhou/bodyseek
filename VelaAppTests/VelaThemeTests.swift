@@ -186,6 +186,40 @@ final class VelaThemeTests: XCTestCase {
         XCTAssertEqual(legDecision.decision, .swap, "腿日应识别股四头肌的局部疲劳")
     }
 
+    func testPlanPageUsesThePublishedDecisionBeforeTheStoredOne() {
+        let published = DailyTrainingDecision(
+            decision: .keep,
+            targetSessionTitle: "肩部",
+            volumeMultiplier: 1,
+            intensityCap: 8,
+            reasons: ["published"],
+            userFacingSummary: "published",
+            confidence: 0.8,
+            source: "dashboard",
+            safetyNotice: "notice"
+        )
+        let persisted = DailyTrainingDecision(
+            decision: .rest,
+            targetSessionTitle: "休息",
+            volumeMultiplier: 0,
+            intensityCap: 5,
+            reasons: ["stored"],
+            userFacingSummary: "stored",
+            confidence: 0.4,
+            source: "plan",
+            safetyNotice: "notice"
+        )
+        XCTAssertEqual(
+            PlanTrainingDecisionResolver.resolve(published: published, persisted: persisted)?.source,
+            "dashboard"
+        )
+        XCTAssertEqual(
+            PlanTrainingDecisionResolver.resolve(published: nil, persisted: persisted)?.decision,
+            .rest
+        )
+        XCTAssertNil(PlanTrainingDecisionResolver.resolve(published: nil, persisted: nil))
+    }
+
     func testPersonalRecordBestRecordsKeepsHighestPerExerciseAndKind() {
         // 个人纪录聚合回归：同一动作 × 类型只保留最高值；数值相同时保留带
         // previousValue（即「打破前纪录」）的那条。
@@ -363,23 +397,21 @@ final class VelaThemeTests: XCTestCase {
         // 历年训练量聚合：按年分桶，无训练的天/年不产生行。
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "Asia/Shanghai")!
-        func record(_ year: Int, count: Int, duration: Double, calories: Double) -> DailyHealthSummaryRecord {
+        func snapshot(_ year: Int, count: Int, duration: Double, calories: Double) -> DailyHealthSnapshot {
             let date = calendar.date(from: DateComponents(year: year, month: 3, day: 10))!
-            return DailyHealthSummaryRecord(
-                dayIdentifier: DailyHealthSummaryRecord.dayIdentifier(for: date, calendar: calendar),
-                date: date,
-                activeCalories: calories,
-                workoutCount: count,
-                workoutDuration: duration
-            )
+            var snapshot = DailyHealthSnapshot(date: date)
+            snapshot.activeCalories = calories
+            snapshot.workoutCount = count
+            snapshot.workoutDuration = duration
+            return snapshot
         }
-        let records = [
-            record(2023, count: 1, duration: 60, calories: 300),
-            record(2024, count: 2, duration: 45, calories: 400),
-            record(2024, count: 0, duration: 30, calories: 250),
-            record(2025, count: 0, duration: 0, calories: 0),
+        let snapshots = [
+            snapshot(2023, count: 1, duration: 60, calories: 300),
+            snapshot(2024, count: 2, duration: 45, calories: 400),
+            snapshot(2024, count: 0, duration: 30, calories: 250),
+            snapshot(2025, count: 0, duration: 0, calories: 0),
         ]
-        let stats = YearlyTrainingAggregator.aggregate(records: records, calendar: calendar)
+        let stats = YearlyTrainingAggregator.aggregate(snapshots: snapshots, calendar: calendar)
         XCTAssertEqual(stats.map(\.year), [2023, 2024])
         XCTAssertEqual(stats[1].trainingDays, 2)
         XCTAssertEqual(stats[1].workoutCount, 2)
@@ -2420,25 +2452,20 @@ final class VelaThemeTests: XCTestCase {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "Asia/Shanghai")!
         let base = calendar.date(from: DateComponents(year: 2024, month: 3, day: 10))!
-        let restDay = DailyHealthSummaryRecord(
-            dayIdentifier: DailyHealthSummaryRecord.dayIdentifier(for: base, calendar: calendar),
-            date: base,
-            activeCalories: 350
-        )
-        let trainingDay = DailyHealthSummaryRecord(
-            dayIdentifier: DailyHealthSummaryRecord.dayIdentifier(for: calendar.date(byAdding: .day, value: 1, to: base)!, calendar: calendar),
-            date: calendar.date(byAdding: .day, value: 1, to: base)!,
-            activeCalories: 300,
-            workoutCount: 1,
-            workoutDuration: 60
-        )
-        let stats = YearlyTrainingAggregator.aggregate(records: [restDay, trainingDay], calendar: calendar)
+        var restDay = DailyHealthSnapshot(date: base)
+        restDay.activeCalories = 350
+        let trainingDate = calendar.date(byAdding: .day, value: 1, to: base)!
+        var trainingDay = DailyHealthSnapshot(date: trainingDate)
+        trainingDay.activeCalories = 300
+        trainingDay.workoutCount = 1
+        trainingDay.workoutDuration = 60
+        let stats = YearlyTrainingAggregator.aggregate(snapshots: [restDay, trainingDay], calendar: calendar)
         XCTAssertEqual(stats.count, 1)
         XCTAssertEqual(stats.first?.trainingDays, 1, "纯活动能耗的休息日不得计入训练天数")
         XCTAssertEqual(stats.first?.totalCalories ?? -1, 0, "无 workoutsData 的训练消耗应为 0，不再把全天活动能耗冒充训练消耗")
     }
 
-    func testYearlyTrainingAggregatorUsesWorkoutEnergyNotActiveCalories() {
+    func testYearlyTrainingAggregatorUsesWorkoutEnergyNotActiveCalories() throws {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "Asia/Shanghai")!
         let day = calendar.date(from: DateComponents(year: 2024, month: 3, day: 12))!
@@ -2452,10 +2479,10 @@ final class VelaThemeTests: XCTestCase {
             activeCalories: 800,
             workoutCount: 2,
             workoutDuration: 110,
-            workoutsData: try! JSONEncoder().encode(workouts)
+            workoutsData: try JSONEncoder().encode(workouts)
         )
-        let stats = YearlyTrainingAggregator.aggregate(records: [record], calendar: calendar)
-        XCTAssertEqual(stats.first?.totalCalories ?? -1, 350, accuracy: 0.001, "训练消耗应来自 workoutsData 而非全天活动能耗")
+        let stats = YearlyTrainingAggregator.aggregate(snapshots: [record.toSnapshot()], calendar: calendar)
+        XCTAssertEqual(stats.first?.totalCalories ?? -1, 350, accuracy: 0.001, "训练消耗应来自已解码的训练记录，而不是全天活动能耗")
     }
 
     func testXunjiDedupDoesNotMergeSameDaySeparateWorkouts() {
@@ -2520,18 +2547,37 @@ final class VelaThemeTests: XCTestCase {
         XCTAssertEqual(TrainingHeatmapData.tier(for: trained), 1)
     }
 
-    func testLongTermMetricIncludesBodyFatAndActiveCalories() {
-        XCTAssertTrue(LongTermMetric.allCases.contains(.bodyFat))
-        XCTAssertTrue(LongTermMetric.allCases.contains(.activeCalories))
-        let record = DailyHealthSummaryRecord(
-            dayIdentifier: "lt-metric",
-            date: Date(),
-            activeCalories: 620,
-            bodyFatPercent: 18.5
+    func testMonthHeatmapUsesTheSameTierAsTheWeeklyRhythm() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Asia/Shanghai")!
+        let current = calendar.date(from: DateComponents(year: 2026, month: 3, day: 1))!
+        let previous = calendar.date(byAdding: .month, value: -1, to: current)!
+        let next = calendar.date(byAdding: .month, value: 1, to: current)!
+        var rest = DailyHealthSnapshot(date: calendar.date(from: DateComponents(year: 2026, month: 3, day: 4))!)
+        rest.activeCalories = 500
+        var trained = DailyHealthSnapshot(date: calendar.date(from: DateComponents(year: 2026, month: 2, day: 8))!)
+        trained.workoutCount = 1
+        trained.workoutDuration = 60
+        let tiers = TrainingHeatmapData.monthDayTiers(
+            snapshots: [rest, trained],
+            previousMonthStart: previous,
+            currentMonthStart: current,
+            nextMonthStart: next,
+            calendar: calendar
         )
-        XCTAssertEqual(LongTermMetric.bodyFat.value(from: record) ?? 0, 18.5, accuracy: 0.001)
-        XCTAssertEqual(LongTermMetric.activeCalories.value(from: record) ?? 0, 620, accuracy: 0.001)
-        XCTAssertFalse(LongTermMetric.bodyFat.improvementIsPositive)
+        XCTAssertEqual(tiers.current[4], 0, "高活动能耗的休息日在月历里也不得染成训练强度")
+        XCTAssertEqual(tiers.previous[8], 1)
+    }
+
+    func testLongTermBaselineMetricIncludesBodyFatAndActiveCalories() {
+        XCTAssertTrue(LongTermBaselineMetric.allCases.contains(.bodyFatPercent))
+        XCTAssertTrue(LongTermBaselineMetric.allCases.contains(.activeCalories))
+        var snapshot = DailyHealthSnapshot(date: Date())
+        snapshot.activeCalories = 620
+        snapshot.bodyFatPercent = 18.5
+        XCTAssertEqual(snapshot.longTermBaselinePoint.value(for: .bodyFatPercent) ?? 0, 18.5, accuracy: 0.001)
+        XCTAssertEqual(snapshot.longTermBaselinePoint.value(for: .activeCalories) ?? 0, 620, accuracy: 0.001)
+        XCTAssertFalse(LongTermBaselineMetric.bodyFatPercent.improvementIsPositive)
     }
 
     func testTodayCommandListsTwoLongTermReferenceLines() {

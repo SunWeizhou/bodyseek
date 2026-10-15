@@ -50,10 +50,7 @@ public struct DiagnosticHealthReport: Sendable, Equatable {
 extension PipelineDiagnosticsLogger {
     @MainActor
     public static func performSelfCheck(modelContext: ModelContext) -> DiagnosticHealthReport {
-        let descriptor = FetchDescriptor<AgentRunRecord>(
-            sortBy: [SortDescriptor(\.startedAt, order: .reverse)]
-        )
-        let records = (try? modelContext.fetch(descriptor)) ?? []
+        let records = (try? AgentRunRepository(modelContext: modelContext).fetchAllSortedByStartedAt()) ?? []
 
         let recentFailures = records.prefix(50).filter { $0.status == AgentRunStatus.failed.rawValue }
         var issues: [String] = []
@@ -62,7 +59,7 @@ extension PipelineDiagnosticsLogger {
             issues.append("检测到过去 50 次任务运行中有 \(recentFailures.count) 次异常记录。")
         }
 
-        let events = (try? modelContext.fetch(FetchDescriptor<VelaEventRecord>())) ?? []
+        let events = (try? VelaEventRepository(modelContext: modelContext).fetchAll()) ?? []
         let isHealthy = recentFailures.count < 5
 
         return DiagnosticHealthReport(

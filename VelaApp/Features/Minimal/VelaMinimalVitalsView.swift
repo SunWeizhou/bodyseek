@@ -12,6 +12,14 @@ struct VelaVitalsView: View {
 
     private var dashboard: DashboardSummary { dashboardVM.dashboard }
 
+    private func metricDetail(_ metric: VelaMetricDetailView.MetricType) -> VelaMetricDetailView {
+        VelaMetricDetailView(
+            metric: metric,
+            selectedDate: dashboardVM.selectedDate,
+            dashboardSnapshot: dashboard
+        )
+    }
+
     // Dynamic states for RHR, HRV, Weight, Fat histories (normalized for sparklines)
     @State private var weightHistoryData: [Double] = []
     @State private var hrvHistoryData: [Double] = []
@@ -301,7 +309,7 @@ struct VelaVitalsView: View {
             biomarkerGroupCard(title: "心血管", icon: "heart.fill") {
                 // Card: HRV 基线 (HRV Baseline)
                 let hrvEval = evaluateBiomarker(.hrv, latestValue: rawHrvHistory.last, history: rawHrvHistory)
-                NavigationLink(destination: VelaMetricDetailView(metric: .hrv)) {
+                NavigationLink(destination: metricDetail(.hrv)) {
                     biomarkerRow(
                         title: "心率变异性 (HRV)",
                         trendText: hrvEval.text,
@@ -321,7 +329,7 @@ struct VelaVitalsView: View {
 
                 // Card: RHR 基线 (RHR Baseline)
                 let rhrEval = evaluateBiomarker(.rhr, latestValue: rawRhrHistory.last, history: rawRhrHistory)
-                NavigationLink(destination: VelaMetricDetailView(metric: .rhr)) {
+                NavigationLink(destination: metricDetail(.rhr)) {
                     biomarkerRow(
                         title: "静息心率 (RHR)",
                         trendText: rhrEval.text,
@@ -340,7 +348,7 @@ struct VelaVitalsView: View {
             biomarkerGroupCard(title: "呼吸与氧合", icon: "wind") {
                 // Card: 呼吸率 (Respiratory Rate)
                 let respEval = evaluateBiomarker(.respiratoryRate, latestValue: rawRespiratoryRateHistory.last, history: rawRespiratoryRateHistory)
-                NavigationLink(destination: VelaMetricDetailView(metric: .respiratoryRate)) {
+                NavigationLink(destination: metricDetail(.respiratoryRate)) {
                     biomarkerRow(
                         title: "呼吸频率",
                         trendText: respEval.text,
@@ -360,7 +368,7 @@ struct VelaVitalsView: View {
 
                 // Card: 血氧 (Blood Oxygen)
                 let o2Eval = evaluateBiomarker(.bloodOxygen, latestValue: rawBloodOxygenHistory.last, history: rawBloodOxygenHistory)
-                NavigationLink(destination: VelaMetricDetailView(metric: .bloodOxygen)) {
+                NavigationLink(destination: metricDetail(.bloodOxygen)) {
                     biomarkerRow(
                         title: "血氧饱和度 (SpO₂)",
                         trendText: o2Eval.text,
@@ -379,7 +387,7 @@ struct VelaVitalsView: View {
             biomarkerGroupCard(title: "身体成分", icon: "figure.arms.open") {
                 // Card: 体重 (Weight)
                 let weightEval = evaluateBiomarker(.weight, latestValue: rawWeightHistory.last, history: rawWeightHistory)
-                NavigationLink(destination: VelaMetricDetailView(metric: .weight)) {
+                NavigationLink(destination: metricDetail(.weight)) {
                     biomarkerRow(
                         title: "体重",
                         trendText: weightEval.text,
@@ -399,7 +407,7 @@ struct VelaVitalsView: View {
 
                 // Card: 体脂 (Body Fat)
                 let fatEval = evaluateBiomarker(.bodyFat, latestValue: rawFatHistory.last, history: rawFatHistory)
-                NavigationLink(destination: VelaMetricDetailView(metric: .bodyFat)) {
+                NavigationLink(destination: metricDetail(.bodyFat)) {
                     biomarkerRow(
                         title: "体脂率",
                         trendText: fatEval.text,
@@ -521,23 +529,12 @@ struct VelaVitalsView: View {
         let endOfDay = calendar.date(bySettingHour: 23, minute: 59, second: 59, of: now) ?? now
 
         // Fetch biomarkers dynamically
-        var biomarkerDesc = FetchDescriptor<BiomarkerRecord>(
-            sortBy: [SortDescriptor(\.date, order: .reverse)]
-        )
-        biomarkerDesc.fetchLimit = 100
-        self.biomarkers = (try? modelContext.fetch(biomarkerDesc)) ?? []
-
-        // Fetch DailyHealthSummaryRecord from SwiftData
-        var descriptor = FetchDescriptor<DailyHealthSummaryRecord>(
-            predicate: #Predicate<DailyHealthSummaryRecord> { record in
-                record.date >= startOfDay && record.date <= endOfDay
-            },
-            sortBy: [SortDescriptor(\DailyHealthSummaryRecord.date, order: .forward)]
-        )
-        descriptor.fetchLimit = 10
+        self.biomarkers = (try? BiomarkerRepository(modelContext: modelContext)
+            .fetchAllSortedByDate(limit: 100)) ?? []
 
         do {
-            let records = try modelContext.fetch(descriptor)
+            let records = try SwiftDataDailyHealthSummaryRepository(modelContext: modelContext)
+                .fetchRecords(from: startOfDay, through: endOfDay, limit: 10)
             usePendingDefaults()
 
             if !records.isEmpty {

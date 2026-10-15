@@ -316,15 +316,15 @@ final class CoachChatVM: ObservableObject {
 
         if let dashboard {
             if dashboard.recovery.hasData {
-                questions.append("为什么我今天的恢复是 \(Int(dashboard.recovery.score.rounded()))？主要受哪些身体信号影响？")
+                questions.append("为什么我今天的恢复是 \(dashboard.recovery.formattedScore)？主要受哪些身体信号影响？")
             }
 
             if dashboard.sleepScore.hasData || dashboard.stress.hasData {
                 let sleep = dashboard.sleepScore.hasData
-                    ? "睡眠 \(Int(dashboard.sleepScore.score.rounded()))"
+                    ? "睡眠 \(dashboard.sleepScore.formattedScore)"
                     : "睡眠数据"
                 let stress = dashboard.stress.hasData
-                    ? "压力 \(Int(dashboard.stress.score.rounded()))"
+                    ? "压力 \(dashboard.stress.formattedScore)"
                     : "压力数据"
                 questions.append("\(sleep) 与\(stress)之间可能有什么联系？")
             }

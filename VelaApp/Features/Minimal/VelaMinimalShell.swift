@@ -84,6 +84,7 @@ struct VelaShell: View {
     private let todayReader: LegacyTodayReadingModule
 
     @ObservedObject private var appState = VelaAppState.shared
+    @EnvironmentObject private var dashboardVM: DashboardViewModel
     @Namespace private var tabAnimation
 
     // MARK: - Tab Enum
@@ -115,10 +116,11 @@ struct VelaShell: View {
     }
 
     /// Today receives its legacy compatibility dependencies from the shell's
-    /// composition boundary.  The surface itself stays unaware of SwiftData,
-    /// location/weather singletons, and app-state routing objects.
+    /// composition boundary. The surface itself stays unaware of SwiftData,
+    /// location/weather singletons, app-state routing, and DashboardViewModel.
     private var todayLegacyRuntime: TodayLegacyRuntime {
         if let runtime = todayLegacyRuntimeHolder.runtime {
+            runtime.bind(reader: todayReader, dashboardVM: dashboardVM)
             return runtime
         }
 
@@ -146,6 +148,7 @@ struct VelaShell: View {
         )
         todayEffectRouter.bind(runtime: runtime)
         todayLegacyRuntimeHolder.runtime = runtime
+        runtime.bind(reader: todayReader, dashboardVM: dashboardVM)
         return runtime
     }
 
@@ -349,8 +352,7 @@ struct VelaShell: View {
                     showCoach: $showCoach,
                     showSettings: $appState.showSettings,
                     showEvidence: $showTodayEvidence,
-                    todayStore: todayStore,
-                    todayReader: todayReader
+                    todayStore: todayStore
                 )
                     .environment(\.todayLegacyRuntime, todayLegacyRuntime)
             }
@@ -360,7 +362,7 @@ struct VelaShell: View {
             .tag(0)
 
             nativeTabSurface(.trends) {
-                VelaTrendsView()
+                VelaTrendsHost()
             }
             .tabItem {
                 Label(label(for: .trends), systemImage: iconName(for: .trends))
@@ -421,15 +423,14 @@ struct VelaShell: View {
                             showCoach: $showCoach,
                             showSettings: $appState.showSettings,
                             showEvidence: $showTodayEvidence,
-                            todayStore: todayStore,
-                            todayReader: todayReader
+                            todayStore: todayStore
                         )
                             .environment(\.todayLegacyRuntime, todayLegacyRuntime)
                     }
                 }
                 if mountedLegacyTabs.contains(.trends) {
                     tabSurface(.trends) {
-                        VelaTrendsView()
+                        VelaTrendsHost()
                     }
                 }
                 if mountedLegacyTabs.contains(.plan) {

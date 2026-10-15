@@ -8,9 +8,6 @@ struct BodyModelEditView: View {
     
     @Query(sort: \OnboardingState.updatedAt, order: .reverse)
     private var onboardingStates: [OnboardingState]
-
-    @Query(sort: \TrainingResponseRecord.date, order: .reverse)
-    private var trainingResponses: [TrainingResponseRecord]
     
     private var onboarding: OnboardingState? { onboardingStates.first }
     
@@ -133,6 +130,8 @@ struct BodyModelEditView: View {
     }
     
     private func loadOnboardingState() {
+        let trainingResponses = (try? TrainingResponseRepository(modelContext: modelContext)
+            .fetchAllSortedByDate()) ?? []
         guard let state = onboarding else { return }
         primaryGoal = state.goalProfile.primaryGoal
         experienceLevel = state.goalProfile.experienceLevel
@@ -517,21 +516,16 @@ struct BodyModelDetailView: View {
         memoizedBodyModelState = nil
         // 三年窗口：身体模型与行为-结果配对用回填历史立即拟合，
         // 不再被 35/100/50/30 天的窗口截断在学习期。
-        self.dailySummaries = (try? modelContext.fetch(
-            FetchDescriptor<DailyHealthSummaryRecord>(sortBy: [SortDescriptor(\.date, order: .reverse)])
-        )) ?? []
+        self.dailySummaries = (try? SwiftDataDailyHealthSummaryRepository(modelContext: modelContext)
+            .fetchAllSortedByDate(newestFirst: true)) ?? []
  
-        self.journalEntries = (try? modelContext.fetch(
-            FetchDescriptor<JournalEntryRecord>(sortBy: [SortDescriptor(\.createdAt, order: .reverse)])
-        )) ?? []
+        self.journalEntries = (try? SwiftDataJournalRepository(modelContext: modelContext)
+            .fetchAllSortedByCreatedAt(newestFirst: true)) ?? []
+        self.strengthWorkouts = (try? WorkoutHistoryRepository(modelContext: modelContext)
+            .fetchStrengthWorkoutsSortedByStart(newestFirst: true)) ?? []
  
-        self.strengthWorkouts = (try? modelContext.fetch(
-            FetchDescriptor<StrengthWorkoutRecord>(sortBy: [SortDescriptor(\.startedAt, order: .reverse)])
-        )) ?? []
- 
-        self.trainingResponses = (try? modelContext.fetch(
-            FetchDescriptor<TrainingResponseRecord>(sortBy: [SortDescriptor(\.date, order: .reverse)])
-        )) ?? []
+        self.trainingResponses = (try? TrainingResponseRepository(modelContext: modelContext)
+            .fetchAllSortedByDate()) ?? []
  
         let repo = HealthSnapshotRepository(modelContext: modelContext)
         if let snaps = try? repo.fetchSnapshots(days: 1100, endingAt: dashboard.date) {

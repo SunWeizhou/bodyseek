@@ -5,12 +5,9 @@ import SwiftData
 /// Shows status, duration, and what was produced.
 struct TrustCenterView: View {
     @AppStorage(CoachOutboundDataPolicy.consentVersionKey) private var outboundConsentVersion = 0
-
-    @Query(
-        sort: \AgentRunRecord.startedAt,
-        order: .reverse
-    ) private var runRecords: [AgentRunRecord]
-
+    @Environment(\.modelContext) private var modelContext
+    @ObservedObject private var appState = VelaAppState.shared
+    @State private var runRecords: [AgentRunRecord] = []
     @State private var selectedRun: AgentRunRecord?
 
     var body: some View {
@@ -42,9 +39,17 @@ struct TrustCenterView: View {
         }
         .navigationTitle(AppLanguage.stored.isChinese ? "信任中心" : "Trust Center")
         .velaRhythmDetailChrome()
+        .task { loadRuns() }
+        .onChange(of: appState.localDataRevision) { _, _ in
+            loadRuns()
+        }
         .sheet(item: $selectedRun) { run in
             runDetailSheet(run)
         }
+    }
+
+    private func loadRuns() {
+        runRecords = (try? AgentRunRepository(modelContext: modelContext).fetchAllSortedByStartedAt()) ?? []
     }
 
     // MARK: - Ownership overview

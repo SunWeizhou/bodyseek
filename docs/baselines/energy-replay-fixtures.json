@@ -1,0 +1,35 @@
+{
+  "schema": "bodyseek-energy-replay.v1",
+  "target": "BodySeekDomain",
+  "algorithmVersion": "energy.v2.1.0",
+  "formulaChange": false,
+  "calendar": "gregorian",
+  "timeZone": "UTC",
+  "asOf": "2026-07-31T12:00:00Z",
+  "baseline": {
+    "inputFingerprint": "energy-v2|2026-07-31T12:00:00Z|recovery=70.00|sleep=80.00|strain=40.00|stress=30.00|hrv=50.00/50.00|rhr=58.00/60.00|history=14|today=55.00|temp=0.20|hours=8.00|rrz=0.20|spo2=98.00|load=nil",
+    "value": 53.2,
+    "confidence": "high",
+    "missingInputs": [],
+    "components": {
+      "morningEnergy": 80.7,
+      "atl": 58.75,
+      "ctl": 59.7674418605,
+      "tsb": 1.0174418605,
+      "acwr": 0.9848265896
+    }
+  },
+  "sensitivity": [
+    {"id": "high-strain-80", "change": "strainScore=80", "value": 39.2},
+    {"id": "elevated-load", "change": "trainingLoadStatus=elevated", "value": 48.2}
+  ],
+  "missingUpstream": {
+    "change": "recoveryScore=nil,sleepScore=nil,strainScore=nil,stressIndex=nil",
+    "value": null,
+    "coverage": "unavailable",
+    "confidence": "low",
+    "formattedScore": "--",
+    "requiredMissingInputs": ["recoveryScore", "sleepScore"]
+  },
+  "packageParity": "EnergyBankEngine and EnergyBankInput live in BodySeekDomain. The app EnergyBankEngine is a MetricResult adapter. MetricConfidence and TrainingLoadStatus are domain types aliased by the app. BodySeekDomain.DailyHealthComputation still leaves the energy slot unavailable until production scoring moves. The domain algorithm-version constant now matches production energy.v2.1.0."
+}

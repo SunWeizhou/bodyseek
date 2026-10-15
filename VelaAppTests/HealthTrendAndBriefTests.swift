@@ -984,6 +984,49 @@ final class HealthTrendAndBriefTests: XCTestCase {
         XCTAssertEqual(activeSnapshot?.sessionTitle, "上半身推")
     }
 
+    @MainActor
+    func testPersistedTrendsWindowReadsCanonicalSummarySnapshot() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .gmt
+        let day = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_780_000_000))
+        let created = day.addingTimeInterval(3_600)
+        let updated = day.addingTimeInterval(7_200)
+        var source = DailyHealthSnapshot(date: day, createdAt: created)
+        source.sleepScore = 77
+        source.recoveryScore = 68
+        source.strainScore = 63
+        source.stressIndex = 21
+        source.currentEnergy = 48
+        source.hrvAverage = 55
+        source.restingHeartRate = 52
+        source.sleepHours = 7.4
+        source.steps = 8_000
+        source.activeCalories = 320
+        source.bodyWeight = 70
+        source.dailyLoad = 42
+        let record = DailyHealthSummaryRecord(snapshot: source, calendar: calendar)
+        record.createdAt = created
+        record.updatedAt = updated
+
+        let container = try VelaModelContainer.make(inMemory: true)
+        container.mainContext.insert(record)
+        try container.mainContext.save()
+
+        let loaded = PersistedTrendsWindowLoader(modelContext: container.mainContext)
+            .load(horizon: .sevenDays, endingAt: day)
+
+        XCTAssertNil(loaded.errorMessage)
+        XCTAssertFalse(loaded.isPreview)
+        let match = try XCTUnwrap(loaded.snapshots.first { calendar.isDate($0.date, inSameDayAs: day) })
+        XCTAssertEqual(match.sleepScore, 77)
+        XCTAssertEqual(match.recoveryScore, 68)
+        XCTAssertEqual(match.strainScore, 63)
+        XCTAssertEqual(match.stressIndex, 21)
+        XCTAssertEqual(match.currentEnergy, 48)
+        XCTAssertEqual(match.dailyLoad, 42)
+        XCTAssertEqual(match.createdAt, updated)
+    }
+
     private func recoveryDashboard(value: Double, date: Date) -> DashboardSummary {
         var dashboard = DashboardSummary.empty(date: date)
         dashboard.recovery = MetricResult(

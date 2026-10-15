@@ -993,58 +993,31 @@ struct AgentFactInputLoader {
         let dayStart = calendar.startOfDay(for: asOf)
         let usesCurrentProfile = calendar.isDate(asOf, inSameDayAs: now)
 
-        var journalDescriptor = FetchDescriptor<JournalEntryRecord>(
-            predicate: #Predicate<JournalEntryRecord> { $0.createdAt <= asOf },
-            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
-        )
-        journalDescriptor.fetchLimit = 12
-        let journals = (try? modelContext.fetch(journalDescriptor)) ?? []
+        let journals = (try? SwiftDataJournalRepository(modelContext: modelContext)
+            .fetchEntries(through: asOf, limit: 12)) ?? []
 
-        let allReports = (try? modelContext.fetch(FetchDescriptor<AIReportRecord>(
-            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
-        ))) ?? []
+        let allReports = (try? SwiftDataAIReportRepository(modelContext: modelContext)
+            .fetchAllSortedByCreatedAt()) ?? []
         // A4：历史报告上限路由到 ContextBudget（此前硬编码 6）。
         // 浏览历史日时同样只允许读取 asOf 之前的报告，避免未来信息泄漏进历史快照。
         let reports = Array(allReports.lazy
             .filter { $0.createdAt <= asOf && $0.type != "coach_prompt" && $0.type != "coach_thread" }
             .prefix(ContextBudget().maxHistoricalReports))
 
-        let foods = (try? modelContext.fetch(FetchDescriptor<FoodLogRecord>(
-            predicate: #Predicate<FoodLogRecord> { $0.createdAt >= historyStart && $0.createdAt <= asOf },
-            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
-        ))) ?? []
-        let workoutEvents = (try? modelContext.fetch(FetchDescriptor<WorkoutEventRecord>(
-            predicate: #Predicate<WorkoutEventRecord> { $0.startedAt >= historyStart && $0.startedAt <= asOf },
-            sortBy: [SortDescriptor(\.startedAt, order: .reverse)]
-        ))) ?? []
-        let strength = (try? modelContext.fetch(FetchDescriptor<StrengthWorkoutRecord>(
-            predicate: #Predicate<StrengthWorkoutRecord> { $0.startedAt >= historyStart && $0.startedAt <= asOf },
-            sortBy: [SortDescriptor(\.startedAt, order: .reverse)]
-        ))) ?? []
-        let responses = ((try? modelContext.fetch(FetchDescriptor<TrainingResponseRecord>(
-            predicate: #Predicate<TrainingResponseRecord> { $0.date >= historyStart && $0.date <= asOf },
-            sortBy: [SortDescriptor(\.date, order: .reverse)]
-        ))) ?? []).filter { usesCurrentProfile || $0.nextDayDate <= asOf }
+        let foods = (try? FoodLogRepository(modelContext: modelContext).fetchLogs(from: historyStart, through: asOf)) ?? []
+        let history = WorkoutHistoryRepository(modelContext: modelContext)
+        let workoutEvents = (try? history.fetchWorkoutEvents(from: historyStart, through: asOf)) ?? []
+        let strength = (try? history.fetchStrengthWorkouts(from: historyStart, through: asOf)) ?? []
+        let responses = ((try? TrainingResponseRepository(modelContext: modelContext)
+            .fetchResponses(from: historyStart, through: asOf)) ?? []).filter { usesCurrentProfile || $0.nextDayDate <= asOf }
         // A8 修复：每日快照只取最新一条（此前抓 35 天只用 .first，白费一次大 fetch）。
         // 这里再加 asOf 上界：浏览历史日时 body state 应使用该日快照，而不是真实今天。
-        var summaryDescriptor = FetchDescriptor<DailyHealthSummaryRecord>(
-            predicate: #Predicate<DailyHealthSummaryRecord> { $0.date >= dayStart && $0.date <= asOf },
-            sortBy: [SortDescriptor(\.date, order: .reverse)]
-        )
-        summaryDescriptor.fetchLimit = 1
-        let summaries = (try? modelContext.fetch(summaryDescriptor)) ?? []
-        let activePlan = usesCurrentProfile ? (try? modelContext.fetch(FetchDescriptor<TrainingPlanRecord>(
-            predicate: #Predicate<TrainingPlanRecord> { $0.isActive }
-        )))?.first : nil
+        let summaries = (try? SwiftDataDailyHealthSummaryRepository(modelContext: modelContext)
+            .fetchRecords(from: dayStart, through: asOf, newestFirst: true, limit: 1)) ?? []
+        let activePlan = usesCurrentProfile ? (try? TrainingPlanRepository(modelContext: modelContext).fetchActivePlans())?.first : nil
         let dayIdentifier = DailyHealthSummaryRecord.dayIdentifier(for: asOf, calendar: calendar)
-        let operatingPlans = (try? modelContext.fetch(FetchDescriptor<DailyOperatingPlanRecord>(
-            sortBy: [SortDescriptor(\.generatedAt, order: .reverse)]
-        ))) ?? []
-        var onboardingDescriptor = FetchDescriptor<OnboardingState>(
-            sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
-        )
-        onboardingDescriptor.fetchLimit = 1
-
+        let operatingPlans = (try? DailyOperatingPlanRepository(modelContext: modelContext)
+            .fetchPlans(dayIdentifier: dayIdentifier)) ?? []
         return Input(
             asOf: asOf,
             evaluatedAt: now,
@@ -1062,7 +1035,7 @@ struct AgentFactInputLoader {
                 $0.dayIdentifier == dayIdentifier
                     && (usesCurrentProfile || ($0.generatedAt <= asOf && ($0.operatingPlanPayload?.userEditedAt ?? .distantPast) <= asOf))
             },
-            onboardingState: usesCurrentProfile ? (try? modelContext.fetch(onboardingDescriptor))?.first : nil
+            onboardingState: usesCurrentProfile ? ((try? OnboardingRepository(modelContext: modelContext).fetchLatest()) ?? nil) : nil
         )
     }
 }

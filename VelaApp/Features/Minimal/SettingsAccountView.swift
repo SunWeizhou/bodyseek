@@ -235,8 +235,7 @@ struct ParsedItem: Identifiable, Equatable {
 struct UserWikiArchiveView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \UserWikiDocumentRecord.updatedAt, order: .reverse)
-    private var wikiDocs: [UserWikiDocumentRecord]
+    @State private var wikiDocs: [UserWikiDocumentRecord] = []
     
     @State private var selectedDoc: UserWikiDocumentRecord?
     @State private var showEditor = false
@@ -265,9 +264,6 @@ struct UserWikiArchiveView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 40)
-                    .onAppear {
-                        WikiSyncManager.sync(modelContext: modelContext)
-                    }
                 } else {
                     ForEach(wikiDocs.filter { $0.filename != "baselines.md" }) { doc in
                         Button {
@@ -319,7 +315,7 @@ struct UserWikiArchiveView: View {
         .navigationTitle("健康档案")
         .velaRhythmDetailChrome()
         .task {
-            WikiSyncManager.sync(modelContext: modelContext)
+            loadDocuments()
         }
         .sheet(isPresented: $showEditor) {
             NavigationStack {
@@ -575,6 +571,11 @@ struct UserWikiArchiveView: View {
         }
         
         _ = try? WikiFileService.updateSection(filename: doc.filename, content: finalContent, mode: .replace)
+        loadDocuments()
+    }
+
+    private func loadDocuments() {
         WikiSyncManager.sync(modelContext: modelContext)
+        wikiDocs = (try? UserWikiDocumentRepository(modelContext: modelContext).fetchAllSortedByUpdatedAt()) ?? []
     }
 }

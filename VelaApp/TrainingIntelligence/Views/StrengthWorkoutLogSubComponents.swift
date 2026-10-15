@@ -381,7 +381,7 @@ enum StrengthWorkoutSessionPrefill {
 struct ExercisePickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \ExerciseDefinitionRecord.name) private var customDefinitions: [ExerciseDefinitionRecord]
+    @State private var customDefinitions: [ExerciseDefinitionRecord] = []
     @State private var query = ""
     @State private var saveError: String?
     let onSelect: (ExerciseDefinitionRecord) -> Void
@@ -436,6 +436,7 @@ struct ExercisePickerSheet: View {
         }
         .task {
             try? ExerciseLibraryService.seedDefaultsIfNeeded(modelContext: modelContext)
+            customDefinitions = (try? ExerciseDefinitionRepository(modelContext: modelContext).fetchAllSortedByName()) ?? []
         }
         .alert("无法保存动作", isPresented: Binding(
             get: { saveError != nil },

@@ -108,16 +108,15 @@ extension View {
 
 struct VelaMetricDetailView: View {
     let metric: MetricType
-    var selectedDate: Date? = nil
-    var dashboardSnapshot: DashboardSummary? = nil
+    var selectedDate: Date
+    var dashboardSnapshot: DashboardSummary
     var isPresentedInSheet: Bool = false
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var cs
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject var dashboardVM: DashboardViewModel
     @ObservedObject var appState = VelaAppState.shared
-    @State var dailyRecords: [DailyHealthSummaryRecord] = []
+    @State var historyDays: [PersistedDailyHistoryDay] = []
     @AppStorage(SleepTargetSettings.hoursKey) var sleepTargetHours = SleepTargetSettings.defaultHours
     @AppStorage("agent_bedtime_hour") var targetBedtimeHour = 22
     @AppStorage("agent_bedtime_minute") var targetBedtimeMinute = 0
@@ -131,11 +130,11 @@ struct VelaMetricDetailView: View {
     @State var rawSelectedDate: Date? = nil
 
     var effectiveDate: Date {
-        selectedDate ?? dashboardVM.selectedDate
+        selectedDate
     }
 
     var dashboard: DashboardSummary {
-        dashboardSnapshot ?? dashboardVM.dashboard
+        dashboardSnapshot
     }
 
     enum MetricType: String, CaseIterable, Identifiable {
@@ -209,11 +208,6 @@ struct VelaMetricDetailView: View {
         .onAppear {
             loadDailyRecords()
         }
-        .onChange(of: dashboardVM.selectedDate) {
-            if selectedDate == nil {
-                loadDailyRecords()
-            }
-        }
         .onChange(of: appState.localDataRevision) {
             loadDailyRecords()
         }
@@ -228,17 +222,13 @@ struct VelaMetricDetailView: View {
             value: -(HealthTrendHorizon.threeYears.windowDays + 7),
             to: end
         ) ?? end
-        
-        let descriptor = FetchDescriptor<DailyHealthSummaryRecord>(
-            predicate: #Predicate<DailyHealthSummaryRecord> { $0.date >= start && $0.date <= end },
-            sortBy: [SortDescriptor(\.date, order: .forward)]
-        )
         do {
-            dailyRecords = try modelContext.fetch(descriptor)
+            historyDays = try HealthSnapshotRepository(modelContext: modelContext)
+                .fetchHistory(from: start, until: end)
             dailyRecordsLoadError = nil
         } catch {
             // Never keep another date's points on screen after a failed fetch.
-            dailyRecords = []
+            historyDays = []
             dailyRecordsLoadError = L10n.t(
                 "The history could not be read. No trend is shown until a retry succeeds.",
                 "历史记录暂时无法读取。重试成功前不会展示趋势。"
@@ -274,7 +264,7 @@ struct VelaMetricDetailView: View {
             metricSubtitle: metricSubtitle,
             baselineValue: chartBaselineValue,
             targetRange: chartTargetRange,
-            isSimulated: dailyRecords.contains {
+            isSimulated: historyDays.contains {
                 $0.configVersion == DailySummaryUseCase.debugDemoConfigVersion
             }
         )
@@ -328,11 +318,11 @@ struct VelaMetricDetailView: View {
             RecoveryDetailV2EditorialView(
                 model: RecoveryDetailV2Builder.make(
                     dashboard: dashboard,
-                    snapshots: dailyRecords.map { $0.toSnapshot() },
+                    snapshots: historyDays.map(\.snapshot),
                     range: selectedRange,
                     endingAt: effectiveDate,
                     baselineBand: nil,
-                    isSimulated: dashboard.source == .preview || dailyRecords.contains {
+                    isSimulated: dashboard.source == .preview || historyDays.contains {
                         $0.configVersion == DailySummaryUseCase.debugDemoConfigVersion
                     }
                 ),
@@ -1063,18 +1053,18 @@ enum LongTermTrendMath {
 }
 
 /// 三年健康轨迹：月均值曲线（点按标数值/拖动查看）+ 今年 vs 去年同期。
-/// 数据源 = 回填后的 DailyHealthSummaryRecord 原始字段。
+/// 原始字段来自日快照，取值与三年长线基准共用 `LongTermBaselineMetric`。
 struct LongTermHealthTrendView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var cs
 
-    @State private var metric = LongTermMetric.restingHeartRate
+    @State private var metric = LongTermBaselineMetric.restingHeartRate
     @State private var monthlySeries: [(date: Date, value: Double)] = []
     @State private var points: [CGPoint] = []
     @State private var values: [Double] = []
     @State private var dates: [Date] = []
     @State private var comparison: (thisYear: Double?, lastYear: Double?) = (nil, nil)
-    @State private var cachedRecords: [DailyHealthSummaryRecord] = []
+    @State private var cachedSnapshots: [DailyHealthSnapshot] = []
     @State private var loadError: String?
 
     var body: some View {
@@ -1127,13 +1117,13 @@ struct LongTermHealthTrendView: View {
         .navigationTitle("长期趋势")
         .velaRhythmDetailChrome()
         .task { await load() }
-        .onChange(of: metric) { _, _ in rebuild(from: cachedRecords) }
+        .onChange(of: metric) { _, _ in rebuild(from: cachedSnapshots) }
     }
 
     private var metricPicker: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                ForEach(LongTermMetric.allCases) { item in
+                ForEach(LongTermBaselineMetric.allCases) { item in
                     Button {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
                             metric = item
@@ -1270,19 +1260,15 @@ struct LongTermHealthTrendView: View {
         if metric == .steps {
             return value >= 1000 ? String(format: "%.1fk", value / 1000) : "\(Int(value.rounded()))"
         }
-        return value.formatted(.number.precision(.fractionLength(metric == .sleep ? 1 : 0)))
+        return value.formatted(.number.precision(.fractionLength(metric == .sleepHours ? 1 : 0)))
     }
 
     private func load() async {
         do {
-            let all = try modelContext.fetch(
-                FetchDescriptor<DailyHealthSummaryRecord>(
-                    sortBy: [SortDescriptor(\.date, order: .forward)]
-                )
-            )
-            cachedRecords = all
+            let snapshots = try HealthSnapshotRepository(modelContext: modelContext).fetchAllSnapshots()
+            cachedSnapshots = snapshots
             loadError = nil
-            rebuild(from: all)
+            rebuild(from: snapshots)
         } catch {
             loadError = AppLanguage.stored.isChinese
                 ? "长期健康记录暂时无法读取，已保留上次结果。"
@@ -1290,14 +1276,14 @@ struct LongTermHealthTrendView: View {
         }
     }
 
-    private func rebuild(from records: [DailyHealthSummaryRecord]) {
+    private func rebuild(from snapshots: [DailyHealthSnapshot]) {
         let calendar = Calendar.current
         let cutoff = calendar.date(byAdding: .year, value: -3, to: Date()) ?? Date()
-        let pairs = records
+        let pairs = snapshots
             .filter { $0.date >= cutoff }
-            .compactMap { record -> (date: Date, value: Double)? in
-                guard let value = metric.value(from: record), value > 0 else { return nil }
-                return (record.date, value)
+            .compactMap { snapshot -> (date: Date, value: Double)? in
+                guard let value = snapshot.longTermBaselinePoint.value(for: metric), value > 0 else { return nil }
+                return (snapshot.date, value)
             }
         let monthly = LongTermTrendMath.monthlyAverages(values: pairs, calendar: calendar)
         monthlySeries = monthly
@@ -1316,66 +1302,5 @@ struct LongTermHealthTrendView: View {
         }
         points = built
         comparison = LongTermTrendMath.samePeriodComparison(values: pairs, calendar: calendar)
-    }
-}
-
-enum LongTermMetric: String, CaseIterable, Identifiable {
-    case restingHeartRate
-    case hrv
-    case sleep
-    case weight
-    case bodyFat
-    case steps
-    case activeCalories
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .restingHeartRate: return "静息心率"
-        case .hrv: return "HRV"
-        case .sleep: return "睡眠时长"
-        case .weight: return "体重"
-        case .bodyFat: return "体脂率"
-        case .steps: return "步数"
-        case .activeCalories: return "活动能量"
-        }
-    }
-
-    var unit: String {
-        switch self {
-        case .restingHeartRate: return "bpm"
-        case .hrv: return "ms"
-        case .sleep: return "小时"
-        case .weight: return "kg"
-        case .bodyFat: return "%"
-        case .steps: return "步"
-        case .activeCalories: return "kcal"
-        }
-    }
-
-    /// 数值变大是否代表变好（用于同比色）。
-    var improvementIsPositive: Bool {
-        switch self {
-        case .restingHeartRate: return false
-        case .hrv: return true
-        case .sleep: return true
-        case .weight: return false
-        case .bodyFat: return false
-        case .steps: return true
-        case .activeCalories: return true
-        }
-    }
-
-    func value(from record: DailyHealthSummaryRecord) -> Double? {
-        switch self {
-        case .restingHeartRate: return record.restingHeartRate
-        case .hrv: return record.hrvAverage
-        case .sleep: return record.sleepHours
-        case .weight: return record.bodyWeight
-        case .bodyFat: return record.bodyFatPercent
-        case .steps: return record.steps
-        case .activeCalories: return record.activeCalories
-        }
     }
 }

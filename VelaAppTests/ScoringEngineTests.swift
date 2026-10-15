@@ -1868,6 +1868,7 @@ final class ScoringEngineTests: XCTestCase {
 
         XCTAssertFalse(missingMetric.hasData)
         XCTAssertEqual(missingMetric.formattedScore, "--")
+        XCTAssertNil(missingMetric.roundedScore)
         XCTAssertEqual(missingMetric.dataCoverage, .unavailable)
         XCTAssertEqual(missingMetric.domain, .recovery)
         XCTAssertEqual(missingMetric.direction, .higherIsBetter)
@@ -1894,6 +1895,7 @@ final class ScoringEngineTests: XCTestCase {
 
         XCTAssertTrue(completeMetric.hasData)
         XCTAssertEqual(completeMetric.formattedScore, "82")
+        XCTAssertEqual(completeMetric.roundedScore, 82)
         XCTAssertEqual(completeMetric.dataCoverage, .complete)
         XCTAssertEqual(completeMetric.score, 82.4)
     }

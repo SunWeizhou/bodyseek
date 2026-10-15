@@ -176,10 +176,9 @@ enum CorrelationArtifactAnalyzer {
 struct CorrelationArtifactView: View {
     let key: String
 
-    @Query(sort: \DailyHealthSummaryRecord.date, order: .reverse)
-    private var summaries: [DailyHealthSummaryRecord]
-    @Query(sort: \JournalEntryRecord.createdAt, order: .reverse)
-    private var journalEntries: [JournalEntryRecord]
+    @Environment(\.modelContext) private var modelContext
+    @State private var summaries: [DailyHealthSummaryRecord] = []
+    @State private var journalEntries: [JournalEntryRecord] = []
 
     private var parsedMetrics: (x: String, y: String) {
         let parts = key.lowercased().components(separatedBy: "_vs_")
@@ -254,6 +253,12 @@ struct CorrelationArtifactView: View {
         .background(RoundedRectangle(cornerRadius: VelaTheme.radiusCardLarge).fill(VelaTheme.cardBg.opacity(0.5)))
         .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusCardLarge).stroke(VelaTheme.borderSoft, lineWidth: 1))
         .accessibilityElement(children: .contain)
+        .task {
+            summaries = (try? SwiftDataDailyHealthSummaryRepository(modelContext: modelContext)
+                .fetchAllSortedByDate(newestFirst: true)) ?? []
+            journalEntries = (try? SwiftDataJournalRepository(modelContext: modelContext)
+                .fetchAllSortedByCreatedAt(newestFirst: true)) ?? []
+        }
     }
 
     private func metricValue(_ title: String, _ value: String) -> some View {

@@ -13,8 +13,8 @@ struct TodaySignalGrid: View {
     let agentSentence: String
     let accentColor: (DailyPlanAccent) -> Color
     let onInspectGuidance: () -> Void
-    var selectedDate: Date? = nil
-    var dashboardSnapshot: DashboardSummary? = nil
+    let selectedDate: Date
+    let dashboardSnapshot: DashboardSummary
 
     /// The Today contract has five independent metrics. Keep the descriptor
     /// list at the rendering boundary so a partial/legacy payload cannot make

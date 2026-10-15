@@ -232,6 +232,7 @@ struct VelaRhythmHorizonHero: View {
     let model: TodayExperienceModel
     let state: TodayCommandState
     let selectedDate: Date
+    let dashboardSnapshot: DashboardSummary
     let isToday: Bool
     let restingHeartRate: Double?
     let maxHeartRate: Double?
@@ -443,7 +444,7 @@ struct VelaRhythmHorizonHero: View {
                             VelaMetricDetailView(
                                 metric: metricType,
                                 selectedDate: selectedDate,
-                                dashboardSnapshot: nil,
+                                dashboardSnapshot: dashboardSnapshot,
                                 isPresentedInSheet: false
                             )
                         } label: {

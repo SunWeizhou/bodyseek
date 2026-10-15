@@ -539,11 +539,8 @@ struct CalendarOverviewSheetView: View {
         guard let endOfMonth = calendar.date(byAdding: .month, value: 1, to: startOfMonth) else { return }
         guard let endLimit = calendar.date(byAdding: .day, value: 7, to: endOfMonth) else { return }
         
-        let descriptor = FetchDescriptor<DailyHealthSummaryRecord>(
-            predicate: #Predicate<DailyHealthSummaryRecord> { $0.date >= startLimit && $0.date <= endLimit },
-            sortBy: [SortDescriptor(\.date, order: .forward)]
-        )
-        if let fetched = try? modelContext.fetch(descriptor) {
+        if let fetched = try? SwiftDataDailyHealthSummaryRepository(modelContext: modelContext)
+            .fetchRecords(from: startLimit, through: endLimit) {
             self.healthRecords = fetched
         }
     }
@@ -802,22 +799,13 @@ struct PostWorkoutCheckInSheet: View {
 
     private func loadExistingState() {
         guard let workoutID else { return }
-        let workoutDescriptor = FetchDescriptor<StrengthWorkoutRecord>(
-            predicate: #Predicate<StrengthWorkoutRecord> { $0.id == workoutID }
-        )
-        workout = try? modelContext.fetch(workoutDescriptor).first
+        workout = try? WorkoutHistoryRepository(modelContext: modelContext).fetchStrengthWorkouts(id: workoutID).first
 
-        let eventDescriptor = FetchDescriptor<WorkoutEventRecord>(
-            predicate: #Predicate<WorkoutEventRecord> {
-                $0.id == workoutID || $0.linkedHealthKitWorkoutId == workoutID || $0.linkedStrengthWorkoutId == workoutID
-            }
-        )
-        workoutEvent = try? modelContext.fetch(eventDescriptor).first
+        workoutEvent = try? WorkoutHistoryRepository(modelContext: modelContext).fetchEvents(relatedTo: workoutID).first
 
-        let responseDescriptor = FetchDescriptor<TrainingResponseRecord>(
-            predicate: #Predicate<TrainingResponseRecord> { $0.workoutId == workoutID }
-        )
-        guard let response = try? modelContext.fetch(responseDescriptor).first else {
+        guard let response = try? TrainingResponseRepository(modelContext: modelContext)
+            .fetchResponses(workoutId: workoutID)
+            .first else {
             if let sessionRPE = workout?.sessionRPE {
                 rpe = sessionRPE
             }
@@ -844,12 +832,10 @@ struct PostWorkoutCheckInSheet: View {
             tags.append("note:\(trimmedNote)")
         }
 
-        let responseDescriptor = FetchDescriptor<TrainingResponseRecord>(
-            predicate: #Predicate<TrainingResponseRecord> { $0.workoutId == workoutID }
-        )
-
         do {
-            if let existing = try modelContext.fetch(responseDescriptor).first {
+            if let existing = try TrainingResponseRepository(modelContext: modelContext)
+                .fetchResponses(workoutId: workoutID)
+                .first {
                 existing.sessionRPE = rpe
                 existing.subjectiveTags = tags
                 if !selectedMuscleGroups.isEmpty {
@@ -899,7 +885,7 @@ struct PostWorkoutCheckInSheet: View {
             // A single optional focus tap is enough to advance the lightweight
             // split. No exercise/set logging is required during the workout.
             if !selectedMuscleGroups.isEmpty,
-               let onboarding = try modelContext.fetch(FetchDescriptor<OnboardingState>()).first {
+               let onboarding = try OnboardingRepository(modelContext: modelContext).fetchLatest() {
                 var preference = onboarding.trainingPreference
                 preference.rotationFocuses = TrainingRotationResolver.focuses(for: preference)
                 preference.nextRotationFocus = TrainingRotationResolver.focus(
@@ -1170,10 +1156,11 @@ struct PostWorkoutImpactSheet: View {
         }
 
         do {
-            let workouts = try modelContext.fetch(FetchDescriptor<StrengthWorkoutRecord>())
-            let events = try modelContext.fetch(FetchDescriptor<WorkoutEventRecord>())
-            let responses = try modelContext.fetch(FetchDescriptor<TrainingResponseRecord>())
-            let summaries = try modelContext.fetch(FetchDescriptor<DailyHealthSummaryRecord>())
+            let history = WorkoutHistoryRepository(modelContext: modelContext)
+            let workouts = try history.fetchStrengthWorkouts()
+            let events = try history.fetchWorkoutEvents()
+            let responses = try TrainingResponseRepository(modelContext: modelContext).fetchAll()
+            let summaries = try SwiftDataDailyHealthSummaryRepository(modelContext: modelContext).fetchAll()
 
             let workout = workouts.first { $0.id == workoutID }
             let event = events.first {

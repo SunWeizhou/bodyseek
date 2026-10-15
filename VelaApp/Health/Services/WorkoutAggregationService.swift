@@ -27,14 +27,9 @@ public final class WorkoutAggregationService {
         let dayStart = calendar.startOfDay(for: date)
         let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
 
-        let descriptor = FetchDescriptor<WorkoutEventRecord>(
-            predicate: #Predicate<WorkoutEventRecord> {
-                $0.startedAt >= dayStart && $0.startedAt < dayEnd
-            },
-            sortBy: [SortDescriptor(\.startedAt)]
+        let localRecords = consolidateLocalEvents(
+            (try? WorkoutHistoryRepository(modelContext: modelContext).fetchWorkoutEvents(from: dayStart, until: dayEnd)) ?? []
         )
-        
-        let localRecords = consolidateLocalEvents((try? modelContext.fetch(descriptor)) ?? [])
 
         var merged: [WorkoutSummary] = []
 
@@ -100,12 +95,10 @@ public final class WorkoutAggregationService {
         let dayStart = dayRange.start
         let dayEnd = dayRange.end
         
-        let descriptor = FetchDescriptor<WorkoutEventRecord>(
-            predicate: #Predicate<WorkoutEventRecord> {
-                $0.startedAt >= dayStart && $0.startedAt < dayEnd
-            }
-        )
-        let existingEvents = (try? modelContext.fetch(descriptor)) ?? []
+        let existingEvents = (try? WorkoutHistoryRepository(modelContext: modelContext).fetchWorkoutEvents(
+            from: dayStart,
+            until: dayEnd
+        )) ?? []
         let currentHKIDs = Set(healthKitWorkouts.map { $0.id })
         
         for event in existingEvents {
@@ -123,11 +116,10 @@ public final class WorkoutAggregationService {
         // 2. Upsert current HealthKit workouts
         for workout in healthKitWorkouts {
             let healthKitID = workout.id
-            let fetchDescriptor = FetchDescriptor<WorkoutEventRecord>(
-                predicate: #Predicate<WorkoutEventRecord> { $0.linkedHealthKitWorkoutId == healthKitID }
-            )
             let event: WorkoutEventRecord
-            if let existing = try modelContext.fetch(fetchDescriptor).first {
+            if let existing = try WorkoutHistoryRepository(modelContext: modelContext)
+                .fetchEvents(linkedHealthKitWorkoutId: healthKitID)
+                .first {
                 event = existing
                 event.startedAt = workout.start
                 event.endedAt = workout.end
@@ -254,12 +246,11 @@ public final class WorkoutAggregationService {
         calendar: Calendar = .current
     ) throws -> WorkoutEventRecord {
         let workoutID = strengthWorkout.id
-        let descriptor = FetchDescriptor<WorkoutEventRecord>(
-            predicate: #Predicate<WorkoutEventRecord> { $0.linkedStrengthWorkoutId == workoutID }
-        )
         let resolvedRPE = sessionRPE ?? strengthWorkout.sessionRPE
         let event: WorkoutEventRecord
-        if let existing = try modelContext.fetch(descriptor).first {
+        if let existing = try WorkoutHistoryRepository(modelContext: modelContext)
+            .fetchEvents(linkedStrengthWorkoutId: workoutID)
+            .first {
             event = existing
             event.startedAt = strengthWorkout.startedAt
             event.endedAt = strengthWorkout.endedAt
@@ -275,12 +266,8 @@ public final class WorkoutAggregationService {
             let dayRange = HealthDayBoundary(calendar: calendar).range(containing: strengthWorkout.startedAt)
             let dayStart = dayRange.start
             let dayEnd = dayRange.end
-            let overlapDescriptor = FetchDescriptor<WorkoutEventRecord>(
-                predicate: #Predicate<WorkoutEventRecord> {
-                    $0.startedAt >= dayStart && $0.startedAt < dayEnd && $0.linkedStrengthWorkoutId == nil
-                }
-            )
-            let existingEvents = (try? modelContext.fetch(overlapDescriptor)) ?? []
+            let existingEvents = (try? WorkoutHistoryRepository(modelContext: modelContext)
+                .fetchEventsWithoutStrengthLink(from: dayStart, until: dayEnd)) ?? []
             if let matched = findMergeCandidate(for: strengthWorkout, in: existingEvents, calendar: calendar) {
                 event = matched
                 event.linkedStrengthWorkoutId = strengthWorkout.id
@@ -321,11 +308,9 @@ public final class WorkoutAggregationService {
         ) {
             let dayStart = calendar.startOfDay(for: date)
             let identifier = DailyHealthSummaryRecord.dayIdentifier(for: dayStart, calendar: calendar)
-            let descriptor = FetchDescriptor<DailyHealthSummaryRecord>(
-                predicate: #Predicate<DailyHealthSummaryRecord> { $0.dayIdentifier == identifier }
-            )
             let record: DailyHealthSummaryRecord
-            if let existing = try modelContext.fetch(descriptor).first {
+            if let existing = try SwiftDataDailyHealthSummaryRepository(modelContext: modelContext)
+                .fetchRecord(dayIdentifier: identifier) {
                 record = existing
             } else {
                 record = DailyHealthSummaryRecord(dayIdentifier: identifier, date: dayStart)
@@ -335,7 +320,7 @@ public final class WorkoutAggregationService {
             // P1-1 修复：不再回读 workoutsData 自反馈缓存（旧 JSON 会让已删除的
             // HealthKit 训练自我复活）。HK 训练已由 upsertHealthKitWorkoutEvents
             // 落成事件，这里只合并事件 + 黑名单过滤。
-            let deletedRecords = (try? modelContext.fetch(FetchDescriptor<DeletedWorkoutRecord>())) ?? []
+            let deletedRecords = (try? DeletedWorkoutRepository(modelContext: modelContext).fetchAll()) ?? []
             let blacklistedIDs = Set(deletedRecords.map(\.id))
             let merged = aggregateWorkouts(
                 healthKitWorkouts: [],
@@ -485,16 +470,12 @@ public final class WorkoutAggregationService {
         let dayRange = HealthDayBoundary(calendar: calendar).range(containing: healthKitWorkout.start)
         let dayStart = dayRange.start
         let dayEnd = dayRange.end
-        let descriptor = FetchDescriptor<WorkoutEventRecord>(
-            predicate: #Predicate<WorkoutEventRecord> {
-                $0.startedAt >= dayStart && $0.startedAt < dayEnd
-            },
-            sortBy: [SortDescriptor(\.startedAt)]
-        )
-        return try modelContext.fetch(descriptor).first { event in
-            event.linkedHealthKitWorkoutId == nil
-                && eventRepresentsSameRealWorkout(event, healthKitWorkout)
-        }
+        return try WorkoutHistoryRepository(modelContext: modelContext)
+            .fetchWorkoutEvents(from: dayStart, until: dayEnd)
+            .first { event in
+                event.linkedHealthKitWorkoutId == nil
+                    && eventRepresentsSameRealWorkout(event, healthKitWorkout)
+            }
     }
 
     private func eventRepresentsSameRealWorkout(_ event: WorkoutEventRecord, _ healthKit: WorkoutSummary) -> Bool {
@@ -647,10 +628,7 @@ public final class WorkoutAggregationService {
         modelContext: ModelContext,
         calendar: Calendar
     ) throws {
-        let descriptor = FetchDescriptor<TrainingPlanRecord>(
-            predicate: #Predicate<TrainingPlanRecord> { $0.isActive }
-        )
-        let plans = try modelContext.fetch(descriptor)
+        let plans = try TrainingPlanRepository(modelContext: modelContext).fetchActivePlans()
         let linker = TrainingPlanLinkingService()
         
         for plan in plans {
@@ -720,10 +698,8 @@ public final class WorkoutAggregationService {
         calendar: Calendar = .current
     ) throws -> TrainingResponseRecord {
         let workoutID = workout.id
-        let descriptor = FetchDescriptor<TrainingResponseRecord>(
-            predicate: #Predicate<TrainingResponseRecord> { $0.workoutId == workoutID }
-        )
-        let existing = (try? modelContext.fetch(descriptor))?.first
+        let existing = (try? TrainingResponseRepository(modelContext: modelContext)
+            .fetchResponses(workoutId: workoutID))?.first
 
         let primaryMuscles = Set(workout.exercises.compactMap { $0.primaryMuscleGroup }.filter { !$0.isEmpty })
         let muscleGroupsArray = Array(primaryMuscles)
@@ -772,7 +748,7 @@ public final class WorkoutAggregationService {
     ) {
         let dayIDs = Set(events.compactMap(\.linkedTrainingPlanDayId))
         guard !dayIDs.isEmpty else { return }
-        let plans = (try? modelContext.fetch(FetchDescriptor<TrainingPlanRecord>())) ?? []
+        let plans = (try? TrainingPlanRepository(modelContext: modelContext).fetchAll()) ?? []
         for plan in plans {
             var changed = false
             for (index, day) in plan.days.enumerated() where dayIDs.contains(day.id) {
@@ -802,10 +778,8 @@ public final class WorkoutAggregationService {
         let workoutDate = workout.startedAt
         
         // 1. Find linked events
-        let eventDescriptor = FetchDescriptor<WorkoutEventRecord>(
-            predicate: #Predicate<WorkoutEventRecord> { $0.linkedStrengthWorkoutId == workoutID }
-        )
-        let events = try modelContext.fetch(eventDescriptor)
+        let events = try WorkoutHistoryRepository(modelContext: modelContext)
+            .fetchEvents(linkedStrengthWorkoutId: workoutID)
         for event in events {
             if let hkId = event.linkedHealthKitWorkoutId {
                 blacklistWorkout(id: hkId.uuidString, modelContext: modelContext)
@@ -826,20 +800,15 @@ public final class WorkoutAggregationService {
         rollbackLinkedPlanDays(for: events, modelContext: modelContext)
         
         // 2. Find Xunji mirror records
-        let mirrorDescriptor = FetchDescriptor<XunjiWorkoutMirrorRecord>(
-            predicate: #Predicate<XunjiWorkoutMirrorRecord> { $0.linkedStrengthWorkoutID == workoutID }
-        )
-        let mirrors = try modelContext.fetch(mirrorDescriptor)
+        let mirrors = try XunjiWorkoutMirrorRepository(modelContext: modelContext)
+            .fetch(linkedStrengthWorkoutId: workoutID)
         for mirror in mirrors {
             blacklistWorkout(id: mirror.externalID, modelContext: modelContext)
             modelContext.delete(mirror)
         }
 
         // 3. Find linked TrainingResponseRecords
-        let responseDescriptor = FetchDescriptor<TrainingResponseRecord>(
-            predicate: #Predicate<TrainingResponseRecord> { $0.workoutId == workoutID }
-        )
-        let responses = try modelContext.fetch(responseDescriptor)
+        let responses = try TrainingResponseRepository(modelContext: modelContext).fetchResponses(workoutId: workoutID)
         for resp in responses {
             modelContext.delete(resp)
         }
@@ -1020,7 +989,7 @@ struct WorkoutSaveCoordinator {
     }
 
     private func deleteActiveDrafts(modelContext: ModelContext) throws {
-        for draft in try modelContext.fetch(FetchDescriptor<ActiveWorkoutDraftRecord>()) {
+        for draft in try ActiveWorkoutDraftRepository(modelContext: modelContext).fetchAll() {
             modelContext.delete(draft)
         }
     }

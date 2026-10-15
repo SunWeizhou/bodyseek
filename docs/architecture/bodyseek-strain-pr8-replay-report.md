@@ -1,13 +1,18 @@
 # BodySeek ARCH-08 / PR8 Strain replay evidence
 
-Status: app-target oracle evidence; package parity remains explicitly blocked.
-No scoring formula or algorithm-version change is included in this slice.
+Status: StrainScoreEngine, its workout input, and `DailyLoadObservation` now
+live in `BodySeekDomain`. The app `StrainScoreEngine` maps the domain result
+back to the app `MetricResult`. `HeartRateZoneCalculator` stays in the app
+because it reads `HeartRateSample`. `BodySeekDomain.DailyHealthComputation`
+still leaves the strain slot unavailable; production scoring remains the app
+`DailyHealthComputation`. No scoring formula change is included. The emitted
+algorithm version remains `ScoringAlgorithmVersions.strain`
+(`strain.v2.1.0`).
 
-`StrainScoreEngine` and `StrainScoreInput` currently live under
-`VelaApp/Scoring/Strain`. `BodySeekDomain` intentionally reports Strain as
-unavailable until an independently reviewed adapter migration is scheduled.
-This harness freezes the current app oracle rather than duplicating the formula
-in the package.
+The replay evaluates at `2026-07-31T12:00:00Z` using the same inputs as
+`docs/baselines/strain-replay-fixtures.json`. Package assertions are
+`BodySeekDomainTests/StrainReplaySensitivityTests`. App adapter assertions
+remain `VelaAppTests/StrainReplaySensitivityTests`.
 
 ## Deterministic baseline
 
@@ -18,8 +23,9 @@ steps, and 28 daily-load history values. The canonical fingerprint is recorded
 in `docs/baselines/strain-replay-fixtures.json`.
 
 The oracle returns `65.5297799653`, confidence `high`, algorithm version
-`strain.v2.0.0`, and no missing inputs. The executable assertions live in
-`VelaAppTests/StrainReplaySensitivityTests.swift`.
+`strain.v2.1.0`, and no missing inputs. Package assertions live in
+`BodySeekDomainTests/StrainReplaySensitivityTests.swift`. App adapter
+assertions live in `VelaAppTests/StrainReplaySensitivityTests.swift`.
 
 ## Sensitivity evidence
 

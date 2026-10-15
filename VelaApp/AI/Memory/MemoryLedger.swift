@@ -209,6 +209,25 @@ final class MemoryLedger {
 
     // MARK: - Query
 
+    func fetchAcceptedObservations() throws -> [MemoryEventRecord] {
+        try modelContext.fetch(FetchDescriptor<MemoryEventRecord>(
+            predicate: #Predicate { $0.memoryTypeRaw == "observation" && $0.status == "accepted" }
+        ))
+    }
+
+    func fetch(source: String) throws -> [MemoryEventRecord] {
+        try modelContext.fetch(FetchDescriptor<MemoryEventRecord>(
+            predicate: #Predicate { $0.source == source }
+        ))
+    }
+
+    func fetchNewest(source: String) throws -> [MemoryEventRecord] {
+        try modelContext.fetch(FetchDescriptor<MemoryEventRecord>(
+            predicate: #Predicate { $0.source == source },
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+        ))
+    }
+
     func pendingProposals() -> [MemoryEventRecord] {
         let descriptor = FetchDescriptor<MemoryEventRecord>(
             predicate: #Predicate { $0.status == "proposed" },

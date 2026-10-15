@@ -392,9 +392,10 @@ struct XunjiTrainingImportService: Sendable {
         let trains = response.res.trains.filter { ($0.datestr ?? datestr) == datestr }
         guard !trains.isEmpty else { return .empty }
 
-        let existingMirrors = try modelContext.fetch(FetchDescriptor<XunjiWorkoutMirrorRecord>())
-        let existingWorkouts = try modelContext.fetch(FetchDescriptor<StrengthWorkoutRecord>())
-        let existingEvents = try modelContext.fetch(FetchDescriptor<WorkoutEventRecord>())
+        let existingMirrors = try XunjiWorkoutMirrorRepository(modelContext: modelContext).fetchAll()
+        let history = WorkoutHistoryRepository(modelContext: modelContext)
+        let existingWorkouts = try history.fetchStrengthWorkouts()
+        let existingEvents = try history.fetchWorkoutEvents()
         var imported = 0
         var updated = 0
         var skipped = 0
@@ -406,7 +407,7 @@ struct XunjiTrainingImportService: Sendable {
             affectedDatesByIdentifier[DailyHealthSummaryRecord.dayIdentifier(for: day, calendar: calendar)] = day
         }
 
-        let deletedRecords = (try? modelContext.fetch(FetchDescriptor<DeletedWorkoutRecord>())) ?? []
+        let deletedRecords = (try? DeletedWorkoutRepository(modelContext: modelContext).fetchAll()) ?? []
         let blacklistedIDs = Set(deletedRecords.map(\.id))
 
         for train in trains {
@@ -477,7 +478,7 @@ struct XunjiTrainingImportService: Sendable {
                 "xunji-\(normalized.externalID)-\(workout.totalVolumeKilograms)-\(workout.exercises.flatMap(\.sets).count)"
             )
             let workoutIdStr = workout.id.uuidString
-            let existingArtifacts = (try? modelContext.fetch(FetchDescriptor<CoachArtifactRecord>())) ?? []
+            let existingArtifacts = (try? CoachArtifactRepository(modelContext: modelContext).fetchAll()) ?? []
             
             for art in existingArtifacts {
                 if art.actionsJSON.contains(workoutIdStr) {

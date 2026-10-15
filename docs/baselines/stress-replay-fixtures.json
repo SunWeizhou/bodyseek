@@ -1,0 +1,37 @@
+{
+  "schema": "bodyseek-stress-replay.v1",
+  "target": "BodySeekDomain",
+  "algorithmVersion": "physiologicalStress.v2.0.0",
+  "formulaChange": false,
+  "calendar": "gregorian",
+  "timeZone": "UTC",
+  "asOf": "2026-07-31T12:00:00Z",
+  "baseline": {
+    "inputFingerprint": "stress-v2|2026-07-31T12:00:00Z|mode=rawVitals|rhr=62.00|rhrBase=58.00|rhrSD=3.00|hrv=45.00|hrvBase=50.00|hrvSD=8.00|resp=15.00|respBase=14.00|respSD=0.80|temp=0.20|sleep=77.43|strain=65.53|window=false|longRHR=nil",
+    "value": 56.2142645029,
+    "confidence": "high",
+    "missingInputs": [],
+    "components": {
+      "rhr_stress": 74.0,
+      "hrv_stress": 61.8530580115
+    }
+  },
+  "sensitivity": [
+    {"id": "high-rhr-72", "change": "quietHRToday=72", "value": 62.7142645029, "confidence": "high"},
+    {"id": "low-hrv-28", "change": "hrvToday=28", "value": 65.751, "confidence": "high"},
+    {"id": "high-temp-1.1", "change": "bodyTempDelta=1.1", "value": 62.2142645029, "confidence": "high"}
+  ],
+  "longTermGate": {
+    "change": "quietHRToday=70,quietHRBaseline=60,quietHRSD=5,longTermQuietHRMedian=72",
+    "rhr_stress": 50
+  },
+  "workoutWindow": {
+    "change": "isWithinWorkoutWindow=true",
+    "value": null,
+    "coverage": "unavailable",
+    "confidence": "low",
+    "formattedScore": "--",
+    "missingInputs": ["quietWindow"]
+  },
+  "packageParity": "StressIndexEngine and StressIndexInput live in BodySeekDomain. The app StressIndexEngine is a MetricResult adapter. BodySeekDomain.DailyHealthComputation still leaves the stress slot unavailable until production scoring moves."
+}

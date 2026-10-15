@@ -26,6 +26,136 @@ final class SwiftDataJournalRepository: JournalRepository {
         descriptor.fetchLimit = limit
         return try modelContext.fetch(descriptor)
     }
+
+    func fetchAll() throws -> [JournalEntryRecord] {
+        try modelContext.fetch(FetchDescriptor<JournalEntryRecord>())
+    }
+
+    /// Every journal row, ordered by when it was written.
+    func fetchAllSortedByCreatedAt(newestFirst: Bool = false) throws -> [JournalEntryRecord] {
+        let order: SortOrder = newestFirst ? .reverse : .forward
+        return try modelContext.fetch(FetchDescriptor<JournalEntryRecord>(
+            sortBy: [SortDescriptor(\.createdAt, order: order)]
+        ))
+    }
+
+    /// Inclusive on both ends, newest entry first.
+    func fetchEntries(from start: Date, through end: Date) throws -> [JournalEntryRecord] {
+        try modelContext.fetch(FetchDescriptor<JournalEntryRecord>(
+            predicate: #Predicate { $0.createdAt >= start && $0.createdAt <= end },
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+        ))
+    }
+
+    /// Entries written in `[start, end)`, newest first.
+    func fetchEntries(from start: Date, until end: Date) throws -> [JournalEntryRecord] {
+        try modelContext.fetch(FetchDescriptor<JournalEntryRecord>(
+            predicate: #Predicate { $0.createdAt >= start && $0.createdAt < end },
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+        ))
+    }
+
+    /// Entries written at or before `end`, newest first.
+    func fetchEntries(through end: Date, limit: Int? = nil) throws -> [JournalEntryRecord] {
+        var descriptor = FetchDescriptor<JournalEntryRecord>(
+            predicate: #Predicate { $0.createdAt <= end },
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+        )
+        if let limit {
+            descriptor.fetchLimit = limit
+        }
+        return try modelContext.fetch(descriptor)
+    }
+
+    /// Entries written at or after `start`. Newest first unless requested otherwise.
+    func fetchEntries(onOrAfter start: Date, newestFirst: Bool = true) throws -> [JournalEntryRecord] {
+        let order: SortOrder = newestFirst ? .reverse : .forward
+        return try modelContext.fetch(FetchDescriptor<JournalEntryRecord>(
+            predicate: #Predicate { $0.createdAt >= start },
+            sortBy: [SortDescriptor(\.createdAt, order: order)]
+        ))
+    }
+}
+
+final class FoodLogRepository {
+    private let modelContext: ModelContext
+
+    init(modelContext: ModelContext) {
+        self.modelContext = modelContext
+    }
+
+    func fetchAll() throws -> [FoodLogRecord] {
+        try modelContext.fetch(FetchDescriptor<FoodLogRecord>())
+    }
+
+    /// Inclusive on both ends, newest log first.
+    func fetchLogs(from start: Date, through end: Date) throws -> [FoodLogRecord] {
+        try modelContext.fetch(FetchDescriptor<FoodLogRecord>(
+            predicate: #Predicate { $0.createdAt >= start && $0.createdAt <= end },
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+        ))
+    }
+
+    /// Logs written in `[start, end)`, newest first. A log exactly at `end` stays out.
+    func fetchLogs(from start: Date, until end: Date) throws -> [FoodLogRecord] {
+        try modelContext.fetch(FetchDescriptor<FoodLogRecord>(
+            predicate: #Predicate { $0.createdAt >= start && $0.createdAt < end },
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+        ))
+    }
+
+    func fetchAllSortedByCreatedAt(newestFirst: Bool = true) throws -> [FoodLogRecord] {
+        let order: SortOrder = newestFirst ? .reverse : .forward
+        return try modelContext.fetch(FetchDescriptor<FoodLogRecord>(
+            sortBy: [SortDescriptor(\.createdAt, order: order)]
+        ))
+    }
+}
+
+/// Personal experiments, newest creation first. Starting a new experiment
+/// cancels every row that is still active.
+final class PersonalExperimentRepository {
+    private let modelContext: ModelContext
+
+    init(modelContext: ModelContext) {
+        self.modelContext = modelContext
+    }
+
+    func fetchAllSortedByCreatedAt(newestFirst: Bool = true) throws -> [PersonalExperimentRecord] {
+        let order: SortOrder = newestFirst ? .reverse : .forward
+        return try modelContext.fetch(FetchDescriptor<PersonalExperimentRecord>(
+            sortBy: [SortDescriptor(\.createdAt, order: order)]
+        ))
+    }
+
+    func fetchActive() throws -> [PersonalExperimentRecord] {
+        try modelContext.fetch(FetchDescriptor<PersonalExperimentRecord>(
+            predicate: #Predicate { $0.status == "active" }
+        ))
+    }
+}
+
+/// Daily experiment check-ins. The journal shows them newest first. A day's
+/// check-in is addressed by its stable id.
+final class ExperimentCheckInRepository {
+    private let modelContext: ModelContext
+
+    init(modelContext: ModelContext) {
+        self.modelContext = modelContext
+    }
+
+    func fetchAllSortedByDate(newestFirst: Bool = true) throws -> [ExperimentCheckInRecord] {
+        let order: SortOrder = newestFirst ? .reverse : .forward
+        return try modelContext.fetch(FetchDescriptor<ExperimentCheckInRecord>(
+            sortBy: [SortDescriptor(\.date, order: order)]
+        ))
+    }
+
+    func fetch(id: String) throws -> [ExperimentCheckInRecord] {
+        try modelContext.fetch(FetchDescriptor<ExperimentCheckInRecord>(
+            predicate: #Predicate { $0.id == id }
+        ))
+    }
 }
 
 /// The daily Lived State seam. The underlying V3 store remains
@@ -152,13 +282,7 @@ final class LivedStateJournalAdapter {
         guard let end = calendar.date(byAdding: .day, value: 1, to: start) else {
             return []
         }
-        let descriptor = FetchDescriptor<JournalEntryRecord>(
-            predicate: #Predicate { entry in
-                entry.createdAt >= start && entry.createdAt < end
-            },
-            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
-        )
-        return try modelContext.fetch(descriptor)
+        return try SwiftDataJournalRepository(modelContext: modelContext).fetchEntries(from: start, until: end)
     }
 
     /// Historical check-ins belong to the selected day, not the wall-clock day

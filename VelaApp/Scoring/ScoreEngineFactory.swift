@@ -1,6 +1,43 @@
 import Foundation
 import BodySeekDomain
 
+enum DomainMetricAdapter {
+    static func metric(_ value: BodySeekDomain.MetricResult) -> MetricResult {
+        MetricResult(
+            domain: ScoredHealthDomain(rawValue: value.domain.rawValue),
+            name: value.name,
+            value: value.value,
+            band: MetricBand(rawValue: value.band.rawValue) ?? .low,
+            confidence: MetricConfidence(rawValue: value.confidence.rawValue) ?? .low,
+            components: value.components,
+            componentWeights: value.componentWeights,
+            reasons: value.reasons,
+            missingInputs: value.missingInputs,
+            dataWindow: value.dataWindow,
+            source: MetricSource(rawValue: value.source.rawValue) ?? .derived,
+            algorithmVersion: value.algorithmVersion,
+            lastUpdated: value.lastUpdated,
+            observedWindow: value.observedWindow,
+            observedAt: value.observedAt,
+            computedAt: value.computedAt
+        )
+    }
+}
+
+public typealias ScoreEngine = BodySeekDomain.ScoreEngine
+public typealias MetricBand = BodySeekDomain.MetricBand
+public typealias MetricState = BodySeekDomain.MetricState
+public typealias MetricSource = BodySeekDomain.MetricSource
+public typealias ScoredHealthDomain = BodySeekDomain.ScoredHealthDomain
+public typealias ScoreDirection = BodySeekDomain.ScoreDirection
+public typealias ScoreDataCoverage = BodySeekDomain.ScoreDataCoverage
+public typealias StrainTargetStatus = BodySeekDomain.StrainTargetStatus
+public typealias ScoringAlgorithmVersions = BodySeekDomain.ScoringAlgorithmVersions
+public typealias ScoreBand = BodySeekDomain.ScoreBand
+public typealias ScoreConfidence = BodySeekDomain.ScoreConfidence
+public typealias StandardScoreResult = BodySeekDomain.StandardScoreResult
+public typealias ScoringMath = BodySeekDomain.ScoringMath
+
 enum UserProfileSettings {
     static let ageKey = "vela_user_age"
     static let weightKey = "vela_user_weight"
@@ -111,54 +148,13 @@ enum DomainSleepScoreAdapter {
             remMinutes: remMinutes,
             deepMinutes: deepMinutes,
             inBedMinutes: inBedMinutes,
-            evidence: evidence.map(mapEvidence)
+            evidence: evidence
         )
         return mapResult(BodySeekDomain.SleepScoreEngine(calendar: calendar).calculate(from: input))
     }
 
-    private static func mapEvidence(_ value: SleepEvidenceContext) -> BodySeekDomain.SleepEvidenceContext {
-        BodySeekDomain.SleepEvidenceContext(
-            queryOutcome: value.queryOutcome.flatMap { BodySeekDomain.HealthQueryOutcomeKind(rawValue: $0.rawValue) },
-            freshness: value.freshness.flatMap { BodySeekDomain.DataFreshness(rawValue: $0.rawValue) },
-            totalSleep: mapObservation(value.totalSleep),
-            bedtime: mapObservation(value.bedtime),
-            wakeTime: mapObservation(value.wakeTime),
-            inBed: mapObservation(value.inBed),
-            awake: mapObservation(value.awake),
-            rem: mapObservation(value.rem),
-            deep: mapObservation(value.deep),
-            episodeCount: mapObservation(value.episodeCount)
-        )
-    }
-
-    private static func mapObservation(_ value: SleepComponentObservation) -> BodySeekDomain.SleepComponentObservation {
-        BodySeekDomain.SleepComponentObservation(
-            value: value.value,
-            availability: BodySeekDomain.SleepObservationAvailability(rawValue: value.availability.rawValue) ?? .missing,
-            reason: value.reason,
-            observedWindow: value.observedWindow
-        )
-    }
-
     private static func mapResult(_ value: BodySeekDomain.MetricResult) -> MetricResult {
-        MetricResult(
-            domain: ScoredHealthDomain(rawValue: value.domain.rawValue),
-            name: value.name,
-            value: value.value,
-            band: MetricBand(rawValue: value.band.rawValue) ?? .low,
-            confidence: MetricConfidence(rawValue: value.confidence.rawValue) ?? .low,
-            components: value.components,
-            componentWeights: value.componentWeights,
-            reasons: value.reasons,
-            missingInputs: value.missingInputs,
-            dataWindow: value.dataWindow,
-            source: MetricSource(rawValue: value.source.rawValue) ?? .derived,
-            algorithmVersion: value.algorithmVersion,
-            lastUpdated: value.lastUpdated,
-            observedWindow: value.observedWindow,
-            observedAt: value.observedAt,
-            computedAt: value.computedAt
-        )
+        DomainMetricAdapter.metric(value)
     }
 }
 
@@ -445,8 +441,8 @@ struct DailyHealthComputationProfile: Sendable {
     }
 }
 
-/// The sole deterministic transformation from a Daily Health Snapshot plus
-/// Personal Baseline history into Scored Health Evidence.
+/// Production entry. It maps app snapshots and long-term baseline context into
+/// `BodySeekDomain.DailyHealthComputation`, which owns the five-score assembly.
 final class DailyHealthComputation {
     private let calendar: Calendar
     private let now: Date
@@ -479,160 +475,32 @@ final class DailyHealthComputation {
         sleepEvidence: SleepEvidenceContext? = nil
     ) -> ScoredHealthEvidence {
         let asOf = evaluationDate(for: snapshot)
-        let baselineHistory = personalBaselineHistory(for: snapshot, from: history)
-        let sleepHistoryStart = calendar.date(
-            byAdding: .day,
-            value: -13,
-            to: calendar.startOfDay(for: snapshot.date)
-        ) ?? .distantPast
-        let recentBedtimes = baselineHistory
-            .filter { calendar.startOfDay(for: $0.date) >= sleepHistoryStart }
-            .compactMap(\.bedtime)
-        let (dailyLoadObservations, validDailyLoadDays) = continuousDailyLoadGrid(for: snapshot, from: history, maxDays: 42)
-        let hrvHistory = baselineHistory.compactMap(\.hrvAverage)
-        let hrvRmssdHistory = baselineHistory.compactMap(\.hrvRmssdMilliseconds)
-        let rhrHistory = baselineHistory.compactMap(\.restingHeartRate)
-        let respiratoryHistory = baselineHistory.compactMap(\.respiratoryRate)
-        // Keep the numeric array only for legacy StrainScoreInput callers. The
-        // typed observations carry the authoritative missing/zero/excluded
-        // semantics through the current scoring path.
-        let dailyLoadHistory = dailyLoadObservations.map { observation in
-            observation.availability.contributesToLoad ? (observation.value ?? 0.0) : 0.0
-        }
-        let temperatureDelta = wristTemperatureDelta(
-            current: snapshot.wristTemperature,
-            history: baselineHistory
+        let domainResult = BodySeekDomain.DailyHealthComputation(
+            calendar: calendar,
+            now: now,
+            profile: BodySeekDomain.DailyHealthComputationProfile(
+                sleepTargetMinutes: profile.sleepTargetMinutes,
+                maxHeartRate: profile.maxHeartRate,
+                biologicalSex: profile.biologicalSex
+            )
+        ).compute(
+            for: snapshot,
+            history: history,
+            sleepEvidence: sleepEvidence,
+            recoveryLongTerm: recoveryLongTermContext(from: longTermBaselines, asOf: asOf),
+            longTermQuietHeartRateMedian: longTermBaselines?.baselines[.restingHeartRate]?.threeYearMedian
         )
-
-        let sleep = DomainSleepScoreAdapter.calculate(
-            asOf: asOf,
-            totalSleepMinutes: snapshot.sleepHours.map { $0 * 60 },
-            sleepTargetMinutes: profile.sleepTargetMinutes,
-            todayBedtime: snapshot.bedtime,
-            recentBedtimes: recentBedtimes,
-            awakeMinutes: snapshot.awakeMinutes,
-            awakeEpisodeCount: snapshot.awakeEpisodeCount,
-            remMinutes: snapshot.remSleepMinutes,
-            deepMinutes: snapshot.deepSleepMinutes,
-            inBedMinutes: sleepEvidence?.inBed.value,
-            evidence: sleepEvidence,
-            calendar: calendar
-        )
-
-        let yesterday = calendar.date(byAdding: .day, value: -1, to: snapshot.date) ?? snapshot.date
-        let yesterdayStrain = baselineHistory.first {
-            calendar.isDate($0.date, inSameDayAs: yesterday)
-        }?.strainScore
-        let recovery = RecoveryScoreEngine().calculate(from: RecoveryScoreInput(
-            asOf: asOf,
-            hrvToday: snapshot.hrvAverage,
-            hrvBaseline: PersonalBaselineEngine.median(hrvHistory),
-            hrvHistory: hrvHistory,
-            hrvRmssdToday: snapshot.hrvRmssdMilliseconds,
-            hrvRmssdBaseline: PersonalBaselineEngine.median(hrvRmssdHistory),
-            hrvRmssdHistory: hrvRmssdHistory,
-            restingHeartRateToday: snapshot.restingHeartRate,
-            restingHeartRateBaseline: PersonalBaselineEngine.median(rhrHistory),
-            rhrHistory: rhrHistory,
-            sleepScoreLastNight: sleep.value,
-            strainScoreYesterday: yesterdayStrain,
-            respiratoryRateToday: snapshot.respiratoryRate,
-            respiratoryRateBaseline: PersonalBaselineEngine.median(respiratoryHistory),
-            respiratoryRateHistory: respiratoryHistory,
-            bodyTempDelta: temperatureDelta,
-            SpO2: snapshot.oxygenSaturation,
-            longTermContext: recoveryLongTermContext(from: longTermBaselines, asOf: asOf),
-            observedAt: snapshot.hrvObservedAt ?? snapshot.rhrObservedAt,
-            observedWindow: snapshot.hrvObservedWindow
-        ))
-
-        let strain = StrainScoreEngine().calculate(from: StrainScoreInput(
-            asOf: asOf,
-            workouts: snapshot.workouts.map {
-                WorkoutInput(
-                    id: $0.id,
-                    durationMinutes: $0.end.timeIntervalSince($0.start) / 60,
-                    averageHeartRate: $0.averageHeartRate,
-                    rpe: $0.rpe
-                )
-            },
-            activeEnergyToday: snapshot.activeCalories,
-            exerciseMinutesToday: snapshot.activeMinutes ?? snapshot.workoutDuration,
-            stepCount: snapshot.steps,
-            restingHR: snapshot.restingHeartRate ?? 0,
-            maxHR: profile.maxHeartRate ?? 0,
-            biologicalSex: profile.biologicalSex,
-            last28DaysDailyLoads: Array(dailyLoadHistory.prefix(28)),
-            validObservedDaysCount: min(28, validDailyLoadDays),
-            dailyLoadObservations: Array(dailyLoadObservations.prefix(28)),
-            recoveryScore: recovery.value
-        ))
-
-        let respiratorySD = PersonalBaselineEngine.sampleStandardDeviation(respiratoryHistory)
-        let physiologicalStress = StressIndexEngine().calculate(from: StressIndexInput(
-            asOf: asOf,
-            quietHRToday: snapshot.restingHeartRate,
-            quietHRBaseline: PersonalBaselineEngine.median(rhrHistory),
-            quietHRSD: PersonalBaselineEngine.sampleStandardDeviation(rhrHistory),
-            hrvToday: snapshot.hrvAverage,
-            hrvBaseline: PersonalBaselineEngine.median(hrvHistory),
-            hrvSD: PersonalBaselineEngine.sampleStandardDeviation(hrvHistory),
-            respRateToday: snapshot.respiratoryRate,
-            respRateBaseline: PersonalBaselineEngine.median(respiratoryHistory),
-            respRateSD: respiratorySD,
-            bodyTempDelta: temperatureDelta,
-            sleepScoreLastNight: sleep.value,
-            strainScoreToday: strain.value,
-            isWithinWorkoutWindow: isInsideWorkoutRecoveryWindow(
-                snapshot: snapshot,
-                asOf: asOf
-            ),
-            longTermQuietHRMedian: longTermBaselines?.baselines[.restingHeartRate]?.threeYearMedian
-        ))
-
-        let respiratoryRateZ: Double? = {
-            guard let current = snapshot.respiratoryRate,
-                  let baseline = PersonalBaselineEngine.median(respiratoryHistory),
-                  let respiratorySD else { return nil }
-            return (current - baseline) / respiratorySD
-        }()
-        let energy = EnergyBankEngine().calculate(from: EnergyBankInput(
-            asOf: asOf,
-            recoveryScore: recovery.value,
-            sleepScore: sleep.value,
-            strainScore: strain.value,
-            stressIndex: physiologicalStress.value,
-            hrvToday: snapshot.hrvAverage,
-            hrvBaseline: PersonalBaselineEngine.median(hrvHistory),
-            rhrToday: snapshot.restingHeartRate,
-            rhrBaseline: PersonalBaselineEngine.median(rhrHistory),
-            sleepHours: snapshot.sleepHours,
-            strainHistory: dailyLoadHistory,
-            trainingLoadHistory: dailyLoadObservations,
-            todayLoad: strain.components["daily_load"],
-            todayLoadObservation: todayLoadObservation(
-                for: snapshot,
-                dailyLoad: strain.components["daily_load"],
-                asOf: asOf
-            ),
-            bodyTempDelta: temperatureDelta,
-            hoursSinceWake: hoursSinceWake(snapshot: snapshot, asOf: asOf),
-            respiratoryRateZ: respiratoryRateZ,
-            SpO2: snapshot.oxygenSaturation,
-            mindfulMinutes: nil,
-            napMinutes: nil,
-            trainingLoadStatus: strain.trainingLoadStatus,
-            recoveryConfidence: recovery.confidence,
-            sleepConfidence: sleep.confidence
-        ))
-
         return ScoredHealthEvidence(
-            sleep: sleep,
-            recovery: recovery,
-            strain: strain,
-            physiologicalStress: physiologicalStress,
-            energy: energy
+            sleep: mapDomainMetric(domainResult.sleep),
+            recovery: mapDomainMetric(domainResult.recovery),
+            strain: mapDomainMetric(domainResult.strain),
+            physiologicalStress: mapDomainMetric(domainResult.physiologicalStress),
+            energy: mapDomainMetric(domainResult.energy)
         )
+    }
+
+    private func mapDomainMetric(_ value: BodySeekDomain.MetricResult) -> MetricResult {
+        DomainMetricAdapter.metric(value)
     }
 
     private func evaluationDate(for snapshot: DailyHealthSnapshot) -> Date {
@@ -666,140 +534,4 @@ final class DailyHealthComputation {
         )
     }
 
-    private func continuousDailyLoadGrid(
-        for snapshot: DailyHealthSnapshot,
-        from history: [DailyHealthSnapshot],
-        maxDays: Int = 42
-    ) -> (grid: [DailyLoadObservation], validDays: Int) {
-        let dayStart = calendar.startOfDay(for: snapshot.date)
-        var loadsByDay: [Date: Double] = [:]
-        var earliestDate: Date?
-
-        for item in history {
-            let itemDay = calendar.startOfDay(for: item.date)
-            if itemDay < dayStart {
-                if earliestDate == nil || itemDay < earliestDate! {
-                    earliestDate = itemDay
-                }
-                // Older snapshots may contain a fabricated zero from a day
-                // with no activity inputs. Only preserve zero when the original
-                // snapshot also contains an activity observation.
-                if let load = item.dailyLoad, load != 0 || hasActivityEvidence(in: item) {
-                    loadsByDay[itemDay] = max(loadsByDay[itemDay] ?? 0.0, load)
-                }
-            }
-        }
-
-        guard let earliest = earliestDate else {
-            return ([], 0)
-        }
-
-        let totalDays = min(maxDays, max(1, calendar.dateComponents([.day], from: earliest, to: dayStart).day ?? 1))
-
-        var grid: [DailyLoadObservation] = []
-        var validDays = 0
-        grid.reserveCapacity(totalDays)
-
-        for offset in 1...totalDays {
-            guard let targetDate = calendar.date(byAdding: .day, value: -offset, to: dayStart) else { break }
-            if let load = loadsByDay[targetDate] {
-                grid.append(DailyLoadObservation(
-                    date: targetDate,
-                    value: load,
-                    availability: load == 0 ? .knownZero : .observed,
-                    observedWindow: DateInterval(start: targetDate, duration: 24 * 60 * 60)
-                ))
-                if offset <= 28 {
-                    validDays += 1
-                }
-            } else {
-                // Gap day keeps its calendar position for decay but is not a
-                // measured zero and does not increase valid observed days.
-                grid.append(DailyLoadObservation(
-                    date: targetDate,
-                    value: nil,
-                    availability: .missing,
-                    reason: "缺少该日负荷覆盖",
-                    observedWindow: DateInterval(start: targetDate, duration: 24 * 60 * 60)
-                ))
-            }
-        }
-
-        return (grid, validDays)
-    }
-
-    private func hasActivityEvidence(in snapshot: DailyHealthSnapshot) -> Bool {
-        !snapshot.workouts.isEmpty
-            || snapshot.activeCalories != nil
-            || snapshot.activeMinutes != nil
-            || snapshot.workoutDuration != nil
-            || snapshot.steps != nil
-    }
-
-    private func todayLoadObservation(
-        for snapshot: DailyHealthSnapshot,
-        dailyLoad: Double?,
-        asOf: Date
-    ) -> DailyLoadObservation {
-        let day = calendar.startOfDay(for: asOf)
-        guard hasActivityEvidence(in: snapshot) else {
-            return DailyLoadObservation(
-                date: day,
-                value: nil,
-                availability: .missing,
-                reason: "今日没有训练或活动覆盖证据"
-            )
-        }
-
-        let value = dailyLoad ?? 0.0
-        return DailyLoadObservation(
-            date: day,
-            value: value,
-            availability: value == 0 ? .knownZero : .observed,
-            reason: dailyLoad == nil ? "今日活动已覆盖，但负荷尚未计算" : nil
-        )
-    }
-
-    private func personalBaselineHistory(
-        for snapshot: DailyHealthSnapshot,
-        from history: [DailyHealthSnapshot]
-    ) -> [DailyHealthSnapshot] {
-        let dayStart = calendar.startOfDay(for: snapshot.date)
-        let earliest = calendar.date(byAdding: .day, value: -42, to: dayStart) ?? .distantPast
-        return history
-            .filter {
-                let date = calendar.startOfDay(for: $0.date)
-                return date >= earliest && date < dayStart
-            }
-            .sorted { $0.date > $1.date }
-    }
-
-    private func wristTemperatureDelta(
-        current: Double?,
-        history: [DailyHealthSnapshot]
-    ) -> Double? {
-        guard let current else { return nil }
-        let samples = history.compactMap(\.wristTemperature)
-        guard samples.count >= 5,
-              let baseline = PersonalBaselineEngine.median(samples) else { return nil }
-        return current - baseline
-    }
-
-    private func isInsideWorkoutRecoveryWindow(
-        snapshot: DailyHealthSnapshot,
-        asOf: Date
-    ) -> Bool {
-        guard calendar.isDate(snapshot.date, inSameDayAs: asOf) else { return false }
-        return snapshot.workouts.contains { workout in
-            asOf >= workout.start && asOf <= workout.end.addingTimeInterval(90 * 60)
-        }
-    }
-
-    private func hoursSinceWake(
-        snapshot: DailyHealthSnapshot,
-        asOf: Date
-    ) -> Double? {
-        guard let wakeTime = snapshot.wakeTime, asOf >= wakeTime else { return nil }
-        return max(0, min(24, asOf.timeIntervalSince(wakeTime) / 3_600))
-    }
 }

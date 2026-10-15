@@ -43,13 +43,9 @@ final class MorningBriefScheduler: ObservableObject {
         
         // 2. Check if a morning brief already exists for today's calendar day (unless forced)
         if !force {
-            let descriptor = FetchDescriptor<AIReportRecord>(
-                predicate: #Predicate<AIReportRecord> { $0.type == "morning_brief" },
-                sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
-            )
-            
             do {
-                let reports = try modelContext.fetch(descriptor)
+                let reports = try SwiftDataAIReportRepository(modelContext: modelContext)
+                    .recent(type: "morning_brief", limit: 1)
                 if let latest = reports.first {
                     if Calendar.current.isDateInToday(latest.createdAt) {
                         logger.info("Morning brief already generated today at \(latest.createdAt). Skipping.")
@@ -68,10 +64,8 @@ final class MorningBriefScheduler: ObservableObject {
                 for: Date(),
                 calendar: Calendar.current
             )
-            let todayDescriptor = FetchDescriptor<DailyHealthSummaryRecord>(
-                predicate: #Predicate<DailyHealthSummaryRecord> { $0.dayIdentifier == todayIdentifier }
-            )
-            guard let todayRecord = (try? modelContext.fetch(todayDescriptor))?.first else {
+            guard let todayRecord = try? SwiftDataDailyHealthSummaryRepository(modelContext: modelContext)
+                .fetchRecord(dayIdentifier: todayIdentifier) else {
                 logger.warning("Today's health snapshot is not yet synced. Skipping morning brief.")
                 return
             }

@@ -10,8 +10,8 @@ struct StrengthWorkoutDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var dashboardVM: DashboardViewModel
-
-    @Query(sort: \StrengthWorkoutRecord.startedAt, order: .reverse) private var allWorkouts: [StrengthWorkoutRecord]
+    @ObservedObject private var appState = VelaAppState.shared
+    @State private var allWorkouts: [StrengthWorkoutRecord] = []
     let workout: StrengthWorkoutRecord
 
     @State private var selectedSet: StrengthSetDetail?
@@ -52,6 +52,10 @@ struct StrengthWorkoutDetailView: View {
         .navigationTitle("力量训练详情")
         .navigationBarTitleDisplayMode(.inline)
         .velaRhythmDetailChrome()
+        .task { loadWorkoutHistory() }
+        .onChange(of: appState.localDataRevision) { _, _ in
+            loadWorkoutHistory()
+        }
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 12) {
@@ -92,6 +96,11 @@ struct StrengthWorkoutDetailView: View {
         } message: {
             Text("删除后，该训练对应的组次、容量和计算负荷都将被移除。")
         }
+    }
+
+    private func loadWorkoutHistory() {
+        allWorkouts = (try? WorkoutHistoryRepository(modelContext: modelContext)
+            .fetchStrengthWorkoutsSortedByStart(newestFirst: true)) ?? []
     }
 
     private func deleteWorkout() {

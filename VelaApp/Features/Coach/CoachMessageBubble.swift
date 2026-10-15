@@ -397,10 +397,8 @@ struct ArtifactRendererView: View {
 
     @ViewBuilder
     private func trainingAdjustmentDiffCard(for record: CoachArtifactRecord) -> some View {
-        let activePlan = try? modelContext.fetch(
-            FetchDescriptor<TrainingPlanRecord>(predicate: #Predicate { $0.isActive })
-        ).first
-        let proposals = (try? modelContext.fetch(FetchDescriptor<TrainingPlanAdaptationRecord>())) ?? []
+        let activePlan = try? TrainingPlanRepository(modelContext: modelContext).fetchActivePlans().first
+        let proposals = (try? TrainingPlanAdaptationRepository(modelContext: modelContext).fetchAll()) ?? []
         let matchingProposal = proposals.first(where: {
             $0.id.uuidString == key ||
             $0.agentRunId == record.sourceContextHash ||
@@ -462,10 +460,7 @@ struct ArtifactRendererView: View {
     
     private func loadRecord() {
         guard let id = UUID(uuidString: key) else { return }
-        let descriptor = FetchDescriptor<CoachArtifactRecord>(
-            predicate: #Predicate<CoachArtifactRecord> { $0.id == id }
-        )
-        if let record = try? modelContext.fetch(descriptor).first {
+        if let record = (try? CoachArtifactRepository(modelContext: modelContext).fetchArtifact(id: id)) ?? nil {
             self.artifactRecord = record
         }
     }
@@ -478,8 +473,8 @@ struct ArtifactRendererView: View {
             VelaAppState.shared.routeToRecoveryDetail()
         } else if action.type == "accept_training_adjustment" || action.type == "accept_adaptation" {
             if let record = artifactRecord {
-                let activePlan = try? modelContext.fetch(FetchDescriptor<TrainingPlanRecord>(predicate: #Predicate { $0.isActive })).first
-                let proposals = (try? modelContext.fetch(FetchDescriptor<TrainingPlanAdaptationRecord>())) ?? []
+                let activePlan = try? TrainingPlanRepository(modelContext: modelContext).fetchActivePlans().first
+                let proposals = (try? TrainingPlanAdaptationRepository(modelContext: modelContext).fetchAll()) ?? []
                 let matchingProposal = proposals.first(where: {
                     $0.id.uuidString == key ||
                     $0.agentRunId == record.sourceContextHash ||
@@ -498,7 +493,7 @@ struct ArtifactRendererView: View {
             }
         } else if action.type == "reject_training_adjustment" || action.type == "reject_adaptation" {
             if let record = artifactRecord {
-                let proposals = (try? modelContext.fetch(FetchDescriptor<TrainingPlanAdaptationRecord>())) ?? []
+                let proposals = (try? TrainingPlanAdaptationRepository(modelContext: modelContext).fetchAll()) ?? []
                 let matchingProposal = proposals.first(where: {
                     $0.id.uuidString == key ||
                     $0.agentRunId == record.sourceContextHash

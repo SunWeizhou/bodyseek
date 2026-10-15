@@ -562,25 +562,12 @@ struct VelaCoachView: View {
     @State private var handledRouteRevision = -1
     @State private var dataCoverageSummary = DataCoverageSummaryModel.unknown
 
-    @Query(
-        filter: #Predicate<JournalEntryRecord> { _ in true },
-        sort: \JournalEntryRecord.createdAt, order: .reverse
-    ) private var journalEntries: [JournalEntryRecord]
+    @State private var journalEntries: [JournalEntryRecord] = []
+    @State private var savedReports: [AIReportRecord] = []
 
-    @Query(
-        filter: #Predicate<AIReportRecord> { _ in true },
-        sort: \AIReportRecord.createdAt, order: .reverse
-    ) private var savedReports: [AIReportRecord]
-
-    @Query(
-        filter: #Predicate<MemoryEventRecord> { $0.status == "proposed" },
-        sort: \MemoryEventRecord.createdAt, order: .reverse
-    ) private var pendingMemoryProposals: [MemoryEventRecord]
-
-    @Query(sort: \DailyOperatingPlanRecord.generatedAt, order: .reverse)
-    private var operatingPlans: [DailyOperatingPlanRecord]
-    @Query(sort: \AgentArtifactRecord.createdAt, order: .reverse)
-    private var agentArtifacts: [AgentArtifactRecord]
+    @State private var todayOperatingPlanRecord: DailyOperatingPlanRecord?
+    @State private var pendingMemoryProposals: [MemoryEventRecord] = []
+    @State private var agentArtifacts: [AgentArtifactRecord] = []
 
     private var dashboard: DashboardSummary { dashboardVM.dashboard }
     private var headerTitle: String {
@@ -633,8 +620,19 @@ struct VelaCoachView: View {
             .joined(separator: " · ")
     }
     private var todayOperatingPlan: DailyOperatingPlanRecord? {
+        todayOperatingPlanRecord
+    }
+
+    private func loadTodayOperatingPlan() {
         let identifier = DailyHealthSummaryRecord.dayIdentifier(for: dashboardVM.selectedDate)
-        return operatingPlans.first(where: { $0.dayIdentifier == identifier })
+        todayOperatingPlanRecord = (try? DailyOperatingPlanRepository(modelContext: modelContext)
+            .fetchLatest(dayIdentifier: identifier)) ?? nil
+        journalEntries = (try? SwiftDataJournalRepository(modelContext: modelContext)
+            .fetchAllSortedByCreatedAt(newestFirst: true)) ?? []
+        savedReports = (try? SwiftDataAIReportRepository(modelContext: modelContext)
+            .fetchAllSortedByCreatedAt()) ?? []
+        pendingMemoryProposals = MemoryLedger(modelContext: modelContext).pendingProposals()
+        agentArtifacts = (try? AgentArtifactRepository(modelContext: modelContext).fetchAllSortedByCreatedAt()) ?? []
     }
 
     init(
@@ -661,6 +659,7 @@ struct VelaCoachView: View {
                             if vm.messages.isEmpty {
                                 CoachWelcomeWorkspace(
                                     vm: vm,
+                                    dashboard: dashboard,
                                     todayOperatingPlan: todayOperatingPlan,
                                     pendingMemoryProposals: pendingMemoryProposals,
                                     agentArtifacts: agentArtifacts,
@@ -784,6 +783,13 @@ struct VelaCoachView: View {
             try? DailyLogService.refresh(dashboard: dashboard)
             await dashboardVM.refresh(modelContext: modelContext)
             await loadDataCoverageSummary()
+            loadTodayOperatingPlan()
+        }
+        .onChange(of: appState.localDataRevision) { _, _ in
+            loadTodayOperatingPlan()
+        }
+        .onChange(of: dashboardVM.selectedDate) { _, _ in
+            loadTodayOperatingPlan()
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { note in
             _ = (note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect)?.height ?? 0

@@ -1,13 +1,16 @@
 # BodySeek ARCH-08 / PR8 Recovery replay evidence
 
-Status: app-target oracle evidence; package parity remains explicitly blocked.
-No scoring formula or algorithm-version change is included in this slice.
+Status: RecoveryScoreEngine and the baseline math it calls now live in
+`BodySeekDomain`. The app `RecoveryScoreEngine` maps the domain result back to
+the app `MetricResult`. `BodySeekDomain.DailyHealthComputation` still leaves
+the recovery slot unavailable; production scoring remains the app
+`DailyHealthComputation`. No scoring formula or algorithm-version change is
+included in this slice.
 
-`RecoveryScoreEngine` and `RecoveryScoreInput` currently live under
-`VelaApp/Scoring/Recovery`. `BodySeekDomain` intentionally reports Recovery as
-unavailable until an independently reviewed adapter migration is scheduled.
-This harness therefore freezes the current app oracle rather than duplicating
-the formula in the package.
+The replay evaluates at `2026-07-31T12:00:00Z` using the same inputs as
+`docs/baselines/recovery-replay-fixtures.json`. Package assertions are
+`BodySeekDomainTests/RecoveryReplaySensitivityTests`. App adapter assertions
+remain `VelaAppTests/RecoveryReplaySensitivityTests`.
 
 ## Deterministic baseline
 
@@ -17,8 +20,9 @@ against baseline 60, sleep 77.43, and yesterday's strain 52. The canonical
 fingerprint is recorded in `docs/baselines/recovery-replay-fixtures.json`.
 
 The oracle returns `68.8497077483`, confidence `high`, algorithm version
-`recovery.v2.0.0`, and no missing inputs. The executable assertions live in
-`VelaAppTests/RecoveryReplaySensitivityTests.swift`.
+`recovery.v2.0.0`, and no missing inputs. Package assertions live in
+`BodySeekDomainTests/RecoveryReplaySensitivityTests.swift`. App adapter
+assertions live in `VelaAppTests/RecoveryReplaySensitivityTests.swift`.
 
 ## Sensitivity evidence
 

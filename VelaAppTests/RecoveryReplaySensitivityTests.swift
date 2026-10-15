@@ -2,11 +2,10 @@ import Foundation
 import XCTest
 @testable import Vela
 
-/// ARCH-08 evidence for Recovery while its engine remains app-target only.
-///
-/// These tests deliberately call the existing Vela oracle directly. They are
-/// replay evidence, not a portable BodySeekDomain implementation, and must
-/// not change the Recovery formula.
+/// Production recovery scores pass through the app adapter into
+/// `BodySeekDomain.RecoveryScoreEngine`. These assertions stay on the app
+/// type so the mapped `MetricResult` still matches the replay fixture.
+/// The formula itself is not changed here.
 final class RecoveryReplaySensitivityTests: XCTestCase {
     private let asOf: Date = ISO8601DateFormatter().date(from: "2026-07-31T12:00:00Z")!
 

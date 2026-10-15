@@ -125,7 +125,7 @@ struct TrainingResponseInsightService {
         workouts: [StrengthWorkoutRecord],
         calendar: Calendar = .current
     ) throws -> Int {
-        let existing = try modelContext.fetch(FetchDescriptor<TrainingResponseRecord>())
+        let existing = try TrainingResponseRepository(modelContext: modelContext).fetchAll()
         let existingByWorkout = Dictionary(
             existing.map { ($0.workoutId, $0) },
             uniquingKeysWith: { first, _ in first }
@@ -456,10 +456,8 @@ struct TrainingResponseInsightService {
         endingAt endDate: Date = Date(),
         calendar: Calendar = .current
     ) throws -> AIReportRecord? {
-        let reports = try modelContext.fetch(FetchDescriptor<AIReportRecord>(
-            predicate: #Predicate<AIReportRecord> { $0.type == "weekly_body_report" },
-            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
-        ))
+        let reports = try SwiftDataAIReportRepository(modelContext: modelContext)
+            .recent(type: "weekly_body_report", limit: 1)
         if let latest = reports.first,
            calendar.isDate(latest.createdAt, equalTo: endDate, toGranularity: .weekOfYear) {
             return nil
@@ -629,10 +627,8 @@ struct TrainingResponseInsightService {
         endingAt endDate: Date = Date(),
         calendar: Calendar = .current
     ) throws -> AIReportRecord? {
-        let reports = try modelContext.fetch(FetchDescriptor<AIReportRecord>(
-            predicate: #Predicate<AIReportRecord> { $0.type == "monthly_body_report" },
-            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
-        ))
+        let reports = try SwiftDataAIReportRepository(modelContext: modelContext)
+            .recent(type: "monthly_body_report", limit: 1)
         if let latest = reports.first,
            calendar.isDate(latest.createdAt, equalTo: endDate, toGranularity: .month) {
             return nil
@@ -666,9 +662,7 @@ struct TrainingResponseInsightService {
         modelContext: ModelContext,
         responses: [TrainingResponseRecord]
     ) throws -> Int {
-        let existing = try modelContext.fetch(FetchDescriptor<MemoryEventRecord>(
-            predicate: #Predicate<MemoryEventRecord> { $0.source == "training_response_model" }
-        ))
+        let existing = try MemoryLedger(modelContext: modelContext).fetch(source: "training_response_model")
         let grouped = Dictionary(grouping: responses.flatMap { response in
             response.primaryMuscleGroups.map { ($0, response) }
         }, by: \.0)

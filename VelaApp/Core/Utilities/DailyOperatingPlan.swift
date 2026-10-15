@@ -287,12 +287,8 @@ enum DailyOperatingPlanEditor {
 
         let artifactType = AgentArtifactType.dailyPlan.rawValue
         let contextHash = record.bodyStateHash
-        let descriptor = FetchDescriptor<AgentArtifactRecord>(
-            predicate: #Predicate<AgentArtifactRecord> {
-                $0.type == artifactType && $0.sourceContextHash == contextHash
-            }
-        )
-        if let artifact = try modelContext.fetch(descriptor).first {
+        if let artifact = try AgentArtifactRepository(modelContext: modelContext)
+            .fetch(type: artifactType, sourceContextHash: contextHash).first {
             transaction.capture(artifact)
             artifact.title = record.title
             artifact.payloadJSON = json
@@ -323,12 +319,8 @@ enum DailyOperatingPlanEditor {
         try DailyOperatingPlanWriteTransaction.run(context: modelContext, saveChanges: saveChanges) { transaction in
             let artifactType = AgentArtifactType.dailyPlan.rawValue
             let previousHash = record.bodyStateHash
-            let descriptor = FetchDescriptor<AgentArtifactRecord>(
-                predicate: #Predicate<AgentArtifactRecord> {
-                    $0.type == artifactType && $0.sourceContextHash == previousHash
-                }
-            )
-            let previousArtifact = try modelContext.fetch(descriptor).first
+            let previousArtifact = try AgentArtifactRepository(modelContext: modelContext)
+                .fetch(type: artifactType, sourceContextHash: previousHash).first
             transaction.capture(record)
             if let previousArtifact { transaction.capture(previousArtifact) }
             record.bodyStateHash = bodyStateHash
@@ -804,7 +796,7 @@ enum DailyOperatingPlanCoordinator {
             // 算法打通（批次 C）：计划置信度与今日页 readiness 吃同一份反馈校准
             // （DecisionFeedbackCalibrator，rest↔recover 已归一）。每次 upsert 从
             // kernel 原始置信度重新校准，不会因历史记录累积缩放。
-            let feedbackRecords = (try? modelContext.fetch(FetchDescriptor<DailyDecisionFeedbackRecord>())) ?? []
+            let feedbackRecords = (try? DailyDecisionFeedbackRepository(modelContext: modelContext).fetchAll()) ?? []
             let storedConfidence = feedbackAsOf.map { asOf in
                 DecisionFeedbackCalibrator.calibratedPlanConfidence(
                     base: decision.confidence,
@@ -814,11 +806,9 @@ enum DailyOperatingPlanCoordinator {
                     calendar: calendar
                 )
             } ?? decision.confidence
-            let descriptor = FetchDescriptor<DailyOperatingPlanRecord>(
-                predicate: #Predicate<DailyOperatingPlanRecord> { $0.dayIdentifier == dayIdentifier }
-            )
             let record: DailyOperatingPlanRecord
-            if let existing = try modelContext.fetch(descriptor).first {
+            if let existing = try DailyOperatingPlanRepository(modelContext: modelContext)
+                .fetchLatest(dayIdentifier: dayIdentifier) {
                 record = existing
                 transaction.capture(record)
                 record.bodyStateHash = bodyState.hash
@@ -849,12 +839,8 @@ enum DailyOperatingPlanCoordinator {
 
             let artifactType = AgentArtifactType.dailyPlan.rawValue
             let sourceContextHash = bodyState.hash
-            let artifactDescriptor = FetchDescriptor<AgentArtifactRecord>(
-                predicate: #Predicate<AgentArtifactRecord> {
-                    $0.type == artifactType && $0.sourceContextHash == sourceContextHash
-                }
-            )
-            if let artifact = try modelContext.fetch(artifactDescriptor).first {
+            if let artifact = try AgentArtifactRepository(modelContext: modelContext)
+                .fetch(type: artifactType, sourceContextHash: sourceContextHash).first {
                 transaction.capture(artifact)
                 artifact.title = record.title
                 artifact.payloadJSON = payloadJSON

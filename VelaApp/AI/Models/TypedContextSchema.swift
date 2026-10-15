@@ -1,4 +1,5 @@
 import Foundation
+import BodySeekDomain
 
 // MARK: - Network outbound consent
 
@@ -124,13 +125,7 @@ extension CoachOutboundDataPolicy {
 
 // MARK: - Typed Metric Value
 
-public enum DataFreshness: String, Codable, Hashable, CaseIterable, Sendable {
-    case live
-    case today
-    case recent
-    case stale
-    case missing
-}
+public typealias DataFreshness = BodySeekDomain.DataFreshness
 
 public enum DataConfidence: String, Codable, Hashable, CaseIterable, Sendable {
     case high

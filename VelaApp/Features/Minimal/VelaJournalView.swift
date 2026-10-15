@@ -5,9 +5,9 @@ struct VelaJournalView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var dashboardVM: DashboardViewModel
     @ObservedObject private var appState = VelaAppState.shared
-    @Query(sort: \PersonalExperimentRecord.createdAt, order: .reverse) private var personalExperiments: [PersonalExperimentRecord]
-    @Query(sort: \ExperimentCheckInRecord.date, order: .reverse) private var experimentCheckIns: [ExperimentCheckInRecord]
-    @Query(sort: \DailyHealthSummaryRecord.date, order: .reverse) private var experimentHealthSummaries: [DailyHealthSummaryRecord]
+    @State private var personalExperiments: [PersonalExperimentRecord] = []
+    @State private var experimentCheckIns: [ExperimentCheckInRecord] = []
+    @State private var experimentHealthSummaries: [DailyHealthSummaryRecord] = []
 
     private static let lookbackDays = 42
     private var lookbackStart: Date {
@@ -315,11 +315,16 @@ struct VelaJournalView: View {
         let startLimit = calendar.startOfDay(for: calendar.date(byAdding: .day, value: -Self.lookbackDays, to: startOfDayRef) ?? startOfDayRef)
         let endLimit = calendar.date(byAdding: .day, value: 1, to: startOfDayRef) ?? startOfDayRef
         
-        let journalDesc = FetchDescriptor<JournalEntryRecord>(
-            predicate: #Predicate<JournalEntryRecord> { $0.createdAt >= startLimit && $0.createdAt <= endLimit },
-            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
-        )
-        self.entries = (try? modelContext.fetch(journalDesc)) ?? []
+        self.entries = (try? SwiftDataJournalRepository(modelContext: modelContext).fetchEntries(
+            from: startLimit,
+            through: endLimit
+        )) ?? []
+        personalExperiments = (try? PersonalExperimentRepository(modelContext: modelContext)
+            .fetchAllSortedByCreatedAt()) ?? []
+        experimentCheckIns = (try? ExperimentCheckInRepository(modelContext: modelContext)
+            .fetchAllSortedByDate()) ?? []
+        experimentHealthSummaries = (try? SwiftDataDailyHealthSummaryRepository(modelContext: modelContext)
+            .fetchAllSortedByDate(newestFirst: true)) ?? []
     }
 
     private func loadRealJournalData() {
@@ -710,10 +715,8 @@ struct VelaJournalView: View {
         let isHabitOrMood = tags.contains(where: { habitTags.contains($0) })
         
         if isHabitOrMood {
-            let descriptor = FetchDescriptor<JournalEntryRecord>(
-                predicate: #Predicate<JournalEntryRecord> { $0.createdAt >= targetStart && $0.createdAt < targetEnd }
-            )
-            if let existingRecords = try? modelContext.fetch(descriptor) {
+            if let existingRecords = try? SwiftDataJournalRepository(modelContext: modelContext)
+                .fetchEntries(from: targetStart, until: targetEnd) {
                 if let matched = existingRecords.first(where: { rec in
                     rec.tags.contains(where: { tags.contains($0) })
                 }) {

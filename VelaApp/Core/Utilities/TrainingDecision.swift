@@ -46,6 +46,18 @@ enum TrainingDecisionFallback {
     }
 }
 
+enum PlanTrainingDecisionResolver {
+    /// Dashboard assembly is the only place that calculates a training decision.
+    /// While that result is still loading, the plan page can show the decision
+    /// already stored with today's operating plan.
+    static func resolve(
+        published: DailyTrainingDecision?,
+        persisted: DailyTrainingDecision?
+    ) -> DailyTrainingDecision? {
+        published ?? persisted
+    }
+}
+
 struct DecisionFeedbackCalibration: Codable, Hashable, Sendable {
     var completedFeedbackCount: Int
     var volumeAdjustmentMultiplier: Double // e.g. +0.05 or -0.05

@@ -322,7 +322,7 @@ final class DailySummaryUseCase {
         // 后面 BodyModelBuilder 复用同一份，避免重复全表 fetch。
         let longTermReport: LongTermBaselineReport
         if let modelContext {
-            allDailySummaryRecords = (try? modelContext.fetch(FetchDescriptor<DailyHealthSummaryRecord>())) ?? []
+            allDailySummaryRecords = (try? SwiftDataDailyHealthSummaryRepository(modelContext: modelContext).fetchAll()) ?? []
             allDailySummarySnapshots = allDailySummaryRecords.map { $0.toSnapshot() }
             // 长线基准是纯统计计算（审计 H2）：值类型 points 在 MainActor 上准备好后
             // 移出主线程执行，视图与交互不被 1100 天聚合阻塞。
@@ -352,7 +352,7 @@ final class DailySummaryUseCase {
         // 现在过滤 + upsert + 合并都用同一份过滤后列表。
         let workouts: [WorkoutSummary]
         if let modelContext {
-            let deletedRecords = (try? modelContext.fetch(FetchDescriptor<DeletedWorkoutRecord>())) ?? []
+            let deletedRecords = (try? DeletedWorkoutRepository(modelContext: modelContext).fetchAll()) ?? []
             let blacklistedIDs = Set(deletedRecords.map(\.id))
             let filteredWorkouts = rawHKWorkouts.filter { !blacklistedIDs.contains($0.id.uuidString) }
             try? WorkoutAggregationService.shared.upsertHealthKitWorkoutEvents(
@@ -517,80 +517,62 @@ final class DailySummaryUseCase {
         var bodyModelState: BodyModelState? = nil
         var trainingPreference: TrainingPreferenceProfile? = nil
         if let modelContext {
-            let activePlanFetch = FetchDescriptor<TrainingPlanRecord>(
-                predicate: #Predicate<TrainingPlanRecord> { $0.isActive }
-            )
-            activePlan = (try? modelContext.fetch(activePlanFetch))?.first
+            activePlan = (try? TrainingPlanRepository(modelContext: modelContext).fetchActivePlans())?.first
 
             // TrainingDecisionKernel 需要与训练页相同的计划日解析事实：
             // 取计划开始以来的全部事件（不含未来），让已完成日/逾期日逻辑一致。
             if let activePlan {
                 let selectedDayEnd = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: now)) ?? now
                 let planEventStart = min(activePlan.startDate, selectedDayEnd)
-                let planEventFetch = FetchDescriptor<WorkoutEventRecord>(
-                    predicate: #Predicate<WorkoutEventRecord> {
-                        $0.startedAt >= planEventStart && $0.startedAt < selectedDayEnd
-                    },
-                    sortBy: [SortDescriptor(\.startedAt, order: .reverse)]
-                )
-                planResolutionEvents = (try? modelContext.fetch(planEventFetch)) ?? []
+                planResolutionEvents = (try? WorkoutHistoryRepository(modelContext: modelContext).fetchWorkoutEvents(
+                    from: planEventStart,
+                    until: selectedDayEnd,
+                    newestFirst: true
+                )) ?? []
             }
 
             // BodyStateKernel 的近期活动证据始终使用真实近 48h 事件；
             // 计划解析事件和近期证据分开，避免有活跃计划时丢失计划开始前的近期活动。
             let recentEventStart = calendar.date(byAdding: .hour, value: -48, to: now) ?? now
-            var recentEventFetch = FetchDescriptor<WorkoutEventRecord>(
-                predicate: #Predicate<WorkoutEventRecord> {
-                    $0.startedAt >= recentEventStart && $0.startedAt <= now
-                },
-                sortBy: [SortDescriptor(\.startedAt, order: .reverse)]
-            )
-            recentEventFetch.fetchLimit = 100
-            recentWorkoutEvents = (try? modelContext.fetch(recentEventFetch)) ?? []
+            recentWorkoutEvents = (try? WorkoutHistoryRepository(modelContext: modelContext).fetchWorkoutEvents(
+                from: recentEventStart,
+                through: now,
+                limit: 100
+            )) ?? []
 
             let dayIdentifier = DailyHealthSummaryRecord.dayIdentifier(for: now, calendar: calendar)
-            let summaryFetch = FetchDescriptor<DailyHealthSummaryRecord>(
-                predicate: #Predicate<DailyHealthSummaryRecord> { $0.dayIdentifier == dayIdentifier }
-            )
-            currentDailySummary = (try? modelContext.fetch(summaryFetch))?.first
+            currentDailySummary = try? SwiftDataDailyHealthSummaryRepository(modelContext: modelContext)
+                .fetchRecord(dayIdentifier: dayIdentifier)
 
             let recentJournalStart = calendar.date(byAdding: .hour, value: -36, to: now) ?? now
-            let journalFetch = FetchDescriptor<JournalEntryRecord>(
-                predicate: #Predicate<JournalEntryRecord> { $0.createdAt >= recentJournalStart && $0.createdAt <= now },
-                sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
-            )
-            recentJournalEntries = (try? modelContext.fetch(journalFetch)) ?? []
+            recentJournalEntries = (try? SwiftDataJournalRepository(modelContext: modelContext).fetchEntries(
+                from: recentJournalStart,
+                through: now
+            )) ?? []
 
             let recentStrengthStart = calendar.date(byAdding: .day, value: -28, to: now) ?? now
-            let strengthFetch = FetchDescriptor<StrengthWorkoutRecord>(
-                predicate: #Predicate<StrengthWorkoutRecord> { $0.startedAt >= recentStrengthStart && $0.startedAt <= now },
-                sortBy: [SortDescriptor(\.startedAt, order: .reverse)]
-            )
-            recentStrengthWorkouts = (try? modelContext.fetch(strengthFetch)) ?? []
+            recentStrengthWorkouts = (try? WorkoutHistoryRepository(modelContext: modelContext).fetchStrengthWorkouts(
+                from: recentStrengthStart,
+                through: now
+            )) ?? []
 
             let responseStart = calendar.date(byAdding: .day, value: -28, to: now) ?? now
-            let responseFetch = FetchDescriptor<TrainingResponseRecord>(
-                predicate: #Predicate<TrainingResponseRecord> { $0.date >= responseStart && $0.date <= now },
-                sortBy: [SortDescriptor(\.date, order: .reverse)]
-            )
-            recentTrainingResponses = (try? modelContext.fetch(responseFetch)) ?? []
+            recentTrainingResponses = (try? TrainingResponseRepository(modelContext: modelContext)
+                .fetchResponses(from: responseStart, through: now)) ?? []
 
             let foodRange = DateRangeQuery.today(containing: now, calendar: calendar)
             let foodStart = foodRange.start
             let foodEnd = foodRange.end
-            let foodFetch = FetchDescriptor<FoodLogRecord>(
-                predicate: #Predicate<FoodLogRecord> { $0.createdAt >= foodStart && $0.createdAt < foodEnd },
-                sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
-            )
-            todayFoodLogs = (try? modelContext.fetch(foodFetch)) ?? []
+            todayFoodLogs = (try? FoodLogRepository(modelContext: modelContext)
+                .fetchLogs(from: foodStart, until: foodEnd)) ?? []
 
             // 联通专项批次 2：身体模型状态挂进 dashboard（主流程一句话洞察与
             // 证据页共用；BodyModelBuilder 是 O(n) 轻量计算，全量记录与长线报告
             // 已在上面取过同款数据，此处只补训练/响应/手记全量）。
-            let allStrengthForModel = (try? modelContext.fetch(FetchDescriptor<StrengthWorkoutRecord>())) ?? []
-            let allResponsesForModel = (try? modelContext.fetch(FetchDescriptor<TrainingResponseRecord>())) ?? []
-            let allJournalsForModel = (try? modelContext.fetch(FetchDescriptor<JournalEntryRecord>())) ?? []
-            let onboardingForModel = (try? modelContext.fetch(FetchDescriptor<OnboardingState>()))?.first
+            let allStrengthForModel = (try? WorkoutHistoryRepository(modelContext: modelContext).fetchStrengthWorkouts()) ?? []
+            let allResponsesForModel = (try? TrainingResponseRepository(modelContext: modelContext).fetchAll()) ?? []
+            let allJournalsForModel = (try? SwiftDataJournalRepository(modelContext: modelContext).fetchAll()) ?? []
+            let onboardingForModel = (try? OnboardingRepository(modelContext: modelContext).fetchLatest()) ?? nil
             trainingPreference = onboardingForModel?.trainingPreference
             // 身体模型组装同样移出主线程（审计 H2）：先转值类型证据（Sendable），
             // Task.detached 中计算，不与 Live Object 跨并发域。
@@ -646,10 +628,8 @@ final class DailySummaryUseCase {
         var persistedTargetSessionTitle: String?
         var persistedOperatingPlanPayload: DailyOperatingPlanPayload?
         if let modelContext {
-            let opPlanDescriptor = FetchDescriptor<DailyOperatingPlanRecord>(
-                predicate: #Predicate<DailyOperatingPlanRecord> { $0.dayIdentifier == dayId }
-            )
-            if let existingPlan = (try? modelContext.fetch(opPlanDescriptor))?.first {
+            if let existingPlan = try? DailyOperatingPlanRepository(modelContext: modelContext)
+                .fetchLatest(dayIdentifier: dayId) {
                 persistedDecision = existingPlan.trainingDecision
                 persistedBodyStateHash = existingPlan.bodyStateHash
                 persistedOperatingPlanPayload = existingPlan.operatingPlanPayload
@@ -1059,20 +1039,13 @@ final class DailySummaryUseCase {
         guard let record = records.last else { return nil }
         let source = Self.cachedSource(configVersion: record.configVersion)
         var dashboard = makeDashboardFromRecord(record, source: source)
-        // 缓存启动路径同样挂载三年长线基准：否则重启后长线修正/证据/身体模型
-        // 会静默退化为空（直到一次完整刷新）。
-        let allRecords = (try? modelContext.fetch(FetchDescriptor<DailyHealthSummaryRecord>())) ?? []
-        dashboard.longTermBaselines = LongTermBaselineEngine.compute(
-            points: allRecords.map(\.longTermBaselinePoint),
-            today: date,
-            calendar: calendar
-        )
+        let allRecords = (try? SwiftDataDailyHealthSummaryRepository(modelContext: modelContext).fetchAll()) ?? []
         // 缓存启动路径同样挂载身体模型：否则重启后的前 15 分钟 TTL 内，
         // 今日页/训练页的个人洞察会静默消失，与完整刷新口径不一致。
-        let allStrength = (try? modelContext.fetch(FetchDescriptor<StrengthWorkoutRecord>())) ?? []
-        let allResponses = (try? modelContext.fetch(FetchDescriptor<TrainingResponseRecord>())) ?? []
-        let allJournals = (try? modelContext.fetch(FetchDescriptor<JournalEntryRecord>())) ?? []
-        let onboarding = (try? modelContext.fetch(FetchDescriptor<OnboardingState>()))?.first
+        let allStrength = (try? WorkoutHistoryRepository(modelContext: modelContext).fetchStrengthWorkouts()) ?? []
+        let allResponses = (try? TrainingResponseRepository(modelContext: modelContext).fetchAll()) ?? []
+        let allJournals = (try? SwiftDataJournalRepository(modelContext: modelContext).fetchAll()) ?? []
+        let onboarding = (try? OnboardingRepository(modelContext: modelContext).fetchLatest()) ?? nil
         // 缓存启动路径的长线基准与身体模型组装一并移出主线程（审计 H2）：
         // MainActor 上只做 fetch + 值类型转换，Task.detached 内纯计算。
         let onboardingSeed = onboarding?.profileSeed

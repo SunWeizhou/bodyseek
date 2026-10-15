@@ -740,11 +740,20 @@ struct TrainingHeatmapWeek: Equatable {
 }
 
 /// 热力图数据构建（纯函数，可测试）：周一起始的 N 周网格。
+protocol TrainingActivityDay {
+    var date: Date { get }
+    var workoutCount: Int? { get }
+    var workoutDuration: Double? { get }
+}
+
+extension DailyHealthSummaryRecord: TrainingActivityDay {}
+extension DailyHealthSnapshot: TrainingActivityDay {}
+
 enum TrainingHeatmapData {
-    static func weeks(
+    static func weeks<Day: TrainingActivityDay>(
         endingAt: Date,
         weeks: Int = 5,
-        records: [DailyHealthSummaryRecord],
+        records: [Day],
         workouts: [StrengthWorkoutRecord],
         summaries: [WorkoutSummary] = [],
         calendar: Calendar = .current
@@ -785,7 +794,7 @@ enum TrainingHeatmapData {
                 namesByDay[day] = names
             }
         }
-        var recordsByDay: [Date: DailyHealthSummaryRecord] = [:]
+        var recordsByDay: [Date: Day] = [:]
         for record in records {
             recordsByDay[calendar.startOfDay(for: record.date)] = record
         }
@@ -795,7 +804,10 @@ enum TrainingHeatmapData {
         var day = firstDay
         for _ in 0..<(weeks * 7) {
             let isFuture = day > endDay
-            let tier = isFuture ? 0 : tier(for: recordsByDay[day])
+            let tier = isFuture ? 0 : Self.tier(
+                workoutCount: recordsByDay[day]?.workoutCount,
+                workoutDuration: recordsByDay[day]?.workoutDuration
+            )
             let groups = groupsByDay[day].map { Array($0) } ?? []
             let cardio = cardioByDay[day] ?? 0
             let names = namesByDay[day] ?? []
@@ -826,19 +838,42 @@ enum TrainingHeatmapData {
         return name.contains("strength") || name.contains("力量")
     }
 
-    /// 与 DEEP ANALYSIS 月热力图同源的强度分档规则。
-    static func tier(for record: DailyHealthSummaryRecord?) -> Int {
-        guard let record else { return 0 }
-        let count = record.workoutCount ?? 0
-        let duration = record.workoutDuration ?? 0
+    /// 周热力图和月热力图共用这一档。只看训练次数和时长。
+    static func tier(workoutCount: Int?, workoutDuration: Double?) -> Int {
+        let count = workoutCount ?? 0
+        let duration = workoutDuration ?? 0
         if count >= 3 { return 3 }
         if count == 2 { return 2 }
         if count == 1 { return 1 }
-        // 深度专项批次 1：分档只用训练计数/时长——此前 calories>400/150 的分档
-        // 用的是全天活动能耗，高步行量的休息日会被染成"中强度训练"。
         if duration > 45 { return 2 }
         if duration > 15 { return 1 }
         return 0
+    }
+
+    static func tier(for record: DailyHealthSummaryRecord?) -> Int {
+        guard let record else { return 0 }
+        return tier(workoutCount: record.workoutCount, workoutDuration: record.workoutDuration)
+    }
+
+    static func monthDayTiers(
+        snapshots: [DailyHealthSnapshot],
+        previousMonthStart: Date,
+        currentMonthStart: Date,
+        nextMonthStart: Date,
+        calendar: Calendar = .current
+    ) -> (previous: [Int: Int], current: [Int: Int]) {
+        var previous: [Int: Int] = [:]
+        var current: [Int: Int] = [:]
+        for snapshot in snapshots where snapshot.date >= previousMonthStart && snapshot.date < nextMonthStart {
+            let day = calendar.component(.day, from: snapshot.date)
+            let tier = tier(workoutCount: snapshot.workoutCount, workoutDuration: snapshot.workoutDuration)
+            if calendar.isDate(snapshot.date, equalTo: previousMonthStart, toGranularity: .month) {
+                previous[day] = tier
+            } else if calendar.isDate(snapshot.date, equalTo: currentMonthStart, toGranularity: .month) {
+                current[day] = tier
+            }
+        }
+        return (previous, current)
     }
 
     static func shortLabel(_ key: String) -> String {
@@ -1829,7 +1864,11 @@ struct TrainingStatusSection: View {
         context: String,
         color: Color
     ) -> some View {
-        NavigationLink(destination: VelaMetricDetailView(metric: metric)) {
+        NavigationLink(destination: VelaMetricDetailView(
+            metric: metric,
+            selectedDate: dashboardVM.selectedDate,
+            dashboardSnapshot: dashboard
+        )) {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 5) {
                     Text(title)
@@ -2050,9 +2089,9 @@ struct TrainingHistoryView: View {
 
     private var historyCoachQuestion: String {
         let dashboard = dashboardVM.dashboard
-        let recovery = dashboard.recovery.hasData ? "\(Int(dashboard.recovery.score.rounded()))" : "--"
-        let strain = dashboard.strain.hasData ? "\(Int(dashboard.strain.score.rounded()))" : "--"
-        let stress = dashboard.stress.hasData ? "\(Int(dashboard.stress.stressIndex.rounded()))" : "--"
+        let recovery = dashboard.recovery.formattedScore
+        let strain = dashboard.strain.formattedScore
+        let stress = dashboard.stress.formattedScore
         return "请结合我过去 30 天的训练历史（\(recentWorkouts.count) 次可读记录）、恢复 \(recovery)、负荷 \(strain)、压力 \(stress) 和身体模型，分析训练趋势并给出下一次训练建议。"
     }
 }

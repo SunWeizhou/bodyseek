@@ -1,26 +1,8 @@
 import Foundation
 @preconcurrency import HealthKit
+import BodySeekDomain
 
-/// Outcome of a HealthKit read. `noData` is intentionally distinct from a
-/// failed read so callers can preserve missing-data semantics without hiding
-/// permission, availability, or transient system failures.
-public enum HealthQueryOutcomeKind: String, Codable, Equatable, Sendable {
-    case data
-    case noData
-    case denied
-    case unavailable
-    case transient
-    case failed
-
-    public var isFailure: Bool {
-        switch self {
-        case .denied, .unavailable, .transient, .failed:
-            return true
-        case .data, .noData:
-            return false
-        }
-    }
-}
+public typealias HealthQueryOutcomeKind = BodySeekDomain.HealthQueryOutcomeKind
 
 /// Machine-readable diagnostic attached to one HealthKit component/query.
 /// Error text is deliberately omitted: localized descriptions are unstable
@@ -68,100 +50,13 @@ enum HealthKitQueryOutcomeClassifier {
     }
 }
 
-struct DailyHealthSnapshot: Identifiable, Hashable, Sendable {
-    let id = UUID()
-    var date: Date
-    var createdAt: Date = Date()
-    var sleepScore: Double?
-    var recoveryScore: Double?
-    var strainScore: Double?
-    var stressIndex: Double?
-    var morningEnergy: Double?
-    var currentEnergy: Double?
-    var energyBank: Double?
-    // Raw metrics for historical trend analysis
-    var healthAge: Double?
-    var hrvAverage: Double?
-    var hrvRmssdMilliseconds: Double?
-    var restingHeartRate: Double?
-    var sleepHours: Double?
-    var deepSleepPercent: Double?
-    var remSleepPercent: Double?
-    var sleepEfficiency: Double?
-    var steps: Double?
-    var activeCalories: Double?
-    var activeMinutes: Double?
-    var workoutCount: Int?
-    var workoutTypes: String?
-    var workoutDuration: Double?
-    var bodyWeight: Double?
-    var bodyFatPercent: Double?
-    var vo2Max: Double?
-    var bmi: Double?
-    var oxygenSaturation: Double?
-    var respiratoryRate: Double?
-    var wristTemperature: Double?
-    var dailyLoad: Double?
-    var workoutLoad: Double?
-    var activityLoad: Double?
-    var trainingLoadRatio: Double?
-    var atl: Double?
-    var ctl: Double?
-    var tsb: Double?
-    var acwr: Double?
-    var bedtime: Date?
-    var wakeTime: Date?
-    var awakeMinutes: Double?
-    var awakeEpisodeCount: Int?
-    var deepSleepMinutes: Double?
-    var remSleepMinutes: Double?
-    var workouts: [WorkoutSummary] = []
-    var hrvObservedAt: Date?
-    var rhrObservedAt: Date?
-    var spo2ObservedAt: Date?
-    var hrvObservedWindow: DateInterval?
-    var rhrObservedWindow: DateInterval?
-}
+public typealias DailyHealthSnapshot = BodySeekDomain.DailyHealthSnapshot
 
-enum SleepStage: String, Codable, Hashable, CaseIterable {
-    case awake
-    case rem
-    case core
-    case deep
-    case asleep
-    case inBed
+public typealias SleepStage = BodySeekDomain.SleepStage
+public typealias SleepStageSegment = BodySeekDomain.SleepStageSegment
+public typealias WorkoutSummary = BodySeekDomain.WorkoutSummary
 
-    var countsTowardSleepDuration: Bool {
-        switch self {
-        case .rem, .core, .deep, .asleep:
-            return true
-        case .awake, .inBed:
-            return false
-        }
-    }
-}
-
-struct SleepStageSegment: Identifiable, Codable, Hashable {
-    var id = UUID()
-    var stage: SleepStage
-    var start: Date
-    var end: Date
-
-    var durationMinutes: Int {
-        max(Int(end.timeIntervalSince(start) / 60), 0)
-    }
-}
-
-struct SleepSummary: Identifiable, Codable, Hashable {
-    var id = UUID()
-    var date: Date
-    var totalSleepMinutes: Int
-    var bedtime: Date?
-    var wakeTime: Date?
-    var stageMinutes: [SleepStage: Int]
-    var segments: [SleepStageSegment]
-    var sleepScore: Double?
-}
+public typealias SleepSummary = BodySeekDomain.SleepSummary
 
 struct RecoveryMetricSummary: Codable, Hashable {
     var hrvMilliseconds: Double?
@@ -180,43 +75,6 @@ struct StrainActivitySummary: Codable, Hashable {
     var exerciseMinutes: Double?
     var stepCount: Double?
     var workouts: [WorkoutSummary]
-}
-
-public struct WorkoutSummary: Identifiable, Codable, Hashable, Sendable {
-    public var id: UUID
-    public var start: Date
-    public var end: Date
-    public var activityName: String
-    public var energyKilocalories: Double?
-    public var averageHeartRate: Double?
-    public var heartRateRecoveryOneMinuteBPM: Double?
-    public var distanceMeters: Double?
-    public var source: String?
-    public var rpe: Double?
-
-    public init(
-        id: UUID = UUID(),
-        start: Date,
-        end: Date,
-        activityName: String,
-        energyKilocalories: Double? = nil,
-        averageHeartRate: Double? = nil,
-        heartRateRecoveryOneMinuteBPM: Double? = nil,
-        distanceMeters: Double? = nil,
-        source: String? = nil,
-        rpe: Double? = nil
-    ) {
-        self.id = id
-        self.start = start
-        self.end = end
-        self.activityName = activityName
-        self.energyKilocalories = energyKilocalories
-        self.averageHeartRate = averageHeartRate
-        self.heartRateRecoveryOneMinuteBPM = heartRateRecoveryOneMinuteBPM
-        self.distanceMeters = distanceMeters
-        self.source = source
-        self.rpe = rpe
-    }
 }
 
 struct BodyMetricsSummary: Codable, Hashable {
