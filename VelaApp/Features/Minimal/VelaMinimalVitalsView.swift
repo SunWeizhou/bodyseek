@@ -4,18 +4,26 @@ import SwiftData
 // MARK: - VelaVitalsView — health signals and longitudinal biomarkers
 
 struct VelaVitalsView: View {
+    let selectedDate: Date
+    let dashboard: DashboardSummary
+
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var dashboardVM: DashboardViewModel
     @ObservedObject private var appState = VelaAppState.shared
     @State private var biomarkers: [BiomarkerRecord] = []
     @State private var latestRecord: DailyHealthSummaryRecord?
 
-    private var dashboard: DashboardSummary { dashboardVM.dashboard }
+    init(
+        selectedDate: Date,
+        dashboard: DashboardSummary
+    ) {
+        self.selectedDate = selectedDate
+        self.dashboard = dashboard
+    }
 
     private func metricDetail(_ metric: VelaMetricDetailView.MetricType) -> VelaMetricDetailView {
         VelaMetricDetailView(
             metric: metric,
-            selectedDate: dashboardVM.selectedDate,
+            selectedDate: selectedDate,
             dashboardSnapshot: dashboard
         )
     }
@@ -99,7 +107,7 @@ struct VelaVitalsView: View {
         .onAppear {
             loadRealVitalsData()
         }
-        .onChange(of: dashboardVM.selectedDate) {
+        .onChange(of: selectedDate) {
             loadRealVitalsData()
         }
         .onChange(of: appState.localDataRevision) {
@@ -151,7 +159,7 @@ struct VelaVitalsView: View {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "zh_Hans_CN")
         formatter.dateFormat = "更新于 M月d日"
-        return formatter.string(from: dashboardVM.selectedDate)
+        return formatter.string(from: selectedDate)
     }
 
     private var biologicalAgeHero: some View {
@@ -182,7 +190,7 @@ struct VelaVitalsView: View {
             return delta < 0 ? VelaTheme.brandLeaf : VelaTheme.strainColor
         }()
 
-        return NavigationLink(destination: BiologyView()) {
+        return NavigationLink(destination: BiologyView(dashboard: dashboard)) {
             Group {
                 if let result, chronologicalAge != nil {
                     VStack(alignment: .leading, spacing: 14) {
@@ -523,7 +531,7 @@ struct VelaVitalsView: View {
     // MARK: - Dynamic Vitals Sync Loader
     private func loadRealVitalsData() {
         let calendar = Calendar.current
-        let now = dashboardVM.selectedDate
+        let now = selectedDate
         let startDate = calendar.date(byAdding: .day, value: -9, to: now) ?? now // Fetch 10 points
         let startOfDay = calendar.startOfDay(for: startDate)
         let endOfDay = calendar.date(bySettingHour: 23, minute: 59, second: 59, of: now) ?? now
@@ -750,6 +758,8 @@ struct GaugeScaleArcView: View {
 
 // MARK: - Preview
 #Preview {
-    VelaVitalsView()
-        .environmentObject(DashboardViewModel())
+    VelaVitalsView(
+        selectedDate: Date(),
+        dashboard: .empty(date: Date())
+    )
 }

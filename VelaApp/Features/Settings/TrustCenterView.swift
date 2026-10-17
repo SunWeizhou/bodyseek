@@ -4,6 +4,9 @@ import SwiftData
 /// A scrollable history of all agent runs (Morning Brief, Evening Sync, Coach).
 /// Shows status, duration, and what was produced.
 struct TrustCenterView: View {
+    var dashboard: DashboardSummary = .empty()
+    var onRefresh: (() async -> Void)?
+
     @AppStorage(CoachOutboundDataPolicy.consentVersionKey) private var outboundConsentVersion = 0
     @Environment(\.modelContext) private var modelContext
     @ObservedObject private var appState = VelaAppState.shared
@@ -84,7 +87,10 @@ struct TrustCenterView: View {
                         detail: AppLanguage.stored.isChinese ? "Apple 健康只读；分数在本机计算" : "Read-only Apple Health; scores compute on device",
                         status: AppLanguage.stored.isChinese ? "本机" : "On Device",
                         tint: VelaTheme.recoveryColor,
-                        destination: DataSourceSettingsView()
+                        destination: DataSourceSettingsView(
+                            dashboard: dashboard,
+                            onRefresh: onRefresh
+                        )
                     )
                     Divider().padding(.leading, 54)
                     trustControlLink(

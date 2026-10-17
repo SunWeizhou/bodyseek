@@ -221,7 +221,16 @@ struct VelaShell: View {
             }
         }
         .fullScreenCover(isPresented: $showCoach) {
-            VelaCoachView(presentation: .quickCover, vm: services.coachChat)
+            VelaCoachView(
+                presentation: .quickCover,
+                selectedDate: todayStore.state.selectedDay,
+                dashboard: dashboardVM.dashboard,
+                onRefresh: {
+                    await todayStore.send(.refresh(force: false))
+                    await dashboardVM.refresh(modelContext: modelContext)
+                },
+                vm: services.coachChat
+            )
         }
         .sheet(item: $appState.presentedSheet, onDismiss: handleAppSheetDismissal) { sheet in
             appSheetContent(sheet)
@@ -240,7 +249,15 @@ struct VelaShell: View {
     private func appSheetContent(_ sheet: VelaAppState.AppSheet) -> some View {
         switch sheet {
         case .settings:
-            NavigationStack { VelaSettingsView() }
+            NavigationStack {
+                VelaSettingsView(
+                    dashboard: dashboardVM.dashboard,
+                    onRefresh: {
+                        await todayStore.send(.refresh(force: true))
+                        await dashboardVM.refresh(modelContext: modelContext, force: true)
+                    }
+                )
+            }
                 .velaSheetSurface()
         case .weightLog:
             WeightLogSheetView()
@@ -250,12 +267,23 @@ struct VelaShell: View {
                 .presentationDetents([.medium, .large])
                 .velaSheetSurface()
         case .workoutLog:
-            WorkoutLogSheetView()
+            WorkoutLogSheetView {
+                await todayStore.send(.refresh(force: true))
+                await dashboardVM.refresh(modelContext: modelContext, force: true)
+            }
                 .presentationDetents([.medium, .large])
                 .velaSheetSurface()
         case .journal:
             NavigationStack {
-                VelaJournalView()
+                VelaJournalView(
+                    selectedDate: todayStore.state.selectedDay,
+                    onSelectDate: { day in
+                        Task {
+                            await todayStore.send(.selectDay(day))
+                            todayLegacyRuntime.mirrorSelectedDayToLegacySurface(day)
+                        }
+                    }
+                )
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
                             Button("完成") { appState.dismissPresentedSheet() }
@@ -362,7 +390,10 @@ struct VelaShell: View {
             .tag(0)
 
             nativeTabSurface(.trends) {
-                VelaTrendsHost()
+                VelaTrendsHost(
+                    selectedDate: todayStore.state.selectedDay,
+                    dashboard: dashboardVM.dashboard
+                )
             }
             .tabItem {
                 Label(label(for: .trends), systemImage: iconName(for: .trends))
@@ -370,7 +401,15 @@ struct VelaShell: View {
             .tag(1)
 
             nativeTabSurface(.plan) {
-                VelaPlanView()
+                VelaPlanView(
+                    selectedDate: todayStore.state.selectedDay,
+                    dashboard: dashboardVM.dashboard,
+                    dailyTrainingDecision: dashboardVM.dailyTrainingDecision,
+                    onRefresh: {
+                        await todayStore.send(.refresh(force: false))
+                        await dashboardVM.refresh(modelContext: modelContext)
+                    }
+                )
             }
             .tabItem {
                 Label(label(for: .plan), systemImage: iconName(for: .plan))
@@ -378,7 +417,16 @@ struct VelaShell: View {
             .tag(2)
 
             nativeTabSurface(.coach) {
-                VelaCoachView(presentation: .embedded, vm: services.coachChat)
+                VelaCoachView(
+                    presentation: .embedded,
+                    selectedDate: todayStore.state.selectedDay,
+                    dashboard: dashboardVM.dashboard,
+                    onRefresh: {
+                        await todayStore.send(.refresh(force: false))
+                        await dashboardVM.refresh(modelContext: modelContext)
+                    },
+                    vm: services.coachChat
+                )
             }
             .tabItem {
                 Label(label(for: .coach), systemImage: iconName(for: .coach))
@@ -430,12 +478,23 @@ struct VelaShell: View {
                 }
                 if mountedLegacyTabs.contains(.trends) {
                     tabSurface(.trends) {
-                        VelaTrendsHost()
+                        VelaTrendsHost(
+                            selectedDate: todayStore.state.selectedDay,
+                            dashboard: dashboardVM.dashboard
+                        )
                     }
                 }
                 if mountedLegacyTabs.contains(.plan) {
                     tabSurface(.plan) {
-                        VelaPlanView()
+                        VelaPlanView(
+                            selectedDate: todayStore.state.selectedDay,
+                            dashboard: dashboardVM.dashboard,
+                            dailyTrainingDecision: dashboardVM.dailyTrainingDecision,
+                            onRefresh: {
+                                await todayStore.send(.refresh(force: false))
+                                await dashboardVM.refresh(modelContext: modelContext)
+                            }
+                        )
                     }
                 }
                 if mountedLegacyTabs.contains(.coach) {
@@ -443,6 +502,12 @@ struct VelaShell: View {
                         VelaCoachView(
                             presentation: .embedded,
                             usesOverlayNavigation: true,
+                            selectedDate: todayStore.state.selectedDay,
+                            dashboard: dashboardVM.dashboard,
+                            onRefresh: {
+                                await todayStore.send(.refresh(force: false))
+                                await dashboardVM.refresh(modelContext: modelContext)
+                            },
                             vm: services.coachChat
                         )
                     }

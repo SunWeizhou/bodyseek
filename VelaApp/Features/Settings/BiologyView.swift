@@ -59,7 +59,8 @@ enum BiologicalAgeHistoryBuilder {
 }
 
 struct BiologyView: View {
-    @EnvironmentObject var dashboardVM: DashboardViewModel
+    let dashboard: DashboardSummary
+
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \BiomarkerRecord.date, order: .reverse) private var biomarkers: [BiomarkerRecord]
 
@@ -77,11 +78,11 @@ struct BiologyView: View {
     }
 
     private var chronologicalAge: Int? {
-        dashboardVM.dashboard.extendedMetrics.age ?? WikiFileService.getAgeFromWiki()
+        dashboard.extendedMetrics.age ?? WikiFileService.getAgeFromWiki()
     }
 
     private var hasHealthAgeInput: Bool {
-        let dashboard = dashboardVM.dashboard
+        let dashboard = dashboard
         return dashboard.recoveryMetrics.restingHeartRate != nil
             || dashboard.bodyMetrics.vo2Max != nil
             || dashboard.sleepSummary.totalSleepMinutes > 0
@@ -93,12 +94,12 @@ struct BiologyView: View {
     // Calculated Result
     private var bioAgeResult: BiologicalAgeResult {
         let chronologicalAge = Double(chronologicalAge ?? 0)
-        let restingHR = dashboardVM.dashboard.recoveryMetrics.restingHeartRate
-        let vo2Max = dashboardVM.dashboard.bodyMetrics.vo2Max
-        let sleepMinutes = dashboardVM.dashboard.sleepSummary.totalSleepMinutes
+        let restingHR = dashboard.recoveryMetrics.restingHeartRate
+        let vo2Max = dashboard.bodyMetrics.vo2Max
+        let sleepMinutes = dashboard.sleepSummary.totalSleepMinutes
         let sleepHours = sleepMinutes > 0 ? Double(sleepMinutes) / 60.0 : nil
-        let steps = dashboardVM.dashboard.strain.metrics["steps_raw"]
-        let sleepEfficiency = dashboardVM.dashboard.sleepScore.metrics["sleep_efficiency"].map { $0 / 100 }
+        let steps = dashboard.strain.metrics["steps_raw"]
+        let sleepEfficiency = dashboard.sleepScore.metrics["sleep_efficiency"].map { $0 / 100 }
 
         let input = BiologicalAgeInput(
             chronologicalAge: chronologicalAge,

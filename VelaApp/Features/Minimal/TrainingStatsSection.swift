@@ -369,7 +369,7 @@ struct TrainingStatsSection: View {
                                 .foregroundStyle(VelaTheme.rhythmInkSecondary)
                         }
                         Spacer()
-                        NavigationLink(destination: FitnessActivitySummaryDetailView()) {
+                        NavigationLink(destination: FitnessActivitySummaryDetailView(selectedDate: selectedDate)) {
                             HStack(spacing: 4) {
                                 Text("分析")
                                 Image(systemName: "chevron.right")
@@ -748,6 +748,8 @@ struct RecentWorkoutsSection: View {
     let recentWorkouts: [WorkoutSummary]
     var limit: Int? = 12
     var strengthWorkout: (WorkoutSummary) -> StrengthWorkoutRecord?
+    var dashboard: DashboardSummary = .empty()
+    var onRefresh: (() async -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -779,9 +781,9 @@ struct RecentWorkoutsSection: View {
     @ViewBuilder
     private func destination(for workout: WorkoutSummary) -> some View {
         if let strength = strengthWorkout(workout) {
-            StrengthWorkoutDetailView(workout: strength)
+            StrengthWorkoutDetailView(workout: strength, onRefresh: onRefresh)
         } else {
-            WorkoutDetailView(workout: workout)
+            WorkoutDetailView(workout: workout, dashboard: dashboard, onRefresh: onRefresh)
         }
     }
 

@@ -24,6 +24,9 @@ struct TrainingHeroSection: View {
     let isPlanningWithAI: Bool
     /// 联通专项批次 2：主流程一句话个人洞察（身体模型断言；nil = 不显示）。
     let personalInsight: String?
+    let selectedDate: Date
+    let dashboard: DashboardSummary
+    var onRefresh: (() async -> Void)?
     let onRequestAIPlan: () -> Void
     let onDiscussWithCoach: () -> Void
 
@@ -491,7 +494,11 @@ struct TrainingHeroSection: View {
                 VStack(alignment: .leading, spacing: 8) {
                     // 联通专项批次 2：主流程一句话个人洞察（身体模型断言）。
                     if let personalInsight {
-                        NavigationLink(destination: BodyModelDetailView()) {
+                        NavigationLink(destination: BodyModelDetailView(
+                            selectedDate: selectedDate,
+                            dashboard: dashboard,
+                            onRefresh: onRefresh
+                        )) {
                             HStack(alignment: .top, spacing: 8) {
                                 Image(systemName: "waveform.path.ecg")
                                     .font(.caption.weight(.semibold))
@@ -1699,13 +1706,13 @@ struct TrainingPlanPortal: View {
 /// 三个指标与 `TrainingDecisionKernel` 使用同一 `DashboardSummary` 值，
 /// 不在视图层另算口径。
 struct TrainingStatusSection: View {
-    @EnvironmentObject private var dashboardVM: DashboardViewModel
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-
+    let selectedDate: Date
+    let dashboard: DashboardSummary
     let decision: DailyTrainingDecision?
     let onDiscussWithCoach: () -> Void
 
-    private var dashboard: DashboardSummary { dashboardVM.dashboard }
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     private var bodyState: BodyState { dashboard.bodyState }
     private var bodyModelState: BodyModelState? { dashboard.bodyModelState }
 
@@ -1738,7 +1745,11 @@ struct TrainingStatusSection: View {
             }
 
             VStack(spacing: 0) {
-                NavigationLink(destination: BodyModelDetailView()) {
+                NavigationLink(destination: BodyModelDetailView(
+                    selectedDate: selectedDate,
+                    dashboard: dashboard,
+                    onRefresh: nil
+                )) {
                     contextRow(
                         icon: "waveform.path.ecg",
                         title: "身体模型",
@@ -1753,7 +1764,7 @@ struct TrainingStatusSection: View {
                     .frame(height: 0.75)
                     .padding(.leading, 48)
 
-                NavigationLink(destination: AccountSettingsView()) {
+                NavigationLink(destination: AccountSettingsView(dashboard: dashboard)) {
                     contextRow(
                         icon: "heart.text.square",
                         title: "生理特征档案",
@@ -1866,7 +1877,7 @@ struct TrainingStatusSection: View {
     ) -> some View {
         NavigationLink(destination: VelaMetricDetailView(
             metric: metric,
-            selectedDate: dashboardVM.selectedDate,
+            selectedDate: selectedDate,
             dashboardSnapshot: dashboard
         )) {
             VStack(alignment: .leading, spacing: 6) {
@@ -2034,8 +2045,7 @@ struct TrainingHistoryPortal: View {
 
 /// 训练历史完整列表：训练事实统一入口，提供详情与 Coach 分析两个去向。
 struct TrainingHistoryView: View {
-    @EnvironmentObject private var dashboardVM: DashboardViewModel
-
+    let dashboard: DashboardSummary
     let recentWorkouts: [WorkoutSummary]
     let strengthWorkout: (WorkoutSummary) -> StrengthWorkoutRecord?
 
@@ -2061,7 +2071,8 @@ struct TrainingHistoryView: View {
                     RecentWorkoutsSection(
                         recentWorkouts: recentWorkouts,
                         limit: nil,
-                        strengthWorkout: strengthWorkout
+                        strengthWorkout: strengthWorkout,
+                        dashboard: dashboard
                     )
                 }
 
@@ -2088,7 +2099,6 @@ struct TrainingHistoryView: View {
     }
 
     private var historyCoachQuestion: String {
-        let dashboard = dashboardVM.dashboard
         let recovery = dashboard.recovery.formattedScore
         let strain = dashboard.strain.formattedScore
         let stress = dashboard.stress.formattedScore

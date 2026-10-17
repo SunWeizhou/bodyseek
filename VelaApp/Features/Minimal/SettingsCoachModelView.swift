@@ -222,8 +222,10 @@ struct AIModelSettingsView: View {
 }
 
 struct DataSourceSettingsView: View {
+    let dashboard: DashboardSummary
+    var onRefresh: (() async -> Void)?
+
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var dashboardVM: DashboardViewModel
     @State private var isSyncing = false
     @State private var lastSync: Date?
     @State private var authErrorMessage: String?
@@ -307,7 +309,9 @@ struct DataSourceSettingsView: View {
                 Button {
                     Task {
                         isSyncing = true
-                        await dashboardVM.refresh(modelContext: modelContext)
+                        if let onRefresh {
+                            await onRefresh()
+                        }
                         lastSync = Date()
                         isSyncing = false
                     }
@@ -398,7 +402,7 @@ struct DataSourceSettingsView: View {
  
     private var appleHealthStatus: String {
         if isSyncing { return "同步中" }
-        switch dashboardVM.dashboard.source {
+        switch dashboard.source {
         case .healthKit: return "已同步"
         case .cache: return "已读取缓存"
         case .empty: return "待同步"
@@ -407,7 +411,7 @@ struct DataSourceSettingsView: View {
     }
  
     private var appleHealthDetail: String {
-        switch dashboardVM.dashboard.source {
+        switch dashboard.source {
         case .healthKit:
             return lastSync.map { "最近同步：\($0.formatted(date: .omitted, time: .shortened))" }
                 ?? "已读取 Apple 健康 data"

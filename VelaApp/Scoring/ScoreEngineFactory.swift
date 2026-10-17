@@ -118,46 +118,6 @@ enum UserProfileSettings {
     }
 }
 
-/// Adapter that makes the Foundation-only Domain Core the production Sleep
-/// fact source while keeping the app's existing presentation contract stable.
-/// HealthKit and SwiftData types stop at the caller; only value semantics cross
-/// this boundary.
-enum DomainSleepScoreAdapter {
-    static func calculate(
-        asOf: Date,
-        totalSleepMinutes: Double?,
-        sleepTargetMinutes: Double,
-        todayBedtime: Date?,
-        recentBedtimes: [Date],
-        awakeMinutes: Double?,
-        awakeEpisodeCount: Int?,
-        remMinutes: Double?,
-        deepMinutes: Double?,
-        inBedMinutes: Double?,
-        evidence: SleepEvidenceContext?,
-        calendar: Calendar = .current
-    ) -> MetricResult {
-        let input = BodySeekDomain.SleepScoreInput(
-            asOf: asOf,
-            totalSleepMinutes: totalSleepMinutes,
-            sleepTargetMinutes: sleepTargetMinutes,
-            todayBedtime: todayBedtime,
-            recentBedtimes: recentBedtimes,
-            awakeMinutes: awakeMinutes,
-            awakeEpisodeCount: awakeEpisodeCount,
-            remMinutes: remMinutes,
-            deepMinutes: deepMinutes,
-            inBedMinutes: inBedMinutes,
-            evidence: evidence
-        )
-        return mapResult(BodySeekDomain.SleepScoreEngine(calendar: calendar).calculate(from: input))
-    }
-
-    private static func mapResult(_ value: BodySeekDomain.MetricResult) -> MetricResult {
-        DomainMetricAdapter.metric(value)
-    }
-}
-
 /// Display-only projections derived from canonical Daily Health Computation results.
 enum DashboardMetricProjection {
     // MARK: - Health Age

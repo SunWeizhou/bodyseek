@@ -56,7 +56,11 @@ enum PlanAction: Hashable, Sendable {
 /// The user's daily operating plan. Training is one downstream action domain,
 /// not the organizing principle of the primary workspace.
 struct VelaPlanView: View {
-    @EnvironmentObject private var dashboardVM: DashboardViewModel
+    let selectedDate: Date
+    let dashboard: DashboardSummary
+    let dailyTrainingDecision: DailyTrainingDecision?
+    var onRefresh: (() async -> Void)?
+
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
@@ -69,6 +73,18 @@ struct VelaPlanView: View {
     @State private var lastHandledTrainingRequest = 0
     @State private var planRevision = 0
     @State private var planError: PlanError?
+
+    init(
+        selectedDate: Date,
+        dashboard: DashboardSummary,
+        dailyTrainingDecision: DailyTrainingDecision?,
+        onRefresh: (() async -> Void)? = nil
+    ) {
+        self.selectedDate = selectedDate
+        self.dashboard = dashboard
+        self.dailyTrainingDecision = dailyTrainingDecision
+        self.onRefresh = onRefresh
+    }
 
     private var payload: DailyOperatingPlanPayload? {
         plan?.operatingPlanPayload
@@ -84,13 +100,13 @@ struct VelaPlanView: View {
 
     private var candidatePayload: DailyOperatingPlanPayload? {
         guard let plan, let payload, let decision = currentDecision,
-              plan.bodyStateHash != dashboardVM.dashboard.bodyState.hash else {
+              plan.bodyStateHash != dashboard.bodyState.hash else {
             return nil
         }
         let candidate = DailyOperatingPlanBuilder.build(
-            bodyState: dashboardVM.dashboard.bodyState,
+            bodyState: dashboard.bodyState,
             decision: decision,
-            brief: dashboardVM.dashboard.personalHealthBrief,
+            brief: dashboard.personalHealthBrief,
             language: AppLanguage.stored
         )
         guard candidate.actionOutline != payload.actionOutline else { return nil }
@@ -99,13 +115,13 @@ struct VelaPlanView: View {
 
     private var currentDecision: DailyTrainingDecision? {
         PlanTrainingDecisionResolver.resolve(
-            published: dashboardVM.dailyTrainingDecision,
+            published: dailyTrainingDecision,
             persisted: plan?.trainingDecision
         )
     }
 
     private var dayIdentifier: String {
-        DailyHealthSummaryRecord.dayIdentifier(for: dashboardVM.selectedDate)
+        DailyHealthSummaryRecord.dayIdentifier(for: selectedDate)
     }
 
     private var planViewState: PlanViewState {
@@ -122,7 +138,7 @@ struct VelaPlanView: View {
             phase = .ready
         }
         return PlanViewState(
-            selectedDay: dashboardVM.selectedDate,
+            selectedDay: selectedDate,
             activePlan: payload.map(TodayPlanProjection.init),
             pendingProposal: nil,
             completion: PlanCompletionProjection(
@@ -182,7 +198,9 @@ struct VelaPlanView: View {
         }
         .background(VelaTheme.rhythmCanvas)
         .task(id: dayIdentifier) {
-            await dashboardVM.refresh(modelContext: modelContext)
+            if let onRefresh {
+                await onRefresh()
+            }
             loadOrCreatePlan()
             openRequestedTrainingIfNeeded()
         }
@@ -216,7 +234,16 @@ struct VelaPlanView: View {
             Text("只会从今天的计划中移除，其他健康数据不会改变。")
         }
         .navigationDestination(isPresented: $showTraining) {
-            VelaTrainingView()
+            VelaTrainingView(
+                selectedDate: selectedDate,
+                dashboard: dashboard,
+                dailyTrainingDecision: dailyTrainingDecision,
+                onRefresh: { _ in
+                    if let onRefresh {
+                        await onRefresh()
+                    }
+                }
+            )
         }
     }
 
@@ -430,8 +457,8 @@ struct VelaPlanView: View {
             ? Locale(identifier: "zh_Hans_CN")
             : Locale(identifier: "en_US")
         formatter.setLocalizedDateFormatFromTemplate("MMMMdEEEE")
-        let date = formatter.string(from: dashboardVM.selectedDate)
-        return Calendar.current.isDateInToday(dashboardVM.selectedDate) ? "今天 · \(date)" : date
+        let date = formatter.string(from: selectedDate)
+        return Calendar.current.isDateInToday(selectedDate) ? "今天 · \(date)" : date
     }
 
     private var coachQuestion: String {
@@ -452,14 +479,14 @@ struct VelaPlanView: View {
                 .fetchLatest(dayIdentifier: dayIdentifier) {
                 plan = stored
             } else {
-                guard Calendar.current.isDate(dashboardVM.dashboard.bodyState.date, inSameDayAs: dashboardVM.selectedDate),
+                guard Calendar.current.isDate(dashboard.bodyState.date, inSameDayAs: selectedDate),
                       let decision = currentDecision else {
                     throw PlanError.unavailable("所选日期的身体状态仍在读取，请稍后重试。")
                 }
                 plan = try DailyOperatingPlanCoordinator.upsert(
-                    bodyState: dashboardVM.dashboard.bodyState,
+                    bodyState: dashboard.bodyState,
                     decision: decision,
-                    brief: dashboardVM.dashboard.personalHealthBrief,
+                    brief: dashboard.personalHealthBrief,
                     modelContext: modelContext
                 )
             }
@@ -499,7 +526,7 @@ struct VelaPlanView: View {
         guard actions.count < 3 else { return }
         editorDraft = PlanActionDraft.new(
             usedDomains: Set(actions.map(\.domain)),
-            selectedDate: dashboardVM.selectedDate
+            selectedDate: selectedDate
         )
     }
 
@@ -508,7 +535,7 @@ struct VelaPlanView: View {
             action,
             mode: mode,
             usedDomains: Set(actions.filter { $0.id != action.id }.map(\.domain)),
-            selectedDate: dashboardVM.selectedDate
+            selectedDate: selectedDate
         )
     }
 
@@ -545,9 +572,9 @@ struct VelaPlanView: View {
         }
         do {
             plan = try DailyOperatingPlanCoordinator.upsert(
-                bodyState: dashboardVM.dashboard.bodyState,
+                bodyState: dashboard.bodyState,
                 decision: decision,
-                brief: dashboardVM.dashboard.personalHealthBrief,
+                brief: dashboard.personalHealthBrief,
                 modelContext: modelContext
             )
             planRevision += 1
@@ -565,7 +592,7 @@ struct VelaPlanView: View {
             try DailyOperatingPlanEditor.acknowledgeCurrentPlan(
                 payload,
                 record: plan,
-                bodyStateHash: dashboardVM.dashboard.bodyState.hash,
+                bodyStateHash: dashboard.bodyState.hash,
                 modelContext: modelContext
             )
             planRevision += 1
@@ -905,16 +932,23 @@ private struct PlanDomainStyle {
 }
 
 struct VelaTrainingRotationView: View {
+    let selectedDate: Date
+    let dashboard: DashboardSummary
+
     @State private var plans: [TrainingPlanRecord] = []
     @State private var events: [WorkoutEventRecord] = []
     /// 待确认提案按创建时间从旧到新，和原先实时查询的默认顺序一致。
     @State private var pendingAdaptations: [TrainingPlanAdaptationRecord] = []
-    @EnvironmentObject private var dashboardVM: DashboardViewModel
     @Environment(\.modelContext) private var modelContext
     @ObservedObject private var appState = VelaAppState.shared
 
     /// 今天的正式运营计划（决策面板数据源；无则退回恢复信号说明）。
     @State private var todayOperatingPlan: DailyOperatingPlanRecord?
+
+    init(selectedDate: Date, dashboard: DashboardSummary) {
+        self.selectedDate = selectedDate
+        self.dashboard = dashboard
+    }
 
     private var activePlan: TrainingPlanRecord? {
         plans.first(where: \.isActive) ?? plans.first
@@ -962,7 +996,7 @@ struct VelaTrainingRotationView: View {
         .task {
             loadRotation()
         }
-        .onChange(of: dashboardVM.selectedDate) {
+        .onChange(of: selectedDate) {
             fetchTodayOperatingPlan()
         }
         .onChange(of: appState.localDataRevision) { _, _ in
@@ -980,7 +1014,7 @@ struct VelaTrainingRotationView: View {
 
     private func fetchTodayOperatingPlan() {
         let identifier = DailyHealthSummaryRecord.dayIdentifier(
-            for: dashboardVM.selectedDate,
+            for: selectedDate,
             calendar: .current
         )
         todayOperatingPlan = try? DailyOperatingPlanRepository(modelContext: modelContext)
@@ -1214,7 +1248,6 @@ struct VelaTrainingRotationView: View {
     /// 计划页发给 Coach 的问题：显式带上三指标与身体模型，避免 Agent
     /// 只看到计划文本、脱离当前身体证据。
     private var coachPlanQuestion: String {
-        let dashboard = dashboardVM.dashboard
         let recovery = dashboard.recovery.formattedScore
         let strain = dashboard.strain.formattedScore
         let stress = dashboard.stress.formattedScore
@@ -1224,7 +1257,6 @@ struct VelaTrainingRotationView: View {
     /// 计划页的统一指标依据：恢复、负荷、压力直接来自 DashboardSummary，
     /// 与训练页状态卡和 TrainingDecisionKernel 同源。
     private var metricContextLine: String {
-        let dashboard = dashboardVM.dashboard
         var parts: [String] = []
         if dashboard.recovery.hasData {
             parts.append("恢复 \(dashboard.recovery.formattedScore)")
@@ -1240,7 +1272,6 @@ struct VelaTrainingRotationView: View {
     }
 
     private var adaptationText: String {
-        let dashboard = dashboardVM.dashboard
         guard dashboard.recovery.hasData else {
             return "恢复信号尚未同步，无法给出个性化计划调整。先同步 Apple 健康，同时按保守窗口执行。"
         }

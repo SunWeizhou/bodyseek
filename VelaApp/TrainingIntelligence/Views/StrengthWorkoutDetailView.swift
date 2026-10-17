@@ -6,13 +6,14 @@ import os.log
 
 private let logger = Logger(subsystem: "com.sunweizhou.Vela", category: "Workout")
 struct StrengthWorkoutDetailView: View {
+    let workout: StrengthWorkoutRecord
+    var onRefresh: (() async -> Void)?
+
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var dashboardVM: DashboardViewModel
     @ObservedObject private var appState = VelaAppState.shared
     @State private var allWorkouts: [StrengthWorkoutRecord] = []
-    let workout: StrengthWorkoutRecord
 
     @State private var selectedSet: StrengthSetDetail?
     @State private var showDeleteConfirmation = false
@@ -86,7 +87,11 @@ struct StrengthWorkoutDetailView: View {
                 .presentationBackground(VelaTheme.systemGroupedBackground)
         }
         .sheet(isPresented: $showEditSheet) {
-            StrengthWorkoutLogSheetView(editingWorkout: workout)
+            StrengthWorkoutLogSheetView(
+                editingWorkout: workout,
+                trainingDecisionKind: nil,
+                onRefresh: onRefresh
+            )
         }
         .confirmationDialog("确定要删除这条健身记录吗？", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
             Button("删除记录", role: .destructive) {
@@ -111,8 +116,8 @@ struct StrengthWorkoutDetailView: View {
             
             VelaAppState.shared.markLocalDataChanged()
             
-            Task {
-                await dashboardVM.refresh(modelContext: modelContext)
+            if let onRefresh {
+                Task { await onRefresh() }
             }
             dismiss()
         } catch {

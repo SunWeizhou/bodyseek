@@ -1,8 +1,8 @@
 #if DEBUG
 import Foundation
 
-/// Generates preview/demo data using real scoring engines with fixed seed inputs.
-/// When engine algorithms change, previews update automatically — no manual sync needed.
+/// Generates preview/demo data using the production scoring entry with fixed
+/// seed evidence. When engine algorithms change, previews update automatically.
 enum PreviewDataFactory {
 
     /// Synthetic, read-only history for native chart previews. Missing days
@@ -23,79 +23,38 @@ enum PreviewDataFactory {
     }
 
     /// A realistic "healthy user" seed input that produces moderate-to-high scores.
+    /// Five scores come only from `DailyHealthComputation`; individual engines
+    /// are not assembled here.
     static func makeDashboard(date: Date = Date()) -> DashboardSummary {
+        let calendar = Calendar.current
+        let day = calendar.startOfDay(for: date)
         let sleepSummary = PreviewHealthDataProvider.sleepSummary(for: date)
+        let sleepHours = Double(sleepSummary.totalSleepMinutes) / 60.0
 
-        // Sleep — same production path as Today: DomainSleepScoreAdapter → BodySeekDomain.SleepScoreEngine.
-        let sleepScore = DomainSleepScoreAdapter.calculate(
-            asOf: date,
-            totalSleepMinutes: Double(sleepSummary.totalSleepMinutes),
-            sleepTargetMinutes: 450,
-            todayBedtime: nil,
-            recentBedtimes: [],
-            awakeMinutes: nil,
-            awakeEpisodeCount: nil,
-            remMinutes: nil,
-            deepMinutes: nil,
-            inBedMinutes: nil,
-            evidence: nil
+        var history: [DailyHealthSnapshot] = []
+        history.reserveCapacity(14)
+        for offset in (1...14).reversed() {
+            guard let past = calendar.date(byAdding: .day, value: -offset, to: day) else { continue }
+            history.append(previewEvidenceSnapshot(for: past, sleepHours: 7.2, calendar: calendar))
+        }
+
+        let snapshot = previewEvidenceSnapshot(
+            for: day,
+            sleepHours: sleepHours,
+            calendar: calendar,
+            activeCalories: 420,
+            activeMinutes: 28
         )
+        let scored = DailyHealthComputation(
+            calendar: calendar,
+            now: date,
+            profile: DailyHealthComputationProfile(
+                sleepTargetMinutes: 450,
+                maxHeartRate: 190,
+                biologicalSex: "male"
+            )
+        ).compute(for: snapshot, history: history)
 
-        // Recovery — simulate a user with HRV slightly below baseline (mild fatigue)
-        let recoveryInput = RecoveryScoreInput(
-            asOf: date,
-            hrvToday: 42,
-            hrvBaseline: 45,
-            hrvHistory: [44, 46, 43, 47, 42, 45, 44],
-            restingHeartRateToday: 62,
-            restingHeartRateBaseline: 60,
-            rhrHistory: [59, 60, 61, 58, 62, 60, 59],
-            sleepScoreLastNight: sleepScore.score,
-            strainScoreYesterday: 58
-        )
-        let recovery = RecoveryScoreEngine().calculate(from: recoveryInput)
-
-        // Strain
-        let strainInput = StrainScoreInput(
-            asOf: date,
-            activeEnergyToday: 420,
-            exerciseMinutesToday: 28,
-            activeEnergyBaseline: 500,
-            exerciseMinutesBaseline: 35,
-            workoutIntensityLoad: 42,
-            recoveryScore: recovery.score
-        )
-        let strain = StrainScoreEngine().calculate(from: strainInput)
-
-        // Stress
-        let stressInput = StressIndexInput(
-            asOf: date,
-            heartRateElevationScore: 38,
-            hrvSuppressionScore: 45,
-            sleepDebtStressScore: max(0, 100 - sleepScore.score),
-            recentStrainStressScore: strain.score
-        )
-        let stress = StressIndexEngine().calculate(from: stressInput)
-
-        // Energy
-        let energyInput = EnergyBankInput(
-            asOf: date,
-            recoveryScore: recovery.score,
-            sleepScore: sleepScore.score,
-            strainScore: strain.score,
-            stressIndex: stress.stressIndex,
-            hrvToday: 42,
-            hrvBaseline: 45,
-            rhrToday: 62,
-            rhrBaseline: 60,
-            sleepHours: 7.2,
-            strainHistory: [45, 52, 58, 55, 48, 60, 58],
-            todayLoad: strain.components["daily_load"],
-            bodyTempDelta: 0.0
-        )
-        let energy = EnergyBankEngine().calculate(from: energyInput)
-
-        // Health Age
         let healthAgeInput = HealthAgeTrendInput(
             factors: [
                 .init(name: "VO2 Max", direction: .neutral),
@@ -109,8 +68,8 @@ enum PreviewDataFactory {
         return DashboardSummary(
             date: date,
             sleepSummary: sleepSummary,
-            sleepScore: sleepScore,
-            recovery: recovery,
+            sleepScore: scored.sleep,
+            recovery: scored.recovery,
             recoveryMetrics: RecoveryMetricSummary(
                 hrvMilliseconds: 42,
                 restingHeartRate: 62,
@@ -123,9 +82,9 @@ enum PreviewDataFactory {
                 sleepHeartRate: nil,
                 respiratoryRate: nil
             ),
-            strain: strain,
-            stress: stress,
-            energy: energy,
+            strain: scored.strain,
+            stress: scored.physiologicalStress,
+            energy: scored.energy,
             healthAge: healthAge,
             bodyMetrics: BodyMetricsSummary(
                 vo2Max: 42,
@@ -141,6 +100,30 @@ enum PreviewDataFactory {
             ),
             source: .preview
         )
+    }
+
+    private static func previewEvidenceSnapshot(
+        for day: Date,
+        sleepHours: Double,
+        calendar: Calendar,
+        activeCalories: Double = 500,
+        activeMinutes: Double = 35
+    ) -> DailyHealthSnapshot {
+        var snapshot = DailyHealthSnapshot(date: day, createdAt: day)
+        snapshot.hrvAverage = 42 + Double(calendar.component(.day, from: day) % 5)
+        snapshot.restingHeartRate = 60 + Double(calendar.component(.day, from: day) % 3)
+        snapshot.sleepHours = sleepHours
+        snapshot.activeCalories = activeCalories
+        snapshot.activeMinutes = activeMinutes
+        snapshot.respiratoryRate = 14
+        snapshot.steps = 8_000
+        if let bedtime = calendar.date(bySettingHour: 23, minute: 0, second: 0, of: day) {
+            snapshot.bedtime = bedtime
+        }
+        if let wake = calendar.date(byAdding: .hour, value: Int(sleepHours.rounded()), to: snapshot.bedtime ?? day) {
+            snapshot.wakeTime = wake
+        }
+        return snapshot
     }
 }
 #endif

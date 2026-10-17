@@ -241,10 +241,8 @@ private extension String {
 struct CalendarOverviewSheetView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    /// Legacy Calendar queries still use the dashboard model as a downstream
-    /// compatibility bridge (for example, historical score records), but the
-    /// selected day itself is supplied by TodayStore at the composition edge.
-    @EnvironmentObject private var dashboardVM: DashboardViewModel
+    /// Selected day and day-change intent come from TodayStore at the
+    /// composition edge. Historical score rows are loaded from the repository.
     @ObservedObject private var appState = VelaAppState.shared
     let selectedDay: Date
     let onSelectDay: (Date) -> Void
@@ -1402,16 +1400,23 @@ private struct PostWorkoutTrendLine: View {
 struct WorkoutLogSheetView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var dashboardVM: DashboardViewModel
-    
+
+    /// Shell-owned refresh after a successful write. The sheet does not hold
+    /// DashboardViewModel; TodayStore remains the canonical day reload path.
+    var onSaved: (() async -> Void)?
+
     @State private var selectedSport = "跑步"
     @State private var durationMinutes: Double = 30.0
     @State private var caloriesBurned: Double = 250.0
     @State private var exertionScore: Double = 5.0
     @State private var saveError: String?
-    
+
     let sports = ["跑步", "力量训练", "骑行", "游泳", "瑜伽", "HIIT", "步行"]
-    
+
+    init(onSaved: (() async -> Void)? = nil) {
+        self.onSaved = onSaved
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -1558,8 +1563,8 @@ struct WorkoutLogSheetView: View {
             try WorkoutAggregationService.shared.aggregateDay(date: start, modelContext: modelContext)
             try modelContext.save()
             VelaAppState.shared.markLocalDataChanged()
-            Task {
-                await dashboardVM.refresh(modelContext: modelContext)
+            if let onSaved {
+                Task { await onSaved() }
             }
             return true
         } catch {

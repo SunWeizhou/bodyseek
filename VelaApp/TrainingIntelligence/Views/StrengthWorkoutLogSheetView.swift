@@ -3,9 +3,11 @@ import SwiftData
 import Combine
 
 struct StrengthWorkoutLogSheetView: View {
+    var trainingDecisionKind: String?
+    var onRefresh: (() async -> Void)?
+
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var dashboardVM: DashboardViewModel
     @ObservedObject private var appState = VelaAppState.shared
     @State private var workoutHistory: [StrengthWorkoutRecord] = []
     @State private var persistedTemplates: [WorkoutTemplateRecord] = []
@@ -40,11 +42,15 @@ struct StrengthWorkoutLogSheetView: View {
     init(
         startingTemplateID: UUID? = nil,
         initialDraft: TrainingSessionDraft? = nil,
-        editingWorkout: StrengthWorkoutRecord? = nil
+        editingWorkout: StrengthWorkoutRecord? = nil,
+        trainingDecisionKind: String? = nil,
+        onRefresh: (() async -> Void)? = nil
     ) {
         self.startingTemplateID = startingTemplateID
         self.initialDraft = initialDraft
         self.editingWorkout = editingWorkout
+        self.trainingDecisionKind = trainingDecisionKind
+        self.onRefresh = onRefresh
     }
 
     private func durationMinutes(at date: Date = Date()) -> Int {
@@ -562,8 +568,8 @@ struct StrengthWorkoutLogSheetView: View {
                 VelaAppState.shared.markLocalDataChanged()
                 completedWorkout = editingWorkout
                 completedSummary = analysis
-                Task {
-                    await dashboardVM.refresh(modelContext: modelContext)
+                if let onRefresh {
+                    Task { await onRefresh() }
                 }
             } catch {
                 saveError = "训练更新失败，请稍后再试。\(error.localizedDescription)"
@@ -597,7 +603,7 @@ struct StrengthWorkoutLogSheetView: View {
                 let planDayIdentifier = DailyHealthSummaryRecord.dayIdentifier(for: record.startedAt)
                 let readinessDecision = (try? DailyOperatingPlanRepository(modelContext: modelContext)
                     .fetchLatest(dayIdentifier: planDayIdentifier))?.primaryActionType
-                    ?? dashboardVM.dashboard.trainingDecision.kind.rawValue
+                    ?? trainingDecisionKind
                 let artifact = CoachArtifact.postWorkoutReview(
                     workout: record,
                     summary: analysis,
@@ -617,8 +623,8 @@ struct StrengthWorkoutLogSheetView: View {
                 VelaAppState.shared.markLocalDataChanged()
                 completedWorkout = record
                 completedSummary = analysis
-                Task {
-                    await dashboardVM.refresh(modelContext: modelContext)
+                if let onRefresh {
+                    Task { await onRefresh() }
                 }
             } catch {
                 saveError = "训练暂时无法保存，请稍后再试。\(error.localizedDescription)"

@@ -1,11 +1,11 @@
 # Vela Technical Architecture Specification
 
 > Status: Canonical
-> Last verified: 2026-10-06
+> Last verified: 2026-10-15
 > Scope: Vela 当前工程的技术架构、模块分层、数据流管道、持久化模型与状态管理规范
 > Does not define: 业务需求与产品优先级（见 [docs/PRD.md](PRD.md)）、领域术语定义（见 [../CONTEXT.md](../CONTEXT.md)）
 
-> 现行源码（2026-10-06）：`DailyHealthComputation` 定义于 `VelaApp/Scoring/ScoreEngineFactory.swift`。生产睡眠分经 `DomainSleepScoreAdapter` 调用 `BodySeekDomain.SleepScoreEngine`。恢复、负荷、压力、能量仍由 Vela App target 内的引擎计算。`BodySeekDomain` 不能当成五项都已迁移的证明。Today 由 `VelaMinimalShell` 持有 `TodayStore`。趋势按所选时间窗取数。页面/共享文件地图见 [UI 工作流](collaboration/UI_WORKFLOW.md)。下文算法表是概要，旧 v1 评分文档与 Energy 模型卡仍待对齐，不据此宣称公式已经重新验证。
+> 现行源码（2026-10-15）：App 的 `DailyHealthComputation`（`VelaApp/Scoring/ScoreEngineFactory.swift`）只映射快照与长线上下文，五项装配在 `BodySeekDomain.DailyHealthComputation`。App 内同名引擎文件只做结果映射。Today 由 `VelaMinimalShell` 持有 `TodayStore`；Trends 由 Shell 注入选中日与仪表盘快照。更细的模块化现状见 [bodyseek-modularization-map.md](architecture/bodyseek-modularization-map.md)。页面/共享文件地图见 [UI 工作流](collaboration/UI_WORKFLOW.md)。下文算法表是概要，旧 v1 评分文档与 Energy 模型卡仍待对齐，不据此宣称公式已经重新验证。
 
 ---
 

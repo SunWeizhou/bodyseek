@@ -517,6 +517,10 @@ struct VelaCoachView: View {
     @Environment(\.scenePhase) private var scenePhase
     var presentation: CoachPresentationStyle
     var usesOverlayNavigation: Bool
+    /// Shell-injected day and dashboard. Coach does not own DashboardViewModel.
+    let selectedDate: Date
+    let dashboard: DashboardSummary
+    var onRefresh: (() async -> Void)?
     @ObservedObject var vm: CoachChatVM
 
     @Environment(\.colorScheme) private var cs
@@ -524,7 +528,6 @@ struct VelaCoachView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @EnvironmentObject private var dashboardVM: DashboardViewModel
     @EnvironmentObject private var services: VelaServices
     @ObservedObject private var appState = VelaAppState.shared
 
@@ -569,7 +572,6 @@ struct VelaCoachView: View {
     @State private var pendingMemoryProposals: [MemoryEventRecord] = []
     @State private var agentArtifacts: [AgentArtifactRecord] = []
 
-    private var dashboard: DashboardSummary { dashboardVM.dashboard }
     private var headerTitle: String {
         guard !vm.isGhostMode else { return "私密对话" }
         let title = vm.currentSession?.title.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -624,7 +626,7 @@ struct VelaCoachView: View {
     }
 
     private func loadTodayOperatingPlan() {
-        let identifier = DailyHealthSummaryRecord.dayIdentifier(for: dashboardVM.selectedDate)
+        let identifier = DailyHealthSummaryRecord.dayIdentifier(for: selectedDate)
         todayOperatingPlanRecord = (try? DailyOperatingPlanRepository(modelContext: modelContext)
             .fetchLatest(dayIdentifier: identifier)) ?? nil
         journalEntries = (try? SwiftDataJournalRepository(modelContext: modelContext)
@@ -638,10 +640,16 @@ struct VelaCoachView: View {
     init(
         presentation: CoachPresentationStyle = .quickCover,
         usesOverlayNavigation: Bool = false,
+        selectedDate: Date,
+        dashboard: DashboardSummary,
+        onRefresh: (() async -> Void)? = nil,
         vm: CoachChatVM
     ) {
         self.presentation = presentation
         self.usesOverlayNavigation = usesOverlayNavigation
+        self.selectedDate = selectedDate
+        self.dashboard = dashboard
+        self.onRefresh = onRefresh
         self.vm = vm
         _showHistoryDrawer = State(initialValue: CoachHistoryLaunchState.isPresented())
     }
@@ -781,14 +789,16 @@ struct VelaCoachView: View {
             vm.loadSessions(modelContext: modelContext)
             consumePendingRouteIfVisible()
             try? DailyLogService.refresh(dashboard: dashboard)
-            await dashboardVM.refresh(modelContext: modelContext)
+            if let onRefresh {
+                await onRefresh()
+            }
             await loadDataCoverageSummary()
             loadTodayOperatingPlan()
         }
         .onChange(of: appState.localDataRevision) { _, _ in
             loadTodayOperatingPlan()
         }
-        .onChange(of: dashboardVM.selectedDate) { _, _ in
+        .onChange(of: selectedDate) { _, _ in
             loadTodayOperatingPlan()
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { note in
@@ -1346,7 +1356,7 @@ struct VelaCoachView: View {
                 question,
                 focus: CoachContextFocus.routed(
                     from: appState.coachRouteSurface,
-                    selectedDate: dashboardVM.selectedDate
+                    selectedDate: selectedDate
                 )
             )
             appState.prefilledCoachQuestion = nil

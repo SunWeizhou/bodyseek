@@ -8,13 +8,24 @@ import os.log
 
 private let logger = Logger(subsystem: "com.sunweizhou.Vela", category: "Workout")
 struct WorkoutDetailView: View {
+    let workout: WorkoutSummary
+    let dashboard: DashboardSummary
+    var onRefresh: (() async -> Void)?
+
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var dashboardVM: DashboardViewModel
     @ObservedObject private var appState = VelaAppState.shared
 
-    let workout: WorkoutSummary
+    init(
+        workout: WorkoutSummary,
+        dashboard: DashboardSummary = .empty(),
+        onRefresh: (() async -> Void)? = nil
+    ) {
+        self.workout = workout
+        self.dashboard = dashboard
+        self.onRefresh = onRefresh
+    }
     
     @State private var heartRates: [HeartRateSample] = []
     @State private var routeCoordinates: [CLLocationCoordinate2D] = []
@@ -584,7 +595,7 @@ struct WorkoutDetailView: View {
     }
     
     private var dashboardVMForWorkout: DashboardSummary {
-        var base = dashboardVM.dashboard
+        var base = dashboard
         base.workouts = [workout]
         return base
     }
@@ -660,8 +671,8 @@ struct WorkoutDetailView: View {
             
             VelaAppState.shared.markLocalDataChanged()
             
-            Task {
-                await dashboardVM.refresh(modelContext: modelContext)
+            if let onRefresh {
+                Task { await onRefresh() }
             }
             dismiss()
         } catch {

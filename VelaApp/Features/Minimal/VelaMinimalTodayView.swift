@@ -252,7 +252,13 @@ struct VelaTodayView: View {
     @ViewBuilder
     private var personalResponseInsightView: some View {
         if calendarIsToday(todayStore.state.selectedDay), let insightLine = dashboard.bodyModelState?.insightLine() {
-            NavigationLink(destination: BodyModelDetailView()) {
+            NavigationLink(destination: BodyModelDetailView(
+                selectedDate: todayStore.state.selectedDay,
+                dashboard: dashboard,
+                onRefresh: {
+                    await todayStore.send(.refresh(force: true))
+                }
+            )) {
                 HStack(spacing: 8) {
                     Image(systemName: "waveform.path.ecg")
                         .font(.system(size: 11, weight: .semibold))

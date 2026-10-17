@@ -59,17 +59,19 @@ struct PersistedTrendsWindowLoader {
 }
 
 /// Composition adapter. Trends rendering does not read SwiftData or the
-/// dashboard view model; this host supplies the selected day, findings, and
-/// persistence loader.
+/// dashboard view model; the shell supplies the selected day, findings, and
+/// persistence loader as values.
 struct VelaTrendsHost: View {
+    let selectedDate: Date
+    let dashboard: DashboardSummary
+
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var dashboardVM: DashboardViewModel
     @ObservedObject private var appState = VelaAppState.shared
 
     var body: some View {
         VelaTrendsView(
-            selectedDate: dashboardVM.selectedDate,
-            dashboard: dashboardVM.dashboard,
+            selectedDate: selectedDate,
+            dashboard: dashboard,
             localDataRevision: appState.localDataRevision,
             loader: PersistedTrendsWindowLoader(modelContext: modelContext),
             onAskCoach: { question in

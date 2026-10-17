@@ -75,8 +75,11 @@ struct TodayNutritionStrip: View {
 }
 
 struct TodayDailyModuleLinks: View {
+    let selectedDate: Date
+    let dashboard: DashboardSummary
     let recoveryMetrics: RecoveryMetricSummary
     let nutrition: TodayExperienceNutrition
+    let activeEnergyKilocalories: Double?
     let onAddNutrition: () -> Void
     let onJournal: () -> Void
 
@@ -87,7 +90,10 @@ struct TodayDailyModuleLinks: View {
                 .foregroundStyle(VelaTheme.rhythmInk)
 
             NavigationLink {
-                VelaVitalsView()
+                VelaVitalsView(
+                    selectedDate: selectedDate,
+                    dashboard: dashboard
+                )
             } label: {
                 HStack(spacing: 12) {
                     Image(systemName: "heart.text.clipboard")
@@ -126,7 +132,10 @@ struct TodayDailyModuleLinks: View {
             )
 
             NavigationLink {
-                VelaNutritionView()
+                VelaNutritionView(
+                    selectedDate: selectedDate,
+                    activeEnergyKilocalories: activeEnergyKilocalories
+                )
             } label: {
                 HStack {
                     Label("查看营养详情与历史", systemImage: "chart.bar.doc.horizontal")
@@ -375,9 +384,11 @@ enum NutritionRecipeImportParser {
 }
 
 struct VelaNutritionView: View {
+    let selectedDate: Date
+    let activeEnergyKilocalories: Double?
+
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var dashboardVM: DashboardViewModel
     @ObservedObject private var appState = VelaAppState.shared
 
     @State private var allRecords: [FoodLogRecord] = []
@@ -394,9 +405,17 @@ struct VelaNutritionView: View {
     @State private var showPlanning = false
     @State private var selectedRecord: FoodLogRecord?
 
+    init(
+        selectedDate: Date,
+        activeEnergyKilocalories: Double? = nil
+    ) {
+        self.selectedDate = selectedDate
+        self.activeEnergyKilocalories = activeEnergyKilocalories
+    }
+
     private var dayRecords: [FoodLogRecord] {
         allRecords.filter {
-            Calendar.current.isDate($0.createdAt, inSameDayAs: dashboardVM.selectedDate)
+            Calendar.current.isDate($0.createdAt, inSameDayAs: selectedDate)
         }
     }
 
@@ -431,7 +450,7 @@ struct VelaNutritionView: View {
         .onChange(of: appState.localDataRevision) { _, _ in
             loadFoodLogs()
         }
-        .onChange(of: dashboardVM.selectedDate) { _, _ in
+        .onChange(of: selectedDate) { _, _ in
             loadFoodLogs()
         }
         .safeAreaInset(edge: .top) {
@@ -585,7 +604,7 @@ struct VelaNutritionView: View {
     }
 
     private var energyAndQualitySection: some View {
-        let activeEnergy = dashboardVM.dashboard.strain.metrics["active_energy_raw"]
+        let activeEnergy = activeEnergyKilocalories
         return HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 6) {
                 Label("摄入与活动", systemImage: "arrow.left.arrow.right")
@@ -875,9 +894,9 @@ struct VelaNutritionView: View {
     }
 
     private var dayTitle: String {
-        Calendar.current.isDateInToday(dashboardVM.selectedDate)
+        Calendar.current.isDateInToday(selectedDate)
             ? "今天"
-            : dashboardVM.selectedDate.formatted(date: .abbreviated, time: .omitted)
+            : selectedDate.formatted(date: .abbreviated, time: .omitted)
     }
 
     private var nutritionHeadline: String {

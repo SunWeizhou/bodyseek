@@ -2,9 +2,10 @@ import SwiftUI
 import SwiftData
 
 struct BodyModelEditView: View {
+    var onRefresh: (() async -> Void)?
+
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var dashboardVM: DashboardViewModel
     
     @Query(sort: \OnboardingState.updatedAt, order: .reverse)
     private var onboardingStates: [OnboardingState]
@@ -195,7 +196,9 @@ struct BodyModelEditView: View {
             try modelContext.save()
             VelaAppState.shared.markLocalDataChanged()
             Task {
-                await dashboardVM.refresh(modelContext: modelContext, force: true)
+                if let onRefresh {
+                    await onRefresh()
+                }
             }
             return true
         } catch {
@@ -275,8 +278,11 @@ struct BaselineRangeIndicator: View {
 }
 
 struct BodyModelDetailView: View {
+    let selectedDate: Date
+    let dashboard: DashboardSummary
+    var onRefresh: (() async -> Void)?
+
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var dashboardVM: DashboardViewModel
     
     @Query(sort: \OnboardingState.updatedAt, order: .reverse)
     private var onboardingStates: [OnboardingState]
@@ -286,7 +292,6 @@ struct BodyModelDetailView: View {
     @State private var trainingResponses: [TrainingResponseRecord] = []
     
     private var onboarding: OnboardingState? { onboardingStates.first }
-    private var dashboard: DashboardSummary { dashboardVM.dashboard }
     private var hasCompletedProfile: Bool { onboarding?.isCompleted == true }
     private var staticGoalText: String {
         hasCompletedProfile ? displayGoal(onboarding?.goalProfile.primaryGoal ?? "unknown") : "尚未设置"
@@ -364,7 +369,7 @@ struct BodyModelDetailView: View {
         .onAppear {
             loadModelData()
         }
-        .onChange(of: dashboardVM.selectedDate) {
+        .onChange(of: selectedDate) {
             loadModelData()
         }
     }
@@ -399,7 +404,7 @@ struct BodyModelDetailView: View {
                     .font(.system(.footnote, design: .default, weight: .bold))
                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
                 Spacer()
-                NavigationLink(destination: BodyModelEditView()) {
+                NavigationLink(destination: BodyModelEditView(onRefresh: onRefresh)) {
                     HStack(spacing: 4) {
                         Image(systemName: "slider.horizontal.3")
                         Text("修改设定")
