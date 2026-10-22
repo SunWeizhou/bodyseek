@@ -1,7 +1,7 @@
 {
   "schema": "bodyseek-stress-replay.v1",
   "target": "BodySeekDomain",
-  "algorithmVersion": "physiologicalStress.v2.0.0",
+  "algorithmVersion": "physiologicalStress.v2.1.0",
   "formulaChange": false,
   "calendar": "gregorian",
   "timeZone": "UTC",

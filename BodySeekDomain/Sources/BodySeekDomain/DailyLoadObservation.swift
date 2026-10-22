@@ -42,3 +42,14 @@ public struct DailyLoadObservation: Codable, Hashable, Sendable {
         availability.contributesToLoad && value != nil
     }
 }
+
+extension Array where Element == DailyLoadObservation {
+    /// Observed and known-zero loads, in the existing order.
+    /// Missing and excluded days are left out so an unworn day is not a rest day.
+    public func loadValuesSkippingGaps() -> [Double] {
+        compactMap { observation in
+            guard observation.availability.contributesToLoad else { return nil }
+            return observation.value
+        }
+    }
+}

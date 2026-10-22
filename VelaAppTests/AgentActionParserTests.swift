@@ -888,4 +888,21 @@ final class AgentLoopSafetyTests: XCTestCase {
         XCTAssertEqual(writeTool.executionCount, 1)
         XCTAssertTrue(result.finalMessages.contains { $0.role == .tool && $0.content.contains("saved") })
     }
+
+    func testDeepSeekStreamReadsFinishReasonLength() {
+        let payload = #"{"choices":[{"index":0,"delta":{"content":"尾"},"finish_reason":"length"}]}"#
+        XCTAssertEqual(DeepSeekStreamSignals.finishReason(inJSON: Data(payload.utf8)), "length")
+        XCTAssertEqual(
+            DeepSeekStreamCompletion.resolve(didReceiveDone: true, finishReason: "length"),
+            .truncated
+        )
+        XCTAssertEqual(
+            DeepSeekStreamCompletion.resolve(didReceiveDone: false, finishReason: "stop"),
+            .complete
+        )
+        XCTAssertEqual(
+            DeepSeekStreamCompletion.resolve(didReceiveDone: false, finishReason: nil),
+            .incomplete
+        )
+    }
 }

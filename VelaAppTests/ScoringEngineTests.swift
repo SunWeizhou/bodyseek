@@ -129,25 +129,43 @@ final class ScoringEngineTests: XCTestCase {
     }
 
     func testPersonalBaselineRequiresSevenValidSamplesPerMetric() {
-        let date = Date()
-        let sixSnapshots = (0..<6).map { offset -> DailyHealthSnapshot in
-            var snapshot = DailyHealthSnapshot(date: date.addingTimeInterval(Double(-offset) * 86_400))
-            snapshot.hrvAverage = 50
-            snapshot.restingHeartRate = 60
-            return snapshot
-        }
-        let sevenSnapshots = (0..<7).map { offset -> DailyHealthSnapshot in
-            var snapshot = DailyHealthSnapshot(date: date.addingTimeInterval(Double(-offset) * 86_400))
-            snapshot.hrvAverage = 50
-            snapshot.restingHeartRate = 60
-            return snapshot
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let calculatedAt = Date(timeIntervalSince1970: 1_780_000_000)
+        func snapshots(count: Int) -> [DailyHealthSnapshot] {
+            (1...count).map { offset in
+                var snapshot = DailyHealthSnapshot(
+                    date: calendar.date(byAdding: .day, value: -offset, to: calculatedAt)!
+                )
+                snapshot.hrvAverage = 50
+                snapshot.restingHeartRate = 60
+                return snapshot
+            }
         }
 
-        let insufficient = PersonalBaselineEngine.computeBaselines(from: sixSnapshots)
+        let insufficient = PersonalBaselineEngine.computeBaselines(
+            from: snapshots(count: 6),
+            calculatedAt: calculatedAt,
+            calendar: calendar
+        )
         XCTAssertNil(insufficient.hrvBaselineMean)
         XCTAssertNil(insufficient.rhrBaselineMean)
 
-        let ready = PersonalBaselineEngine.computeBaselines(from: sevenSnapshots)
+        var today = DailyHealthSnapshot(date: calculatedAt)
+        today.hrvAverage = 99
+        today.restingHeartRate = 99
+        let todayDoesNotCount = PersonalBaselineEngine.computeBaselines(
+            from: snapshots(count: 6) + [today],
+            calculatedAt: calculatedAt,
+            calendar: calendar
+        )
+        XCTAssertNil(todayDoesNotCount.hrvBaselineMean, "今天不能拿来凑满基线样本")
+
+        let ready = PersonalBaselineEngine.computeBaselines(
+            from: snapshots(count: 7),
+            calculatedAt: calculatedAt,
+            calendar: calendar
+        )
         XCTAssertEqual(ready.hrvBaselineMean, 50)
         XCTAssertEqual(ready.rhrBaselineMean, 60)
     }
@@ -802,10 +820,10 @@ final class ScoringEngineTests: XCTestCase {
         XCTAssertEqual(evidence.strain.value ?? -1, 63.67, accuracy: 0.01)
         // 2026-08-13 有意重定标：HRV 因子单位修复（log 域 SD）使生理压力正确反映
         // HRV 高于基线的低压力（见 testStressEngineHRVFactorRespondsToRealisticHRVDecline）
-        XCTAssertEqual(evidence.physiologicalStress.value ?? -1, 21.08, accuracy: 0.01)
+        XCTAssertEqual(evidence.physiologicalStress.value ?? -1, 26.50245571207583, accuracy: 0.01)
         // 2026-08-13 有意重定标：ATL/CTL/TSB 改用 TRIMP 域 todayLoad
         // （见 testEnergyBankTrainingLoadUsesTRIMPScaleTodayLoad）
-        XCTAssertEqual(evidence.energy.value ?? -1, 47.91, accuracy: 0.01)
+        XCTAssertEqual(evidence.energy.value ?? -1, 46.555299948395124, accuracy: 0.01)
         XCTAssertEqual(evidence.sleep.algorithmVersion, ScoringAlgorithmVersions.sleep)
         XCTAssertEqual(evidence.recovery.algorithmVersion, ScoringAlgorithmVersions.recovery)
         XCTAssertEqual(evidence.strain.algorithmVersion, ScoringAlgorithmVersions.strain)

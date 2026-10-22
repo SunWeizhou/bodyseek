@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import BodySeekDomain
 
 enum ActiveStatusSettings {
     static let statusKey = "vela_active_status"
@@ -339,9 +340,19 @@ final class DailySummaryUseCase {
         let baselineSnapshots = snapshots180.filter {
             !calendar.isDate($0.date, inSameDayAs: now)
         }
-        let hrvHistory = baselineSnapshots.compactMap(\.hrvAverage)
-        let rhrHistory = baselineSnapshots.compactMap(\.restingHeartRate)
-        let respHistory = baselineSnapshots.compactMap(\.respiratoryRate)
+        func displayedBaseline(_ value: KeyPath<DailyHealthSnapshot, Double?>) -> Double? {
+            let samples = baselineSnapshots.compactMap { snapshot -> BaselineSample? in
+                guard let number = snapshot[keyPath: value] else { return nil }
+                return BaselineSample(date: snapshot.date, value: number)
+            }
+            return BaselineEstimator.estimate(
+                samples: samples,
+                asOf: now,
+                windowDays: 42,
+                minimumSamples: 5,
+                calendar: calendar
+            )?.median
+        }
         // Get raw workout list from HealthKit for the current day to preserve sample details
         let todayRange = DateRangeQuery.today(containing: now, calendar: calendar)
         let todayStrainSummary = try? await queryService.strainSummary(in: todayRange)
@@ -420,10 +431,10 @@ final class DailySummaryUseCase {
         )
         
         let recoveryBaseline = RecoveryMetricSummary(
-            hrvMilliseconds: hrvHistory.count >= 5 ? calculateMedian(hrvHistory) : nil,
-            restingHeartRate: rhrHistory.count >= 5 ? PersonalBaselineEngine.recencyWeightedMean(rhrHistory) : nil,
+            hrvMilliseconds: displayedBaseline(\.hrvAverage),
+            restingHeartRate: displayedBaseline(\.restingHeartRate),
             sleepHeartRate: nil,
-            respiratoryRate: respHistory.count >= 5 ? PersonalBaselineEngine.recencyWeightedMean(respHistory) : nil
+            respiratoryRate: displayedBaseline(\.respiratoryRate)
         )
         
         let context = DailyHealthContext(
@@ -739,16 +750,6 @@ final class DailySummaryUseCase {
             await checkAndAlertAbnormalMetrics(snapshot: persistedSnapshot, modelContext: modelContext)
         }
         return dashboard
-    }
-
-    private func calculateMedian(_ values: [Double]) -> Double? {
-        guard !values.isEmpty else { return nil }
-        let sorted = values.sorted()
-        if sorted.count % 2 == 1 {
-            return sorted[sorted.count / 2]
-        } else {
-            return (sorted[sorted.count / 2 - 1] + sorted[sorted.count / 2]) / 2.0
-        }
     }
 
     private func refreshIntradayBuckets(

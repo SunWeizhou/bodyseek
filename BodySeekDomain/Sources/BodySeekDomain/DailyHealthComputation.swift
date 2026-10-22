@@ -95,13 +95,15 @@ public struct DailyHealthComputation: Sendable {
             from: history,
             maxDays: 42
         )
-        let hrvHistory = baselineHistory.compactMap(\.hrvAverage)
-        let hrvRmssdHistory = baselineHistory.compactMap(\.hrvRmssdMilliseconds)
-        let rhrHistory = baselineHistory.compactMap(\.restingHeartRate)
-        let respiratoryHistory = baselineHistory.compactMap(\.respiratoryRate)
-        let dailyLoadHistory = dailyLoadObservations.map { observation in
-            observation.availability.contributesToLoad ? (observation.value ?? 0.0) : 0.0
-        }
+        let hrvEstimate = metricBaseline(in: baselineHistory, asOf: snapshot.date, value: \.hrvAverage)
+        let hrvRmssdEstimate = metricBaseline(in: baselineHistory, asOf: snapshot.date, value: \.hrvRmssdMilliseconds)
+        let rhrEstimate = metricBaseline(in: baselineHistory, asOf: snapshot.date, value: \.restingHeartRate)
+        let respiratoryEstimate = metricBaseline(in: baselineHistory, asOf: snapshot.date, value: \.respiratoryRate)
+        let hrvHistory = hrvEstimate?.values ?? []
+        let hrvRmssdHistory = hrvRmssdEstimate?.values ?? []
+        let rhrHistory = rhrEstimate?.values ?? []
+        let respiratoryHistory = respiratoryEstimate?.values ?? []
+        let dailyLoadHistory = dailyLoadObservations.loadValuesSkippingGaps()
         let temperatureDelta = wristTemperatureDelta(
             current: snapshot.wristTemperature,
             history: baselineHistory
@@ -128,18 +130,18 @@ public struct DailyHealthComputation: Sendable {
         let recovery = RecoveryScoreEngine(calendar: calendar).calculate(from: RecoveryScoreInput(
             asOf: asOf,
             hrvToday: snapshot.hrvAverage,
-            hrvBaseline: ScoringMath.median(hrvHistory),
+            hrvBaseline: hrvEstimate?.median,
             hrvHistory: hrvHistory,
             hrvRmssdToday: snapshot.hrvRmssdMilliseconds,
-            hrvRmssdBaseline: ScoringMath.median(hrvRmssdHistory),
+            hrvRmssdBaseline: hrvRmssdEstimate?.median,
             hrvRmssdHistory: hrvRmssdHistory,
             restingHeartRateToday: snapshot.restingHeartRate,
-            restingHeartRateBaseline: ScoringMath.median(rhrHistory),
+            restingHeartRateBaseline: rhrEstimate?.median,
             rhrHistory: rhrHistory,
             sleepScoreLastNight: sleep.value,
             strainScoreYesterday: yesterdayStrain,
             respiratoryRateToday: snapshot.respiratoryRate,
-            respiratoryRateBaseline: ScoringMath.median(respiratoryHistory),
+            respiratoryRateBaseline: respiratoryEstimate?.median,
             respiratoryRateHistory: respiratoryHistory,
             bodyTempDelta: temperatureDelta,
             SpO2: snapshot.oxygenSaturation,
@@ -170,17 +172,17 @@ public struct DailyHealthComputation: Sendable {
             recoveryScore: recovery.value
         ))
 
-        let respiratorySD = ScoringMath.sampleStandardDeviation(respiratoryHistory)
+        let respiratorySD = respiratoryEstimate?.robustScale
         let physiologicalStress = StressIndexEngine(calendar: calendar).calculate(from: StressIndexInput(
             asOf: asOf,
             quietHRToday: snapshot.restingHeartRate,
-            quietHRBaseline: ScoringMath.median(rhrHistory),
-            quietHRSD: ScoringMath.sampleStandardDeviation(rhrHistory),
+            quietHRBaseline: rhrEstimate?.median,
+            quietHRSD: rhrEstimate?.robustScale,
             hrvToday: snapshot.hrvAverage,
-            hrvBaseline: ScoringMath.median(hrvHistory),
-            hrvSD: ScoringMath.sampleStandardDeviation(hrvHistory),
+            hrvBaseline: hrvEstimate?.median,
+            hrvSD: hrvEstimate?.robustScale,
             respRateToday: snapshot.respiratoryRate,
-            respRateBaseline: ScoringMath.median(respiratoryHistory),
+            respRateBaseline: respiratoryEstimate?.median,
             respRateSD: respiratorySD,
             bodyTempDelta: temperatureDelta,
             sleepScoreLastNight: sleep.value,
@@ -202,9 +204,9 @@ public struct DailyHealthComputation: Sendable {
             strainScore: strain.value,
             stressIndex: physiologicalStress.value,
             hrvToday: snapshot.hrvAverage,
-            hrvBaseline: ScoringMath.median(hrvHistory),
+            hrvBaseline: hrvEstimate?.median,
             rhrToday: snapshot.restingHeartRate,
-            rhrBaseline: ScoringMath.median(rhrHistory),
+            rhrBaseline: rhrEstimate?.median,
             sleepHours: snapshot.sleepHours,
             strainHistory: dailyLoadHistory,
             trainingLoadHistory: dailyLoadObservations,
@@ -239,6 +241,24 @@ public struct DailyHealthComputation: Sendable {
         let start = calendar.startOfDay(for: snapshot.date)
         let next = calendar.date(byAdding: .day, value: 1, to: start) ?? start
         return next.addingTimeInterval(-1)
+    }
+
+    private func metricBaseline(
+        in history: [DailyHealthSnapshot],
+        asOf: Date,
+        value: KeyPath<DailyHealthSnapshot, Double?>
+    ) -> BaselineEstimate? {
+        let samples = history.compactMap { snapshot -> BaselineSample? in
+            guard let number = snapshot[keyPath: value] else { return nil }
+            return BaselineSample(date: snapshot.date, value: number)
+        }
+        return BaselineEstimator.estimate(
+            samples: samples,
+            asOf: asOf,
+            windowDays: 42,
+            minimumSamples: 1,
+            calendar: calendar
+        )
     }
 
     private func personalBaselineHistory(

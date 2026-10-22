@@ -930,6 +930,22 @@ final class CoachChatVM: ObservableObject {
             isReady = true
             isAwaitingForegroundRetry = false
         } catch {
+            if let providerError = error as? LLMProviderError, providerError == .responseTruncated {
+                flushPendingStreamDeltas()
+                let partial = streamingContent
+                let notice = providerError.userFacingMessage(isChinese: AppLanguage.stored.isChinese)
+                let content = partial.isEmpty ? notice : partial + "\n\n（\(notice)）"
+                if let idx = messages.firstIndex(where: { $0.id == assistantId }) {
+                    messages[idx] = ChatMsg(
+                        id: assistantId,
+                        role: .assistant,
+                        content: content,
+                        wikiUpdates: messages[idx].wikiUpdates
+                    )
+                }
+                persistThread(modelContext: modelContext)
+                isReady = true
+            } else {
             let isUserCancellation = error is CancellationError
                 || (error as? URLError)?.code == .cancelled
             if isUserCancellation {
@@ -967,6 +983,7 @@ final class CoachChatVM: ObservableObject {
                 }
             }
             persistThread(modelContext: modelContext)
+            }
         }
 
         resetStreamingContent()

@@ -359,11 +359,12 @@ public struct EnergyBankEngine: ScoreEngine {
     ) -> TrainingLoadProjection {
         let orderedHistory = history.sorted { $0.date < $1.date }
         let observedDays = orderedHistory.filter(\.isObservedValue).count
-        // Missing/excluded dates contribute calendar decay but are not counted
-        // as measured zero-load days. Known zero remains a real observation.
-        let loadsIncludingToday = orderedHistory.map { observation in
-            observation.availability.contributesToLoad ? (observation.value ?? 0.0) : 0.0
-        } + (today.availability.contributesToLoad ? [today.value ?? 0.0] : [])
+        // Missing and excluded days are skipped. Inserting them as 0 makes an
+        // unworn day look like rest and pulls ATL, CTL, and ACWR down.
+        // Known zero stays in the series.
+        let todayLoad = today.availability.contributesToLoad ? today.value : nil
+        let loadsIncludingToday = orderedHistory.loadValuesSkippingGaps()
+            + (todayLoad.map { [$0] } ?? [])
 
         guard observedDays >= 7,
               today.availability.contributesToLoad,

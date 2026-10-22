@@ -63,9 +63,25 @@ enum CoachReasoningMode: String, CaseIterable, Sendable {
     }
 }
 
-enum DeepSeekStreamCompletion {
-    static func isComplete(didReceiveDone: Bool) -> Bool {
-        didReceiveDone
+enum DeepSeekStreamSignals {
+    /// The wire field is `finish_reason`. A synthesized `finishReason` key never matches it.
+    static func finishReason(inJSON json: Data) -> String? {
+        guard let chunk = try? JSONDecoder().decode(DeepSeekStreamChunk.self, from: json) else { return nil }
+        return chunk.choices.first?.finishReason
+    }
+}
+
+enum DeepSeekStreamCompletion: Equatable {
+    case complete
+    case truncated
+    case incomplete
+
+    /// `length` is a real finish, not a missing `[DONE]`. Other finishes still
+    /// need the SSE terminator or an explicit `stop`.
+    static func resolve(didReceiveDone: Bool, finishReason: String?) -> DeepSeekStreamCompletion {
+        if finishReason == "length" { return .truncated }
+        if didReceiveDone || finishReason == "stop" { return .complete }
+        return .incomplete
     }
 }
 
@@ -211,7 +227,7 @@ struct DeepSeekProvider: LLMProvider {
                     }
 
                     var didReceiveDone = false
-                    var didReceiveLengthFinish = false
+                    var finishReason: String?
                     for try await line in bytes.lines {
                         let trimmedLine = line.trimmingCharacters(in: .whitespacesAndNewlines)
                         if trimmedLine == "data: [DONE]" || trimmedLine == "data:[DONE]" {
@@ -222,21 +238,24 @@ struct DeepSeekProvider: LLMProvider {
                         let json = String(line.dropFirst(6))
                         guard let data = json.data(using: .utf8),
                               let chunk = try? JSONDecoder().decode(DeepSeekStreamChunk.self, from: data) else { continue }
-                        if chunk.choices.first?.finishReason == "length" {
-                            // max_tokens 截断属正常收尾（此前被判 invalidResponse，
-                            // 用户看到「无法解析」而非「回复过长」）。
-                            didReceiveLengthFinish = true
+                        if let reason = chunk.choices.first?.finishReason {
+                            finishReason = reason
                         }
                         guard let delta = chunk.choices.first?.delta.content,
                               !delta.isEmpty else { continue }
                         continuation.yield(delta)
                     }
-                    guard DeepSeekStreamCompletion.isComplete(
-                        didReceiveDone: didReceiveDone || didReceiveLengthFinish
-                    ) else {
+                    switch DeepSeekStreamCompletion.resolve(
+                        didReceiveDone: didReceiveDone,
+                        finishReason: finishReason
+                    ) {
+                    case .complete:
+                        continuation.finish()
+                    case .truncated:
+                        throw LLMProviderError.responseTruncated
+                    case .incomplete:
                         throw LLMProviderError.invalidResponse
                     }
-                    continuation.finish()
                 } catch is CancellationError {
                     continuation.finish(throwing: CancellationError())
                 } catch {
@@ -381,6 +400,11 @@ private struct DeepSeekStreamChunk: Decodable {
     struct Choice: Decodable {
         var delta: Delta
         var finishReason: String?
+
+        enum CodingKeys: String, CodingKey {
+            case delta
+            case finishReason = "finish_reason"
+        }
     }
 
     struct Delta: Decodable {

@@ -524,8 +524,8 @@ final class TodayViewStateTests: XCTestCase {
             // preserve the engine's explicit consistency-data gap.
             (.sleep, 77.43, ScoringAlgorithmVersions.sleep, .healthKit, ["recentBedtimesHistory"]),
             (.strain, 63.67, ScoringAlgorithmVersions.strain, .healthKit, []),
-            (.stress, 21.08, ScoringAlgorithmVersions.physiologicalStress, .derived, []),
-            (.energy, 47.91, ScoringAlgorithmVersions.energy, .derived, [])
+            (.stress, 26.50245571207583, ScoringAlgorithmVersions.physiologicalStress, .derived, []),
+            (.energy, 46.555299948395124, ScoringAlgorithmVersions.energy, .derived, [])
         ]
         XCTAssertEqual(state.phase, .ready)
         XCTAssertEqual(state.source, .healthKit)

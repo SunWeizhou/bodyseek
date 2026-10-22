@@ -98,9 +98,9 @@ public enum ScoreDataCoverage: String, Codable, Hashable, Sendable {
 public enum ScoringAlgorithmVersions {
     public static let sleep = "sleep.v2.2.0"
     public static let recovery = "recovery.v2.0.0"
-    public static let strain = "strain.v2.1.0"
-    public static let physiologicalStress = "physiologicalStress.v2.0.0"
-    public static let energy = "energy.v2.1.0"
+    public static let strain = "strain.v2.2.0"
+    public static let physiologicalStress = "physiologicalStress.v2.1.0"
+    public static let energy = "energy.v2.2.0"
 }
 
 public enum StrainTargetStatus: String, Codable, Hashable, Sendable {

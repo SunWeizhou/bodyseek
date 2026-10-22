@@ -1,7 +1,7 @@
 {
   "schema": "bodyseek-energy-replay.v1",
   "target": "BodySeekDomain",
-  "algorithmVersion": "energy.v2.1.0",
+  "algorithmVersion": "energy.v2.2.0",
   "formulaChange": false,
   "calendar": "gregorian",
   "timeZone": "UTC",
@@ -31,5 +31,5 @@
     "formattedScore": "--",
     "requiredMissingInputs": ["recoveryScore", "sleepScore"]
   },
-  "packageParity": "EnergyBankEngine and EnergyBankInput live in BodySeekDomain. The app EnergyBankEngine is a MetricResult adapter. MetricConfidence and TrainingLoadStatus are domain types aliased by the app. BodySeekDomain.DailyHealthComputation still leaves the energy slot unavailable until production scoring moves. The domain algorithm-version constant now matches production energy.v2.1.0."
+  "packageParity": "EnergyBankEngine and EnergyBankInput live in BodySeekDomain. The app EnergyBankEngine is a MetricResult adapter. MetricConfidence and TrainingLoadStatus are domain types aliased by the app. BodySeekDomain.DailyHealthComputation still leaves the energy slot unavailable until production scoring moves. The domain algorithm-version constant now matches production energy.v2.2.0. Missing load days are skipped by EWMA instead of inserted as zero."
 }

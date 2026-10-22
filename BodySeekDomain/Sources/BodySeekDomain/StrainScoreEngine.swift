@@ -247,9 +247,7 @@ public struct StrainScoreEngine: ScoreEngine {
         let ascendingHistory: [Double] = if let observations = input.dailyLoadObservations {
             observations
                 .sorted { $0.date < $1.date }
-                .map { observation in
-                    observation.availability.contributesToLoad ? (observation.value ?? 0.0) : 0.0
-                }
+                .loadValuesSkippingGaps()
         } else {
             Array(input.last28DaysDailyLoads.reversed())
         }

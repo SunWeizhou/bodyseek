@@ -30,7 +30,7 @@ public enum HealthTrendHorizon: String, Codable, Hashable, CaseIterable, Sendabl
 
     public var requiredSampleCount: Int {
         switch self {
-        case .sevenDays: return 4
+        case .sevenDays: return 5
         case .thirtyDays: return 14
         case .sixMonths: return 60
         case .threeYears: return 60
