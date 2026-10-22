@@ -64,6 +64,7 @@ struct VelaShell: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject private var services: VelaServices
 
     @State private var showPlusSheet = false
@@ -554,21 +555,37 @@ struct VelaShell: View {
             customTabButton(.plan)
             customTabButton(.coach)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 7)
-        .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(VelaTheme.cardBg.opacity(0.96))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(VelaTheme.rhythmMist.opacity(0.7), lineWidth: 0.7)
-        )
-        .shadow(color: Color.black.opacity(0.08), radius: 18, y: 8)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background {
+            dockBackground
+        }
         .padding(.horizontal, 14)
         // Navigation chrome has a fixed hit-target grid; reading content keeps
         // the user's full Dynamic Type size inside each destination.
         .dynamicTypeSize(...DynamicTypeSize.xxLarge)
+    }
+
+    @ViewBuilder
+    private var dockBackground: some View {
+        let shape = RoundedRectangle(cornerRadius: 28, style: .continuous)
+        shape
+            .fill(.ultraThinMaterial)
+            .overlay(
+                shape
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(colorScheme == .dark ? 0.08 : 0.5),
+                                Color.white.opacity(colorScheme == .dark ? 0.02 : 0.15)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ),
+                        lineWidth: 0.5
+                    )
+            )
+            .shadow(color: Color.black.opacity(0.08), radius: 18, y: 8)
     }
 
     // MARK: - Individual Tab Button with Premium Sliding Highlight
@@ -615,11 +632,11 @@ struct VelaShell: View {
                 ZStack {
                     if isActive {
                         if reduceMotion {
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(VelaTheme.accent.opacity(0.08))
+                            Capsule(style: .continuous)
+                                .fill(VelaTheme.accent.opacity(0.10))
                         } else {
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(VelaTheme.accent.opacity(0.08))
+                            Capsule(style: .continuous)
+                                .fill(VelaTheme.accent.opacity(0.10))
                                 .matchedGeometryEffect(id: "activeTabHighlight", in: tabAnimation)
                         }
                     }

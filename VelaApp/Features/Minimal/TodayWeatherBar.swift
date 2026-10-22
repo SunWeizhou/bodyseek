@@ -2,6 +2,7 @@ import SwiftUI
 
 struct TodayWeatherBar: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.colorScheme) private var colorScheme
 
     let weatherTemp: String
     let weatherStatusText: String
@@ -9,32 +10,39 @@ struct TodayWeatherBar: View {
 
     var body: some View {
         Button {
+            VelaHaptic.light()
             requestWeatherUpdate()
         } label: {
-            HStack(spacing: 6) {
-                Image(systemName: "cloud.sun")
+            HStack(spacing: 5) {
+                Image(systemName: "cloud.sun.fill")
+                    .symbolRenderingMode(.hierarchical)
                     .font(VelaTheme.subheadline())
-                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                    .foregroundStyle(weatherTemp == "--" ? VelaTheme.rhythmInkSecondary : Color(hex: "#38BDF8"))
                 Text(weatherTemp == "--" ? "天气" : weatherTemp)
-                    .font(VelaTheme.subheadline())
-                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                    .font(.system(.footnote, design: .rounded, weight: .semibold))
+                    .foregroundStyle(VelaTheme.rhythmInk)
                     .lineLimit(1)
             }
             .padding(.horizontal, 10)
+            .padding(.vertical, 6)
             .frame(minHeight: VelaTheme.minimumHitTarget)
-            .background(VelaTheme.cardBg, in: weatherShape)
-            .overlay(weatherShape.stroke(VelaTheme.borderSoft, lineWidth: 0.5))
-            .contentShape(weatherShape)
+            .background {
+                Capsule(style: .continuous)
+                    .fill(VelaTheme.rhythmCanvasRaised)
+            }
+            .overlay {
+                Capsule(style: .continuous)
+                    .stroke(
+                        colorScheme == .dark
+                            ? Color.white.opacity(0.10)
+                            : VelaTheme.rhythmMist.opacity(0.70),
+                        lineWidth: 0.75
+                    )
+            }
+            .contentShape(Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.cardPress)
         .accessibilityLabel("天气：\(weatherStatusText)")
         .accessibilityHint("点按更新本地天气")
-    }
-
-    private var weatherShape: RoundedRectangle {
-        RoundedRectangle(
-            cornerRadius: dynamicTypeSize.isAccessibilitySize ? 16 : VelaTheme.radiusPill,
-            style: .continuous
-        )
     }
 }

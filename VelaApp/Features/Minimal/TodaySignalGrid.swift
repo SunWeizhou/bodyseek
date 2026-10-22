@@ -627,9 +627,22 @@ private struct TodayDashboardCardModifier: ViewModifier {
             .overlay {
                 shape.stroke(
                     colorSchemeContrast == .increased
-                        ? VelaTheme.rhythmInk
-                        : VelaTheme.rhythmMist.opacity(0.82),
-                    lineWidth: colorSchemeContrast == .increased ? 1 : 0.6
+                        ? AnyShapeStyle(VelaTheme.rhythmInk)
+                        : AnyShapeStyle(
+                            LinearGradient(
+                                colors: [
+                                    colorScheme == .dark
+                                        ? Color.white.opacity(0.12)
+                                        : VelaTheme.rhythmMist.opacity(0.85),
+                                    colorScheme == .dark
+                                        ? Color.white.opacity(0.03)
+                                        : VelaTheme.rhythmMist.opacity(0.40)
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        ),
+                    lineWidth: colorSchemeContrast == .increased ? 1 : 0.75
                 )
             }
     }
@@ -715,7 +728,7 @@ struct TodayDailyPlanCard: View {
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
+        .todayDashboardCard(radius: VelaTheme.radiusCard, depth: .standard)
         .accessibilityElement(children: .contain)
     }
 }

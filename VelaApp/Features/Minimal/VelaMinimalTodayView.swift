@@ -112,7 +112,7 @@ struct VelaTodayView: View {
         return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(
                         conflicted
                             ? VelaTheme.rhythmInkSecondary
@@ -153,7 +153,7 @@ struct VelaTodayView: View {
                 .padding(.top, 2)
             }
         }
-        .padding(14)
+        .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous)
@@ -161,7 +161,22 @@ struct VelaTodayView: View {
         )
         .overlay {
             RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous)
-                .stroke(VelaTheme.rhythmDeep.opacity(0.35), lineWidth: 1.0)
+                .stroke(
+                    conflicted
+                        ? AnyShapeStyle(VelaTheme.rhythmMist)
+                        : AnyShapeStyle(
+                            LinearGradient(
+                                colors: [
+                                    VelaTheme.rhythmDeep.opacity(0.65),
+                                    Color(hex: "#8B5CF6").opacity(0.55),
+                                    VelaTheme.energyColor.opacity(0.45)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        ),
+                    lineWidth: conflicted ? 0.75 : 1.25
+                )
         }
     }
 
@@ -629,7 +644,7 @@ struct VelaTodayView: View {
     }
 
     private var livedStatePrompt: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text("和你的感受一致吗？")
                     .font(VelaTheme.subheadline().weight(.semibold))
@@ -662,14 +677,24 @@ struct VelaTodayView: View {
                 }
             }
         }
-        .padding(14)
+        .padding(16)
         .background(
             VelaTheme.rhythmCanvasRaised,
             in: RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous)
         )
         .overlay {
             RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous)
-                .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                .stroke(
+                    LinearGradient(
+                        colors: [
+                            cs == .dark ? Color.white.opacity(0.12) : VelaTheme.rhythmMist.opacity(0.85),
+                            cs == .dark ? Color.white.opacity(0.03) : VelaTheme.rhythmMist.opacity(0.40)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    ),
+                    lineWidth: 0.75
+                )
         }
     }
 
@@ -694,6 +719,7 @@ struct VelaTodayView: View {
     private func livedStateAlignmentButton(_ alignment: LivedStateAlignment) -> some View {
         let selected = (todayStore.state.livedState.alignment ?? selectedLivedStateAlignment) == alignment
         return Button {
+            VelaHaptic.selection()
             saveLivedStateAlignment(alignment)
         } label: {
             Text(livedStateLabel(alignment))
@@ -701,8 +727,15 @@ struct VelaTodayView: View {
                 .foregroundStyle(selected ? VelaTheme.rhythmDeepOn : VelaTheme.rhythmInk)
                 .frame(maxWidth: .infinity, minHeight: VelaTheme.minimumHitTarget)
                 .background(
-                    selected ? VelaTheme.rhythmDeep : VelaTheme.rhythmMist.opacity(0.48),
+                    selected
+                        ? AnyShapeStyle(VelaTheme.rhythmDeep)
+                        : AnyShapeStyle(VelaTheme.rhythmMist.opacity(0.48)),
                     in: Capsule(style: .continuous)
+                )
+                .scaleEffect(selected && !reduceMotion ? 1.02 : 1.0)
+                .animation(
+                    reduceMotion ? .easeOut(duration: 0.15) : VelaTheme.responsiveSpring,
+                    value: selected
                 )
         }
         .buttonStyle(.plain)
@@ -846,7 +879,7 @@ struct TodayDateAndStatusHeader: View {
         } label: {
             HStack(spacing: 5) {
                 Text(dateHeaderString(for: selectedDate))
-                    .font(.system(.body, design: .default, weight: .semibold))
+                    .font(.system(.title3, design: .default, weight: .bold))
                     .foregroundStyle(VelaTheme.rhythmInk)
                     .lineLimit(1)
 
@@ -872,12 +905,16 @@ struct TodayDateAndStatusHeader: View {
     }
 
     private var headerActions: some View {
-        HStack(spacing: 2) {
+        HStack(spacing: 8) {
             ShareLink(item: todayShareText) {
                 Image(systemName: "square.and.arrow.up")
                     .font(.system(size: 17, weight: .medium))
                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                    .frame(width: 34, height: 34)
+                    .background(Circle().fill(VelaTheme.rhythmCanvasRaised))
+                    .overlay(Circle().stroke(VelaTheme.rhythmMist.opacity(0.65), lineWidth: 0.75))
                     .frame(width: VelaTheme.circularControlSize, height: VelaTheme.circularControlSize)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.cardPress)
             .accessibilityLabel("分享今日摘要")
@@ -887,19 +924,21 @@ struct TodayDateAndStatusHeader: View {
             } label: {
                 ZStack(alignment: .bottomTrailing) {
                     Circle()
-                        .fill(VelaTheme.rhythmMist)
-                        .frame(width: 30, height: 30)
+                        .fill(VelaTheme.rhythmCanvasRaised)
+                        .frame(width: 34, height: 34)
+                        .overlay(Circle().stroke(VelaTheme.rhythmMist.opacity(0.65), lineWidth: 0.75))
                         .overlay {
                             Image(systemName: "person.fill")
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(VelaTheme.rhythmDeep)
                         }
                     Circle()
-                        .fill(VelaTheme.rhythmGlow)
+                        .fill(settingsSynced ? VelaTheme.success : VelaTheme.rhythmGlow)
                         .frame(width: 8, height: 8)
-                        .overlay(Circle().stroke(VelaTheme.rhythmCanvas, lineWidth: 2))
+                        .overlay(Circle().stroke(VelaTheme.rhythmCanvas, lineWidth: 1.5))
                 }
                 .frame(width: VelaTheme.circularControlSize, height: VelaTheme.circularControlSize)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.cardPress)
             .accessibilityLabel(settingsSynced ? "个人设置,数据已同步" : "个人设置,数据待同步")
