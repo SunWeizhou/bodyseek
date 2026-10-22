@@ -128,33 +128,30 @@ struct VelaTrendsView: View {
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: VelaTheme.sectionGap) {
-                horizonPicker
-                .accessibilityElement(children: .contain)
-                .accessibilityIdentifier("trends-horizon-picker")
                 trendHistoryErrorCard
                 compactAgentObservation
                 fiveScoreTrendSection
-                recoveryTrendChart
+                trendLegend
 
                 if !hasAnyScoreHistory && scoreDescriptors.allSatisfy({ finding(for: $0.metric)?.isAvailable != true }) {
                     compactCalibrationCard
                 }
 
                 metricCatalogDisclosure
+                    .padding(.top, 120)
                 if showAllMetricCatalog {
                     groupedMetricBrowserSection
-                }
-
-                if selectedHorizon != .threeYears {
-                    threeYearTrajectoryCard
-                }
-
-                if healthBrief?.subheadline.isEmpty != false {
-                    askVelaTrendCard
+                    recoveryTrendChart
+                    if selectedHorizon != .threeYears {
+                        threeYearTrajectoryCard
+                    }
+                    if healthBrief?.subheadline.isEmpty != false {
+                        askVelaTrendCard
+                    }
                 }
             }
             .padding(.horizontal, VelaTheme.pagePadding)
-            .padding(.top, 6)
+            .padding(.top, 72)
             .padding(.bottom, VelaFloatingNavigationMetrics.contentBottomPadding + 20)
         }
         .scrollIndicators(.hidden)
@@ -182,36 +179,13 @@ struct VelaTrendsView: View {
 
     private var fiveScoreTrendSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Group {
-                if dynamicTypeSize.isAccessibilitySize {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("身体状态")
-                            .font(VelaTheme.headline())
-                            .foregroundStyle(VelaTheme.rhythmInk)
-                        Text(selectedHorizon.detailedTitle)
-                            .font(VelaTheme.caption1().weight(.semibold))
-                            .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                    }
-                } else {
-                    HStack(alignment: .firstTextBaseline) {
-                        Text("身体状态")
-                            .font(VelaTheme.headline())
-                            .foregroundStyle(VelaTheme.rhythmInk)
-                        Spacer()
-                        Text(selectedHorizon.detailedTitle)
-                            .font(VelaTheme.caption1().weight(.semibold))
-                            .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                    }
-                }
-            }
-
             VStack(spacing: 0) {
                 ForEach(Array(scoreDescriptors.enumerated()), id: \.element.id) { index, descriptor in
                     scoreTrendRow(descriptor)
                     if index < scoreDescriptors.count - 1 {
                         Divider()
                             .overlay(VelaTheme.rhythmMist)
-                            .padding(.leading, 52)
+                            .padding(.leading, 16)
                     }
                 }
             }
@@ -316,13 +290,11 @@ struct VelaTrendsView: View {
                     }
                 } else {
                     HStack(spacing: 12) {
-                        scoreTrendIcon(descriptor, color: color)
-
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack(spacing: 6) {
-                                Text(descriptor.title)
-                                    .font(VelaTheme.subheadline().weight(.semibold))
-                                    .foregroundStyle(VelaTheme.rhythmInk)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(descriptor.title)
+                                .font(VelaTheme.subheadline().weight(.semibold))
+                                .foregroundStyle(VelaTheme.rhythmInk)
+                            HStack(spacing: 4) {
                                 if finding?.isNotable == true {
                                     BaselineDeviationMarker(
                                         directionLabel: finding.flatMap { BaselineDeviationCopy.label(for: $0) },
@@ -330,35 +302,31 @@ struct VelaTrendsView: View {
                                         diameter: 7
                                     )
                                 }
+                                Text(scoreTrendCaption(finding: finding, sampleCount: values.count))
+                                    .font(VelaTheme.caption2())
+                                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                                    .lineLimit(1)
                             }
-
-                            Text(scoreTrendCaption(finding: finding, sampleCount: values.count))
-                                .font(VelaTheme.caption2())
-                                .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                                .lineLimit(1)
                         }
-
-                        Spacer(minLength: 4)
+                        .frame(width: 108, alignment: .leading)
 
                         DateAwareSparkline(
                             points: trendPoints,
                             color: color,
-                            height: 34,
-                            width: 88,
+                            height: 36,
+                            width: 128,
                             band: scoreBand(for: descriptor.metric),
                             marksLatestPoint: true
                         )
                         .accessibilityHidden(true)
 
+                        Spacer(minLength: 0)
+
                         Text(valueText)
-                            .font(.system(.headline, design: .default, weight: .semibold))
+                            .font(.system(.title3, design: .default, weight: .medium))
                             .monospacedDigit()
                             .foregroundStyle(valueText == "--" ? VelaTheme.muted : VelaTheme.rhythmInk)
-                            .frame(minWidth: 38, alignment: .trailing)
-
-                        Image(systemName: "chevron.right")
-                            .font(.caption2.weight(.bold))
-                            .foregroundStyle(VelaTheme.rhythmInkSecondary.opacity(0.55))
+                            .frame(minWidth: 44, alignment: .trailing)
                     }
                 }
             }
@@ -407,14 +375,87 @@ struct VelaTrendsView: View {
 
     @ViewBuilder
     private var compactAgentObservation: some View {
-        if let brief = healthBrief, !brief.subheadline.isEmpty {
-            Text(brief.subheadline)
-                .font(VelaTheme.body())
-                .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                .lineSpacing(4)
-                .fixedSize(horizontal: false, vertical: true)
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 4) {
+                ForEach(HealthTrendHorizon.allCases) { horizon in
+                    let selected = horizon == selectedHorizon
+                    Text(horizon.title)
+                        .font(VelaTheme.subheadline().weight(selected ? .semibold : .regular))
+                        .foregroundStyle(selected ? VelaTheme.rhythmInk : VelaTheme.rhythmInkSecondary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Capsule().fill(selected ? VelaTheme.segmentOn : Color.clear))
+                        .contentShape(Capsule())
+                        .onTapGesture {
+                            selectedHorizon = horizon
+                            VelaHaptic.selection()
+                        }
+                        .accessibilityAddTraits(.isButton)
+                        .accessibilityAddTraits(selected ? .isSelected : [])
+                }
+                Spacer(minLength: 8)
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("trends-horizon-picker")
+            .accessibilityLabel("趋势时间范围")
+
+            if let brief = healthBrief, !brief.headline.isEmpty || !brief.subheadline.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "circle.circle")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(VelaTheme.rhythmInk)
+                        Text("BodySeek · \(selectedHorizon.title)小结")
+                            .font(VelaTheme.caption1())
+                            .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                        Spacer(minLength: 8)
+                        if dashboard.source == .preview {
+                            Text("示例数据")
+                                .font(VelaTheme.caption2().weight(.semibold))
+                                .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .overlay(Capsule().stroke(VelaTheme.hairline, lineWidth: 1))
+                        }
+                    }
+                    if !brief.headline.isEmpty {
+                        Text(brief.headline)
+                            .font(VelaTheme.briefBody().weight(.semibold))
+                            .foregroundStyle(VelaTheme.rhythmInk)
+                            .lineSpacing(6)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    if !brief.subheadline.isEmpty, brief.subheadline != brief.headline {
+                        Text(brief.subheadline)
+                            .font(VelaTheme.briefBody())
+                            .foregroundStyle(VelaTheme.rhythmInk)
+                            .lineSpacing(6)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
                 .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
+    }
+
+    private var trendLegend: some View {
+        HStack(spacing: 14) {
+            HStack(spacing: 6) {
+                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                    .fill(VelaTheme.rangeBand)
+                    .frame(width: 18, height: 8)
+                Text("常见范围")
+            }
+            HStack(spacing: 6) {
+                Circle()
+                    .stroke(VelaTheme.rhythmInk, lineWidth: 1.5)
+                    .frame(width: 8, height: 8)
+                Text("对你不常见（不代表不好）")
+            }
+        }
+        .font(VelaTheme.caption2())
+        .foregroundStyle(VelaTheme.rhythmInkSecondary)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var metricCatalogDisclosure: some View {
@@ -551,61 +592,6 @@ struct VelaTrendsView: View {
         guard !Task.isCancelled else { return }
         dailyRecordsLoadError = loaded.errorMessage
         trendStates = states
-    }
-
-    // MARK: - Horizon Picker
-
-    private var horizonPicker: some View {
-        Group {
-            if dynamicTypeSize.isAccessibilitySize {
-                Menu {
-                    ForEach(HealthTrendHorizon.allCases) { horizon in
-                        Button {
-                            selectedHorizon = horizon
-                            VelaHaptic.selection()
-                        } label: {
-                            Label(horizon.detailedTitle, systemImage: horizon == selectedHorizon ? "checkmark" : "")
-                        }
-                    }
-                } label: {
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack(spacing: 8) {
-                            Text("趋势时间范围")
-                                .font(VelaTheme.subheadline().weight(.semibold))
-                            Spacer(minLength: 8)
-                            Image(systemName: "chevron.up.chevron.down")
-                                .font(VelaTheme.caption1().weight(.semibold))
-                        }
-                        Text(selectedHorizon.detailedTitle)
-                            .font(VelaTheme.subheadline())
-                    }
-                    .foregroundStyle(VelaTheme.rhythmInk)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
-                    )
-                    .accessibilityIdentifier("trends-horizon-picker")
-                }
-                .accessibilityLabel("趋势时间范围")
-                .accessibilityValue(selectedHorizon.detailedTitle)
-            } else {
-                Picker("趋势范围", selection: $selectedHorizon) {
-                    ForEach(HealthTrendHorizon.allCases) { horizon in
-                        Text(horizon.detailedTitle).tag(horizon)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .accessibilityIdentifier("trends-horizon-picker")
-            }
-        }
-        .accessibilityLabel("趋势时间范围")
-        .onChange(of: selectedHorizon) { _, _ in
-            VelaHaptic.selection()
-        }
     }
 
     // MARK: - Empty State View

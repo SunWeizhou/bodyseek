@@ -462,9 +462,6 @@ struct RecoveryDetailV2View: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            if model.isSimulated {
-                simulatedBanner
-            }
             scoreSection
             trendSection
             observationSection
@@ -476,24 +473,6 @@ struct RecoveryDetailV2View: View {
             scrubbedDate = nil
             showsEvidence = false
         }
-    }
-
-    private var simulatedBanner: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("模拟数据，不是 Apple 健康记录")
-                .font(VelaTheme.caption1().weight(.semibold))
-                .foregroundStyle(VelaTheme.rhythmInk)
-            if let scenarioLabel = model.scenarioLabel {
-                Text(scenarioLabel)
-                    .font(VelaTheme.caption2())
-                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(VelaTheme.rhythmWarm.opacity(0.18), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .accessibilityIdentifier("recovery-detail-simulated")
     }
 
     private var scoreSection: some View {
@@ -563,18 +542,23 @@ struct RecoveryDetailV2View: View {
                 }
             }
             Text(model.bandText)
-                .font(VelaTheme.title2())
+                .font(VelaTheme.title2().weight(.semibold))
                 .foregroundStyle(VelaTheme.rhythmInk)
                 .fixedSize(horizontal: false, vertical: true)
-            Text("覆盖度 \(model.coverageText) · 置信度 \(model.confidenceText)")
-                .font(VelaTheme.caption1())
-                .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-            if let missingSummary = model.missingSummary {
-                Text(missingSummary)
-                    .font(VelaTheme.caption2())
+            HStack(spacing: 8) {
+                Text(model.sampleText)
+                    .font(VelaTheme.caption1())
                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .lineLimit(1)
+                if model.isSimulated {
+                    Text("示例数据")
+                        .font(VelaTheme.caption2().weight(.semibold))
+                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Capsule().stroke(VelaTheme.hairline, lineWidth: 1))
+                        .accessibilityIdentifier("recovery-detail-simulated")
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -582,6 +566,8 @@ struct RecoveryDetailV2View: View {
 
     private var baselineSection: some View {
         VStack(alignment: .leading, spacing: 10) {
+            rangePicker
+            chartLegend
             kindLabel(.statisticalDescription)
             Text("个人基线对照")
                 .font(VelaTheme.headline())
@@ -646,22 +632,27 @@ struct RecoveryDetailV2View: View {
                         .lineLimit(1)
                 }
             }
-            rangePicker
-            Text(model.trendSummary)
-                .font(VelaTheme.body())
-                .foregroundStyle(VelaTheme.rhythmInk)
-                .fixedSize(horizontal: false, vertical: true)
             if let scrubbedPoint {
                 Text(scrubCaption(scrubbedPoint))
                     .font(VelaTheme.caption1().weight(.semibold))
                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
             }
             trendChart
-            Text("有效 \(model.observedDayCount) 天 · 缺失 \(model.missingDayCount) 天。缺失日保留空档，不插值，也不记为 0。")
+            if let start = model.points.first?.date, let end = model.points.last?.date {
+                HStack {
+                    Text(axisDateLabel(start))
+                    Spacer(minLength: 8)
+                    Text(axisDateLabel(end))
+                }
                 .font(VelaTheme.caption2())
                 .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-            chartLegend
+            }
+            if model.missingDayCount > 0 {
+                Text("缺失 \(model.missingDayCount) 天留空，不插值，也不记为 0。")
+                    .font(VelaTheme.caption2())
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                    .lineLimit(1)
+            }
         }
         .padding(16)
         .modifier(RecoveryDetailCard())
@@ -688,11 +679,6 @@ struct RecoveryDetailV2View: View {
                     )
                     .foregroundStyle(VelaTheme.rangeBand)
                 }
-                if model.showsBaselineLine, let median = model.baselineMedianValue {
-                    RuleMark(y: .value("窗口中位数", median))
-                        .foregroundStyle(VelaTheme.rhythmInkSecondary.opacity(0.7))
-                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                }
                 ForEach(Array(model.chartSegments.enumerated()), id: \.offset) { index, segment in
                     if segment.count == 1, let point = segment.first, let value = point.value {
                         PointMark(
@@ -716,11 +702,16 @@ struct RecoveryDetailV2View: View {
                         }
                     }
                 }
-                if selectedRange == .week || selectedRange == .month {
-                    ForEach(model.points.filter { $0.value == nil }) { point in
-                        RuleMark(x: .value("缺失", point.date, unit: .day))
-                            .foregroundStyle(VelaTheme.rhythmInkSecondary.opacity(0.18))
-                            .lineStyle(StrokeStyle(lineWidth: 0.8, dash: [2, 4]))
+                if let latest = model.points.last(where: { $0.value != nil }), let latestValue = latest.value {
+                    PointMark(
+                        x: .value("今天", latest.date, unit: .day),
+                        y: .value("今天的分数", latestValue)
+                    )
+                    .symbol {
+                        Circle()
+                            .stroke(VelaTheme.rhythmInk, lineWidth: 1.5)
+                            .background(Circle().fill(VelaTheme.rhythmCanvasRaised))
+                            .frame(width: 8, height: 8)
                     }
                 }
                 if let scrubbedPoint {
@@ -738,35 +729,21 @@ struct RecoveryDetailV2View: View {
             }
             .chartXScale(domain: xDomain)
             .chartXSelection(value: $scrubbedDate)
-            .chartXAxis {
-                if selectedRange == .halfYear || selectedRange == .threeYears {
-                    AxisMarks(values: .stride(by: .month, count: selectedRange == .threeYears ? 6 : 1)) { _ in
-                        AxisGridLine().foregroundStyle(VelaTheme.rhythmMist.opacity(0.7))
-                        AxisValueLabel()
-                            .font(VelaTheme.caption2())
-                            .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                    }
-                } else {
-                    AxisMarks(values: .automatic) { _ in
-                        AxisGridLine().foregroundStyle(VelaTheme.rhythmMist.opacity(0.7))
-                        AxisValueLabel()
-                            .font(VelaTheme.caption2())
-                            .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                    }
-                }
-            }
-            .chartYAxis {
-                AxisMarks(position: .leading) { _ in
-                    AxisGridLine().foregroundStyle(VelaTheme.rhythmMist.opacity(0.7))
-                    AxisValueLabel()
-                        .font(VelaTheme.caption2())
-                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                }
-            }
-            .frame(height: dynamicTypeSize.isAccessibilitySize ? 180 : 112)
+            .chartXAxis(.hidden)
+            .chartYAxis(.hidden)
+            .chartLegend(.hidden)
+            .frame(height: dynamicTypeSize.isAccessibilitySize ? 180 : 84)
             .accessibilityLabel("恢复趋势")
             .accessibilityValue("有效 \(model.observedDayCount) 天，缺失 \(model.missingDayCount) 天")
         }
+    }
+
+    private func axisDateLabel(_ date: Date) -> String {
+        if Calendar.current.isDateInToday(date) { return "今天" }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_Hans_CN")
+        formatter.setLocalizedDateFormatFromTemplate("MMMd")
+        return formatter.string(from: date)
     }
 
     private var xDomain: ClosedRange<Date> {
@@ -832,17 +809,39 @@ struct RecoveryDetailV2View: View {
                 }
                 .accessibilityElement(children: .combine)
             }
-            Text("置信度 \(model.confidenceText) · 数据覆盖 \(model.coverageText)")
+            Text(confidenceLine)
                 .font(VelaTheme.caption1())
                 .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 12)
-            Text(model.missingSummary ?? "缺少的数据不会用 0 代替。")
+            Text("缺少的数据不会用 0 代替。")
                 .font(VelaTheme.caption2())
                 .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 4)
         }
         .accessibilityIdentifier("recovery-detail-observations")
+    }
+
+    /// “缺：…” stays on the confidence line. The next line always says missing
+    /// values are not filled with zero, whether or not a specific input is absent.
+    private var confidenceLine: String {
+        var line = "置信度 \(model.confidenceText) · 数据覆盖 \(model.coverageText)"
+        if let missing = shortMissingLabel {
+            line += " · 缺：\(missing)"
+        }
+        return line
+    }
+
+    private var shortMissingLabel: String? {
+        guard let summary = model.missingSummary else { return nil }
+        guard let marker = summary.range(of: "仍缺少：") else { return nil }
+        var text = String(summary[marker.upperBound...])
+        if let end = text.firstIndex(of: "。") {
+            text = String(text[..<end])
+        }
+        text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return text.isEmpty ? nil : text
     }
 
     private var findingSection: some View {

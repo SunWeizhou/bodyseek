@@ -147,9 +147,8 @@ struct VelaMetricDetailView: View {
     var body: some View {
         let isSleep = (metric == .sleep)
         
-        ZStack {
-            VelaTheme.rhythmCanvas.ignoresSafeArea()
-
+        VStack(spacing: 0) {
+            detailHeader
             ScrollView {
                 VStack(spacing: 16) {
                     if metric.isScoredHealthDomain {
@@ -159,42 +158,23 @@ struct VelaMetricDetailView: View {
                     }
                 }
                 .padding(.horizontal, VelaTheme.pagePadding)
-                .padding(.bottom, 56)
+                .padding(.bottom, 24)
             }
             .scrollIndicators(.hidden)
-        }
-        .navigationTitle(navTitle)
-        .accessibilityIdentifier("metric-detail-\(metric.rawValue)")
-        .velaRhythmDetailChrome()
-        .toolbar {
             if isPresentedInSheet {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button(action: dismiss.callAsFunction) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(VelaTheme.rhythmDeep)
-                            .frame(width: 32, height: 32)
-                            .background(Circle().fill(VelaTheme.rhythmCanvasRaised))
-                            .overlay(Circle().stroke(VelaTheme.rhythmMist, lineWidth: 0.75))
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("关闭")
-                    .accessibilityIdentifier("metric-detail-close")
-                }
+                detailAskBar
             }
-
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                ShareLink(item: metricShareText) {
-                    Image(systemName: "square.and.arrow.up")
-                }
-                .accessibilityLabel("分享\(navTitle)")
-
-                Button {
-                    showMetricInfo = true
-                } label: {
-                    Image(systemName: "info.circle")
-                }
-                .accessibilityLabel("关于\(navTitle)")
+        }
+        .padding(.bottom, isPresentedInSheet ? 0 : 96)
+        .background(VelaTheme.rhythmCanvas.ignoresSafeArea())
+        .navigationTitle(navTitle)
+        .navigationBarBackButtonHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
+        .accessibilityIdentifier("metric-detail-\(metric.rawValue)")
+        .onAppear { appState.detailAskContext = makeDetailAskContext() }
+        .onDisappear {
+            if appState.detailAskContext?.title == navTitle {
+                appState.detailAskContext = nil
             }
         }
         .alert("关于\(navTitle)", isPresented: $showMetricInfo) {
@@ -212,6 +192,97 @@ struct VelaMetricDetailView: View {
         .onChange(of: appState.localDataRevision) {
             loadDailyRecords()
         }
+    }
+
+    private var detailHeader: some View {
+        HStack(spacing: 8) {
+            Button(action: dismiss.callAsFunction) {
+                Image(systemName: isPresentedInSheet ? "xmark" : "chevron.left")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(VelaTheme.rhythmInk)
+                    .frame(width: 44, height: 44)
+                    .background(Circle().fill(VelaTheme.surfaceFloating))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(isPresentedInSheet ? "关闭" : "返回")
+            .accessibilityIdentifier("metric-detail-close")
+
+            Spacer(minLength: 8)
+            Text(navTitle)
+                .font(VelaTheme.headline().weight(.semibold))
+                .foregroundStyle(VelaTheme.rhythmInk)
+            Spacer(minLength: 8)
+
+            Menu {
+                ShareLink(item: metricShareText) {
+                    Label("分享", systemImage: "square.and.arrow.up")
+                }
+                Button {
+                    showMetricInfo = true
+                } label: {
+                    Label("关于\(navTitle)", systemImage: "info.circle")
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(VelaTheme.rhythmInk)
+                    .frame(width: 44, height: 44)
+                    .background(Circle().fill(VelaTheme.surfaceFloating))
+            }
+            .accessibilityLabel("更多")
+        }
+        .padding(.horizontal, VelaTheme.pagePadding)
+        .padding(.vertical, 6)
+    }
+
+    private var detailAskBar: some View {
+        let context = makeDetailAskContext()
+        return VStack(alignment: .leading, spacing: 8) {
+            Text(context.askPlaceholder)
+                .font(VelaTheme.callout())
+                .foregroundStyle(VelaTheme.rhythmInkSecondary)
+            HStack(spacing: 8) {
+                Image(systemName: "plus")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(VelaTheme.rhythmInk)
+                    .frame(width: 44, height: 36)
+                    .background(Capsule().fill(VelaTheme.rhythmCanvas))
+                Text(context.contextTitle)
+                    .font(VelaTheme.caption1())
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                    .padding(.horizontal, 10)
+                    .frame(height: 36)
+                    .background(Capsule().fill(VelaTheme.rhythmCanvas))
+                Spacer(minLength: 8)
+                Button {
+                    appState.routeToQuickCoach(question: nil, surface: .metricDetail)
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "waveform")
+                        Text("说话")
+                    }
+                    .font(VelaTheme.subheadline().weight(.semibold))
+                    .foregroundStyle(VelaTheme.rhythmDeepOn)
+                    .padding(.horizontal, 14)
+                    .frame(height: 36)
+                    .background(Capsule().fill(VelaTheme.rhythmDeep))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("说话")
+            }
+        }
+        .padding(12)
+        .padding(.horizontal, VelaTheme.pagePadding)
+        .padding(.bottom, 8)
+        .background(VelaTheme.rhythmCanvas)
+    }
+
+    private func makeDetailAskContext() -> VelaAppState.DetailAskContext {
+        VelaAppState.DetailAskContext(
+            title: navTitle,
+            askPlaceholder: "问问\(navTitle)…",
+            contextTitle: "带上\(navTitle)详情"
+        )
     }
 
     private func loadDailyRecords() {

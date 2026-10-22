@@ -504,14 +504,15 @@ struct DateAwareSparkline: View {
             let maxVal = max(values.max() ?? 100, bandBounds.max() ?? values.max() ?? 100)
             let range = max(maxVal - minVal, 1.0)
 
-            let firstDate = points.first?.date ?? Date()
-            let lastDate = points.last?.date ?? Date()
+            let ordered = points.sorted { $0.date < $1.date }
+            let firstDate = ordered.first?.date ?? Date()
+            let lastDate = ordered.last?.date ?? firstDate
             let totalSpan = max(lastDate.timeIntervalSince(firstDate), 1.0)
 
             let segments: [[TrendsChartPoint]] = {
                 var segs: [[TrendsChartPoint]] = []
                 var cur: [TrendsChartPoint] = []
-                for pt in points {
+                for pt in ordered {
                     if pt.value != nil {
                         cur.append(pt)
                     } else if !cur.isEmpty {

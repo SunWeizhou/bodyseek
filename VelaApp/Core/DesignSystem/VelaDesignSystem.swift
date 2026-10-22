@@ -173,10 +173,17 @@ struct BodySeekPlanProgressRail: View {
     }
 
     var body: some View {
-        ProgressView(value: Double(progress))
-            .tint(tint)
-            .frame(minHeight: 12)
-            .accessibilityLabel(total == 0 ? "今日暂无计划行动" : "已完成 \(completed) 项，共 \(total) 项")
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule().fill(VelaTheme.scoreTrack)
+                Capsule()
+                    .fill(tint)
+                    .frame(width: geo.size.width * progress)
+            }
+        }
+        .frame(height: 2)
+        .accessibilityElement()
+        .accessibilityLabel(total == 0 ? "今日暂无计划行动" : "已完成 \(completed) 项，共 \(total) 项")
     }
 }
 

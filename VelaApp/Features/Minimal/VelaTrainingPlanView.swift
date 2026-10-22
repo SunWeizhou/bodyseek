@@ -95,12 +95,17 @@ struct VelaPlanView: View {
         #if DEBUG
         guard DailySummaryUseCase.isPreviewDashboardEnabled(), plan == nil else { return nil }
         let decision = currentDecision ?? TrainingDecisionFallback.conservative(targetSessionTitle: "轻松活动")
-        return DailyOperatingPlanBuilder.build(
+        var built = DailyOperatingPlanBuilder.build(
             bodyState: dashboard.bodyState,
             decision: decision,
             brief: dashboard.personalHealthBrief,
             language: AppLanguage.stored
         )
+        // Show the completed-row treatment on the read-only preview. Nothing is saved.
+        if !built.supportingActions.isEmpty {
+            built.supportingActions[built.supportingActions.count - 1].completedAt = selectedDate
+        }
+        return built
         #else
         return nil
         #endif
@@ -180,15 +185,24 @@ struct VelaPlanView: View {
                         .foregroundStyle(VelaTheme.rhythmInk)
                         .accessibilityIdentifier("plan-save-error")
                     }
-                    actionSection
+                    planHeader
                     if let suggestion = candidatePayload ?? previewDisplayPayload {
                         candidateCard(suggestion)
                     }
-                    rhythmSummary
+                    actionSection
+                    DisclosureGroup {
+                        rhythmSummary
+                    } label: {
+                        Text("今天的节奏")
+                            .font(VelaTheme.subheadline().weight(.semibold))
+                            .foregroundStyle(VelaTheme.rhythmInk)
+                    }
+                    .tint(VelaTheme.rhythmInkSecondary)
+                    .padding(.top, 120)
                     trainingPortal
                 }
                 .padding(.horizontal, VelaTheme.pagePadding)
-                .padding(.top, 8)
+                .padding(.top, 72)
                 .padding(.bottom, VelaTheme.bottomContentClearance)
                 .id(planRevision)
             }
@@ -246,6 +260,36 @@ struct VelaPlanView: View {
         }
     }
 
+    private var planHeader: some View {
+        let total = actions.count
+        let completed = completedCount
+        return VStack(alignment: .leading, spacing: 8) {
+            Text(dateSubtitle.replacingOccurrences(of: "今天 · ", with: ""))
+                .font(VelaTheme.caption1())
+                .foregroundStyle(VelaTheme.rhythmInkSecondary)
+            HStack(alignment: .firstTextBaseline) {
+                Text(total == 0 ? "今天由你决定" : "今天 \(total) 项")
+                    .font(.system(.title, design: .default, weight: .semibold))
+                    .foregroundStyle(VelaTheme.rhythmInk)
+                Spacer(minLength: 8)
+                if total > 0 {
+                    Text("\(completed)/\(total)")
+                        .font(.system(.title3, design: .default, weight: .medium))
+                        .monospacedDigit()
+                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                        .accessibilityLabel("已完成 \(completed) 项，共 \(total) 项")
+                }
+            }
+            if total > 0 {
+                BodySeekPlanProgressRail(completed: completed, total: total, tint: VelaTheme.rhythmInk)
+            } else {
+                Text("添加一项真正有帮助的行动")
+                    .font(VelaTheme.footnote())
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+            }
+        }
+    }
+
     private var rhythmSummary: some View {
         let completion = planViewState.completion
         let total = completion.total
@@ -297,12 +341,14 @@ struct VelaPlanView: View {
 
     private var actionSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            VelaRhythmSectionHeader(
-                eyebrow: "\(actions.filter { $0.completedAt != nil }.count)/\(actions.count)",
-                title: "今天 \(actions.count) 项",
-                actionTitle: actions.count < 3 ? "添加" : nil,
-                action: presentAddEditor
-            )
+            if actions.count < 3 {
+                HStack {
+                    Spacer()
+                    Button("添加", action: presentAddEditor)
+                        .font(VelaTheme.subheadline().weight(.semibold))
+                        .foregroundStyle(VelaTheme.rhythmInk)
+                }
+            }
 
             if actions.isEmpty {
                 Button(action: presentAddEditor) {
@@ -357,7 +403,7 @@ struct VelaPlanView: View {
                 .foregroundStyle(VelaTheme.rhythmInkSecondary)
 
             Text(candidateSentence(candidate))
-                .font(VelaTheme.body())
+                .font(VelaTheme.title2().weight(.semibold))
                 .foregroundStyle(VelaTheme.rhythmInk)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -368,7 +414,7 @@ struct VelaPlanView: View {
                 .font(VelaTheme.subheadline().weight(.semibold))
                 .foregroundStyle(VelaTheme.rhythmDeepOn)
                 .frame(maxWidth: .infinity, minHeight: 44)
-                .background(VelaTheme.rhythmDeep, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .background(VelaTheme.rhythmDeep, in: Capsule())
                 .buttonStyle(.plain)
 
                 Button(payload?.hasUserEdits == true ? "保留我的安排" : "保持原计划") {
@@ -377,9 +423,9 @@ struct VelaPlanView: View {
                 .font(VelaTheme.subheadline().weight(.semibold))
                 .foregroundStyle(VelaTheme.rhythmInk)
                 .frame(maxWidth: .infinity, minHeight: 44)
-                .background(VelaTheme.rhythmCanvas, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .background(VelaTheme.rhythmCanvas, in: Capsule())
                 .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    Capsule()
                         .stroke(VelaTheme.rhythmInk, lineWidth: 1.2)
                 )
                 .buttonStyle(.plain)
@@ -636,12 +682,15 @@ private struct PlanActionRow: View {
         Button(action: onToggle) {
             ZStack {
                 Circle()
-                    .stroke(VelaTheme.rhythmInk, lineWidth: 1.25)
+                    .stroke(
+                        action.completedAt == nil ? VelaTheme.rhythmInk : VelaTheme.rhythmInkSecondary,
+                        lineWidth: 1.25
+                    )
                 if action.completedAt != nil {
-                    Circle().fill(VelaTheme.rhythmInk)
+                    Circle().fill(VelaTheme.rhythmInkSecondary)
                     Image(systemName: "checkmark")
                         .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(VelaTheme.rhythmDeepOn)
+                        .foregroundStyle(VelaTheme.rhythmCanvas)
                 } else {
                     Circle()
                         .fill(Color.clear)
@@ -667,7 +716,11 @@ private struct PlanActionRow: View {
                         primaryBadge
                     }
                 }
-                if let scheduledAt = action.scheduledAt {
+                if action.completedAt != nil {
+                    Text(completedCaption)
+                        .font(.caption)
+                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                } else if let scheduledAt = action.scheduledAt {
                     Label(scheduledAt.formatted(date: .omitted, time: .shortened), systemImage: "clock")
                         .font(.caption2)
                         .foregroundStyle(VelaTheme.rhythmInkSecondary)
@@ -683,7 +736,13 @@ private struct PlanActionRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .opacity(action.completedAt == nil ? 1 : 0.62)
+    }
+
+    private var completedCaption: String {
+        if let scheduledAt = action.scheduledAt {
+            return "\(scheduledAt.formatted(date: .omitted, time: .shortened)) · 已完成"
+        }
+        return "已完成"
     }
 
     private var primaryBadge: some View {

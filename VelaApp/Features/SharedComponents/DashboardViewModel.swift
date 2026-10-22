@@ -932,7 +932,7 @@ enum SecondaryDataAssembler {
                 carbs: carbs,
                 fat: fat
             ),
-            history: dailySummaries,
+            history: experienceHistory(dailySummaries: dailySummaries, dashboard: dashboard, refDate: refDate),
             baselineFormation: PersonalBaselineFormation.visualRegressionValue(
                 fallback: PersonalBaselineEngine.formationProgress(
                     from: snapshots,
@@ -966,5 +966,34 @@ enum SecondaryDataAssembler {
             todayCommandState: todayCommandState,
             scheduledDay: scheduledDay
         )
+    }
+
+    /// Preview screenshots have no SwiftData history. Reuse the same synthetic
+    /// snapshots the trend charts already draw, and never write them back.
+    private static func experienceHistory(
+        dailySummaries: [DailyHealthSummaryDTO],
+        dashboard: DashboardSummary,
+        refDate: Date
+    ) -> [DailyHealthSummaryDTO] {
+        if !dailySummaries.isEmpty { return dailySummaries }
+        #if DEBUG
+        guard dashboard.source == .preview else { return dailySummaries }
+        return PreviewDataFactory.makeTrendSnapshots(endingAt: refDate).map { snapshot in
+            DailyHealthSummaryDTO(
+                dayIdentifier: DailyHealthSummaryRecord.dayIdentifier(for: snapshot.date),
+                date: snapshot.date,
+                updatedAt: snapshot.createdAt,
+                recoveryScore: snapshot.recoveryScore,
+                sleepScore: snapshot.sleepScore,
+                strainScore: snapshot.strainScore,
+                stressIndex: snapshot.stressIndex,
+                currentEnergy: snapshot.currentEnergy,
+                morningEnergy: snapshot.morningEnergy,
+                energyBank: snapshot.energyBank
+            )
+        }
+        #else
+        return dailySummaries
+        #endif
     }
 }

@@ -507,7 +507,9 @@ struct VelaShell: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .safeAreaInset(edge: .top, spacing: 0) {
-            segmentedHeader
+            if appState.detailAskContext == nil {
+                segmentedHeader
+            }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             askBar
@@ -623,9 +625,19 @@ struct VelaShell: View {
     private var askContextTitle: String {
         switch appState.selectedTab {
         case VelaTab.trends.rawValue: return "带上趋势"
-        case VelaTab.plan.rawValue: return "带上计划"
+        case VelaTab.plan.rawValue: return "带上今日计划"
         default: return "带上今日数据"
         }
+    }
+
+    private var askPlaceholder: String {
+        if let detail = appState.detailAskContext?.askPlaceholder {
+            return detail
+        }
+        if appState.selectedTab == VelaTab.plan.rawValue {
+            return "调整今天的安排…"
+        }
+        return "问问你的身体…"
     }
 
     private var askSurface: CoachScreenSurface {
@@ -638,7 +650,7 @@ struct VelaShell: View {
 
     private var askBar: some View {
         VStack(alignment: .leading, spacing: 8) {
-            TextField("问问你的身体…", text: $askDraft, axis: .vertical)
+            TextField(askPlaceholder, text: $askDraft, axis: .vertical)
                 .font(VelaTheme.callout())
                 .foregroundStyle(VelaTheme.rhythmInk)
                 .lineLimit(1...3)
@@ -653,7 +665,7 @@ struct VelaShell: View {
                 }
                 .accessibilityLabel("记录")
 
-                Text(askContextTitle)
+                Text(appState.detailAskContext?.contextTitle ?? askContextTitle)
                     .font(VelaTheme.caption1())
                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
                     .padding(.horizontal, 10)

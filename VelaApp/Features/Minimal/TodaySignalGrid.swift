@@ -1,3 +1,4 @@
+import BodySeekDomain
 import SwiftUI
 
 // MARK: - Today score dashboard
@@ -12,6 +13,7 @@ struct TodaySignalGrid: View {
     /// Score ring id → "低于平时" / "高于平时" / empty when notable without direction.
     let scoreDeviations: [String: String]
     let agentSentence: String
+    var briefDetail: String = ""
     var notableChangeText: String = ""
     let accentColor: (DailyPlanAccent) -> Color
     let onInspectGuidance: () -> Void
@@ -64,19 +66,6 @@ struct TodaySignalGrid: View {
         }
     }
 
-    private var scoreLine: String {
-        let shown = model.signalCards.filter { $0.value != "--" }
-        var parts = shown.map { "\($0.title) \($0.value)" }
-        if let hrv = dashboardSnapshot.recoveryMetrics.hrvMilliseconds {
-            var clause = "HRV \(Int(hrv.rounded())) ms"
-            if let usual = dashboardSnapshot.recoveryBaseline.hrvMilliseconds {
-                clause += "，平时 \(Int(usual.rounded())) ms"
-            }
-            parts.append(clause)
-        }
-        return parts.joined(separator: " · ")
-    }
-
     private var briefStamp: String {
         let hour = Calendar.current.component(.hour, from: model.generatedAt)
         let dayPart = hour < 12 ? "早上" : (hour < 18 ? "下午" : "晚上")
@@ -108,22 +97,22 @@ struct TodaySignalGrid: View {
                         .foregroundStyle(VelaTheme.rhythmInkSecondary)
                 }
             }
-            Text(scoreLine.isEmpty ? agentSentence : scoreLine)
+            Text(agentSentence)
                 .font(VelaTheme.briefBody().weight(.semibold))
                 .foregroundStyle(VelaTheme.rhythmInk)
                 .lineSpacing(6)
                 .fixedSize(horizontal: false, vertical: true)
-            if !agentSentence.isEmpty, agentSentence != scoreLine {
-                Text(agentSentence)
+            if !briefDetail.isEmpty, briefDetail != agentSentence {
+                Text(briefDetail)
                     .font(VelaTheme.briefBody())
-                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                    .foregroundStyle(VelaTheme.rhythmInk)
                     .lineSpacing(6)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if let action = model.actions.first,
                !action.detail.isEmpty,
                action.detail != agentSentence,
-               action.detail != scoreLine {
+               action.detail != briefDetail {
                 Text(action.detail)
                     .font(VelaTheme.briefBody())
                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
@@ -179,7 +168,7 @@ struct TodaySignalGrid: View {
     private func scoreColumn(_ card: TodayExperienceSignalCard) -> some View {
         let deviationLabel = scoreDeviations[card.id]
         return VStack(spacing: 4) {
-            Text(card.value)
+            Text(scoreText(card))
                 .font(VelaTheme.cardValue())
                 .foregroundStyle(card.value == "--" ? VelaTheme.rhythmInkSecondary : VelaTheme.rhythmInk)
                 .monospacedDigit()
@@ -203,24 +192,63 @@ struct TodaySignalGrid: View {
         .accessibilityLabel("\(card.title)，\(card.value == "--" ? "暂无数据" : "\(card.value) 分")\(accessibilityDeviation(for: card.id))")
     }
 
+    private var recentTrend: [Double] {
+        let series = model.signalCards.filter { $0.trend.count > 1 }
+        if let matched = series.first(where: { notableChangeText.contains($0.title) }) {
+            return matched.trend
+        }
+        return series.max(by: { $0.trend.count < $1.trend.count })?.trend ?? []
+    }
+
+    private func scoreText(_ card: TodayExperienceSignalCard) -> String {
+        guard card.id == "energy", card.value != "--", !card.value.hasSuffix("%") else { return card.value }
+        return "\(card.value)%"
+    }
+
+    private var recentBand: ClosedRange<Double>? {
+        let trend = recentTrend
+        guard trend.count >= 5 else { return nil }
+        let now = Date()
+        let samples = trend.enumerated().map { index, value in
+            BaselineSample(
+                date: now.addingTimeInterval(TimeInterval((index - trend.count) * 86_400)),
+                value: value
+            )
+        }
+        guard let estimate = BaselineEstimator.estimate(
+            samples: samples,
+            asOf: now,
+            windowDays: max(trend.count, 7),
+            minimumSamples: 5,
+            calendar: .current
+        ), let scale = estimate.robustScale, scale > 0 else {
+            return nil
+        }
+        let half = scale * BaselineEstimator.stableZ
+        return (estimate.median - half)...(estimate.median + half)
+    }
+
     private var recentChangeCard: some View {
-        HStack(spacing: 12) {
-            if let trend = model.signalCards.first(where: { $0.trend.count > 1 })?.trend {
+        let trend = recentTrend
+        return HStack(spacing: 12) {
+            if trend.count > 1 {
                 DateAwareSparkline(
                     points: trend.enumerated().map { index, value in
                         TrendsChartPoint(
-                            date: Date().addingTimeInterval(TimeInterval(index) * 86_400),
+                            date: Date().addingTimeInterval(TimeInterval((index - trend.count) * 86_400)),
                             value: value,
                             provenance: nil
                         )
                     },
                     color: VelaTheme.rhythmInk,
                     height: 28,
-                    width: 72
+                    width: 72,
+                    band: recentBand,
+                    marksLatestPoint: true
                 )
             }
             VStack(alignment: .leading, spacing: 4) {
-                Text("最近变化")
+                Text(trend.count > 1 ? "最近变化 · \(trend.count) 天" : "最近变化")
                     .font(VelaTheme.caption1().weight(.semibold))
                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
                 Text(notableChangeText.isEmpty ? "最近没有越过个人常见范围的变化。" : notableChangeText)

@@ -32,6 +32,7 @@ struct VelaTodayView: View {
     @Environment(\.todayLegacyRuntime) var todayLegacyRuntime
 
     @ObservedObject var todayStore: TodayStore
+    @State private var debugPushedMetric: VelaMetricDetailView.MetricType?
 
     init(
         showCoach: Binding<Bool>,
@@ -71,41 +72,22 @@ struct VelaTodayView: View {
     /// The score remains the conclusion. This one short line is a bridge to
     /// Coach, with a deterministic local brief available when AI is offline.
     private var todayAgentSentence: String {
-        let measured = todayMeasuredBrief
         let phaseNote: String = switch todayExperience.baselineFormation.phase {
         case .waitingForEvidence: "连接 Apple 健康后开始形成个人基线。"
         case .learning: "继续正常佩戴，Vela 正在了解你的日常波动。"
         case .ready: ""
         }
-        let localBriefParts = [
-            dashboard.personalHealthBrief?.headline,
-            dashboard.personalHealthBrief?.subheadline
-        ]
-            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-        let brief = localBriefParts.joined(separator: " ")
-        let tail = brief.isEmpty ? phaseNote : brief
-        if measured.isEmpty { return tail.isEmpty ? "五项状态已更新，点此继续问我。" : tail }
-        if tail.isEmpty || tail == measured { return measured }
-        return "\(measured)。\(tail)"
+        if let headline = dashboard.personalHealthBrief?.headline
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+           !headline.isEmpty {
+            return headline
+        }
+        return phaseNote.isEmpty ? "五项状态已更新，点此继续问我。" : phaseNote
     }
 
-    /// Numbers come only from the scores already shown on this screen.
-    private var todayMeasuredBrief: String {
-        let cards = todayExperience.signalCards
-        func shown(_ id: String, _ title: String) -> String? {
-            guard let card = cards.first(where: { $0.id == id }), card.value != "--" else { return nil }
-            return "\(title) \(card.value)"
-        }
-        var parts = [shown("sleep", "睡眠"), shown("recovery", "恢复")].compactMap { $0 }
-        if let hrv = dashboard.recoveryMetrics.hrvMilliseconds {
-            var clause = "HRV \(Int(hrv.rounded())) ms"
-            if let usual = dashboard.recoveryBaseline.hrvMilliseconds {
-                clause += "，平时 \(Int(usual.rounded())) ms"
-            }
-            parts.append(clause)
-        }
-        return parts.joined(separator: "。")
+    private var todayBriefDetail: String {
+        dashboard.personalHealthBrief?.subheadline
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     }
 
     private var todayNotableChange: String {
@@ -424,6 +406,7 @@ struct VelaTodayView: View {
                     freshness: todayScoreFreshness,
                     scoreDeviations: scoreDeviations,
                     agentSentence: todayAgentSentence,
+                    briefDetail: todayBriefDetail,
                     notableChangeText: todayNotableChange,
                     accentColor: signalAccentColor,
                     onInspectGuidance: {
@@ -436,7 +419,7 @@ struct VelaTodayView: View {
                     dashboardSnapshot: todayStore.state.dashboard
                 )
                 .padding(.horizontal, VelaTheme.pagePadding)
-                .padding(.top, 4)
+                .padding(.top, 76)
 
                 if calendarIsToday(todayStore.state.selectedDay) {
                     Button {
@@ -454,7 +437,7 @@ struct VelaTodayView: View {
                     }
                     .buttonStyle(.plain)
                     .padding(.horizontal, VelaTheme.pagePadding)
-                    .padding(.top, 8)
+                    .padding(.top, 200)
 
                     if showsTodayExtras {
                     TodayDailyPlanCard(
@@ -576,6 +559,21 @@ struct VelaTodayView: View {
             Text(livedStateSaveError ?? "请稍后重试。")
         }
         .toolbar(.hidden, for: .navigationBar)
+        .navigationDestination(item: $debugPushedMetric) { metric in
+            VelaMetricDetailView(
+                metric: metric,
+                selectedDate: todayStore.state.selectedDay,
+                dashboardSnapshot: todayStore.state.dashboard,
+                isPresentedInSheet: false
+            )
+        }
+        .task {
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("-velaPushRecoveryDetail") {
+                debugPushedMetric = .recovery
+            }
+            #endif
+        }
     }
 
     @ViewBuilder

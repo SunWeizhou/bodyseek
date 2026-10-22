@@ -530,6 +530,7 @@ struct VelaCoachView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @EnvironmentObject private var services: VelaServices
+    @EnvironmentObject private var dashboardVM: DashboardViewModel
     @ObservedObject private var appState = VelaAppState.shared
 
     @State private var inputText: String = ""
@@ -668,6 +669,9 @@ struct VelaCoachView: View {
                     ScrollView {
                         VStack(spacing: 20) {
                             if vm.messages.isEmpty {
+                                if dashboard.source == .preview {
+                                    previewConversation
+                                } else {
                                 coachEvidenceCard
                                 CoachWelcomeWorkspace(
                                     vm: vm,
@@ -678,6 +682,7 @@ struct VelaCoachView: View {
                                     showWikiProfile: $showWikiProfile,
                                     onSendMessage: { sendMessage($0) }
                                 )
+                                }
                             }
 
                             ForEach(vm.messages.filter { !$0.isStreaming }) { msg in
@@ -961,30 +966,165 @@ struct VelaCoachView: View {
     // MARK: - Header
 
     @ViewBuilder
+    private var previewConversation: some View {
+        let question = scoreAsksRecovery
+            ? "为什么恢复偏低？"
+            : "今天的恢复怎么样？"
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Spacer(minLength: 48)
+                Text(question)
+                    .font(VelaTheme.body())
+                    .foregroundStyle(VelaTheme.rhythmInk)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(VelaTheme.surfaceFloating, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(VelaTheme.hairline, lineWidth: 1)
+                    )
+            }
+            HStack(spacing: 8) {
+                Image(systemName: "circle.circle")
+                    .font(.caption.weight(.semibold))
+                Text("BodySeek")
+                    .font(VelaTheme.caption1())
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                Spacer(minLength: 8)
+                Text("示例数据")
+                    .font(VelaTheme.caption2().weight(.semibold))
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Capsule().stroke(VelaTheme.hairline, lineWidth: 1))
+            }
+            if let brief = dashboard.personalHealthBrief {
+                Text(brief.headline)
+                    .font(VelaTheme.briefBody().weight(.semibold))
+                    .foregroundStyle(VelaTheme.rhythmInk)
+                    .lineSpacing(6)
+                    .fixedSize(horizontal: false, vertical: true)
+                if !brief.subheadline.isEmpty {
+                    Text(brief.subheadline)
+                        .font(VelaTheme.briefBody())
+                        .foregroundStyle(VelaTheme.rhythmInk)
+                        .lineSpacing(6)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            coachEvidenceCard
+            Text("这些读数只说明今天落在哪里，不能确定因果。")
+                .font(VelaTheme.body())
+                .foregroundStyle(VelaTheme.rhythmInk)
+                .lineSpacing(6)
+                .fixedSize(horizontal: false, vertical: true)
+            if let change = pendingPlanChange {
+                planChangeCard(title: change.title, detail: change.detail)
+            }
+        }
+    }
+
+    /// The same plan suggestion the Plan screen already computed. A keep
+    /// decision is not presented as a change.
+    private var pendingPlanChange: (title: String, detail: String?)? {
+        if let headline = dashboard.personalHealthBrief?.actionHeadline,
+           dashboard.personalHealthBrief?.needsAction == true {
+            return (headline, dashboard.personalHealthBrief?.actionDetail)
+        }
+        guard let decision = dashboardVM.dailyTrainingDecision, decision.decision != .keep else {
+            return nil
+        }
+        let payload = DailyOperatingPlanBuilder.build(
+            bodyState: dashboard.bodyState,
+            decision: decision,
+            brief: dashboard.personalHealthBrief,
+            language: AppLanguage.stored
+        )
+        guard let action = payload.primaryAction else { return nil }
+        let detail = action.detail.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (action.title, detail.isEmpty ? nil : detail)
+    }
+
+    private var scoreAsksRecovery: Bool {
+        dashboard.personalHealthBrief?.notableChanges.contains {
+            $0.metric.todayScoreRingID == "recovery" && BaselineDeviationCopy.label(for: $0) == BaselineDeviationCopy.belowUsual
+        } == true
+    }
+
+    private func planChangeCard(title: String, detail: String?) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("计划变更 · 需要你确认")
+                .font(VelaTheme.caption1().weight(.semibold))
+                .foregroundStyle(VelaTheme.rhythmInkSecondary)
+            Text(title)
+                .font(VelaTheme.title2().weight(.semibold))
+                .foregroundStyle(VelaTheme.rhythmInk)
+                .fixedSize(horizontal: false, vertical: true)
+            if let detail, !detail.isEmpty {
+                Text(detail)
+                    .font(VelaTheme.body())
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            HStack(spacing: 10) {
+                Button("确认更改") { sendMessage("确认这个计划变更") }
+                    .font(VelaTheme.subheadline().weight(.semibold))
+                    .foregroundStyle(VelaTheme.rhythmDeepOn)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .background(VelaTheme.rhythmDeep, in: Capsule())
+                    .buttonStyle(.plain)
+                Button("不用了") { sendMessage("保持原计划") }
+                    .font(VelaTheme.subheadline().weight(.semibold))
+                    .foregroundStyle(VelaTheme.rhythmInk)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .background(VelaTheme.rhythmCanvas, in: Capsule())
+                    .overlay(Capsule().stroke(VelaTheme.rhythmInk, lineWidth: 1.2))
+                    .buttonStyle(.plain)
+            }
+        }
+        .padding(16)
+        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+                .stroke(VelaTheme.rhythmInk, lineWidth: 1.2)
+        )
+    }
+
+    @ViewBuilder
     private var coachEvidenceCard: some View {
         let metrics = dashboard.recoveryMetrics
         let baseline = dashboard.recoveryBaseline
         if metrics.hrvMilliseconds != nil || metrics.restingHeartRate != nil || dashboard.sleepScore.value != nil {
             VStack(alignment: .leading, spacing: 8) {
-                Text("今天的读数")
-                    .font(VelaTheme.caption1().weight(.semibold))
-                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                if let hrv = metrics.hrvMilliseconds {
-                    evidenceLine(
-                        "HRV",
-                        value: "\(Int(hrv.rounded())) ms",
-                        usual: baseline.hrvMilliseconds.map { "平时 \(Int($0.rounded())) ms" }
-                    )
+                HStack {
+                    Text(evidencePoints.contains(where: { $0.value != nil }) ? "HRV · 近 14 天" : "今天的读数")
+                        .font(VelaTheme.caption1().weight(.semibold))
+                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                    Spacer(minLength: 8)
+                    if evidencePoints.contains(where: { $0.value != nil }) {
+                        Text("灰带 = 常见范围")
+                            .font(VelaTheme.caption2())
+                            .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                    }
                 }
-                if let rhr = metrics.restingHeartRate {
-                    evidenceLine(
-                        "静息心率",
-                        value: "\(Int(rhr.rounded())) bpm",
-                        usual: baseline.restingHeartRate.map { "平时 \(Int($0.rounded())) bpm" }
-                    )
-                }
-                if let sleep = dashboard.sleepScore.value {
-                    evidenceLine("睡眠分", value: "\(Int(sleep.rounded()))", usual: nil)
+                if !evidencePoints.contains(where: { $0.value != nil }) {
+                    if let hrv = metrics.hrvMilliseconds {
+                        evidenceLine(
+                            "HRV",
+                            value: "\(Int(hrv.rounded())) ms",
+                            usual: baseline.hrvMilliseconds.map { "平时 \(Int($0.rounded())) ms" }
+                        )
+                    }
+                    if let rhr = metrics.restingHeartRate {
+                        evidenceLine(
+                            "静息心率",
+                            value: "\(Int(rhr.rounded())) bpm",
+                            usual: baseline.restingHeartRate.map { "平时 \(Int($0.rounded())) bpm" }
+                        )
+                    }
+                    if let sleep = dashboard.sleepScore.value {
+                        evidenceLine("睡眠分", value: "\(Int(sleep.rounded()))", usual: nil)
+                    }
                 }
                 if evidencePoints.contains(where: { $0.value != nil }) {
                     DateAwareSparkline(
@@ -996,7 +1136,7 @@ struct VelaCoachView: View {
                         marksLatestPoint: true
                     )
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    Text("灰带是你的常见范围。这只说明今天落在哪里，不能确定因果。")
+                    Text("灰带是你的常见范围。")
                         .font(VelaTheme.caption2())
                         .foregroundStyle(VelaTheme.rhythmInkSecondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -1069,7 +1209,68 @@ struct VelaCoachView: View {
         }
     }
 
+    @ViewBuilder
     private var headerView: some View {
+        if presentation == .quickCover {
+            quickCoverHeader
+        } else {
+            legacyHeader
+        }
+    }
+
+    private var quickCoverHeader: some View {
+        HStack(spacing: 8) {
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(VelaTheme.rhythmInk)
+                    .frame(width: 44, height: 44)
+                    .background(Circle().fill(VelaTheme.surfaceFloating))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("关闭")
+
+            Spacer(minLength: 8)
+            Text("BodySeek")
+                .font(VelaTheme.headline().weight(.semibold))
+                .foregroundStyle(VelaTheme.rhythmInk)
+            Spacer(minLength: 8)
+
+            Menu {
+                Button { showHistoryDrawer = true } label: {
+                    Label("对话历史", systemImage: "sidebar.left")
+                }
+                Button { vm.createNewSession(modelContext: modelContext) } label: {
+                    Label("新建对话", systemImage: "square.and.pencil")
+                }
+                .disabled(vm.isGhostMode)
+                Button { vm.setGhostMode(!vm.isGhostMode, modelContext: modelContext) } label: {
+                    Label(vm.isGhostMode ? "关闭私密模式" : "开启私密模式", systemImage: "eye.slash")
+                }
+                .disabled(vm.isStreaming)
+                Button { showWikiProfile = true } label: {
+                    Label("健康档案", systemImage: "books.vertical")
+                }
+                Button { showModelSettings = true } label: {
+                    Label("模型与联网设置", systemImage: "gearshape")
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(VelaTheme.rhythmInk)
+                    .frame(width: 44, height: 44)
+                    .background(Circle().fill(VelaTheme.surfaceFloating))
+            }
+            .accessibilityLabel("更多")
+        }
+        .padding(.horizontal, VelaTheme.pagePadding)
+        .padding(.vertical, 6)
+        .accessibilityIdentifier("coach-surface-header")
+    }
+
+    private var legacyHeader: some View {
         HStack(spacing: 8) {
             Button {
                 showHistoryDrawer = true
@@ -1273,6 +1474,7 @@ struct VelaCoachView: View {
         }
     }
 
+    @ViewBuilder
     private var composerView: some View {
         VStack(spacing: 0) {
             if let hint = vm.interactionHint {
@@ -1296,6 +1498,9 @@ struct VelaCoachView: View {
                 toolConfirmationCard(tool)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
+            if presentation == .quickCover {
+                quickCoverComposerBar
+            } else {
             HStack(alignment: .bottom, spacing: 8) {
                 Menu {
                     Button {
@@ -1395,15 +1600,121 @@ struct VelaCoachView: View {
                 .buttonStyle(.plusButton)
                 .accessibilityLabel(vm.isStreaming ? "停止回复" : "发送消息")
             }
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .background(VelaTheme.rhythmCanvas)
         .overlay(alignment: .top) {
-            Rectangle()
-                .fill(VelaTheme.rhythmMist.opacity(0.72))
-                .frame(height: 0.5)
+            if presentation != .quickCover {
+                Rectangle()
+                    .fill(VelaTheme.rhythmMist.opacity(0.72))
+                    .frame(height: 0.5)
+            }
         }
+    }
+
+    private var quickCoverComposerBar: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            TextField("继续问…", text: $inputText, axis: .vertical)
+                .font(VelaTheme.callout())
+                .foregroundStyle(VelaTheme.rhythmInk)
+                .lineLimit(1...3)
+                .focused($isFocused)
+                .onSubmit {
+                    guard !inputText.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+                    sendMessage(inputText)
+                }
+            HStack(spacing: 8) {
+                Menu {
+                    Button {
+                        if CoachOutboundDataPolicy.hasExplicitConsent, CoachOutboundDataPolicy.stored.files {
+                            showFileImporter = true
+                        } else {
+                            pendingFileImportAfterConsent = true
+                            showOutboundConsent = true
+                        }
+                    } label: {
+                        Label("本地文件", systemImage: "doc.badge.plus")
+                    }
+                    Button { showCalendarContext = true } label: {
+                        Label("日历上下文", systemImage: "calendar")
+                    }
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(VelaTheme.rhythmInk)
+                        .frame(width: 44, height: 36)
+                        .background(Capsule().fill(VelaTheme.rhythmCanvas))
+                }
+                .accessibilityLabel("添加上下文")
+
+                Text(dashboard.recoveryMetrics.hrvMilliseconds == nil ? "今日数据" : "今日数据 · 恢复")
+                    .font(VelaTheme.caption1())
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                    .padding(.horizontal, 10)
+                    .frame(height: 36)
+                    .background(Capsule().fill(VelaTheme.rhythmCanvas))
+
+                Spacer(minLength: 8)
+
+                Button(action: toggleQuickCoverSpeech) {
+                    HStack(spacing: 6) {
+                        Image(systemName: quickCoverTrailingIcon)
+                        Text(quickCoverTrailingTitle)
+                    }
+                    .font(VelaTheme.subheadline().weight(.semibold))
+                    .foregroundStyle(VelaTheme.rhythmDeepOn)
+                    .padding(.horizontal, 14)
+                    .frame(height: 36)
+                    .background(Capsule().fill(VelaTheme.rhythmDeep))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(quickCoverTrailingTitle)
+                .accessibilityIdentifier("bodyseek-speak")
+            }
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: VelaTheme.radiusInput, style: .continuous)
+                .fill(VelaTheme.surfaceFloating)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: VelaTheme.radiusInput, style: .continuous)
+                .stroke(VelaTheme.hairline, lineWidth: 1)
+        )
+    }
+
+    private var quickCoverTrailingTitle: String {
+        if vm.isStreaming { return "停止" }
+        if dictation.isRecording { return "停止" }
+        if !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return "发送" }
+        return "说话"
+    }
+
+    private var quickCoverTrailingIcon: String {
+        if vm.isStreaming || dictation.isRecording { return "stop.fill" }
+        if !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return "arrow.up" }
+        return "waveform"
+    }
+
+    private func toggleQuickCoverSpeech() {
+        if vm.isStreaming {
+            vm.cancelActiveResponse()
+            return
+        }
+        let pending = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if dictation.isRecording {
+            dictation.stop()
+            if !pending.isEmpty { sendMessage(pending) }
+            return
+        }
+        if !pending.isEmpty {
+            sendMessage(pending)
+            return
+        }
+        lastDictationApplied = inputText
+        dictation.begin(existingText: inputText)
     }
 
     // MARK: - Actions

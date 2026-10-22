@@ -378,7 +378,7 @@ struct TodayExperienceModel: Codable, Hashable, Sendable {
                 }
             }
 
-        var values = Array(previousValues.suffix(6))
+        var values = Array(previousValues.suffix(13))
         if current.hasData {
             values.append(current.score)
         }
