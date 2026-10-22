@@ -41,6 +41,10 @@ enum VelaTheme {
     static let cardBg        = adaptive("#FFFFFF", "#1A1A1A")
     static let elevatedBg    = adaptive("#EBEBEF", "#262626")
     static let groupedBg     = bg
+    /// Inset surface — for nested content areas within cards
+    static let surfaceInset = adaptive("#F0F0F4", "#151517")
+    /// Floating surface — for elements that hover above content (popovers, dock)
+    static let surfaceFloating = adaptive("#FFFFFF", "#222224")
 
     // MARK: - Vela Rhythm Identity
 
@@ -375,6 +379,14 @@ enum VelaTheme {
     static func displayValue() -> Font {
         .system(size: 60, weight: .bold, design: .rounded).monospacedDigit()
     }
+    /// Premium hero score — largest display number, used in Today dashboard
+    static func heroScore() -> Font {
+        .system(size: 64, weight: .bold, design: .rounded).monospacedDigit()
+    }
+    /// Section eyebrow label
+    static func eyebrow() -> Font {
+        .system(.caption2, design: .default, weight: .semibold)
+    }
     /// 体征大卡数值。
     static func vitalValue() -> Font {
         .system(size: 24, weight: .bold, design: .rounded).monospacedDigit()
@@ -415,6 +427,22 @@ enum VelaTheme {
         blendDuration: 0.10
     )
     static let press = Animation.easeOut(duration: fast)
+    /// Staggered entrance delay per item index
+    static func staggerDelay(index: Int, base: Double = 0.05) -> Double {
+        Double(index) * base
+    }
+    /// Entrance spring — slightly underdamped for playful arrival
+    static let entranceSpring = Animation.spring(
+        response: 0.5,
+        dampingFraction: 0.78,
+        blendDuration: 0.1
+    )
+    /// Score ring fill animation
+    static let ringFill = Animation.spring(
+        response: 0.8,
+        dampingFraction: 0.72,
+        blendDuration: 0.15
+    )
 
     static func interfaceAnimation(reduceMotion: Bool) -> Animation {
         reduceMotion ? .easeOut(duration: reducedMotionDuration) : responsiveSpring
@@ -589,6 +617,78 @@ extension VelaTheme {
         static let stress = LinearGradient(colors: [stressColor.opacity(0.8), stressColor], startPoint: .topLeading, endPoint: .bottomTrailing)
         static let energy = LinearGradient(colors: [energyColor.opacity(0.8), energyColor], startPoint: .topLeading, endPoint: .bottomTrailing)
         static let accentGrad = LinearGradient(colors: [accent.opacity(0.8), accent], startPoint: .topLeading, endPoint: .bottomTrailing)
+
+        /// Angular gradients for premium score rings
+        static func ringRecovery(_ cs: ColorScheme) -> AngularGradient {
+            AngularGradient(
+                colors: [
+                    recoveryColor.opacity(0.4),
+                    recoveryColor.opacity(0.85),
+                    recoveryColor,
+                    recoveryColor.opacity(0.85),
+                    recoveryColor.opacity(0.4)
+                ],
+                center: .center,
+                startAngle: .degrees(-90),
+                endAngle: .degrees(270)
+            )
+        }
+        static func ringSleep(_ cs: ColorScheme) -> AngularGradient {
+            AngularGradient(
+                colors: [
+                    sleepColor.opacity(0.4),
+                    sleepColor.opacity(0.85),
+                    sleepColor,
+                    sleepColor.opacity(0.85),
+                    sleepColor.opacity(0.4)
+                ],
+                center: .center,
+                startAngle: .degrees(-90),
+                endAngle: .degrees(270)
+            )
+        }
+        static func ringStrain(_ cs: ColorScheme) -> AngularGradient {
+            AngularGradient(
+                colors: [
+                    strainColor.opacity(0.4),
+                    strainColor.opacity(0.85),
+                    strainColor,
+                    strainColor.opacity(0.85),
+                    strainColor.opacity(0.4)
+                ],
+                center: .center,
+                startAngle: .degrees(-90),
+                endAngle: .degrees(270)
+            )
+        }
+        static func ringStress(_ cs: ColorScheme) -> AngularGradient {
+            AngularGradient(
+                colors: [
+                    stressColor.opacity(0.4),
+                    stressColor.opacity(0.85),
+                    stressColor,
+                    stressColor.opacity(0.85),
+                    stressColor.opacity(0.4)
+                ],
+                center: .center,
+                startAngle: .degrees(-90),
+                endAngle: .degrees(270)
+            )
+        }
+        static func ringEnergy(_ cs: ColorScheme) -> AngularGradient {
+            AngularGradient(
+                colors: [
+                    energyColor.opacity(0.4),
+                    energyColor.opacity(0.85),
+                    energyColor,
+                    energyColor.opacity(0.85),
+                    energyColor.opacity(0.4)
+                ],
+                center: .center,
+                startAngle: .degrees(-90),
+                endAngle: .degrees(270)
+            )
+        }
     }
 
     enum icon {

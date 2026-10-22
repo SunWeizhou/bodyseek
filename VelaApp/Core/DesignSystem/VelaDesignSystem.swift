@@ -712,17 +712,26 @@ struct VelaNativeCardModifier: ViewModifier {
     let radius: CGFloat
 
     func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
         content
             .background(VelaTheme.rhythmCanvasRaised)
-            .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+            .clipShape(shape)
             .overlay(
-                RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .stroke(
-                        colorSchemeContrast == .increased
-                            ? VelaTheme.rhythmInk
-                            : VelaTheme.rhythmMist,
-                        lineWidth: colorSchemeContrast == .increased ? 1 : 0.75
-                    )
+                shape.stroke(
+                    colorSchemeContrast == .increased
+                        ? AnyShapeStyle(VelaTheme.rhythmInk)
+                        : AnyShapeStyle(
+                            LinearGradient(
+                                colors: [
+                                    colorScheme == .dark ? Color.white.opacity(0.12) : VelaTheme.rhythmMist.opacity(0.85),
+                                    colorScheme == .dark ? Color.white.opacity(0.03) : VelaTheme.rhythmMist.opacity(0.40)
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        ),
+                    lineWidth: colorSchemeContrast == .increased ? 1 : 0.75
+                )
             )
     }
 }
@@ -730,6 +739,7 @@ struct VelaNativeCardModifier: ViewModifier {
 struct VelaGlassSurfaceModifier: ViewModifier {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+    @Environment(\.colorScheme) private var colorScheme
 
     let radius: CGFloat
 
@@ -749,9 +759,18 @@ struct VelaGlassSurfaceModifier: ViewModifier {
             .overlay(
                 shape.stroke(
                     colorSchemeContrast == .increased
-                        ? VelaTheme.border
-                        : VelaTheme.borderSoft.opacity(0.55),
-                    lineWidth: colorSchemeContrast == .increased ? 1 : 0.5
+                        ? AnyShapeStyle(VelaTheme.border)
+                        : AnyShapeStyle(
+                            LinearGradient(
+                                colors: [
+                                    colorScheme == .dark ? Color.white.opacity(0.14) : Color.white.opacity(0.65),
+                                    colorScheme == .dark ? Color.white.opacity(0.03) : Color.white.opacity(0.20)
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        ),
+                    lineWidth: colorSchemeContrast == .increased ? 1 : 0.65
                 )
             )
     }
@@ -1073,6 +1092,264 @@ struct VelaMakeRing: View {
         .frame(width: size, height: size)
     }
 }
+
+// MARK: - Premium Score Ring
+
+/// A high-fidelity score ring with angular gradient stroke, endpoint glow,
+/// and animated fill. Used for the three primary scores on the Today surface.
+///
+/// Design references: Apple Watch Activity Rings, Whoop strain ring.
+/// The ring is decorative and uses accessibility labels on the parent view.
+struct VelaPremiumRing: View {
+    let value: Double          // 0–100
+    let domain: VelaMetricDomain
+    var size: CGFloat = 120
+    var lineWidth: CGFloat = 10
+    var showValue: Bool = true
+    var animated: Bool = true
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var animatedProgress: CGFloat = 0
+
+    private var progress: CGFloat {
+        min(max(CGFloat(value) / 100, 0), 1)
+    }
+
+    private var domainColor: Color { domain.color }
+
+    var body: some View {
+        ZStack {
+            // Track ring
+            Circle()
+                .stroke(
+                    domainColor.opacity(
+                        colorSchemeContrast == .increased
+                            ? 0.28
+                            : (colorScheme == .dark ? 0.15 : 0.10)
+                    ),
+                    lineWidth: lineWidth
+                )
+
+            // Gradient fill ring
+            Circle()
+                .trim(from: 0, to: animated ? animatedProgress : progress)
+                .stroke(
+                    angularGradient,
+                    style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
+                )
+                .rotationEffect(.degrees(-90))
+
+            // Endpoint glow
+            if animatedProgress > 0.02 || !animated {
+                endpointGlow
+            }
+
+            // Ambient glow behind ring
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [domainColor.opacity(0.08), .clear],
+                        center: .center,
+                        startRadius: size * 0.25,
+                        endRadius: size * 0.55
+                    )
+                )
+                .frame(width: size, height: size)
+                .allowsHitTesting(false)
+
+            // Center value
+            if showValue {
+                VStack(spacing: 2) {
+                    Text(value >= 0 ? "\(Int(value.rounded()))" : "--")
+                        .font(.system(size: size * 0.28, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(VelaTheme.rhythmInk)
+                    // Domain label underneath
+                    Text(domainLabel)
+                        .font(.system(size: size * 0.09, weight: .semibold))
+                        .foregroundStyle(colorSchemeContrast == .increased ? VelaTheme.rhythmInk : VelaTheme.rhythmInkSecondary)
+                        .textCase(.uppercase)
+                        .tracking(0.5)
+                }
+            }
+        }
+        .frame(width: size, height: size)
+        .onAppear {
+            guard animated else {
+                animatedProgress = progress
+                return
+            }
+            if reduceMotion {
+                animatedProgress = progress
+            } else {
+                withAnimation(
+                    .spring(response: 0.8, dampingFraction: 0.72, blendDuration: 0.15)
+                    .delay(0.15)
+                ) {
+                    animatedProgress = progress
+                }
+            }
+        }
+        .onChange(of: value) { _, _ in
+            if reduceMotion {
+                animatedProgress = progress
+            } else {
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.85)) {
+                    animatedProgress = progress
+                }
+            }
+        }
+        .accessibilityHidden(true)
+    }
+
+    private var angularGradient: AngularGradient {
+        AngularGradient(
+            colors: [
+                domainColor.opacity(0.35),
+                domainColor.opacity(0.65),
+                domainColor.opacity(0.9),
+                domainColor,
+                domainColor.opacity(0.9),
+                domainColor.opacity(0.35)
+            ],
+            center: .center,
+            startAngle: .degrees(0),
+            endAngle: .degrees(360)
+        )
+    }
+
+    private var endpointGlow: some View {
+        let currentProgress = animated ? animatedProgress : progress
+        let angle = Angle.degrees(Double(currentProgress) * 360 - 90)
+        let radius = (size - lineWidth) / 2
+        let x = size / 2 + radius * CGFloat(cos(angle.radians))
+        let y = size / 2 + radius * CGFloat(sin(angle.radians))
+
+        return Circle()
+            .fill(
+                RadialGradient(
+                    colors: [domainColor.opacity(0.6), domainColor.opacity(0.0)],
+                    center: .center,
+                    startRadius: 0,
+                    endRadius: lineWidth * 2.5
+                )
+            )
+            .frame(width: lineWidth * 4, height: lineWidth * 4)
+            .position(x: x, y: y)
+            .allowsHitTesting(false)
+    }
+
+    private var domainLabel: String {
+        switch domain {
+        case .recovery: return "恢复"
+        case .sleep: return "睡眠"
+        case .strain: return "负荷"
+        case .stress: return "压力"
+        case .energy: return "能量"
+        case .neutral: return ""
+        }
+    }
+}
+
+/// Horizontal arrangement of three primary score rings for Today.
+struct VelaPremiumScoreStrip: View {
+    let recovery: Double
+    let sleep: Double
+    let strain: Double
+    let recoveryState: MetricState?
+    let sleepState: MetricState?
+    let strainState: MetricState?
+    var onTapRing: ((VelaMetricDomain) -> Void)? = nil
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @State private var appeared = false
+
+    var body: some View {
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(spacing: 16) {
+                    ringButton(.recovery, value: recovery, state: recoveryState, index: 0)
+                    ringButton(.sleep, value: sleep, state: sleepState, index: 1)
+                    ringButton(.strain, value: strain, state: strainState, index: 2)
+                }
+            } else {
+                HStack(spacing: 12) {
+                    ringButton(.recovery, value: recovery, state: recoveryState, index: 0)
+                    ringButton(.sleep, value: sleep, state: sleepState, index: 1)
+                    ringButton(.strain, value: strain, state: strainState, index: 2)
+                }
+            }
+        }
+        .onAppear {
+            if !reduceMotion {
+                withAnimation(.easeOut(duration: 0.1)) {
+                    appeared = true
+                }
+            } else {
+                appeared = true
+            }
+        }
+    }
+
+    private func ringButton(_ domain: VelaMetricDomain, value: Double, state: MetricState?, index: Int) -> some View {
+        Button {
+            VelaHaptic.light()
+            onTapRing?(domain)
+        } label: {
+            VStack(spacing: 8) {
+                VelaPremiumRing(
+                    value: value,
+                    domain: domain,
+                    size: 108,
+                    lineWidth: 9
+                )
+                if let state {
+                    Text(stateLabel(state))
+                        .font(.system(.caption2, design: .default, weight: .bold))
+                        .foregroundStyle(VelaTheme.textColor(for: state))
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .opacity(appeared ? 1 : 0)
+            .offset(y: appeared ? 0 : 12)
+            .animation(
+                reduceMotion
+                    ? .easeOut(duration: 0.15)
+                    : .spring(response: 0.5, dampingFraction: 0.78).delay(Double(index) * 0.08),
+                value: appeared
+            )
+        }
+        .buttonStyle(.cardPress)
+        .accessibilityLabel(ringAccessibilityLabel(domain, value: value, state: state))
+    }
+
+    private func stateLabel(_ state: MetricState) -> String {
+        switch state {
+        case .good: return "良好"
+        case .moderate: return "一般"
+        case .poor: return "偏低"
+        }
+    }
+
+    private func ringAccessibilityLabel(_ domain: VelaMetricDomain, value: Double, state: MetricState?) -> String {
+        let name: String
+        switch domain {
+        case .recovery: name = "恢复"
+        case .sleep: name = "睡眠"
+        case .strain: name = "负荷"
+        case .stress: name = "压力"
+        case .energy: name = "能量"
+        case .neutral: name = "指标"
+        }
+        let stateText = state.map { ", " + stateLabel($0) } ?? ""
+        return "\(name) \(Int(value.rounded()))\(stateText)"
+    }
+}
+
+typealias VelaPremiumRingRow = VelaPremiumScoreStrip
 
 struct VelaMinimalNavBar: View {
     let title: String
