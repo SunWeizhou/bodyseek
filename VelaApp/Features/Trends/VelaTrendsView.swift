@@ -250,10 +250,11 @@ struct VelaTrendsView: View {
                                 .font(VelaTheme.subheadline().weight(.semibold))
                                 .foregroundStyle(VelaTheme.rhythmInk)
                             if finding?.isNotable == true {
-                                Circle()
-                                    .fill(VelaTheme.stressColor)
-                                    .frame(width: 7, height: 7)
-                                    .accessibilityHidden(true)
+                                BaselineDeviationMarker(
+                                    directionLabel: finding.flatMap { BaselineDeviationCopy.label(for: $0) },
+                                    showsLabel: false,
+                                    diameter: 7
+                                )
                             }
 
                             Spacer(minLength: 8)
@@ -291,10 +292,11 @@ struct VelaTrendsView: View {
                                     .font(VelaTheme.subheadline().weight(.semibold))
                                     .foregroundStyle(VelaTheme.rhythmInk)
                                 if finding?.isNotable == true {
-                                    Circle()
-                                        .fill(VelaTheme.stressColor)
-                                        .frame(width: 7, height: 7)
-                                        .accessibilityHidden(true)
+                                    BaselineDeviationMarker(
+                                        directionLabel: finding.flatMap { BaselineDeviationCopy.label(for: $0) },
+                                        showsLabel: false,
+                                        diameter: 7
+                                    )
                                 }
                             }
 
@@ -450,7 +452,9 @@ struct VelaTrendsView: View {
             }
             return "\(sampleCount)/\(selectedHorizon.requiredSampleCount) 天"
         }
-        if finding.isNotable { return "偏离个人基线" }
+        if finding.isNotable {
+            return BaselineDeviationCopy.label(for: finding) ?? BaselineDeviationCopy.unusualFallback
+        }
         if let baseline = finding.baselineValue {
             return "基线 \(Int(baseline.rounded())) · \(finding.valueDirection.label)"
         }

@@ -58,11 +58,14 @@ struct VelaTodayView: View {
 
     /// Baseline deviation changes emphasis, never score order or display
     /// grammar. The user can therefore build a stable visual memory over time.
-    private var deviatedScoreIDs: Set<String> {
-        Set(dashboard.personalHealthBrief?.notableChanges.compactMap { finding in
-            guard finding.isNotable else { return nil }
-            return finding.metric.todayScoreRingID
-        } ?? [])
+    /// Values are "低于平时" / "高于平时" when a direction exists, otherwise empty.
+    private var scoreDeviations: [String: String] {
+        var labels: [String: String] = [:]
+        for finding in dashboard.personalHealthBrief?.notableChanges ?? [] {
+            guard finding.isNotable, let id = finding.metric.todayScoreRingID else { continue }
+            labels[id] = BaselineDeviationCopy.label(for: finding) ?? ""
+        }
+        return labels
     }
 
     /// The score remains the conclusion. This one short line is a bridge to
@@ -404,7 +407,7 @@ struct VelaTodayView: View {
                 TodaySignalGrid(
                     model: todayExperience,
                     freshness: todayScoreFreshness,
-                    deviatedScoreIDs: deviatedScoreIDs,
+                    scoreDeviations: scoreDeviations,
                     agentSentence: todayAgentSentence,
                     notableChangeText: dashboard.personalHealthBrief?.notableChanges.first?.summary ?? "",
                     accentColor: signalAccentColor,

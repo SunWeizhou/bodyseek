@@ -182,6 +182,9 @@ enum VelaTheme {
     static let stressColor   = adaptive("#C94E70", "#FF7C9B")
     /// 能量 Energy — gold
     static let energyColor   = adaptive("#B47C18", "#F2BC4D")
+    /// Personal Baseline Deviation — unusual-for-you, not a good/bad alarm.
+    /// WCAG AA on rhythmCanvas: light #4A4A4A ≈8.1:1, dark #C8C8C8 ≈11.4:1.
+    static let deviationInk  = adaptive("#4A4A4A", "#C8C8C8")
 
     // MARK: - Workout & Physiology Tokens
 

@@ -421,17 +421,10 @@ enum RecoveryDetailV2Builder {
             }
             return nil
         }
-        let labels = result.missingInputs.prefix(3).map(missingLabel)
-        return "仍缺少：\(labels.joined(separator: "、"))。"
-    }
-
-    private static func missingLabel(_ input: String) -> String {
-        let normalized = input.lowercased()
-        if normalized.contains("hrv") { return "HRV" }
-        if normalized.contains("rhr") || normalized.contains("resting") { return "静息心率" }
-        if normalized.contains("sleep") { return "睡眠分" }
-        if normalized.contains("strain") { return "昨日负荷" }
-        return "部分输入"
+        return MissingInputLabel.summary(
+            for: result.missingInputs,
+            hasValue: true
+        )
     }
 }
 

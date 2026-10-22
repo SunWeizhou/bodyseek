@@ -49,6 +49,8 @@
 		0B1000210000000000000021 /* JournalDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001210000000000000021 /* JournalDraft.swift */; };
 		0B1000220000000000000022 /* PersistenceModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001220000000000000022 /* PersistenceModels.swift */; };
 		0B1000230000000000000023 /* DateRangeQuery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001240000000000000024 /* DateRangeQuery.swift */; };
+		C6D100010000000000000001 /* HealthPresentationCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6D110010000000000000001 /* HealthPresentationCopy.swift */; };
+		C6D100020000000000000002 /* HealthPresentationCopyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6D110020000000000000002 /* HealthPresentationCopyTests.swift */; };
 		0B1000240000000000000024 /* SleepSampleNormalizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001250000000000000025 /* SleepSampleNormalizer.swift */; };
 		0B1000250000000000000025 /* PreviewHealthDataProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001260000000000000026 /* PreviewHealthDataProvider.swift */; };
 		0B1000260000000000000026 /* HealthQueryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001270000000000000027 /* HealthQueryService.swift */; };
@@ -320,6 +322,8 @@
 		0B1001220000000000000022 /* PersistenceModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence/SwiftDataModels/PersistenceModels.swift; sourceTree = "<group>"; };
 		0B1001230000000000000023 /* Vela.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App/Vela.entitlements; sourceTree = "<group>"; };
 		0B1001240000000000000024 /* DateRangeQuery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/Utilities/DateRangeQuery.swift; sourceTree = "<group>"; };
+		C6D110010000000000000001 /* HealthPresentationCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/Utilities/HealthPresentationCopy.swift; sourceTree = "<group>"; };
+		C6D110020000000000000002 /* HealthPresentationCopyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthPresentationCopyTests.swift; sourceTree = "<group>"; };
 		0B1001250000000000000025 /* SleepSampleNormalizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Health/Mapping/SleepSampleNormalizer.swift; sourceTree = "<group>"; };
 		0B1001260000000000000026 /* PreviewHealthDataProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Health/Services/PreviewHealthDataProvider.swift; sourceTree = "<group>"; };
 		0B1001270000000000000027 /* HealthQueryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Health/Queries/HealthQueryService.swift; sourceTree = "<group>"; };
@@ -604,6 +608,7 @@
 				0B1001040000000000000004 /* VelaAppMetadata.swift */,
 				0B1001050000000000000005 /* AppDocumentation.swift */,
 				0B1001240000000000000024 /* DateRangeQuery.swift */,
+				C6D110010000000000000001 /* HealthPresentationCopy.swift */,
 				0B1001430000000000000043 /* DashboardSummary.swift */,
 				0B9900010000000000000001 /* PersonalHealthBrief.swift */,
 				0B9900030000000000000003 /* HealthTrendEngine.swift */,
@@ -818,6 +823,7 @@
 				4746CA84311E3C6D12654200 /* WorkoutAggregationTests.swift */,
 				C5A530010000000000000001 /* TrendsStoreTests.swift */,
 				R2D200030000000000000003 /* RecoveryDetailV2Tests.swift */,
+				C6D110020000000000000002 /* HealthPresentationCopyTests.swift */,
 				C5A530020000000000000002 /* RecoveryReplaySensitivityTests.swift */,
 				C5A530030000000000000003 /* StrainReplaySensitivityTests.swift */,
 				C5A530040000000000000004 /* StressReplaySensitivityTests.swift */,
@@ -1113,6 +1119,7 @@
 				0B1000040000000000000004 /* VelaAppMetadata.swift in Sources */,
 				0B1000050000000000000005 /* AppDocumentation.swift in Sources */,
 				0B1000230000000000000023 /* DateRangeQuery.swift in Sources */,
+				C6D100010000000000000001 /* HealthPresentationCopy.swift in Sources */,
 				0B1000420000000000000042 /* DashboardSummary.swift in Sources */,
 				0B9900020000000000000002 /* PersonalHealthBrief.swift in Sources */,
 				0B9900040000000000000004 /* HealthTrendEngine.swift in Sources */,
@@ -1334,6 +1341,7 @@
 				C00300040000000000000004 /* TodayStoreTests.swift in Sources */,
 				C5A500060000000000000006 /* TrendsStoreTests.swift in Sources */,
 				R2D200040000000000000004 /* RecoveryDetailV2Tests.swift in Sources */,
+				C6D100020000000000000002 /* HealthPresentationCopyTests.swift in Sources */,
 				C5A500070000000000000007 /* RecoveryReplaySensitivityTests.swift in Sources */,
 				C5A500080000000000000008 /* StrainReplaySensitivityTests.swift in Sources */,
 				C5A500090000000000000009 /* StressReplaySensitivityTests.swift in Sources */,

@@ -210,22 +210,12 @@ extension VelaMetricDetailView {
         guard let result = currentMetricResult,
               metric.isScoredHealthDomain,
               !result.missingInputs.isEmpty else { return nil }
-        let labels = result.missingInputs.prefix(3).map(displayMissingInput)
-        return "仍缺少：\(labels.joined(separator: "、"))。当前结果已降低证据覆盖度。"
-    }
-
-    private func displayMissingInput(_ input: String) -> String {
-        let normalized = input.lowercased()
-        if normalized.contains("hrv") { return "HRV" }
-        if normalized.contains("rhr") || normalized.contains("resting") { return "静息心率" }
-        if normalized.contains("sleep") || normalized.contains("bedtime") || normalized.contains("wake") { return "完整睡眠" }
-        if normalized.contains("workout") { return "训练记录" }
-        if normalized.contains("step") { return "步数" }
-        if normalized.contains("energy") { return "活动能量" }
-        if normalized.contains("resp") { return "呼吸率" }
-        if normalized.contains("temp") { return "腕温" }
-        if normalized.contains("spo2") || normalized.contains("oxygen") { return "血氧" }
-        return "部分输入"
+        return MissingInputLabel.summary(
+            for: result.missingInputs,
+            emptyValueMessage: nil,
+            hasValue: true,
+            suffix: "当前结果已降低证据覆盖度。"
+        )
     }
 
     var displayDateText: String {

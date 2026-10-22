@@ -511,44 +511,39 @@ struct DataSourceBadge: View {
     }
 }
 
+/// Hollow marker for Personal Baseline Deviation. Neutral ink only — unusual, not alarm.
+struct BaselineDeviationMarker: View {
+    var directionLabel: String? = nil
+    var showsLabel: Bool = true
+    var diameter: CGFloat = 7
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Circle()
+                .strokeBorder(VelaTheme.deviationInk, lineWidth: 1.25)
+                .frame(width: diameter, height: diameter)
+            if showsLabel, let directionLabel, !directionLabel.isEmpty {
+                Text(directionLabel)
+                    .font(VelaTheme.caption2())
+                    .foregroundStyle(VelaTheme.deviationInk)
+                    .lineLimit(1)
+            }
+        }
+        .accessibilityHidden(true)
+    }
+}
+
 struct ConfidenceBadge: View {
     var confidence: DataConfidence? = nil
     var score: Double? = nil
 
     var body: some View {
-        Text(label)
-            .font(.system(.caption2, design: .rounded, weight: .bold))
-            .foregroundStyle(color)
+        Text(ConfidenceBadgeCopy.label(confidence: confidence, score: score))
+            .font(.system(.caption2, design: .rounded, weight: .medium))
+            .foregroundStyle(VelaTheme.rhythmInkSecondary)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
-            .background(Capsule().fill(color.opacity(0.1)))
-    }
-
-    private var label: String {
-        if let score {
-            return "\(Int((score * 100).rounded()))%"
-        }
-        switch confidence {
-        case .high: return "HIGH"
-        case .medium: return "MED"
-        case .low: return "LOW"
-        case .unavailable: return "MISS"
-        case nil: return "N/A"
-        }
-    }
-
-    private var color: Color {
-        if let score {
-            if score >= 0.75 { return VelaTheme.success }
-            if score >= 0.5 { return Color(hex: "#FF9F0A") }
-            return Color(hex: "#FF3B30")
-        }
-        switch confidence {
-        case .high: return VelaTheme.success
-        case .medium: return Color(hex: "#FF9F0A")
-        case .low, .unavailable: return Color(hex: "#FF3B30")
-        case nil: return VelaTheme.meta
-        }
+            .background(Capsule().fill(VelaTheme.rhythmMist.opacity(0.7)))
     }
 }
 

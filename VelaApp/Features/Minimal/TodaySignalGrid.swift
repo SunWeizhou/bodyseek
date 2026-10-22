@@ -9,7 +9,8 @@ struct TodaySignalGrid: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let model: TodayExperienceModel
     let freshness: DataFreshness
-    let deviatedScoreIDs: Set<String>
+    /// Score ring id → "低于平时" / "高于平时" / empty when notable without direction.
+    let scoreDeviations: [String: String]
     let agentSentence: String
     var notableChangeText: String = ""
     let accentColor: (DailyPlanAccent) -> Color
@@ -65,7 +66,7 @@ struct TodaySignalGrid: View {
         case .waitingForEvidence, .learning:
             return true
         case .ready:
-            return !deviatedScoreIDs.isEmpty
+            return !scoreDeviations.isEmpty
         }
     }
 
@@ -79,13 +80,11 @@ struct TodaySignalGrid: View {
                 label: "初始基线 · \(model.baselineFormation.observedDays)/\(model.baselineFormation.requiredDays) 天"
             )
         case .ready:
-            if !deviatedScoreIDs.isEmpty {
+            if !scoreDeviations.isEmpty {
                 HStack(spacing: 8) {
-                    Circle()
-                        .fill(VelaTheme.stressColor)
-                        .frame(width: 8, height: 8)
+                    BaselineDeviationMarker(showsLabel: false, diameter: 8)
                     Text(notableChangeText.isEmpty
-                         ? "\(deviatedScoreIDs.count) 项偏离个人基线"
+                         ? "\(scoreDeviations.count) 项偏离个人基线"
                          : notableChangeText)
                         .font(VelaTheme.subheadline())
                         .foregroundStyle(VelaTheme.rhythmInk)
@@ -94,7 +93,7 @@ struct TodaySignalGrid: View {
                 }
                 .padding(.horizontal, 4)
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("发现 \(deviatedScoreIDs.count) 项个人基线偏离；这表示对你而言不寻常，不等同于医学异常")
+                .accessibilityLabel("发现 \(scoreDeviations.count) 项个人基线偏离；这表示对你而言不寻常，不等同于医学异常")
             }
         }
     }
@@ -177,11 +176,12 @@ struct TodaySignalGrid: View {
                         .font(VelaTheme.subheadline().weight(.semibold))
                         .foregroundStyle(VelaTheme.rhythmInk)
                         .lineLimit(1)
-                    if deviatedScoreIDs.contains(card.id) {
-                        Circle()
-                            .fill(accentColor(card.accent))
-                            .frame(width: 6, height: 6)
-                            .accessibilityHidden(true)
+                    if let direction = scoreDeviations[card.id] {
+                        BaselineDeviationMarker(
+                            directionLabel: direction,
+                            showsLabel: true,
+                            diameter: 6
+                        )
                     }
                     Spacer(minLength: 2)
                     stressValue(card)
@@ -240,11 +240,12 @@ struct TodaySignalGrid: View {
                         .font(VelaTheme.subheadline().weight(.semibold))
                         .foregroundStyle(VelaTheme.rhythmInk)
                         .lineLimit(1)
-                    if deviatedScoreIDs.contains(card.id) {
-                        Circle()
-                            .fill(accentColor(card.accent))
-                            .frame(width: 6, height: 6)
-                            .accessibilityHidden(true)
+                    if let direction = scoreDeviations[card.id] {
+                        BaselineDeviationMarker(
+                            directionLabel: direction,
+                            showsLabel: true,
+                            diameter: 6
+                        )
                     }
                     Spacer(minLength: 2)
                     energyValue(card)
@@ -302,8 +303,13 @@ struct TodaySignalGrid: View {
             stateText = card.value == "--" ? "待同步" : energyStateLabel(for: card.state)
         }
         let value = card.value == "--" ? "暂无数据" : "\(card.value) 分"
-        let deviation = deviatedScoreIDs.contains(card.id) ? "，偏离个人基线" : ""
-        return "\(card.title)，\(value)，\(stateText)\(deviation)"
+        return "\(card.title)，\(value)，\(stateText)\(accessibilityDeviation(for: card.id))"
+    }
+
+    private func accessibilityDeviation(for scoreID: String) -> String {
+        guard let label = scoreDeviations[scoreID] else { return "" }
+        let spoken = label.isEmpty ? BaselineDeviationCopy.unusualFallback : label
+        return "，\(spoken)"
     }
 
     private var agentGuidance: some View {
@@ -387,7 +393,7 @@ struct TodaySignalGrid: View {
         ringSize: CGFloat,
         horizontal: Bool
     ) -> some View {
-        let hasDeviation = deviatedScoreIDs.contains(card.id)
+        let deviationLabel = scoreDeviations[card.id]
         let scoreDescription = card.value == "--" ? "暂无数据" : "\(card.value) 分"
 
         // A concrete container is intentional here. A `Group` can distribute
@@ -402,11 +408,12 @@ struct TodaySignalGrid: View {
                             Text(card.title)
                                 .font(VelaTheme.body().weight(.semibold))
                                 .foregroundStyle(VelaTheme.rhythmInk)
-                            if hasDeviation {
-                                Circle()
-                                    .fill(VelaTheme.stressColor)
-                                    .frame(width: 6, height: 6)
-                                    .accessibilityHidden(true)
+                            if let deviationLabel {
+                                BaselineDeviationMarker(
+                                    directionLabel: deviationLabel,
+                                    showsLabel: true,
+                                    diameter: 6
+                                )
                             }
                         }
                         if !dynamicTypeSize.isAccessibilitySize {
@@ -430,20 +437,23 @@ struct TodaySignalGrid: View {
                             .font(VelaTheme.subheadline().weight(.semibold))
                             .foregroundStyle(VelaTheme.rhythmInk)
                             .lineLimit(1)
-                        if hasDeviation {
-                            Circle()
-                                .fill(VelaTheme.stressColor)
-                                .frame(width: 6, height: 6)
-                                .accessibilityHidden(true)
+                        if let deviationLabel {
+                            BaselineDeviationMarker(
+                                directionLabel: deviationLabel,
+                                showsLabel: true,
+                                diameter: 6
+                            )
                         }
                     }
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                 }
                 .contentShape(Rectangle())
             }
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(
-            "\(card.title)，\(scoreDescription)，\(card.directionLabel)\(hasDeviation ? "，偏离个人基线" : "")"
+            "\(card.title)，\(scoreDescription)，\(card.directionLabel)\(accessibilityDeviation(for: card.id))"
         )
         .accessibilityIdentifier("today-score-\(card.id)")
     }
@@ -463,7 +473,7 @@ struct TodaySignalGrid: View {
             accent: accent,
             showsLabel: false,
             direction: card.directionLabel,
-            dataState: deviatedScoreIDs.contains(card.id) ? "偏离个人基线" : nil
+            dataState: scoreDeviations[card.id].map { $0.isEmpty ? BaselineDeviationCopy.unusualFallback : $0 }
         )
     }
 
@@ -719,7 +729,7 @@ extension TodaySignalGrid: Equatable {
         lhs.model.signalCards == rhs.model.signalCards
             && lhs.model.baselineFormation == rhs.model.baselineFormation
             && lhs.freshness == rhs.freshness
-            && lhs.deviatedScoreIDs == rhs.deviatedScoreIDs
+            && lhs.scoreDeviations == rhs.scoreDeviations
             && lhs.agentSentence == rhs.agentSentence
             && lhs.notableChangeText == rhs.notableChangeText
     }

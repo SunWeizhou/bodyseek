@@ -126,6 +126,36 @@ final class RecoveryDetailV2Tests: XCTestCase {
         XCTAssertNil(RecoveryDetailV2Builder.candidateExplanation(finding: notable, drivers: ["  "]))
     }
 
+    func testMissingSummaryUsesDistinctLabelsAndDoesNotRepeat() {
+        let day = endingAt
+        var dashboard = DashboardSummary.empty(date: day)
+        dashboard.recovery = MetricResult(
+            name: "Recovery Score",
+            value: 48,
+            band: .normal,
+            confidence: .medium,
+            components: [:],
+            componentWeights: [:],
+            reasons: [],
+            missingInputs: ["hrvToday", "hrvHistory", "sleepScore", "priorStrainYesterday"],
+            dataWindow: DateInterval(start: day, duration: 86_400),
+            source: .healthKit,
+            algorithmVersion: "recovery.v2.0.0",
+            lastUpdated: day
+        )
+
+        let model = RecoveryDetailV2Builder.make(
+            dashboard: dashboard,
+            snapshots: [snapshot(offset: 0, score: 48)],
+            range: .week,
+            endingAt: day,
+            calendar: calendar
+        )
+
+        XCTAssertEqual(model.missingSummary, "仍缺少：今日 HRV、HRV 历史、睡眠分。")
+        XCTAssertNotEqual(model.missingSummary, "仍缺少：HRV、HRV、睡眠分。")
+    }
+
     func testDashboardAdapterReadsExistingResultsAndDoesNotInventBand() {
         let day = endingAt
         var dashboard = DashboardSummary.empty(date: day)
