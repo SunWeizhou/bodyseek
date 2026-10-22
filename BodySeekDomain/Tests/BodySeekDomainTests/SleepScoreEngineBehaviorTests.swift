@@ -88,7 +88,7 @@ final class SleepScoreEngineBehaviorTests: XCTestCase {
         XCTAssertTrue(result.missingInputs.contains("remMinutes"))
         XCTAssertTrue(result.missingInputs.contains("deepMinutes"))
         XCTAssertTrue(result.reasons.contains { $0.contains("估算") })
-        XCTAssertEqual(result.algorithmVersion, "sleep.v2.2.0")
+        XCTAssertEqual(result.algorithmVersion, ScoringAlgorithmVersions.sleep)
     }
     func testSleepEvidenceDoesNotPublishArchitectureWhenOneStageIsMissing() {
         let result = SleepScoreEngine().calculate(from: SleepScoreInput(

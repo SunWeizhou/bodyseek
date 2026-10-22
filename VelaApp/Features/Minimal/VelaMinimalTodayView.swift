@@ -102,7 +102,14 @@ struct VelaTodayView: View {
             whereSeparator: { "。！？!?".contains($0) }
         ).first.map(String.init) ?? flattened
         let limit = 48
-        return sentence.count > limit ? String(sentence.prefix(limit)) + "…" : sentence
+        guard sentence.count > limit else { return sentence }
+        let bounded = String(sentence.prefix(limit))
+        let breaks = CharacterSet(charactersIn: "，、；：,; ")
+        if let range = bounded.rangeOfCharacter(from: breaks, options: .backwards),
+           bounded.distance(from: bounded.startIndex, to: range.lowerBound) >= 12 {
+            return String(bounded[..<range.lowerBound])
+        }
+        return bounded
     }
 
     /// 深度专项批次 4（管线 A）：AI 今日解读卡——本机结论永远优先；
@@ -399,9 +406,10 @@ struct VelaTodayView: View {
                     freshness: todayScoreFreshness,
                     deviatedScoreIDs: deviatedScoreIDs,
                     agentSentence: todayAgentSentence,
+                    notableChangeText: dashboard.personalHealthBrief?.notableChanges.first?.summary ?? "",
                     accentColor: signalAccentColor,
                     onInspectGuidance: {
-                        presentEvidenceSheet()
+                        dispatchToday(.askCoach("请结合今天的状态继续说明。"))
                     },
                     selectedDate: todayStore.state.selectedDay,
                     dashboardSnapshot: todayStore.state.dashboard

@@ -95,7 +95,7 @@ final class MorningBriefScheduler: ObservableObject {
             outputSummary: ""
         )
         modelContext.insert(runRecord)
-        try? modelContext.save()
+        modelContext.saveOrRecordFailure("modelContext.save")
 
         do {
             // 4. Load the same bounded fact set used by Coach and evening sync.
@@ -197,7 +197,7 @@ final class MorningBriefScheduler: ObservableObject {
             runRecord.status = AgentRunStatus.success.rawValue
             runRecord.inputContextHash = contextMeta.hash
             runRecord.outputSummary = String(generatedReport.markdownContent.prefix(300))
-            try? modelContext.save()
+            modelContext.saveOrRecordFailure("modelContext.save")
 
             // Send notification that the morning brief is ready（PR11：带报告首行正文）
             let headline = generatedReport.markdownContent
@@ -211,7 +211,7 @@ final class MorningBriefScheduler: ObservableObject {
             runRecord.endedAt = Date()
             runRecord.status = AgentRunStatus.failed.rawValue
             runRecord.errorMessage = error.localizedDescription
-            try? modelContext.save()
+            modelContext.saveOrRecordFailure("modelContext.save")
         }
     }
 

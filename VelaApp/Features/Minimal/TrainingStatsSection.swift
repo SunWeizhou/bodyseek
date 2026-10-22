@@ -1185,7 +1185,9 @@ struct YearlyTrainingCard: View {
 
     private func load() async {
         let snapshots = (try? HealthSnapshotRepository(modelContext: modelContext).fetchAllSnapshots()) ?? []
-        stats = YearlyTrainingAggregator.aggregate(snapshots: snapshots)
+        stats = await Task.detached {
+            YearlyTrainingAggregator.aggregate(snapshots: snapshots)
+        }.value
     }
 
     private func yearRow(_ year: YearlyTrainingAggregator.YearStats, maxMinutes: Double) -> some View {

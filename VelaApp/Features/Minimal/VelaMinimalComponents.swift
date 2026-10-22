@@ -1117,7 +1117,14 @@ struct LongTermHealthTrendView: View {
         .navigationTitle("长期趋势")
         .velaRhythmDetailChrome()
         .task { await load() }
-        .onChange(of: metric) { _, _ in rebuild(from: cachedSnapshots) }
+        .onChange(of: metric) { _, newMetric in
+            let rebuilt = Self.series(from: cachedSnapshots, metric: newMetric)
+            monthlySeries = rebuilt.monthly
+            values = rebuilt.values
+            dates = rebuilt.dates
+            points = rebuilt.points
+            comparison = rebuilt.comparison
+        }
     }
 
     private var metricPicker: some View {
@@ -1268,7 +1275,15 @@ struct LongTermHealthTrendView: View {
             let snapshots = try HealthSnapshotRepository(modelContext: modelContext).fetchAllSnapshots()
             cachedSnapshots = snapshots
             loadError = nil
-            rebuild(from: snapshots)
+            let metric = self.metric
+            let rebuilt = await Task.detached {
+                Self.series(from: snapshots, metric: metric)
+            }.value
+            monthlySeries = rebuilt.monthly
+            values = rebuilt.values
+            dates = rebuilt.dates
+            points = rebuilt.points
+            comparison = rebuilt.comparison
         } catch {
             loadError = AppLanguage.stored.isChinese
                 ? "长期健康记录暂时无法读取，已保留上次结果。"
@@ -1276,7 +1291,16 @@ struct LongTermHealthTrendView: View {
         }
     }
 
-    private func rebuild(from snapshots: [DailyHealthSnapshot]) {
+    nonisolated private static func series(
+        from snapshots: [DailyHealthSnapshot],
+        metric: LongTermBaselineMetric
+    ) -> (
+        monthly: [(date: Date, value: Double)],
+        values: [Double],
+        dates: [Date],
+        points: [CGPoint],
+        comparison: (thisYear: Double?, lastYear: Double?)
+    ) {
         let calendar = Calendar.current
         let cutoff = calendar.date(byAdding: .year, value: -3, to: Date()) ?? Date()
         let pairs = snapshots
@@ -1286,10 +1310,8 @@ struct LongTermHealthTrendView: View {
                 return (snapshot.date, value)
             }
         let monthly = LongTermTrendMath.monthlyAverages(values: pairs, calendar: calendar)
-        monthlySeries = monthly
-        values = monthly.map(\.value)
-        dates = monthly.map(\.date)
-
+        let values = monthly.map(\.value)
+        let dates = monthly.map(\.date)
         let minV = values.min() ?? 0
         let maxV = values.max() ?? 1
         let diff = maxV - minV
@@ -1300,7 +1322,12 @@ struct LongTermHealthTrendView: View {
             let y = 0.9 - (normalized * 0.78)
             built.append(CGPoint(x: x, y: y))
         }
-        points = built
-        comparison = LongTermTrendMath.samePeriodComparison(values: pairs, calendar: calendar)
+        return (
+            monthly,
+            values,
+            dates,
+            built,
+            LongTermTrendMath.samePeriodComparison(values: pairs, calendar: calendar)
+        )
     }
 }

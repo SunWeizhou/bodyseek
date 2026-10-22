@@ -139,6 +139,7 @@ struct CoachOutboundDataPolicy: Equatable {
         defaults.set(Self.currentConsentVersion, forKey: Self.consentVersionKey)
     }
 
+    @MainActor
     static func revoke(defaults: UserDefaults = .standard) {
         defaults.removeObject(forKey: consentVersionKey)
         [healthKey, trainingKey, nutritionKey, journalKey, wikiKey, reportsKey, conversationHistoryKey, webSearchKey, filesKey]

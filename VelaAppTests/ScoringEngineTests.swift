@@ -698,7 +698,7 @@ final class ScoringEngineTests: XCTestCase {
         let withinWindow = computation.compute(for: today, history: history(offsets: [1, 2, 3, 4, 13])).sleep
         XCTAssertNil(outsideWindow.components["consistency"])
         XCTAssertTrue(outsideWindow.missingInputs.contains("recentBedtimesHistory"))
-        XCTAssertEqual(outsideWindow.value ?? -1, 79, accuracy: 0.000_001)
+        XCTAssertEqual(outsideWindow.value ?? -1, 70, accuracy: 0.000_001)
         XCTAssertEqual(outsideWindow.confidence, .low)
         XCTAssertEqual(withinWindow.components["consistency"], 30)
         XCTAssertEqual(withinWindow.value ?? -1, 100, accuracy: 0.000_001)

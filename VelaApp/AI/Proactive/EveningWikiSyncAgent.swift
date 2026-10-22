@@ -81,7 +81,7 @@ final class EveningWikiSyncAgent: ObservableObject {
             outputSummary: ""
         )
         modelContext.insert(runRecord)
-        try? modelContext.save()
+        modelContext.saveOrRecordFailure("modelContext.save")
 
         do {
             let contextAsOf = Date()
@@ -203,21 +203,16 @@ final class EveningWikiSyncAgent: ObservableObject {
             let parsed = AgentActionParser.parse(response.content)
             var proposalFiles: [String] = []
             let ledger = MemoryLedger(modelContext: modelContext)
-            for action in parsed.actions where action.type == .updateWiki {
-                let memType = WikiFileRole.memoryTypeFor(filename: action.target)
-                let record = try? ledger.createProposal(
-                    targetFile: action.target,
-                    memoryType: memType,
-                    content: action.content,
-                    evidence: "Evening wiki sync auto-detected pattern from daily data.",
-                    confidence: 0.6,
-                    source: "evening_wiki_sync",
-                    linkedAgentRunId: runRecord.id.uuidString
-                )
-                if record != nil {
-                    proposalFiles.append(action.target)
-                    logger.info("Memory proposal created: \(action.target)")
-                }
+            let created = ledger.createWikiProposals(
+                from: parsed.actions,
+                evidence: "Evening wiki sync auto-detected pattern from daily data.",
+                confidence: 0.6,
+                source: "evening_wiki_sync",
+                linkedAgentRunId: runRecord.id.uuidString
+            )
+            for proposal in created {
+                proposalFiles.append(proposal.file)
+                logger.info("Memory proposal created: \(proposal.file)")
             }
 
             // Save daily summary report
@@ -256,7 +251,7 @@ final class EveningWikiSyncAgent: ObservableObject {
                 toolCallsInfo.append(["action": "personal_response_scan", "created": "\(personalRulesCreated)"])
             }
             runRecord.toolCallsJSON = (try? String(data: JSONEncoder().encode(toolCallsInfo), encoding: .utf8)) ?? "[]"
-            try? modelContext.save()
+            modelContext.saveOrRecordFailure("modelContext.save")
 
             // Reschedule tomorrow's background refresh
             scheduleBackgroundRefresh()
@@ -265,7 +260,7 @@ final class EveningWikiSyncAgent: ObservableObject {
             runRecord.endedAt = Date()
             runRecord.status = AgentRunStatus.failed.rawValue
             runRecord.errorMessage = error.localizedDescription
-            try? modelContext.save()
+            modelContext.saveOrRecordFailure("modelContext.save")
         }
     }
 

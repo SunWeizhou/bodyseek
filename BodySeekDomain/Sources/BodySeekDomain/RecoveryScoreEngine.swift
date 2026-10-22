@@ -131,18 +131,17 @@ public struct RecoveryScoreEngine: ScoreEngine {
         if let hrvToday = input.hrvToday {
             let lnToday = log(max(hrvToday, 1.0))
 
-            // Build baseline using history (21 to 42 days), fallback to baseline if history too short
-            let hrvHistoryToUse = input.hrvHistory.count >= 5 ? input.hrvHistory : [input.hrvBaseline ?? hrvToday]
-            let lnHistory = hrvHistoryToUse.map { log(max($0, 1.0)) }
-
-            if let lnBaseline = ScoringMath.median(lnHistory) {
+            if input.hrvHistory.count < 5 {
+                missingInputs.append("hrvHistory")
+                reasons.append("HRV 个人基线样本不足，未计入恢复分。")
+            } else if let lnBaseline = ScoringMath.median(input.hrvHistory.map { log(max($0, 1.0)) }) {
+                let lnHistory = input.hrvHistory.map { log(max($0, 1.0)) }
                 var lnSD = ScoringMath.robustStandardDeviation(
                     lnHistory,
                     around: lnBaseline
                 ) ?? 0
-                let fallbackSD = lnBaseline * 0.12
                 if lnSD < 0.01 {
-                    lnSD = fallbackSD > 0.01 ? fallbackSD : 0.05
+                    lnSD = ScoringMath.hrvLogCoefficientOfVariation
                 }
 
                 hrvZ = (lnToday - lnBaseline) / lnSD
@@ -168,15 +167,16 @@ public struct RecoveryScoreEngine: ScoreEngine {
 
         // 2. RHR Component (25%) - Robust Z-Score
         if let rhrToday = input.restingHeartRateToday {
-            let rhrHistoryToUse = input.rhrHistory.count >= 5 ? input.rhrHistory : [input.restingHeartRateBaseline ?? rhrToday]
-            if let rhrBaseline = ScoringMath.median(rhrHistoryToUse) {
+            if input.rhrHistory.count < 5 {
+                missingInputs.append("rhrHistory")
+                reasons.append("静息心率个人基线样本不足，未计入恢复分。")
+            } else if let rhrBaseline = ScoringMath.median(input.rhrHistory) {
                 var rhrSD = ScoringMath.robustStandardDeviation(
-                    rhrHistoryToUse,
+                    input.rhrHistory,
                     around: rhrBaseline
                 ) ?? 0
-                let fallbackSD = max(2.5, rhrBaseline * 0.04)
                 if rhrSD < 0.5 {
-                    rhrSD = fallbackSD
+                    rhrSD = max(2.5, rhrBaseline * 0.04)
                 }
 
                 rhrZ = (rhrToday - rhrBaseline) / rhrSD
@@ -296,9 +296,8 @@ public struct RecoveryScoreEngine: ScoreEngine {
                         lnHistory,
                         around: lnBaseline
                     ) ?? 0
-                    let fallbackSD = lnBaseline * 0.12
                     if lnSD < 0.01 {
-                        lnSD = fallbackSD > 0.01 ? fallbackSD : 0.05
+                        lnSD = ScoringMath.hrvLogCoefficientOfVariation
                     }
 
                     let pstiZ = (lnToday - lnBaseline) / lnSD
@@ -324,8 +323,7 @@ public struct RecoveryScoreEngine: ScoreEngine {
         }
 
         if rhrZ > 2.0 && hrvZ < -1.0 {
-            penalty += 8.0
-            reasons.append("静息心率高于个人基线且 HRV 低于基线，恢复评分已相应下调")
+            reasons.append("静息心率高于个人基线且 HRV 低于基线。两项已经各自进入恢复分，不再额外扣分。")
         }
 
         if let val = recoveryValue {

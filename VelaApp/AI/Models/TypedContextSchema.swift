@@ -79,6 +79,7 @@ struct AgentOutboundConsentPolicy: Equatable, Sendable {
 
     /// Resolve the policy once at an outbound boundary.  All automated
     /// schedulers should capture this value before building their payload.
+    @MainActor
     static var current: AgentOutboundConsentPolicy {
         AgentOutboundConsentPolicy(
             backgroundNetworkAIConsent: AutoAgentConfig.shared.backgroundNetworkAIConsent,

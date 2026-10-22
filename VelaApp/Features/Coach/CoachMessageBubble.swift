@@ -441,7 +441,7 @@ struct ArtifactRendererView: View {
                     modelContext: modelContext
                 )
                 localStatusOverride = AdaptationStatus.accepted.rawValue
-                try? modelContext.save()
+                modelContext.saveOrRecordFailure("modelContext.save")
                 VelaHaptic.success()
                 VelaAppState.shared.markLocalDataChanged()
             },
@@ -451,7 +451,7 @@ struct ArtifactRendererView: View {
                     proposal: matchingProposal
                 )
                 localStatusOverride = AdaptationStatus.rejected.rawValue
-                try? modelContext.save()
+                modelContext.saveOrRecordFailure("modelContext.save")
                 VelaHaptic.light()
                 VelaAppState.shared.markLocalDataChanged()
             }
@@ -487,7 +487,7 @@ struct ArtifactRendererView: View {
                     modelContext: modelContext
                 )
                 localStatusOverride = AdaptationStatus.accepted.rawValue
-                try? modelContext.save()
+                modelContext.saveOrRecordFailure("modelContext.save")
                 VelaHaptic.success()
                 VelaAppState.shared.markLocalDataChanged()
             }
@@ -500,7 +500,7 @@ struct ArtifactRendererView: View {
                 })
                 TodayTrainingPlanAdaptationDecision.rejectArtifact(record, proposal: matchingProposal)
                 localStatusOverride = AdaptationStatus.rejected.rawValue
-                try? modelContext.save()
+                modelContext.saveOrRecordFailure("modelContext.save")
                 VelaHaptic.light()
                 VelaAppState.shared.markLocalDataChanged()
             }

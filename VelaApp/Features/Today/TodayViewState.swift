@@ -1,14 +1,5 @@
 import Foundation
 
-// These values are already immutable projections.  The legacy declarations
-// predate Swift concurrency annotations, so the conformance is kept here at
-// the feature boundary rather than making the persistence/domain layers know
-// about Today.
-extension DashboardSummary.DataSource: @unchecked Sendable {}
-extension TodayExperienceModel: @unchecked Sendable {}
-extension DailyDecisionFeedbackValues: @unchecked Sendable {}
-
-
 enum TodayMetricID: String, CaseIterable, Codable, Hashable, Sendable {
     case recovery
     case sleep

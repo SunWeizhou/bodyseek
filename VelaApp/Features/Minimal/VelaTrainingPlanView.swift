@@ -1191,14 +1191,14 @@ struct VelaTrainingRotationView: View {
     private func acceptAdaptation(_ adaptation: TrainingPlanAdaptationRecord) {
         guard let activePlan,
               TodayTrainingPlanAdaptationDecision.accept(adaptation, in: activePlan) else { return }
-        try? modelContext.save()
+        modelContext.saveOrRecordFailure("modelContext.save")
         VelaAppState.shared.markLocalDataChanged()
         loadRotation()
     }
 
     private func rejectAdaptation(_ adaptation: TrainingPlanAdaptationRecord) {
         TodayTrainingPlanAdaptationDecision.reject(adaptation)
-        try? modelContext.save()
+        modelContext.saveOrRecordFailure("modelContext.save")
         VelaAppState.shared.markLocalDataChanged()
         loadRotation()
     }

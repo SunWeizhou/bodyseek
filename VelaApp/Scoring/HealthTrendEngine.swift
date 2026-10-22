@@ -950,7 +950,9 @@ struct HealthTrendEngine: Sendable {
         percentile: Double,
         trendLabel: String?
     ) -> String {
-        let pText = "处于三年历史 P\(Int(percentile * 100))"
+        let pText = percentile >= 0.95
+            ? "高于三年历史 P90，不是精确的第 95 百分位"
+            : "处于三年历史 P\(Int(percentile * 100))"
         if let trend = trendLabel, !trend.isEmpty {
             return "\(trend)，\(pText)"
         }

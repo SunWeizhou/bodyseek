@@ -1,10 +1,7 @@
 # Vela 设计系统强制(SwiftLint)
 #
-# 现状:项目未安装 SwiftLint,且约定不脚本修改 pbxproj,故本配置默认不生效。
-# 启用方式(二选一):
-#   1) 手动:brew install swiftlint && swiftlint --config .swiftlint.yml
-#   2) 强制:Xcode → Vela target → Build Phases → + Run Script(手动添加,勿脚本改 pbxproj):
-#        if which swiftlint >/dev/null; then swiftlint --config .swiftlint.yml; fi
+# 现状: CI 的 quality workflow 会安装并运行 SwiftLint，失败不阻断（`|| true`）。
+# 本地也可以 `brew install swiftlint && swiftlint --config .swiftlint.yml`。
 #
 # 设计 Token 只在 Core/Theme 与 Core/DesignSystem 定义,故这两处豁免;
 # 其余视图文件命中以下规则即报警(warning,先不 error,避免破坏现有构建)。

@@ -133,8 +133,8 @@ struct VelaOnboardingView: View {
                     .fixedSize(horizontal: false, vertical: true)
 
                 Text(L10n.t(
-                    "Five independent scores place Apple Health signals against your personal baseline.",
-                    "五项独立分数，把 Apple 健康信号放回你的个人基线中。"
+                    "Five separate scores place Apple Health signals against your personal baseline.",
+                    "五项分开的分数，把 Apple 健康信号放回你的个人基线中。"
                 ))
                 .font(.system(.body, design: .default, weight: .regular))
                 .foregroundStyle(VelaTheme.rhythmInkSecondary)

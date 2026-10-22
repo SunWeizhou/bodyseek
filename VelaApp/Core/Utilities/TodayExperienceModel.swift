@@ -84,7 +84,7 @@ struct TodayExperienceAction: Codable, Hashable, Identifiable {
     var evidence: String? = nil
 }
 
-struct TodayExperienceModel: Codable, Hashable {
+struct TodayExperienceModel: Codable, Hashable, Sendable {
     var generatedAt: Date
     var hero: TodayExperienceHero
     var signalCards: [TodayExperienceSignalCard]

@@ -705,7 +705,7 @@ public enum WikiSyncManager {
             }
         }
 
-        try? modelContext.save()
+        modelContext.saveOrRecordFailure("modelContext.save")
     }
 
     /// M8：「写透」helper——写 wiki 文件后立即同步 SwiftData 记录缓存，

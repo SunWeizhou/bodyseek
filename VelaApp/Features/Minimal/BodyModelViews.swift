@@ -366,11 +366,8 @@ struct BodyModelDetailView: View {
         .background(VelaTheme.rhythmCanvas)
         .navigationTitle("身体模型")
         .velaRhythmDetailChrome()
-        .onAppear {
-            loadModelData()
-        }
-        .onChange(of: selectedDate) {
-            loadModelData()
+        .task(id: selectedDate) {
+            await loadModelData()
         }
     }
     
@@ -517,36 +514,37 @@ struct BodyModelDetailView: View {
         JournalCorrelationSection(bodyModelState: bodyModelState, insights: insights)
     }
     
-    private func loadModelData() {
+    private func loadModelData() async {
         memoizedBodyModelState = nil
-        // 三年窗口：身体模型与行为-结果配对用回填历史立即拟合，
-        // 不再被 35/100/50/30 天的窗口截断在学习期。
+        // Fetches stay on the model context. The three-year aggregate does not.
         self.dailySummaries = (try? SwiftDataDailyHealthSummaryRepository(modelContext: modelContext)
             .fetchAllSortedByDate(newestFirst: true)) ?? []
- 
+
         self.journalEntries = (try? SwiftDataJournalRepository(modelContext: modelContext)
             .fetchAllSortedByCreatedAt(newestFirst: true)) ?? []
         self.strengthWorkouts = (try? WorkoutHistoryRepository(modelContext: modelContext)
             .fetchStrengthWorkoutsSortedByStart(newestFirst: true)) ?? []
- 
+
         self.trainingResponses = (try? TrainingResponseRepository(modelContext: modelContext)
             .fetchAllSortedByDate()) ?? []
- 
+
         let repo = HealthSnapshotRepository(modelContext: modelContext)
         if let snaps = try? repo.fetchSnapshots(days: 1100, endingAt: dashboard.date) {
             self.healthSnapshots = snaps
-            let engine = JournalCorrelationEngine()
-            // 手记行为配对 + 三年生理行为配对（训练日/高活动日/短睡眠夜），
-            // Impact Matrix 回填后立即有内容，不再只依赖手记。
             let journalsThroughDate = self.journalEntries.filter { $0.createdAt <= dashboard.date }
-            let journalInsights = engine.calculateInsights(journalEntries: journalsThroughDate, snapshots: snaps)
+            let engine = JournalCorrelationEngine()
+            let journalInsights = engine.calculateInsights(
+                journalEntries: journalsThroughDate,
+                snapshots: snaps
+            )
             let physiologicalInsights = engine.physiologicalInsights(snapshots: snaps)
             self.insights = journalInsights + physiologicalInsights
         }
-        self.longTermReport = LongTermBaselineEngine.compute(
-            points: self.dailySummaries.map(\.longTermBaselinePoint),
-            today: dashboard.date
-        )
+        let points = self.dailySummaries.map(\.longTermBaselinePoint)
+        let today = dashboard.date
+        self.longTermReport = await Task.detached {
+            LongTermBaselineEngine.compute(points: points, today: today)
+        }.value
     }
     
     private func confidenceColor(_ conf: MetricConfidence) -> Color {

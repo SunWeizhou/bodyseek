@@ -11,15 +11,17 @@ struct TodaySignalGrid: View {
     let freshness: DataFreshness
     let deviatedScoreIDs: Set<String>
     let agentSentence: String
+    var notableChangeText: String = ""
     let accentColor: (DailyPlanAccent) -> Color
     let onInspectGuidance: () -> Void
     let selectedDate: Date
     let dashboardSnapshot: DashboardSummary
 
-    /// The Today contract has five independent metrics. Keep the descriptor
-    /// list at the rendering boundary so a partial/legacy payload cannot make
-    /// a metric disappear from the dashboard. Missing cards are represented by
-    /// an explicit `--` value; no score or aggregate is fabricated.
+    /// Five scores stay separate on screen and are not combined into one health
+    /// score. They still share sleep and HRV inputs, so a change in one can
+    /// move another. Keep the descriptor list at the rendering boundary so a
+    /// partial/legacy payload cannot make a metric disappear. Missing cards
+    /// use `--`; no score is fabricated.
     private struct SignalDescriptor {
         let id: String
         let title: String
@@ -82,9 +84,12 @@ struct TodaySignalGrid: View {
                     Circle()
                         .fill(VelaTheme.stressColor)
                         .frame(width: 8, height: 8)
-                    Text("\(deviatedScoreIDs.count) 项偏离个人基线")
+                    Text(notableChangeText.isEmpty
+                         ? "\(deviatedScoreIDs.count) 项偏离个人基线"
+                         : notableChangeText)
                         .font(VelaTheme.subheadline())
                         .foregroundStyle(VelaTheme.rhythmInk)
+                        .lineLimit(2)
                     Spacer(minLength: 0)
                 }
                 .padding(.horizontal, 4)
@@ -607,44 +612,14 @@ private enum TodayDashboardCardDepth: Equatable {
 }
 
 private struct TodayDashboardCardModifier: ViewModifier {
-    @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
-
     let radius: CGFloat
     let depth: TodayDashboardCardDepth
 
     func body(content: Content) -> some View {
-        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
-        // Perf: shadows on every card re-rasterize per frame while scrolling
-        // (CA::Layer::commit cost dominates hitches). The soft elevation is
-        // preserved through the stroke + raised fill; drop the blur shadow.
+        // One card implementation. Depth stays in the call sites so featured
+        // and standard rows can diverge later without a second modifier.
         let _ = depth
-
-        content
-            .background(VelaTheme.rhythmCanvasRaised)
-            .compositingGroup()
-            .clipShape(shape)
-            .overlay {
-                shape.stroke(
-                    colorSchemeContrast == .increased
-                        ? AnyShapeStyle(VelaTheme.rhythmInk)
-                        : AnyShapeStyle(
-                            LinearGradient(
-                                colors: [
-                                    colorScheme == .dark
-                                        ? Color.white.opacity(0.12)
-                                        : VelaTheme.rhythmMist.opacity(0.85),
-                                    colorScheme == .dark
-                                        ? Color.white.opacity(0.03)
-                                        : VelaTheme.rhythmMist.opacity(0.40)
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        ),
-                    lineWidth: colorSchemeContrast == .increased ? 1 : 0.75
-                )
-            }
+        content.velaNativeCard(radius: radius)
     }
 }
 
@@ -746,6 +721,7 @@ extension TodaySignalGrid: Equatable {
             && lhs.freshness == rhs.freshness
             && lhs.deviatedScoreIDs == rhs.deviatedScoreIDs
             && lhs.agentSentence == rhs.agentSentence
+            && lhs.notableChangeText == rhs.notableChangeText
     }
 }
 

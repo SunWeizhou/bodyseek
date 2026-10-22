@@ -574,7 +574,7 @@ final class VelaEventService {
         )
         
         modelContext.insert(record)
-        try? modelContext.save()
+        modelContext.saveOrRecordFailure("modelContext.save")
         
         // Notify local app state that data changed
         VelaAppState.shared.markLocalDataChanged()

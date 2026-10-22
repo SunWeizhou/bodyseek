@@ -23,7 +23,7 @@
 6. 专项文档：
    - 设计语言：[`docs/VELA_DESIGN_LANGUAGE.md`](docs/VELA_DESIGN_LANGUAGE.md)
    - AI 上下文与 Agent 协议：[`docs/AI_AGENT_SPEC.md`](docs/AI_AGENT_SPEC.md)
-   - 指标与算法协议：[`docs/SCORING_SYSTEM_V1_0.md`](docs/SCORING_SYSTEM_V1_0.md)
+> 专项文档里的 [`docs/SCORING_SYSTEM_V1_0.md`](docs/SCORING_SYSTEM_V1_0.md) 是历史协议，公式以 `BodySeekDomain` 源码和模型卡为准。
 
 ---
 
@@ -73,13 +73,13 @@ VelaApp/
 │   └── Settings/
 │       ├── DataCoverageView.swift      # 数据覆盖与权限状态
 │       ├── TrustCenterView.swift        # 数据与 AI 信任设置
-│       └── BiologyView.swift            # 生理设置
+│       └── BiologyView.swift            # 血检记录与化验解析；生物年龄页已不在导航里
 ├── Health/
 │   ├── Services/HealthKitSyncEngine.swift # HealthKit 两阶段同步与日快照管道
 │   └── Coverage/                       # 数据覆盖度计算
 ├── Scoring/
 │   ├── ScoreEngineFactory.swift        # DailyHealthComputation 唯一确定性评分入口；睡眠分走 BodySeekDomain
-│   └── Recovery/ Sleep/ Strain/ Stress # 恢复、负荷、压力、能量仍在 App 内计算；Sleep/ 只留证据与作息目标，睡眠分走 BodySeekDomain
+│   └── Recovery/ Sleep/ Strain/ Stress # App 侧只做结果映射；五项分数都在 BodySeekDomain 计算
 └── TrainingIntelligence/
     ├── Services/                       # 训练分析、局部肌群疲劳分析、e1RM
     └── Views/                          # 训练详情、活动摘要与历史视图

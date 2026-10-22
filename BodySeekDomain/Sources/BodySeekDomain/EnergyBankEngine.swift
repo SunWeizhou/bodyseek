@@ -379,10 +379,10 @@ public struct EnergyBankEngine: ScoreEngine {
             )
         }
 
-        let atl = ewma(loadsIncludingToday, lambda: 2.0 / (7.0 + 1.0))
-        let ctl = ewma(loadsIncludingToday, lambda: 2.0 / (42.0 + 1.0))
+        let atl = ScoringMath.ewma(loadsIncludingToday, lambda: 2.0 / (7.0 + 1.0))
+        let ctl = ScoringMath.ewma(loadsIncludingToday, lambda: 2.0 / (42.0 + 1.0))
 
-        let ctl28 = ewma(loadsIncludingToday, lambda: 2.0 / (28.0 + 1.0))
+        let ctl28 = ScoringMath.ewma(loadsIncludingToday, lambda: 2.0 / (28.0 + 1.0))
         let acwr = ctl28 > 0 ? atl / ctl28 : nil
 
         return TrainingLoadProjection(
@@ -414,17 +414,5 @@ public struct EnergyBankEngine: ScoreEngine {
             availability: input.todayLoad == nil ? .missing : (input.todayLoad == 0 ? .knownZero : .observed),
             reason: input.todayLoad == nil ? "今日负荷未提供" : nil
         )
-    }
-
-    private func ewma(_ values: [Double], lambda: Double) -> Double {
-        guard !values.isEmpty else { return 0 }
-        // 暖启动：用初期（最多 7 个）样本的均值作种子，降低首值冷启动偏差。
-        let warmupCount = min(7, values.count)
-        let seed = values.prefix(warmupCount).reduce(0, +) / Double(warmupCount)
-        var result = seed
-        for value in values.dropFirst(warmupCount) {
-            result = value * lambda + result * (1.0 - lambda)
-        }
-        return result
     }
 }

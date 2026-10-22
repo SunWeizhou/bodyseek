@@ -498,12 +498,12 @@ public struct SleepScoreEngine: ScoreEngine {
 
         var finalValue: Double?
         if availableWeight > 0 {
-            let baseVal = ScoringMath.clamp((sumScore / availableWeight) * 100.0, min: 0, max: 100)
-            if adjustedConfidence == .low {
-                finalValue = min(baseVal, 79.0)
-                reasons.append("由于缺少质量与一致性指标，该评分已降为低置信度（最大限制为 79 分）")
+            let renormalized = ScoringMath.clamp((sumScore / availableWeight) * 100.0, min: 0, max: 100)
+            if adjustedConfidence == .low && renormalized > 79 {
+                finalValue = ScoringMath.clamp(sumScore, min: 0, max: 100)
+                reasons.append("缺少部分睡眠指标，未把已有项目摊成接近满分。")
             } else {
-                finalValue = baseVal
+                finalValue = renormalized
             }
         } else {
             finalValue = nil

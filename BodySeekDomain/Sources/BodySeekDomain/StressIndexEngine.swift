@@ -139,8 +139,7 @@ public struct StressIndexEngine: ScoreEngine {
         // 1. RHR quiet stress (25%)
         switch input.mode {
         case .rawVitals:
-            if let quietHR = input.quietHRToday {
-                let baseline = input.quietHRBaseline ?? quietHR
+            if let quietHR = input.quietHRToday, let baseline = input.quietHRBaseline {
                 // SD=0 或非有限值时视为缺失（否则除零 → +inf → 静默满分）。
                 let sd: Double
                 if let provided = input.quietHRSD, provided.isFinite, provided > 0 {
@@ -164,6 +163,9 @@ public struct StressIndexEngine: ScoreEngine {
                         reasons.append("静息心率高于近期个人基线")
                     }
                 }
+            } else if input.quietHRToday != nil {
+                missingInputs.append("quietHRBaseline")
+                reasons.append("静息心率个人基线不足，未把今天当成正常对照。")
             } else {
                 missingInputs.append("quietHRToday")
             }
@@ -177,8 +179,7 @@ public struct StressIndexEngine: ScoreEngine {
         // 2. HRV quiet stress (25%)
         switch input.mode {
         case .rawVitals:
-            if let hrvToday = input.hrvToday {
-                let baseline = input.hrvBaseline ?? hrvToday
+            if let hrvToday = input.hrvToday, let baseline = input.hrvBaseline, baseline > 0 {
                 let lnToday = log(max(hrvToday, 1.0))
                 let lnBaseline = log(max(baseline, 1.0))
                 // hrvSD 语义为原始 ms 域标准差，而 hrvZ 在 log 域计算。
@@ -188,7 +189,7 @@ public struct StressIndexEngine: ScoreEngine {
                 if let rawSD = input.hrvSD, rawSD > 0, baseline > 1 {
                     sd = max(rawSD / baseline, 0.01)
                 } else {
-                    sd = max(0.01, lnBaseline * 0.12)
+                    sd = ScoringMath.hrvLogCoefficientOfVariation
                 }
                 let hrvZ = (lnToday - lnBaseline) / sd
 
@@ -199,6 +200,9 @@ public struct StressIndexEngine: ScoreEngine {
                 if hrvZ < -1.2 {
                     reasons.append("今日 HRV 低于近期个人基线")
                 }
+            } else if input.hrvToday != nil {
+                missingInputs.append("hrvBaseline")
+                reasons.append("HRV 个人基线不足，未把今天当成正常对照。")
             } else {
                 missingInputs.append("hrvToday")
             }
@@ -210,8 +214,7 @@ public struct StressIndexEngine: ScoreEngine {
         }
 
         // 3. Respiratory Rate Stress (15%)
-        if let respToday = input.respRateToday {
-            let baseline = input.respRateBaseline ?? respToday
+        if let respToday = input.respRateToday, let baseline = input.respRateBaseline {
             // SD=0 或非有限值时视为缺失（否则除零 → +inf → 静默满分）。
             let sd: Double
             if let provided = input.respRateSD, provided.isFinite, provided > 0 {
@@ -223,6 +226,8 @@ public struct StressIndexEngine: ScoreEngine {
             let respStress = ScoringMath.clamp(50.0 + 15.0 * respZ, min: 0, max: 100)
             components["resp_stress"] = respStress
             componentWeights["resp_stress"] = weights["resp_stress"] ?? 0
+        } else if input.respRateToday != nil {
+            missingInputs.append("respRateBaseline")
         }
 
         // 4. Temp Stress (10%)

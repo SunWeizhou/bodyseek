@@ -1069,30 +1069,6 @@ struct VelaMakeIconTile: View {
     }
 }
 
-struct VelaMakeRing: View {
-    let value: Double
-    let color: Color
-    var size: CGFloat = 108
-    var lineWidth: CGFloat = 8
-    var valueText: String? = nil
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .stroke(color.opacity(0.16), lineWidth: lineWidth)
-            Circle()
-                .trim(from: 0, to: min(max(value / 100, 0), 1))
-                .stroke(color, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-            Text(valueText ?? "\(Int(value.rounded()))")
-                .font(.system(size: size * 0.28, weight: .bold))
-                .foregroundStyle(VelaTheme.fg)
-                .monospacedDigit()
-        }
-        .frame(width: size, height: size)
-    }
-}
-
 // MARK: - Premium Score Ring
 
 /// A high-fidelity score ring with angular gradient stroke, endpoint glow,

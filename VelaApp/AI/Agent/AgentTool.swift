@@ -66,7 +66,7 @@ struct ToolRegistry {
 }
 
 @MainActor
-final class ToolExecutionContext: @unchecked Sendable {
+final class ToolExecutionContext {
     let modelContext: ModelContext
     let dashboard: DashboardSummary
     /// Canonical facts captured by the same Coach request that created the

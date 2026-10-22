@@ -83,6 +83,32 @@ final class MemoryLedger {
         return record
     }
 
+    /// One proposal path for the wiki tool, casual Coach text, and evening sync.
+    func createWikiProposals(
+        from actions: [AgentAction],
+        evidence: String,
+        confidence: Double,
+        source: String,
+        linkedAgentRunId: String? = nil
+    ) -> [(file: String, content: String)] {
+        var created: [(file: String, content: String)] = []
+        for action in actions where action.type == .updateWiki {
+            let memoryType = WikiFileRole.memoryTypeFor(filename: action.target)
+            if (try? createProposal(
+                targetFile: action.target,
+                memoryType: memoryType,
+                content: action.content,
+                evidence: evidence,
+                confidence: confidence,
+                source: source,
+                linkedAgentRunId: linkedAgentRunId
+            )) != nil {
+                created.append((action.target, action.content))
+            }
+        }
+        return created
+    }
+
     // MARK: - Confirm (accept proposal → write to wiki)
 
     func editProposal(_ proposalId: UUID, content: String, userNote: String? = nil) throws {
@@ -189,7 +215,7 @@ final class MemoryLedger {
             // M5：文件被二次改动后无法安全回滚——不再静默无操作，
             // 把原因写进 userNote 让用户可见，状态保持 accepted。
             record.userNote = "文件已被后续修改，无法安全回滚。"
-            try? modelContext.save()
+            modelContext.saveOrRecordFailure("modelContext.save")
             logger.warning("Cannot rollback memory \(recordId): wiki changed after this memory was applied.")
             return
         }

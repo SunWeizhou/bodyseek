@@ -1,8 +1,10 @@
 import Foundation
 import UserNotifications
 
-/// Central configuration for all automated agent skills
-final class AutoAgentConfig: ObservableObject, @unchecked Sendable {
+/// Central configuration for automated agent skills.
+/// Published state is main-actor only; background tasks read it on the main actor.
+@MainActor
+final class AutoAgentConfig: ObservableObject {
     static let shared = AutoAgentConfig()
 
     private let defaults: UserDefaults
@@ -199,7 +201,9 @@ enum CoachCheckInSchedule {
 enum CoachCheckInScheduler {
     private static let prefix = "vela.coach.checkin."
 
-    static func reschedule(config: AutoAgentConfig = .shared) async {
+    @MainActor
+    static func reschedule(config: AutoAgentConfig? = nil) async {
+        let config = config ?? .shared
         let center = UNUserNotificationCenter.current()
         let settings = await center.notificationSettings()
         if settings.authorizationStatus == .notDetermined {

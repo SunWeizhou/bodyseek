@@ -18,7 +18,7 @@ enum DeepSeekTextModel: String, CaseIterable, Sendable {
 
     var apiIdentifier: String {
         switch self {
-        case .flash: return "deepseek-v4-flash"
+        case .flash: return "deepseek-flash"
         case .pro: return "deepseek-v4-pro"
         }
     }
@@ -128,6 +128,7 @@ struct DeepSeekProvider: LLMProvider {
         urlRequest.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         urlRequest.timeoutInterval = 120
 
+        let sampling = Self.requestSampling()
         let body = DeepSeekChatRequest(
             model: model,
             messages: messages.map { msg in
@@ -141,11 +142,12 @@ struct DeepSeekProvider: LLMProvider {
                     reasoningContent: msg.reasoningContent
                 )
             },
-            temperature: 0.4,
+            temperature: sampling.temperature,
             stream: false,
             tools: tools?.map { ToolDef(from: $0) },
             toolChoice: tools != nil ? "auto" : nil,
-            maxTokens: Self.defaultMaxTokens
+            maxTokens: sampling.maxTokens,
+            thinking: sampling.thinking
         )
         urlRequest.httpBody = try JSONEncoder().encode(body)
 
@@ -192,6 +194,7 @@ struct DeepSeekProvider: LLMProvider {
                     urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
                     urlRequest.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
                     urlRequest.timeoutInterval = 180
+                    let sampling = Self.requestSampling()
                     urlRequest.httpBody = try JSONEncoder().encode(
                         DeepSeekChatRequest(
                             model: model,
@@ -206,11 +209,12 @@ struct DeepSeekProvider: LLMProvider {
                                     reasoningContent: msg.reasoningContent
                                 )
                             },
-                            temperature: 0.4,
+                            temperature: sampling.temperature,
                             stream: true,
                             tools: nil,
                             toolChoice: nil,
-                            maxTokens: Self.defaultMaxTokens
+                            maxTokens: sampling.maxTokens,
+                            thinking: sampling.thinking
                         )
                     )
 
@@ -267,6 +271,15 @@ struct DeepSeekProvider: LLMProvider {
             }
         }
     }
+
+    /// Thinking mode ignores temperature. Non-thinking calls keep a low temperature
+    /// and a shorter cap; thinking calls get room for the reasoning trace.
+    private static func requestSampling() -> (temperature: Double?, maxTokens: Int, thinking: DeepSeekChatRequest.Thinking?) {
+        if CoachReasoningMode.stored == .thinking {
+            return (nil, 8192, .init(type: "enabled"))
+        }
+        return (0.4, defaultMaxTokens, nil)
+    }
 }
 
 // MARK: - Request/Response Codable Types
@@ -274,16 +287,21 @@ struct DeepSeekProvider: LLMProvider {
 private struct DeepSeekChatRequest: Encodable {
     var model: String
     var messages: [Message]
-    var temperature: Double
+    var temperature: Double?
     var stream: Bool
     var tools: [ToolDef]?
     var toolChoice: String?
     var maxTokens: Int?
+    var thinking: Thinking?
 
     enum CodingKeys: String, CodingKey {
-        case model, messages, temperature, stream, tools
+        case model, messages, temperature, stream, tools, thinking
         case toolChoice = "tool_choice"
         case maxTokens = "max_tokens"
+    }
+
+    struct Thinking: Encodable {
+        var type: String
     }
 
     struct Message: Encodable {

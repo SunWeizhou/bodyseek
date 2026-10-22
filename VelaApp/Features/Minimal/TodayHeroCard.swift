@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct DailyDecisionFeedbackValues {
+struct DailyDecisionFeedbackValues: Sendable {
     var adoptionStatus: String
     var accuracyRating: String
     var actualAction: String

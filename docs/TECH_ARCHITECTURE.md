@@ -15,7 +15,7 @@
 - **对外产品名**: BodySeek（工程代码、Bundle ID 与数据库身份保持 Vela）
 - **UI 风格**: Apple Native Design System + Rhythm 视觉 Tokens（`VelaTheme`）
 - **数据流**: 单向数据流（Unidirectional Data Flow），本地确定性计算优先，AI 作为解释与提案增强
-- **运行时 AI 连接**: iOS 端直连 DeepSeek API (`api.deepseek.com`，Keychain 存储 Key)，可选 Kimi Vision 识别食物照片；`VelaBackend` (Vapor 4) 仅作为保留的实验服务，当前未启用。
+- **运行时 AI 连接**: iOS 端直连 DeepSeek API (`api.deepseek.com`，Keychain 存储 Key)，可选 Kimi Vision 识别食物照片。`VelaBackend` 的测试在 CI 的 `backend` job 里运行；它仍不是线上服务。工具链版本在仓库根目录的 `.xcode-version`。
 
 ---
 
@@ -153,7 +153,7 @@ VelaApp
 └── Features/Settings/
     ├── DataCoverageView.swift        # 数据覆盖与权限
     ├── TrustCenterView.swift         # 数据与 AI 信任设置
-    └── BiologyView.swift             # 生理设置
+    └── BiologyView.swift             # 血检记录、化验解析；生物年龄页面已从导航移除
 ```
 
 ---

@@ -148,7 +148,7 @@ struct DashboardSummary: Hashable, Sendable {
         self._bodyState = nil
     }
 
-    enum DataSource: String, Hashable {
+    enum DataSource: String, Hashable, Sendable {
         case healthKit = "HealthKit"
         case cache = "Cached HealthKit"
         case empty = "Empty"

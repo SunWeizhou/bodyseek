@@ -866,20 +866,14 @@ final class CoachChatVM: ObservableObject {
             let isCasualPath = ResponseLengthPolicy.forQuery(userText, lang: AppLanguage.stored) == .casual
             if !isGhostMode && isCasualPath {
                 let ledger = MemoryLedger(modelContext: modelContext)
-                for action in parsed.actions where action.type == .updateWiki {
-                    let memType = WikiFileRole.memoryTypeFor(filename: action.target)
-                    let proposal = try? ledger.createProposal(
-                        targetFile: action.target,
-                        memoryType: memType,
-                        content: action.content,
-                        evidence: "Coach conversation — AI detected pattern worth recording.",
-                        confidence: 0.5,
-                        source: "coach_legacy_parser"
-                    )
-                    if proposal != nil, !wikiFiles.contains(action.target) {
-                        wikiFiles.append(action.target)
-                        wikiUpdateSummaries.append("\(action.target): \(action.content)")
-                    }
+                for proposal in ledger.createWikiProposals(
+                    from: parsed.actions,
+                    evidence: "Coach conversation — AI detected pattern worth recording.",
+                    confidence: 0.5,
+                    source: "coach_legacy_parser"
+                ) where !wikiFiles.contains(proposal.file) {
+                    wikiFiles.append(proposal.file)
+                    wikiUpdateSummaries.append("\(proposal.file): \(proposal.content)")
                 }
             }
 

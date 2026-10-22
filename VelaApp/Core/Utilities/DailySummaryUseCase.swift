@@ -1025,7 +1025,7 @@ final class DailySummaryUseCase {
             record.configVersion = Self.debugDemoConfigVersion
             modelContext.insert(record)
         }
-        try? modelContext.save()
+        modelContext.saveOrRecordFailure("modelContext.save")
     }
 #endif
 
@@ -1077,16 +1077,23 @@ final class DailySummaryUseCase {
         // three-year trend history as a live DailySummary load. Secondary
         // assembly preserves this projection when it only has its bounded
         // recent snapshot window.
-        let trendProvider = DailySummaryHealthTrendHistoryProvider(
-            snapshots: allRecords.map { $0.toSnapshot() },
-            longTermBaselines: baselines
-        )
-        let trendAnalysis = HealthTrendEngine().analyze(
-            dashboard: dashboard,
-            historyProvider: trendProvider,
-            selectedDay: date,
-            calendar: calendar
-        )
+        let trendSnapshots = allRecords.map { $0.toSnapshot() }
+        let trendBaselines = baselines
+        let trendDashboard = dashboard
+        let trendDay = date
+        let trendCalendar = calendar
+        let trendAnalysis = await Task.detached {
+            let trendProvider = DailySummaryHealthTrendHistoryProvider(
+                snapshots: trendSnapshots,
+                longTermBaselines: trendBaselines
+            )
+            return HealthTrendEngine().analyze(
+                dashboard: trendDashboard,
+                historyProvider: trendProvider,
+                selectedDay: trendDay,
+                calendar: trendCalendar
+            )
+        }.value
         dashboard.personalHealthBrief = trendAnalysis.brief
         dashboard.healthTrends = trendAnalysis.findings
         return dashboard

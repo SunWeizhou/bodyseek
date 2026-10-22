@@ -252,8 +252,8 @@ public struct StrainScoreEngine: ScoreEngine {
             Array(input.last28DaysDailyLoads.reversed())
         }
         let loadsIncludingToday = ascendingHistory + [dailyLoad]
-        let atl = ewma(loadsIncludingToday, lambda: 2.0 / (7.0 + 1.0))
-        let ctl28 = ewma(loadsIncludingToday, lambda: 2.0 / (28.0 + 1.0))
+        let atl = ScoringMath.ewma(loadsIncludingToday, lambda: 2.0 / (7.0 + 1.0))
+        let ctl28 = ScoringMath.ewma(loadsIncludingToday, lambda: 2.0 / (28.0 + 1.0))
         let trainingLoadRatio = ctl28 > 0 ? atl / ctl28 : 1.0
 
         var baseConfidence: MetricConfidence = input.activeEnergyToday != nil ? .high : .medium
@@ -351,17 +351,5 @@ public struct StrainScoreEngine: ScoreEngine {
         } else {
             return 55...85   // High recovery → can push harder
         }
-    }
-
-    private func ewma(_ values: [Double], lambda: Double) -> Double {
-        guard !values.isEmpty else { return 0 }
-        // 暖启动：用初期（最多 7 个）样本的均值作种子，降低首值冷启动偏差。
-        let warmupCount = min(7, values.count)
-        let seed = values.prefix(warmupCount).reduce(0, +) / Double(warmupCount)
-        var result = seed
-        for value in values.dropFirst(warmupCount) {
-            result = value * lambda + result * (1.0 - lambda)
-        }
-        return result
     }
 }

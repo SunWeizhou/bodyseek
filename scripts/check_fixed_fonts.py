@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent / "VelaApp"
-THRESHOLD = 400  # --strict 模式下的剩余上限（当前约 900，分批清理后下调）
+THRESHOLD = 216  # --strict 时的当前存量上限。新增固定字号会超过它。
 
 pat = re.compile(r'\.font\(\.system\(size:\s*(\d+)([^a-zA-Z][^)]*)\)\)')
 

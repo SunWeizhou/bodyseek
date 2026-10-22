@@ -24,7 +24,27 @@ public final class PipelineDiagnosticsLogger {
             errorMessage: error?.localizedDescription
         )
         modelContext.insert(record)
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            // The failure record itself could not be stored. Stop here so
+            // recordSaveFailure cannot call log again.
+        }
+    }
+
+    /// Records a failed save instead of discarding the error.
+    public static func recordSaveFailure(
+        modelContext: ModelContext,
+        operation: String,
+        error: Error
+    ) {
+        log(
+            modelContext: modelContext,
+            stage: operation,
+            isSuccess: false,
+            summary: "写入失败：\(operation)",
+            error: error
+        )
     }
 }
 
@@ -68,6 +88,20 @@ extension PipelineDiagnosticsLogger {
             recentErrorsCount: recentFailures.count,
             issuesFound: issues
         )
+    }
+}
+
+extension ModelContext {
+    func saveOrRecordFailure(_ operation: String) {
+        do {
+            try save()
+        } catch {
+            PipelineDiagnosticsLogger.recordSaveFailure(
+                modelContext: self,
+                operation: operation,
+                error: error
+            )
+        }
     }
 }
 

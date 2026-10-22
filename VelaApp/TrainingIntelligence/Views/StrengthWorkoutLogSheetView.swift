@@ -740,7 +740,7 @@ struct StrengthWorkoutLogSheetView: View {
     private func deleteTemplate(_ template: WorkoutTemplateRecord) {
         modelContext.insert(DeletedWorkoutRecord(id: "template:\(template.title)"))
         modelContext.delete(template)
-        try? modelContext.save()
+        modelContext.saveOrRecordFailure("modelContext.save")
         loadTemplateLibrary()
     }
 
@@ -902,7 +902,7 @@ struct StrengthWorkoutLogSheetView: View {
             draft = created
         }
         activeDraftID = draft.id
-        try? modelContext.save()
+        modelContext.saveOrRecordFailure("modelContext.save")
         WristSnapshotBridge.shared.publishActiveWorkout(draft)
     }
 
@@ -939,7 +939,7 @@ struct StrengthWorkoutLogSheetView: View {
                 modelContext.delete(draft)
             }
         }
-        try? modelContext.save()
+        modelContext.saveOrRecordFailure("modelContext.save")
         activeDraftID = nil
         WristSnapshotBridge.shared.clearActiveWorkout()
     }

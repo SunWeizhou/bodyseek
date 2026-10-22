@@ -881,7 +881,10 @@ struct LegacyReportContextAdapter {
             unifiedWorkouts: unifiedWorkouts,
             stress: StressContextBuilder().build(from: dashboard),
             energyBank: EnergyBankContextBuilder().build(from: dashboard),
-            healthAgeTrend: HealthAgeContextBuilder().build(from: dashboard),
+            healthAgeTrend: [
+                "trend": "unavailable",
+                "note": "BodySeek 不估算生物年龄或健康年龄。"
+            ],
             recentTrends: [
                 "note": "Recent trends require enough cached history. No trend is reported until sufficient snapshots exist."
             ],
@@ -1340,13 +1343,15 @@ enum AgentFactAdapters {
     }
 
     /// 练后复盘上下文（本机训练事实 = 快照里的训练/负荷/评分；训练事实为唯一真值）。
+    @MainActor
     static func postWorkoutFacts(
         snapshot: AgentFactSnapshot,
         workoutID: UUID?,
         isChinese: Bool = AppLanguage.stored.isChinese,
         policy overridePolicy: AgentOutboundConsentPolicy? = nil
     ) -> String {
-        let policy = overridePolicy ?? AgentOutboundConsentPolicy.current
+        let resolvedPolicy = overridePolicy ?? AgentOutboundConsentPolicy.current
+        let policy = resolvedPolicy
         guard policy.canSendNetworkAI else {
             return isChinese
                 ? "练后复盘未发送：尚未授予任何后台联网数据类别授权。"

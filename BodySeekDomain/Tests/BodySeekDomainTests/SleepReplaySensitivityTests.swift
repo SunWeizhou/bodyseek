@@ -45,8 +45,8 @@ final class SleepReplaySensitivityTests: XCTestCase {
         let cases: [(String, SleepScoreInput, Double?, MetricConfidence, [String])] = [
             ("baseline", baselineInput(), 77.43, .low, ["remMinutes", "deepMinutes", "todayBedtime", "recentBedtimesHistory"]),
             ("short-sleep-360", replacing(baselineInput(), totalSleepMinutes: 360), 53.62, .low, ["remMinutes", "deepMinutes", "todayBedtime", "recentBedtimesHistory"]),
-            ("no-awake-time", replacing(baselineInput(), awakeMinutes: 0, awakeEpisodeCount: 0), 79.0, .low, ["remMinutes", "deepMinutes", "todayBedtime", "recentBedtimesHistory"]),
-            ("missing-awake-time", missingAwakeInput(), 79.0, .low, ["inBedMinutes", "remMinutes", "deepMinutes", "awakeEpisodeCount", "todayBedtime", "recentBedtimesHistory", "awakeMinutes"]),
+            ("no-awake-time", replacing(baselineInput(), awakeMinutes: 0, awakeEpisodeCount: 0), 70.0, .low, ["remMinutes", "deepMinutes", "todayBedtime", "recentBedtimesHistory"]),
+            ("missing-awake-time", missingAwakeInput(), 50.0, .low, ["inBedMinutes", "remMinutes", "deepMinutes", "awakeEpisodeCount", "todayBedtime", "recentBedtimesHistory", "awakeMinutes"]),
             ("five-bedtime-history", replacing(baselineInput(), todayBedtime: date("2026-07-30T23:15:00Z"), recentBedtimes: bedtimeHistory()), 84.2, .medium, ["remMinutes", "deepMinutes"])
         ]
 
@@ -114,7 +114,7 @@ final class SleepReplaySensitivityTests: XCTestCase {
             profile: DailyHealthComputationProfile(sleepTargetMinutes: 450)
         ).compute(for: today, history: history).sleep
         XCTAssertNil(sleep.components["consistency"])
-        XCTAssertEqual(sleep.value ?? -1, 79, accuracy: 0.000_001)
+        XCTAssertEqual(sleep.value ?? -1, 70, accuracy: 0.000_001)
     }
 
     private func baselineInput() -> SleepScoreInput {
