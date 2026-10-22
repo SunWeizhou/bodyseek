@@ -197,7 +197,18 @@ final class DailySummaryUseCase {
         let now = date
         #if DEBUG
         if Self.isPreviewDashboardEnabled() {
-            return PreviewDataFactory.makeDashboard(date: now)
+            var dashboard = PreviewDataFactory.makeDashboard(date: now)
+            let snapshots = PreviewDataFactory.makeTrendSnapshots(endingAt: now, calendar: calendar)
+            let analysis = HealthTrendEngine().analyze(
+                dashboard: dashboard,
+                snapshots: snapshots,
+                longTermBaselines: nil,
+                today: now,
+                calendar: calendar
+            )
+            dashboard.personalHealthBrief = analysis.brief
+            dashboard.healthTrends = analysis.findings
+            return dashboard
         }
         #endif
         // `now` is the selected dashboard day (and may be historical). Keep a
