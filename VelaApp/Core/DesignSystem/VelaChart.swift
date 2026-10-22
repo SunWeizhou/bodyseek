@@ -62,16 +62,40 @@ struct VelaMetricScoreRing: View {
                 }
 
                 if score != nil {
+                    // Ambient radial glow behind ring
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [effectiveColor.opacity(0.12), .clear],
+                                center: .center,
+                                startRadius: size * 0.22,
+                                endRadius: size * 0.52
+                            )
+                        )
+                        .frame(width: size, height: size)
+                        .allowsHitTesting(false)
+
                     Circle()
                         .trim(from: 0, to: max(0.006, animatedProgress))
                         .stroke(
                             AngularGradient(
-                                colors: [effectiveColor.opacity(0.58), effectiveColor],
-                                center: .center
+                                colors: [
+                                    effectiveColor.opacity(0.35),
+                                    effectiveColor.opacity(0.70),
+                                    effectiveColor,
+                                    effectiveColor
+                                ],
+                                center: .center,
+                                startAngle: .degrees(0),
+                                endAngle: .degrees(360)
                             ),
                             style: StrokeStyle(lineWidth: ringWidth, lineCap: .round)
                         )
                         .rotationEffect(.degrees(-90))
+
+                    if animatedProgress > 0.03 {
+                        endpointGlow
+                    }
 
                     if overflowProgress > 0 {
                         Circle()
@@ -109,8 +133,28 @@ struct VelaMetricScoreRing: View {
         .onChange(of: score) { _, _ in animateToCurrentScore() }
     }
 
+    private var endpointGlow: some View {
+        let angle = Angle.degrees(animatedProgress * 360 - 90)
+        let radius = (size - ringWidth) / 2
+        let x = size / 2 + radius * CGFloat(cos(angle.radians))
+        let y = size / 2 + radius * CGFloat(sin(angle.radians))
+
+        return Circle()
+            .fill(
+                RadialGradient(
+                    colors: [effectiveColor.opacity(0.75), effectiveColor.opacity(0.0)],
+                    center: .center,
+                    startRadius: 0,
+                    endRadius: ringWidth * 1.6
+                )
+            )
+            .frame(width: ringWidth * 3.2, height: ringWidth * 3.2)
+            .position(x: x, y: y)
+            .allowsHitTesting(false)
+    }
+
     private var ringWidth: CGFloat {
-        max(5, (size * 0.065).rounded())
+        max(6, (size * 0.082).rounded())
     }
 
     /// Semantic text styles keep score numerals responsive to Dynamic Type.
@@ -118,12 +162,12 @@ struct VelaMetricScoreRing: View {
     /// minimum scale factor preventing the value from colliding with its arc.
     private var valueFont: Font {
         if size <= VelaTheme.ringSm + 10 {
-            return .system(.footnote, design: .default, weight: .semibold)
+            return .system(.footnote, design: .rounded, weight: .bold)
         }
         if size <= VelaTheme.ringMd + 6 {
-            return .system(.title3, design: .default, weight: .semibold)
+            return .system(.title3, design: .rounded, weight: .bold)
         }
-        return .system(.title, design: .default, weight: .semibold)
+        return .system(.title, design: .rounded, weight: .bold)
     }
 
     private var effectiveColor: Color {
