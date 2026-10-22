@@ -96,7 +96,7 @@ final class RecoveryDetailV2Tests: XCTestCase {
         XCTAssertNil(model.baselineMedianValue)
         XCTAssertNil(model.baselineBand)
         XCTAssertNil(model.deviationText)
-        XCTAssertEqual(model.sampleText, "有效样本 2/4 天")
+        XCTAssertEqual(model.sampleText, "有效样本 2/5 天")
     }
 
     func testMissingScoreStaysDashAndSkipsDeviation() {
@@ -266,7 +266,7 @@ final class RecoveryDetailV2Tests: XCTestCase {
             currentDeviationPercent: current == nil ? nil : 10.8,
             temporalTrendDeltaPercent: 4.2,
             sampleCount: sampleCount,
-            requiredSampleCount: 4,
+            requiredSampleCount: 5,
             isAvailable: true,
             confidence: .high,
             deviationSummary: current == nil ? "今日没有可比较的恢复分" : "较基线偏高 10.8%",

@@ -2133,6 +2133,7 @@ final class ScoringEngineTests: XCTestCase {
         XCTAssertTrue(impact.strainSourceText.contains("未填写"))
     }
 
+    @MainActor
     func testOutboundRevokeClosesBackgroundNetworkAIChannel() {
         // 「撤销全部联网数据授权」必须同时关闭后台自动化的独立 consent 体系，
         // 否则晚间 Wiki 同步/晨间简报仍会向网络 AI 发送完整健康事实集。

@@ -618,6 +618,7 @@ final class VelaThemeTests: XCTestCase {
         XCTAssertEqual(monthly.day, 28)
     }
 
+    @MainActor
     func testCoachOutboundPolicyRequiresConsentAndPersistsExactFields() {
         let suiteName = "CoachOutboundPolicy-\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
@@ -729,6 +730,7 @@ final class VelaThemeTests: XCTestCase {
         XCTAssertNil(configuration.urlCredentialStorage)
     }
 
+    @MainActor
     func testBackgroundNetworkAIIsOptInOnFreshInstall() {
         let suiteName = "AutoAgentConfigDefaults-\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
@@ -743,6 +745,7 @@ final class VelaThemeTests: XCTestCase {
         XCTAssertFalse(config.canRunBackgroundNetworkAI)
     }
 
+    @MainActor
     func testBackgroundNetworkAIRequiresConsentAndAnEnabledSkill() {
         let suiteName = "AutoAgentConfigConsent-\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
