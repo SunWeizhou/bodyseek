@@ -71,6 +71,11 @@ struct VelaShell: View {
     @State private var showCoach     = false
     @State private var showTodayEvidence = false
     @State private var keyboardVisible = false
+    @State private var showSidePanel = false
+    @State private var showCoverage = false
+    @State private var showMemory = false
+    @State private var askDraft = ""
+    @StateObject private var dictation = CoachDictationController()
     @State private var mountedLegacyTabs: Set<VelaTab> = [.today]
     @State private var lastPresentedAppSheet: VelaAppState.AppSheet?
     @StateObject private var todayLegacyRuntimeHolder: TodayLegacyRuntimeHolder
@@ -498,44 +503,269 @@ struct VelaShell: View {
                         )
                     }
                 }
-                if mountedLegacyTabs.contains(.coach) {
-                    tabSurface(.coach) {
-                        VelaCoachView(
-                            presentation: .embedded,
-                            usesOverlayNavigation: true,
-                            selectedDate: todayStore.state.selectedDay,
-                            dashboard: dashboardVM.dashboard,
-                            onRefresh: {
-                                await todayStore.send(.refresh(force: false))
-                                await dashboardVM.refresh(modelContext: modelContext)
-                            },
-                            vm: services.coachChat
-                        )
-                    }
-                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            segmentedHeader
+        }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            if VelaNavigationVisibility.shouldShowBottomBar(keyboardVisible: keyboardVisible) {
-                bodySeekDock
-                    .padding(.top, 6)
-                    .padding(.bottom, VelaFloatingNavigationMetrics.navBottomPadding)
-                    .transition(bottomBarTransition)
+            askBar
+                .padding(.horizontal, VelaTheme.pagePadding)
+                .padding(.top, 8)
+                .padding(.bottom, 8)
+                .background(VelaTheme.rhythmCanvas)
+        }
+        .overlay {
+            if showSidePanel {
+                sidePanel
             }
         }
+        .sheet(isPresented: $showCoverage) {
+            NavigationStack { DataCoverageView() }
+                .velaSheetSurface()
+        }
+        .sheet(isPresented: $showMemory) {
+            NavigationStack { WikiProfileView() }
+                .velaSheetSurface()
+        }
         .onAppear {
+            openCoachTabIfNeeded(appState.selectedTab, previous: VelaTab.today.rawValue)
             mountedLegacyTabs = VelaLegacySurfaceMountPolicy.including(
                 selectedTab: appState.selectedTab,
                 in: mountedLegacyTabs
             )
         }
-        .onChange(of: appState.selectedTab) { _, selectedTab in
+        .onChange(of: appState.selectedTab) { previous, selectedTab in
+            openCoachTabIfNeeded(selectedTab, previous: previous)
             mountedLegacyTabs = VelaLegacySurfaceMountPolicy.including(
-                selectedTab: selectedTab,
+                selectedTab: appState.selectedTab,
                 in: mountedLegacyTabs
             )
         }
+        .onChange(of: dictation.transcript) { _, transcript in
+            if dictation.isRecording {
+                askDraft = transcript
+            }
+        }
+    }
+
+    private func openCoachTabIfNeeded(_ selectedTab: Int, previous: Int) {
+        guard selectedTab == VelaTab.coach.rawValue else { return }
+        showCoach = true
+        let fallback = previous == VelaTab.coach.rawValue ? VelaTab.today.rawValue : previous
+        if appState.selectedTab != fallback {
+            appState.selectedTab = fallback
+        }
+    }
+
+    private var segmentedHeader: some View {
+        HStack(spacing: 8) {
+            Button {
+                showSidePanel = true
+            } label: {
+                Image(systemName: "line.3.horizontal")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(VelaTheme.rhythmInk)
+                    .frame(width: 44, height: 44)
+                    .background(Circle().fill(VelaTheme.surfaceFloating))
+            }
+            .accessibilityLabel("菜单")
+            .accessibilityIdentifier("bodyseek-menu")
+
+            HStack(spacing: 0) {
+                segmentButton(.today)
+                segmentButton(.trends)
+                segmentButton(.plan)
+            }
+            .padding(3)
+            .background(Capsule().fill(VelaTheme.surfaceFloating))
+
+            Button {
+                appState.present(.settings)
+            } label: {
+                Image(systemName: "person")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(VelaTheme.rhythmInk)
+                    .frame(width: 44, height: 44)
+                    .background(Circle().fill(VelaTheme.surfaceFloating))
+            }
+            .accessibilityLabel("个人档案")
+        }
+        .padding(.horizontal, VelaTheme.pagePadding)
+        .padding(.vertical, 6)
+        .background(VelaTheme.rhythmCanvas)
+    }
+
+    private func segmentButton(_ tab: VelaTab) -> some View {
+        let isActive = appState.selectedTab == tab.rawValue
+        return Button {
+            appState.selectedTab = tab.rawValue
+        } label: {
+            Text(label(for: tab))
+                .font(VelaTheme.subheadline().weight(isActive ? .semibold : .regular))
+                .foregroundStyle(isActive ? VelaTheme.rhythmInk : VelaTheme.rhythmInkSecondary)
+                .frame(maxWidth: .infinity)
+                .frame(height: 36)
+                .background {
+                    if isActive {
+                        Capsule().fill(VelaTheme.segmentOn)
+                    }
+                }
+        }
+        .buttonStyle(.plain)
+        .frame(minHeight: 44)
+        .accessibilityLabel(label(for: tab))
+        .accessibilityAddTraits(isActive ? .isSelected : [])
+        .accessibilityIdentifier("tab-\(tab.rawValue)")
+    }
+
+    private var askContextTitle: String {
+        switch appState.selectedTab {
+        case VelaTab.trends.rawValue: return "带上趋势"
+        case VelaTab.plan.rawValue: return "带上计划"
+        default: return "带上今日数据"
+        }
+    }
+
+    private var askSurface: CoachScreenSurface {
+        switch appState.selectedTab {
+        case VelaTab.trends.rawValue: return .trends
+        case VelaTab.plan.rawValue: return .plan
+        default: return .home
+        }
+    }
+
+    private var askBar: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            TextField("问问你的身体…", text: $askDraft, axis: .vertical)
+                .font(VelaTheme.callout())
+                .foregroundStyle(VelaTheme.rhythmInk)
+                .lineLimit(1...3)
+                .onSubmit(sendAskDraft)
+            HStack(spacing: 8) {
+                Button { showPlusSheet = true } label: {
+                    Image(systemName: "plus")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(VelaTheme.rhythmInk)
+                        .frame(width: 44, height: 36)
+                        .background(Capsule().fill(VelaTheme.rhythmCanvas))
+                }
+                .accessibilityLabel("记录")
+
+                Text(askContextTitle)
+                    .font(VelaTheme.caption1())
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                    .padding(.horizontal, 10)
+                    .frame(height: 36)
+                    .background(Capsule().fill(VelaTheme.rhythmCanvas))
+
+                Spacer(minLength: 8)
+
+                Button(action: toggleSpeech) {
+                    HStack(spacing: 6) {
+                        Image(systemName: dictation.isRecording ? "stop.fill" : "waveform")
+                        Text(dictation.isRecording ? "停止" : "说话")
+                    }
+                    .font(VelaTheme.subheadline().weight(.semibold))
+                    .foregroundStyle(VelaTheme.rhythmDeepOn)
+                    .padding(.horizontal, 14)
+                    .frame(height: 36)
+                    .background(Capsule().fill(VelaTheme.rhythmDeep))
+                }
+                .accessibilityLabel(dictation.isRecording ? "停止听写" : "说话")
+                .accessibilityIdentifier("bodyseek-speak")
+            }
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: VelaTheme.radiusInput, style: .continuous)
+                .fill(VelaTheme.surfaceFloating)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: VelaTheme.radiusInput, style: .continuous)
+                .stroke(VelaTheme.hairline, lineWidth: 1)
+        )
+    }
+
+    private func toggleSpeech() {
+        if dictation.isRecording {
+            dictation.stop()
+            sendAskDraft()
+            return
+        }
+        let pending = askDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !pending.isEmpty {
+            sendAskDraft()
+            return
+        }
+        dictation.begin(existingText: "")
+    }
+
+    private func sendAskDraft() {
+        let question = askDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        askDraft = ""
+        dictation.transcript = ""
+        appState.routeToQuickCoach(
+            question: question.isEmpty ? nil : question,
+            surface: askSurface
+        )
+    }
+
+    private var sidePanel: some View {
+        ZStack(alignment: .leading) {
+            Color.black.opacity(0.35)
+                .ignoresSafeArea()
+                .onTapGesture { showSidePanel = false }
+            VStack(alignment: .leading, spacing: 8) {
+                Text("BodySeek")
+                    .font(VelaTheme.title2())
+                    .foregroundStyle(VelaTheme.rhythmInk)
+                    .padding(.bottom, 12)
+                sidePanelButton("新对话", systemImage: "bubble.left") {
+                    showSidePanel = false
+                    appState.routeToQuickCoach(question: nil, surface: askSurface)
+                }
+                sidePanelButton("记忆", systemImage: "brain") {
+                    showSidePanel = false
+                    showMemory = true
+                }
+                sidePanelButton("数据覆盖", systemImage: "checkmark.shield") {
+                    showSidePanel = false
+                    showCoverage = true
+                }
+                sidePanelButton("设置", systemImage: "gearshape") {
+                    showSidePanel = false
+                    appState.present(.settings)
+                }
+                Spacer()
+            }
+            .padding(24)
+            .frame(maxWidth: 300, maxHeight: .infinity, alignment: .topLeading)
+            .background(VelaTheme.rhythmCanvas)
+            .overlay(alignment: .trailing) {
+                Rectangle().fill(VelaTheme.hairline).frame(width: 1)
+            }
+        }
+        .accessibilityIdentifier("bodyseek-side-panel")
+    }
+
+    private func sidePanelButton(
+        _ title: String,
+        systemImage: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: systemImage)
+                Text(title)
+                    .font(VelaTheme.body())
+                Spacer()
+            }
+            .foregroundStyle(VelaTheme.rhythmInk)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Legacy Floating Glass Navigation

@@ -348,7 +348,7 @@ enum VelaTheme {
     static let pagePadding: CGFloat = 20
     static let minimumHitTarget: CGFloat = 44
     static let circularControlSize: CGFloat = 44
-    static let bottomContentClearance: CGFloat = 104
+    static let bottomContentClearance: CGFloat = 132
     static let tabBarHeight: CGFloat = 84
 
     // MARK: - Radius

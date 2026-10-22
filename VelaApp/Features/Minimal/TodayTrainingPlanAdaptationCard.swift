@@ -33,7 +33,7 @@ struct PlanProposalDiffCard: View {
         .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCardStandard, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: VelaTheme.radiusCardStandard, style: .continuous)
-                .stroke(status == "proposed" ? VelaTheme.rhythmDeep.opacity(0.3) : VelaTheme.rhythmMist, lineWidth: 0.85)
+                .stroke(VelaTheme.rhythmInk, lineWidth: status == "proposed" ? 1.2 : 1)
         }
     }
 
@@ -41,13 +41,9 @@ struct PlanProposalDiffCard: View {
 
     private var headerRow: some View {
         HStack(alignment: .center, spacing: 8) {
-            Image(systemName: "sparkles")
-                .font(.system(.caption, design: .rounded, weight: .bold))
-                .foregroundStyle(VelaTheme.rhythmDeep)
-
-            Text("Vela 计划调整提案")
-                .font(.system(.subheadline, design: .rounded, weight: .bold))
-                .foregroundStyle(VelaTheme.rhythmDeep)
+            Text("计划变更 · 需要你确认")
+                .font(VelaTheme.subheadline().weight(.semibold))
+                .foregroundStyle(VelaTheme.rhythmInk)
 
             Spacer()
 
@@ -73,12 +69,12 @@ struct PlanProposalDiffCard: View {
                 .padding(.vertical, 4)
                 .background(VelaTheme.rhythmMist, in: Capsule())
         default:
-            Label("待确认", systemImage: "clock.badge.exclamationmark")
+            Label("待确认", systemImage: "clock")
                 .font(.system(.caption2, design: .default, weight: .bold))
-                .foregroundStyle(VelaTheme.softGold)
+                .foregroundStyle(VelaTheme.rhythmInk)
                 .padding(.horizontal, 9)
                 .padding(.vertical, 4)
-                .background(VelaTheme.softGold.opacity(0.14), in: Capsule())
+                .background(VelaTheme.surfaceFloating, in: Capsule())
         }
     }
 
@@ -183,22 +179,25 @@ struct PlanProposalDiffCard: View {
                 Button {
                     onAccept?()
                 } label: {
-                    Label("采纳调整", systemImage: "checkmark")
-                        .font(.system(.subheadline, design: .default, weight: .semibold))
+                    Text("确认完成")
+                        .font(VelaTheme.subheadline().weight(.semibold))
                         .foregroundStyle(VelaTheme.rhythmDeepOn)
                         .frame(maxWidth: .infinity, minHeight: VelaTheme.minimumHitTarget)
-                        .background(VelaTheme.rhythmDeep, in: Capsule())
+                        .background(VelaTheme.rhythmDeep, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
                 .buttonStyle(.cardPress)
 
                 Button {
                     onReject?()
                 } label: {
-                    Label("保持原计划", systemImage: "xmark")
-                        .font(.system(.subheadline, design: .default, weight: .medium))
-                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                    Text("先不了")
+                        .font(VelaTheme.subheadline().weight(.semibold))
+                        .foregroundStyle(VelaTheme.rhythmInk)
                         .frame(maxWidth: .infinity, minHeight: VelaTheme.minimumHitTarget)
-                        .background(VelaTheme.rhythmMist, in: Capsule())
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(VelaTheme.rhythmInk, lineWidth: 1.2)
+                        )
                 }
                 .buttonStyle(.cardPress)
             }

@@ -4,6 +4,7 @@
 import PDFKit
 import SwiftUI
 import SwiftData
+import BodySeekDomain
 import UniformTypeIdentifiers
 import os.log
 
@@ -569,6 +570,7 @@ struct VelaCoachView: View {
     @State private var savedReports: [AIReportRecord] = []
 
     @State private var todayOperatingPlanRecord: DailyOperatingPlanRecord?
+    @State private var evidencePoints: [TrendsChartPoint] = []
     @State private var pendingMemoryProposals: [MemoryEventRecord] = []
     @State private var agentArtifacts: [AgentArtifactRecord] = []
 
@@ -635,6 +637,7 @@ struct VelaCoachView: View {
             .fetchAllSortedByCreatedAt()) ?? []
         pendingMemoryProposals = MemoryLedger(modelContext: modelContext).pendingProposals()
         agentArtifacts = (try? AgentArtifactRepository(modelContext: modelContext).fetchAllSortedByCreatedAt()) ?? []
+        evidencePoints = loadEvidencePoints()
     }
 
     init(
@@ -665,6 +668,7 @@ struct VelaCoachView: View {
                     ScrollView {
                         VStack(spacing: 20) {
                             if vm.messages.isEmpty {
+                                coachEvidenceCard
                                 CoachWelcomeWorkspace(
                                     vm: vm,
                                     dashboard: dashboard,
@@ -683,6 +687,10 @@ struct VelaCoachView: View {
                                         isUser: msg.role == .user,
                                         time: msg.timestamp.formatted(.dateTime.hour().minute())
                                     )
+
+                                    if msg.role == .assistant, msg.id == vm.messages.last(where: { !$0.isStreaming })?.id {
+                                        coachEvidenceCard
+                                    }
 
                                     if let action = msg.recoveryAction, msg.role == .assistant {
                                         HStack {
@@ -951,6 +959,115 @@ struct VelaCoachView: View {
 
 
     // MARK: - Header
+
+    @ViewBuilder
+    private var coachEvidenceCard: some View {
+        let metrics = dashboard.recoveryMetrics
+        let baseline = dashboard.recoveryBaseline
+        if metrics.hrvMilliseconds != nil || metrics.restingHeartRate != nil || dashboard.sleepScore.value != nil {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("今天的读数")
+                    .font(VelaTheme.caption1().weight(.semibold))
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                if let hrv = metrics.hrvMilliseconds {
+                    evidenceLine(
+                        "HRV",
+                        value: "\(Int(hrv.rounded())) ms",
+                        usual: baseline.hrvMilliseconds.map { "平时 \(Int($0.rounded())) ms" }
+                    )
+                }
+                if let rhr = metrics.restingHeartRate {
+                    evidenceLine(
+                        "静息心率",
+                        value: "\(Int(rhr.rounded())) bpm",
+                        usual: baseline.restingHeartRate.map { "平时 \(Int($0.rounded())) bpm" }
+                    )
+                }
+                if let sleep = dashboard.sleepScore.value {
+                    evidenceLine("睡眠分", value: "\(Int(sleep.rounded()))", usual: nil)
+                }
+                if evidencePoints.contains(where: { $0.value != nil }) {
+                    DateAwareSparkline(
+                        points: evidencePoints,
+                        color: VelaTheme.rhythmInk,
+                        height: 56,
+                        width: 280,
+                        band: evidenceBand,
+                        marksLatestPoint: true
+                    )
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    Text("灰带是你的常见范围。这只说明今天落在哪里，不能确定因果。")
+                        .font(VelaTheme.caption2())
+                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Text("没有成段历史时不画曲线，也不把缺失补成 0。不能确定因果。")
+                        .font(VelaTheme.caption2())
+                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+                    .stroke(VelaTheme.hairline, lineWidth: 1)
+            )
+        }
+    }
+
+    private var evidenceBand: ClosedRange<Double>? {
+        let samples = evidencePoints.compactMap { point -> BaselineSample? in
+            guard let value = point.value else { return nil }
+            return BaselineSample(date: point.date, value: value)
+        }
+        guard let estimate = BaselineEstimator.estimate(
+            samples: samples,
+            asOf: selectedDate,
+            windowDays: 30,
+            minimumSamples: 5,
+            calendar: .current
+        ), let scale = estimate.robustScale, scale > 0 else {
+            return nil
+        }
+        let half = scale * BaselineEstimator.stableZ
+        return (estimate.median - half)...(estimate.median + half)
+    }
+
+    private func loadEvidencePoints() -> [TrendsChartPoint] {
+        #if DEBUG
+        if DailySummaryUseCase.isPreviewDashboardEnabled() {
+            return PreviewDataFactory.makeTrendSnapshots(endingAt: selectedDate).map {
+                TrendsChartPoint(date: $0.date, value: $0.hrvAverage, provenance: nil)
+            }
+        }
+        #endif
+        let calendar = Calendar.current
+        let end = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: selectedDate)) ?? selectedDate
+        let start = calendar.date(byAdding: .day, value: -30, to: end) ?? end
+        let days = (try? HealthSnapshotRepository(modelContext: modelContext).fetchHistory(from: start, until: end)) ?? []
+        return days.map { TrendsChartPoint(date: $0.snapshot.date, value: $0.snapshot.hrvAverage, provenance: nil) }
+    }
+
+    private func evidenceLine(_ title: String, value: String, usual: String?) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(title)
+                .font(VelaTheme.body())
+                .foregroundStyle(VelaTheme.rhythmInk)
+            Spacer(minLength: 8)
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(value)
+                    .font(VelaTheme.body().weight(.semibold).monospacedDigit())
+                    .foregroundStyle(VelaTheme.rhythmInk)
+                if let usual {
+                    Text(usual)
+                        .font(VelaTheme.caption2())
+                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                }
+            }
+        }
+    }
 
     private var headerView: some View {
         HStack(spacing: 8) {

@@ -1,6 +1,7 @@
 import SwiftData
 import SwiftUI
 import Charts
+import BodySeekDomain
 
 enum VelaMinimalFormatting {
     static func roundedPercentage(_ value: Double) -> String {
@@ -126,7 +127,7 @@ struct VelaMetricDetailView: View {
     @State private var dailyRecordsLoadError: String?
     
     // Default to 7 days (.week) for immediate momentum and responsive trend viewing
-    @State var selectedRange: DetailTimeRange = .week
+    @State var selectedRange: DetailTimeRange = .month
     @State var rawSelectedDate: Date? = nil
 
     var effectiveDate: Date {
@@ -214,6 +215,18 @@ struct VelaMetricDetailView: View {
     }
 
     private func loadDailyRecords() {
+        #if DEBUG
+        if DailySummaryUseCase.isPreviewDashboardEnabled() {
+            historyDays = PreviewDataFactory.makeTrendSnapshots(endingAt: effectiveDate).map {
+                PersistedDailyHistoryDay(
+                    snapshot: $0,
+                    configVersion: DailySummaryUseCase.debugDemoConfigVersion
+                )
+            }
+            dailyRecordsLoadError = nil
+            return
+        }
+        #endif
         let calendar = Calendar.current
         let endDate = calendar.startOfDay(for: effectiveDate)
         let end = calendar.date(byAdding: .day, value: 1, to: endDate) ?? endDate
@@ -315,13 +328,16 @@ struct VelaMetricDetailView: View {
     private var recoveryDetailV2: some View {
         VStack(alignment: .leading, spacing: 16) {
             metricHistoryErrorCard
-            RecoveryDetailV2EditorialView(
+            RecoveryDetailV2View(
                 model: RecoveryDetailV2Builder.make(
                     dashboard: dashboard,
                     snapshots: historyDays.map(\.snapshot),
                     range: selectedRange,
                     endingAt: effectiveDate,
-                    baselineBand: nil,
+                    baselineBand: recoveryUsualBand(
+                        snapshots: historyDays.map(\.snapshot),
+                        endingAt: effectiveDate
+                    ),
                     isSimulated: dashboard.source == .preview || historyDays.contains {
                         $0.configVersion == DailySummaryUseCase.debugDemoConfigVersion
                     }
@@ -330,6 +346,27 @@ struct VelaMetricDetailView: View {
                 onAskCoach: openMetricCoach
             )
         }
+    }
+
+    private func recoveryUsualBand(
+        snapshots: [DailyHealthSnapshot],
+        endingAt: Date
+    ) -> ClosedRange<Double>? {
+        let samples = snapshots.compactMap { snapshot -> BaselineSample? in
+            guard let value = snapshot.recoveryScore else { return nil }
+            return BaselineSample(date: snapshot.date, value: value)
+        }
+        guard let estimate = BaselineEstimator.estimate(
+            samples: samples,
+            asOf: endingAt,
+            windowDays: max(selectedRange.days, 7),
+            minimumSamples: 5,
+            calendar: .current
+        ), let scale = estimate.robustScale, scale > 0 else {
+            return nil
+        }
+        let half = scale * BaselineEstimator.stableZ
+        return (estimate.median - half)...(estimate.median + half)
     }
 
     @ViewBuilder

@@ -1,5 +1,6 @@
 import Charts
 import SwiftUI
+import BodySeekDomain
 
 // MARK: - Presentation
 
@@ -24,6 +25,7 @@ struct RecoveryObservation: Identifiable, Equatable, Sendable {
     var title: String
     var valueText: String
     var baselineText: String?
+    var directionLabel: String?
     var kind: RecoveryDetailKind
 }
 
@@ -321,26 +323,12 @@ enum RecoveryDetailV2Builder {
     private static func observations(from dashboard: DashboardSummary) -> [RecoveryObservation] {
         let metrics = dashboard.recoveryMetrics
         let baseline = dashboard.recoveryBaseline
-        var rows: [RecoveryObservation] = [
-            observation("hrv", "HRV", metrics.hrvMilliseconds, " ms", baseline.hrvMilliseconds, "信号基线 · 中位数"),
-            observation("rhr", "静息心率", metrics.restingHeartRate, " bpm", baseline.restingHeartRate, "信号基线 · 近端均值"),
-            observation("respiratory", "呼吸率", metrics.respiratoryRate, " 次/分", baseline.respiratoryRate, "信号基线 · 近端均值")
+        let rows: [RecoveryObservation] = [
+            signalObservation("hrv", "HRV", metrics.hrvMilliseconds, " ms", baseline.hrvMilliseconds, dashboard.recovery.components["hrv_z_score"]),
+            signalObservation("rhr", "静息心率", metrics.restingHeartRate, " bpm", baseline.restingHeartRate, dashboard.recovery.components["rhr_z_score"]),
+            signalObservation("sleep-score", "睡眠分", dashboard.sleepScore.value, "", nil, nil),
+            signalObservation("prior-strain", "昨日负荷", dashboard.recovery.components["prior_strain"], "", nil, nil)
         ]
-        if let spo2 = dashboard.recovery.components["spo2"] ?? dashboard.extendedMetrics.oxygenSaturation {
-            rows.append(observation("spo2", "血氧", spo2, "%", nil, nil))
-        } else {
-            rows.append(observation("spo2", "血氧", nil, "%", nil, nil))
-        }
-        let sleepMinutes = dashboard.sleepSummary.totalSleepMinutes
-        rows.append(
-            RecoveryObservation(
-                id: "sleep-duration",
-                title: "昨夜睡眠时长",
-                valueText: sleepMinutes > 0 ? VelaMinimalFormatting.duration(minutes: sleepMinutes) : "--",
-                baselineText: nil,
-                kind: .currentValue
-            )
-        )
         return rows
     }
 
@@ -367,6 +355,36 @@ enum RecoveryDetailV2Builder {
             title: title,
             valueText: measurementText(value, unit: unit),
             baselineText: baselineText,
+            kind: .currentValue
+        )
+    }
+
+    private static func signalObservation(
+        _ id: String,
+        _ title: String,
+        _ value: Double?,
+        _ unit: String,
+        _ baseline: Double?,
+        _ z: Double?
+    ) -> RecoveryObservation {
+        let baselineText: String
+        if let baseline = RecoveryDetailV2Series.finite(baseline) {
+            baselineText = "平时 \(scoreText(baseline))\(unit)"
+        } else {
+            baselineText = "平时 --"
+        }
+        let direction: String?
+        if let z = RecoveryDetailV2Series.finite(z), abs(z) >= BaselineEstimator.notableZ {
+            direction = z < 0 ? BaselineDeviationCopy.belowUsual : BaselineDeviationCopy.aboveUsual
+        } else {
+            direction = nil
+        }
+        return RecoveryObservation(
+            id: id,
+            title: title,
+            valueText: measurementText(value, unit: unit),
+            baselineText: baselineText,
+            directionLabel: direction,
             kind: .currentValue
         )
     }
@@ -448,9 +466,9 @@ struct RecoveryDetailV2View: View {
                 simulatedBanner
             }
             scoreSection
-            baselineSection
             trendSection
             observationSection
+            baselineSection
             findingSection
         }
         .padding(.top, 8)
@@ -480,7 +498,6 @@ struct RecoveryDetailV2View: View {
 
     private var scoreSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            kindLabel(.currentValue)
             ViewThatFits(in: .horizontal) {
                 HStack(alignment: .center, spacing: 18) {
                     scoreRing
@@ -500,11 +517,11 @@ struct RecoveryDetailV2View: View {
     private var scoreRing: some View {
         ZStack {
             Circle()
-                .stroke(VelaTheme.rhythmInk.opacity(0.14), lineWidth: 9)
+                .stroke(VelaTheme.scoreTrack, lineWidth: 3.5)
             if model.scoreValue != nil {
                 Circle()
                     .trim(from: 0, to: min(1, max(0, (model.scoreValue ?? 0) / 100)))
-                    .stroke(VelaTheme.rhythmInk, style: StrokeStyle(lineWidth: 9, lineCap: .round))
+                    .stroke(VelaTheme.rhythmInk, style: StrokeStyle(lineWidth: 3.5, lineCap: .round))
                     .rotationEffect(.degrees(-90))
                     .animation(VelaTheme.dataAnimation(reduceMotion: reduceMotion), value: model.scoreValue)
             } else {
@@ -520,7 +537,7 @@ struct RecoveryDetailV2View: View {
                     .accessibilityHidden(true)
             }
             Text(model.scoreText)
-                .font(.system(.largeTitle, design: .rounded, weight: .semibold))
+                .font(.system(.largeTitle, design: .default, weight: .medium))
                 .monospacedDigit()
                 .foregroundStyle(VelaTheme.rhythmInk)
                 .minimumScaleFactor(0.6)
@@ -532,12 +549,21 @@ struct RecoveryDetailV2View: View {
 
     private var scoreFacts: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("今日恢复")
-                .font(VelaTheme.caption1().weight(.semibold))
-                .foregroundStyle(VelaTheme.rhythmInk)
-                .accessibilityIdentifier("metric-detail-hero")
+            if let deviation = model.deviationText {
+                let label = deviation.contains("低")
+                    ? BaselineDeviationCopy.belowUsual
+                    : (deviation.contains("高") ? BaselineDeviationCopy.aboveUsual : nil)
+                if let label {
+                    HStack(spacing: 4) {
+                        BaselineDeviationMarker(showsLabel: false, diameter: 7)
+                        Text(label)
+                            .font(VelaTheme.caption1())
+                            .foregroundStyle(VelaTheme.deviationInk)
+                    }
+                }
+            }
             Text(model.bandText)
-                .font(VelaTheme.headline())
+                .font(VelaTheme.title2())
                 .foregroundStyle(VelaTheme.rhythmInk)
                 .fixedSize(horizontal: false, vertical: true)
             Text("覆盖度 \(model.coverageText) · 置信度 \(model.confidenceText)")
@@ -598,7 +624,7 @@ struct RecoveryDetailV2View: View {
 
     private var baselineContractCaption: String {
         if let band = model.baselineBand {
-            return "基线带 \(Int(band.lowerBound.rounded()))–\(Int(band.upperBound.rounded())) 来自数据合同，不是由中位数推算的区间。"
+            return "灰带是你的常见范围 \(Int(band.lowerBound.rounded()))–\(Int(band.upperBound.rounded()))，由个人波动估计，不是别人的正常值。"
         }
         if model.showsBaselineLine {
             return "目前只有窗口中位数，没有基线区间。"
@@ -609,13 +635,16 @@ struct RecoveryDetailV2View: View {
     private var trendSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 4) {
-                    kindLabel(.statisticalDescription)
-                    Text("恢复趋势")
-                        .font(VelaTheme.headline())
-                        .foregroundStyle(VelaTheme.rhythmInk)
-                }
+                Text(trendWindowTitle)
+                    .font(VelaTheme.subheadline().weight(.semibold))
+                    .foregroundStyle(VelaTheme.rhythmInk)
                 Spacer(minLength: 8)
+                if let band = model.baselineBand {
+                    Text("灰带 = 常见范围 \(Int(band.lowerBound.rounded()))–\(Int(band.upperBound.rounded()))")
+                        .font(VelaTheme.caption2())
+                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                        .lineLimit(1)
+                }
             }
             rangePicker
             Text(model.trendSummary)
@@ -657,7 +686,7 @@ struct RecoveryDetailV2View: View {
                         yStart: .value("下界", band.lowerBound),
                         yEnd: .value("上界", band.upperBound)
                     )
-                    .foregroundStyle(VelaTheme.rhythmInk.opacity(0.12))
+                    .foregroundStyle(VelaTheme.rangeBand)
                 }
                 if model.showsBaselineLine, let median = model.baselineMedianValue {
                     RuleMark(y: .value("窗口中位数", median))
@@ -757,47 +786,62 @@ struct RecoveryDetailV2View: View {
                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
             }
             if model.baselineBand != nil {
-                Text("浅色带是数据合同里的上下界。")
+                Text("灰带是你的常见范围，由个人波动估计，不是别人的正常值。")
                     .font(VelaTheme.caption2())
                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
             }
         }
     }
 
+    private var trendWindowTitle: String {
+        switch model.range {
+        case .week: return "近 7 天"
+        case .month: return "近 30 天"
+        case .halfYear: return "近 6 个月"
+        case .threeYears: return "近 3 年"
+        }
+    }
+
     private var observationSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            kindLabel(.currentValue)
-            Text("观测依据")
+        VStack(alignment: .leading, spacing: 0) {
+            Text("依据")
                 .font(VelaTheme.headline())
                 .foregroundStyle(VelaTheme.rhythmInk)
-            Text("信号基线和上方的恢复分窗口中位数不是同一个数。")
+                .padding(.bottom, 8)
+            ForEach(model.observations) { observation in
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(observation.title)
+                        .font(VelaTheme.body())
+                        .foregroundStyle(VelaTheme.rhythmInk)
+                        .frame(width: 88, alignment: .leading)
+                    Text(observation.baselineText ?? "平时 --")
+                        .font(VelaTheme.caption1())
+                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                        .lineLimit(1)
+                    Spacer(minLength: 8)
+                    Text(observation.valueText)
+                        .font(VelaTheme.body().weight(.semibold).monospacedDigit())
+                        .foregroundStyle(VelaTheme.rhythmInk)
+                    if let direction = observation.directionLabel, !direction.isEmpty {
+                        BaselineDeviationMarker(directionLabel: direction, showsLabel: true, diameter: 7)
+                    }
+                }
+                .padding(.vertical, 10)
+                .overlay(alignment: .bottom) {
+                    Rectangle().fill(VelaTheme.hairline).frame(height: 1)
+                }
+                .accessibilityElement(children: .combine)
+            }
+            Text("置信度 \(model.confidenceText) · 数据覆盖 \(model.coverageText)")
+                .font(VelaTheme.caption1())
+                .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                .padding(.top, 12)
+            Text(model.missingSummary ?? "缺少的数据不会用 0 代替。")
                 .font(VelaTheme.caption2())
                 .foregroundStyle(VelaTheme.rhythmInkSecondary)
                 .fixedSize(horizontal: false, vertical: true)
-            ForEach(model.observations) { observation in
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(alignment: .firstTextBaseline) {
-                        Text(observation.title)
-                            .font(VelaTheme.body())
-                            .foregroundStyle(VelaTheme.rhythmInk)
-                        Spacer(minLength: 8)
-                        Text(observation.valueText)
-                            .font(VelaTheme.body().weight(.semibold).monospacedDigit())
-                            .foregroundStyle(VelaTheme.rhythmInk)
-                    }
-                    if let baselineText = observation.baselineText {
-                        Text(baselineText)
-                            .font(VelaTheme.caption2())
-                            .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-                .padding(.vertical, 4)
-                .accessibilityElement(children: .combine)
-            }
+                .padding(.top, 4)
         }
-        .padding(16)
-        .modifier(RecoveryDetailCard())
         .accessibilityIdentifier("recovery-detail-observations")
     }
 

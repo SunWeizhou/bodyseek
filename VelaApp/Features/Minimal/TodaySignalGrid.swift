@@ -15,6 +15,7 @@ struct TodaySignalGrid: View {
     var notableChangeText: String = ""
     let accentColor: (DailyPlanAccent) -> Color
     let onInspectGuidance: () -> Void
+    var onAsk: (String) -> Void = { _ in }
     let selectedDate: Date
     let dashboardSnapshot: DashboardSummary
 
@@ -54,10 +55,186 @@ struct TodaySignalGrid: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            primaryScores
-            secondaryScores
-            agentGuidance
+        let _ = dynamicTypeSize
+        return VStack(alignment: .leading, spacing: 22) {
+            agentBrief
+            fiveScoreStrip
+            recentChangeCard
+            followUpChips
+        }
+    }
+
+    private var briefStamp: String {
+        let hour = Calendar.current.component(.hour, from: model.generatedAt)
+        let dayPart = hour < 12 ? "早上" : (hour < 18 ? "下午" : "晚上")
+        let time = model.generatedAt.formatted(date: .omitted, time: .shortened)
+        return "BodySeek · \(dayPart) \(time)"
+    }
+
+    private var agentBrief: some View {
+        let _ = accentColor(.recovery)
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: "circle.circle")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(VelaTheme.rhythmInk)
+                Text(briefStamp)
+                    .font(VelaTheme.caption1())
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                Spacer(minLength: 8)
+                if dashboardSnapshot.source == .preview {
+                    Text("示例数据")
+                        .font(VelaTheme.caption2().weight(.semibold))
+                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Capsule().stroke(VelaTheme.hairline, lineWidth: 1))
+                } else if freshness == .missing || freshness == .stale {
+                    Text(freshness == .missing ? "未同步" : "数据较旧")
+                        .font(VelaTheme.caption2())
+                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                }
+            }
+            Text(agentSentence)
+                .font(VelaTheme.briefBody().weight(.semibold))
+                .foregroundStyle(VelaTheme.rhythmInk)
+                .lineSpacing(6)
+                .fixedSize(horizontal: false, vertical: true)
+            if let action = model.actions.first,
+               !action.detail.isEmpty,
+               action.detail != agentSentence {
+                Text(action.detail)
+                    .font(VelaTheme.briefBody())
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                    .lineSpacing(6)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .accessibilityIdentifier("today-guidance")
+    }
+
+    private var fiveScoreStrip: some View {
+        HStack(spacing: 0) {
+            ForEach(Array(Self.requiredSignals.enumerated()), id: \.element.id) { index, descriptor in
+                if index > 0 {
+                    Rectangle()
+                        .fill(VelaTheme.hairline)
+                        .frame(width: 1)
+                        .padding(.vertical, 10)
+                }
+                scoreColumnLink(card(for: descriptor))
+            }
+        }
+        .padding(.vertical, 8)
+        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+                .stroke(VelaTheme.hairline, lineWidth: 1)
+        )
+    }
+
+    private func scoreColumnLink(_ card: TodayExperienceSignalCard) -> some View {
+        let column = scoreColumn(card)
+        return Group {
+            if let metric = detailMetric(for: card.id) {
+                NavigationLink {
+                    VelaMetricDetailView(
+                        metric: metric,
+                        selectedDate: selectedDate,
+                        dashboardSnapshot: dashboardSnapshot,
+                        isPresentedInSheet: false
+                    )
+                } label: {
+                    column
+                }
+                .buttonStyle(.plain)
+            } else {
+                column
+            }
+        }
+        .accessibilityIdentifier("today-score-\(card.id)")
+    }
+
+    private func scoreColumn(_ card: TodayExperienceSignalCard) -> some View {
+        let deviationLabel = scoreDeviations[card.id]
+        return VStack(spacing: 4) {
+            Text(card.value)
+                .font(VelaTheme.cardValue())
+                .foregroundStyle(card.value == "--" ? VelaTheme.rhythmInkSecondary : VelaTheme.rhythmInk)
+                .monospacedDigit()
+            Text(card.title)
+                .font(VelaTheme.caption2())
+                .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                .lineLimit(1)
+            if let deviationLabel, !deviationLabel.isEmpty {
+                HStack(spacing: 3) {
+                    BaselineDeviationMarker(showsLabel: false, diameter: 6)
+                    Text(deviationLabel)
+                        .font(VelaTheme.caption2())
+                        .foregroundStyle(VelaTheme.deviationInk)
+                        .lineLimit(1)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: 44)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(card.title)，\(card.value == "--" ? "暂无数据" : "\(card.value) 分")\(accessibilityDeviation(for: card.id))")
+    }
+
+    private var recentChangeCard: some View {
+        HStack(spacing: 12) {
+            if let trend = model.signalCards.first(where: { $0.trend.count > 1 })?.trend {
+                DateAwareSparkline(
+                    points: trend.enumerated().map { index, value in
+                        TrendsChartPoint(
+                            date: Date().addingTimeInterval(TimeInterval(index) * 86_400),
+                            value: value,
+                            provenance: nil
+                        )
+                    },
+                    color: VelaTheme.rhythmInk,
+                    height: 28,
+                    width: 72
+                )
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Text("最近变化")
+                    .font(VelaTheme.caption1().weight(.semibold))
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                Text(notableChangeText.isEmpty ? "最近没有越过个人常见范围的变化。" : notableChangeText)
+                    .font(VelaTheme.subheadline())
+                    .foregroundStyle(VelaTheme.rhythmInk)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+            Image(systemName: "chevron.right")
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(VelaTheme.rhythmInkSecondary)
+        }
+        .padding(14)
+        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+                .stroke(VelaTheme.hairline, lineWidth: 1)
+        )
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onInspectGuidance)
+    }
+
+    private var followUpQuestions: [String] {
+        var recoveryQuestion = "今天的恢复怎么样？"
+        if scoreDeviations["recovery"] == BaselineDeviationCopy.belowUsual {
+            recoveryQuestion = "为什么恢复偏低？"
+        } else if scoreDeviations["recovery"] == BaselineDeviationCopy.aboveUsual {
+            recoveryQuestion = "为什么恢复偏高？"
+        }
+        return [recoveryQuestion, "今天能跑步吗？", "今晚怎么睡更好？"]
+    }
+
+    private var followUpChips: some View {
+        FlowChips(questions: followUpQuestions) { question in
+            onAsk(question)
         }
     }
 
@@ -524,6 +701,37 @@ struct TodaySignalGrid: View {
         case "energy": return .energy
         default: return .recovery
         }
+    }
+}
+
+private struct FlowChips: View {
+    let questions: [String]
+    let onAsk: (String) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                if questions.indices.contains(0) { chip(questions[0]) }
+                if questions.indices.contains(1) { chip(questions[1]) }
+            }
+            if questions.indices.contains(2) {
+                chip(questions[2])
+            }
+        }
+    }
+
+    private func chip(_ question: String) -> some View {
+        Button {
+            onAsk(question)
+        } label: {
+            Text(question)
+                .font(VelaTheme.subheadline())
+                .foregroundStyle(VelaTheme.rhythmInk)
+                .padding(.horizontal, 14)
+                .frame(minHeight: 44)
+                .background(Capsule().stroke(VelaTheme.hairline, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
     }
 }
 

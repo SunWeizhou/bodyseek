@@ -475,6 +475,9 @@ struct DateAwareSparkline: View {
     let color: Color
     var height: CGFloat = 36
     var width: CGFloat = 80
+    /// Personal usual range already estimated for this series. Nothing is drawn when it is absent.
+    var band: ClosedRange<Double>? = nil
+    var marksLatestPoint: Bool = false
 
     var body: some View {
         let nonNilPoints = points.filter { $0.value != nil }
@@ -496,8 +499,9 @@ struct DateAwareSparkline: View {
                 .frame(width: width, height: height)
         } else {
             let values = nonNilPoints.compactMap(\.value)
-            let minVal = values.min() ?? 0
-            let maxVal = values.max() ?? 100
+            let bandBounds = [band?.lowerBound, band?.upperBound].compactMap { $0 }.filter(\.isFinite)
+            let minVal = min(values.min() ?? 0, bandBounds.min() ?? values.min() ?? 0)
+            let maxVal = max(values.max() ?? 100, bandBounds.max() ?? values.max() ?? 100)
             let range = max(maxVal - minVal, 1.0)
 
             let firstDate = points.first?.date ?? Date()
@@ -520,6 +524,14 @@ struct DateAwareSparkline: View {
             }()
 
             ZStack {
+                if let band, band.lowerBound.isFinite, band.upperBound.isFinite, band.upperBound > band.lowerBound {
+                    let top = height - (CGFloat((band.upperBound - minVal) / range) * (height - 8) + 4)
+                    let bottom = height - (CGFloat((band.lowerBound - minVal) / range) * (height - 8) + 4)
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(VelaTheme.rangeBand)
+                        .frame(width: width, height: max(2, abs(bottom - top)))
+                        .position(x: width / 2, y: (top + bottom) / 2)
+                }
                 ForEach(Array(segments.enumerated()), id: \.offset) { _, seg in
                     if seg.count == 1, let pt = seg.first, let v = pt.value {
                         let x = CGFloat(pt.date.timeIntervalSince(firstDate) / totalSpan) * width
@@ -530,39 +542,6 @@ struct DateAwareSparkline: View {
                             .frame(width: 5, height: 5)
                             .position(x: max(3, min(width - 3, x)), y: y)
                     } else if seg.count > 1 {
-                        // Shaded area under this segment
-                        Path { path in
-                            guard let firstPt = seg.first, let firstV = firstPt.value else { return }
-                            let firstX = CGFloat(firstPt.date.timeIntervalSince(firstDate) / totalSpan) * width
-                            let firstNorm = (firstV - minVal) / range
-                            let firstY = height - (CGFloat(firstNorm) * (height - 8) + 4)
-
-                            path.move(to: CGPoint(x: firstX, y: height))
-                            path.addLine(to: CGPoint(x: firstX, y: firstY))
-
-                            for pt in seg.dropFirst() {
-                                guard let v = pt.value else { continue }
-                                let x = CGFloat(pt.date.timeIntervalSince(firstDate) / totalSpan) * width
-                                let norm = (v - minVal) / range
-                                let y = height - (CGFloat(norm) * (height - 8) + 4)
-                                path.addLine(to: CGPoint(x: x, y: y))
-                            }
-
-                            if let lastPt = seg.last {
-                                let lastX = CGFloat(lastPt.date.timeIntervalSince(firstDate) / totalSpan) * width
-                                path.addLine(to: CGPoint(x: lastX, y: height))
-                            }
-                            path.closeSubpath()
-                        }
-                        .fill(
-                            LinearGradient(
-                                colors: [color.opacity(0.14), color.opacity(0.0)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-
-                        // Line
                         Path { path in
                             for (idx, pt) in seg.enumerated() {
                                 guard let v = pt.value else { continue }
@@ -577,6 +556,18 @@ struct DateAwareSparkline: View {
                             }
                         }
                         .stroke(color, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+                        if marksLatestPoint,
+                           let pt = seg.last,
+                           let v = pt.value,
+                           pt.date == segments.last?.last?.date {
+                            let x = CGFloat(pt.date.timeIntervalSince(firstDate) / totalSpan) * width
+                            let norm = (v - minVal) / range
+                            let y = height - (CGFloat(norm) * (height - 8) + 4)
+                            Circle()
+                                .strokeBorder(color, lineWidth: 1.25)
+                                .frame(width: 7, height: 7)
+                                .position(x: max(4, min(width - 4, x)), y: y)
+                        }
                     }
                 }
             }

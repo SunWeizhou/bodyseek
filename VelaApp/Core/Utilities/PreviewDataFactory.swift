@@ -12,12 +12,15 @@ enum PreviewDataFactory {
             guard ![10, 11, 12].contains(offset),
                   let day = calendar.date(byAdding: .day, value: -offset, to: calendar.startOfDay(for: date)) else { return nil }
             let dashboard = makeDashboard(date: day)
+            let evidence = previewEvidenceSnapshot(for: day, sleepHours: 7.2, calendar: calendar)
             var snapshot = DailyHealthSnapshot(date: day, createdAt: day)
             snapshot.recoveryScore = dashboard.recovery.value
             snapshot.sleepScore = dashboard.sleepScore.value
             snapshot.strainScore = dashboard.strain.value
             snapshot.stressIndex = dashboard.stress.value
             snapshot.currentEnergy = dashboard.energy.value
+            snapshot.hrvAverage = evidence.hrvAverage
+            snapshot.restingHeartRate = evidence.restingHeartRate
             return snapshot
         }
     }

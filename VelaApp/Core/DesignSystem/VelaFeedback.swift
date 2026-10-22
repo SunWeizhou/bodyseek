@@ -202,7 +202,7 @@ struct MessageBubble: View {
                                 MarkdownText(
                                     markdown: content,
                                     font: VelaTheme.body(),
-                                    color: VelaTheme.rhythmDeepOn,
+                                    color: VelaTheme.rhythmInk,
                                     isStreaming: isStreaming
                                 )
                                 .lineSpacing(4)
@@ -214,15 +214,10 @@ struct MessageBubble: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
-                .background(VelaTheme.rhythmDeep)
-                .clipShape(
-                    UnevenRoundedRectangle(
-                        topLeadingRadius: VelaTheme.radiusLg,
-                        bottomLeadingRadius: VelaTheme.radiusLg,
-                        bottomTrailingRadius: VelaTheme.radiusLg,
-                        topTrailingRadius: 4,
-                        style: .continuous
-                    )
+                .background(VelaTheme.surfaceFloating, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+                        .stroke(VelaTheme.hairline, lineWidth: 1)
                 )
 
                 if !time.isEmpty {
@@ -235,18 +230,12 @@ struct MessageBubble: View {
         }
     }
 
-    /// Vela's answer is an analysis document, not a second chat bubble. Text is
-    /// full-width; artifacts remain independent cards in the reading flow.
+    /// Vela's answer is prose, not a second chat bubble.
     private var analystMessage: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "waveform.path.ecg")
-                .font(.caption.weight(.bold))
-                .foregroundStyle(VelaTheme.rhythmDeep)
-                .frame(width: 28, height: 28)
-                .background(VelaTheme.rhythmMist.opacity(0.72), in: Circle())
-                .accessibilityHidden(true)
-
-            VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("BodySeek")
+                .font(VelaTheme.caption1().weight(.semibold))
+                .foregroundStyle(VelaTheme.rhythmInkSecondary)
                 if let thinking = parsedParts.thinkingContent, !thinking.isEmpty {
                     CoachThinkingView(
                         thinkingText: thinking,
@@ -275,7 +264,6 @@ struct MessageBubble: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-        }
         .accessibilityElement(children: .contain)
     }
 
@@ -290,32 +278,16 @@ struct MessageBubble: View {
                 .background(VelaTheme.rhythmMist.opacity(0.45), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         } else {
         let sections = CoachResponseLayout.split(content, isStreaming: isStreaming)
-
-        if let lead = sections.lead {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("结论")
-                    .font(VelaTheme.caption2().weight(.semibold))
-                    .foregroundStyle(VelaTheme.rhythmDeep)
-
+        VStack(alignment: .leading, spacing: 10) {
+            if let lead = sections.lead {
                 MarkdownText(
                     markdown: lead,
-                    font: VelaTheme.subheadline().weight(.semibold),
+                    font: VelaTheme.body().weight(.semibold),
                     color: VelaTheme.rhythmInk,
                     isStreaming: false
                 )
-                .lineSpacing(3)
+                .lineSpacing(6)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(VelaTheme.rhythmCanvasRaised)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
-            )
-
             if let detail = sections.detail {
                 MarkdownText(
                     markdown: detail,
@@ -323,17 +295,10 @@ struct MessageBubble: View {
                     color: VelaTheme.rhythmInk,
                     isStreaming: isStreaming
                 )
-                .lineSpacing(4)
+                .lineSpacing(6)
             }
-        } else {
-            MarkdownText(
-                markdown: sections.detail ?? content,
-                font: VelaTheme.body(),
-                color: VelaTheme.rhythmInk,
-                isStreaming: isStreaming
-            )
-            .lineSpacing(4)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 

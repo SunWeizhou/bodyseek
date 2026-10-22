@@ -86,7 +86,24 @@ struct VelaPlanView: View {
     }
 
     private var payload: DailyOperatingPlanPayload? {
-        plan?.operatingPlanPayload
+        plan?.operatingPlanPayload ?? previewDisplayPayload
+    }
+
+    /// Read-only plan for the screenshot dashboard. It uses the existing plan
+    /// builder and is not written to SwiftData.
+    private var previewDisplayPayload: DailyOperatingPlanPayload? {
+        #if DEBUG
+        guard DailySummaryUseCase.isPreviewDashboardEnabled(), plan == nil else { return nil }
+        let decision = currentDecision ?? TrainingDecisionFallback.conservative(targetSessionTitle: "轻松活动")
+        return DailyOperatingPlanBuilder.build(
+            bodyState: dashboard.bodyState,
+            decision: decision,
+            brief: dashboard.personalHealthBrief,
+            language: AppLanguage.stored
+        )
+        #else
+        return nil
+        #endif
     }
 
     private var actions: [DailyOperatingPlanAction] {
@@ -150,24 +167,8 @@ struct VelaPlanView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            VelaSurfaceHeader(
-                title: L10n.t("Plan", "计划"),
-                subtitle: dateSubtitle
-            ) {
-                Button {
-                    appState.routeToCoach(question: coachQuestion, surface: .plan)
-                } label: {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(VelaTheme.rhythmDeep)
-                        .frame(width: VelaTheme.circularControlSize, height: VelaTheme.circularControlSize)
-                        .background(VelaTheme.rhythmCanvasRaised, in: Circle())
-                }
-                .buttonStyle(.cardPress)
-                .accessibilityLabel("让 Vela 分析今天的计划")
-            }
-
+        let _ = (dateSubtitle, coachQuestion)
+        return VStack(spacing: 0) {
             ScrollView {
                 VStack(alignment: .leading, spacing: VelaTheme.sectionGap) {
                     if let error = planViewState.error {
@@ -179,13 +180,11 @@ struct VelaPlanView: View {
                         .foregroundStyle(VelaTheme.rhythmInk)
                         .accessibilityIdentifier("plan-save-error")
                     }
-                        rhythmSummary
-
+                    actionSection
                     if let candidatePayload {
                         candidateCard(candidatePayload)
                     }
-
-                    actionSection
+                    rhythmSummary
                     trainingPortal
                 }
                 .padding(.horizontal, VelaTheme.pagePadding)
@@ -196,6 +195,7 @@ struct VelaPlanView: View {
             .scrollIndicators(.hidden)
         }
         .background(VelaTheme.rhythmCanvas)
+        .toolbar(.hidden, for: .navigationBar)
         .task(id: dayIdentifier) {
             if let onRefresh {
                 await onRefresh()
@@ -298,8 +298,8 @@ struct VelaPlanView: View {
     private var actionSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             VelaRhythmSectionHeader(
-                eyebrow: L10n.t("TODAY", "今天"),
-                title: "今日行动",
+                eyebrow: "\(actions.filter { $0.completedAt != nil }.count)/\(actions.count)",
+                title: "今天 \(actions.count) 项",
                 actionTitle: actions.count < 3 ? "添加" : nil,
                 action: presentAddEditor
             )
@@ -352,62 +352,44 @@ struct VelaPlanView: View {
 
     private func candidateCard(_ candidate: DailyOperatingPlanPayload) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 8) {
-                Image(systemName: "sparkles")
-                    .foregroundStyle(VelaTheme.rhythmDeep)
-                Text("Vela 建议更新")
-                    .font(.system(.subheadline, design: .default, weight: .semibold))
-                    .foregroundStyle(VelaTheme.rhythmInk)
-            }
+            Text("BodySeek 建议 · 待你确认")
+                .font(VelaTheme.caption1().weight(.semibold))
+                .foregroundStyle(VelaTheme.rhythmInkSecondary)
 
             Text(candidateSentence(candidate))
-                .font(.system(.body, design: .default))
+                .font(VelaTheme.body())
                 .foregroundStyle(VelaTheme.rhythmInk)
                 .fixedSize(horizontal: false, vertical: true)
 
-            VStack(alignment: .leading, spacing: 8) {
-                ForEach(candidate.allActions) { action in
-                    let style = PlanDomainStyle(action.domain)
-                    HStack(spacing: 8) {
-                        Image(systemName: style.icon)
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(style.color)
-                            .frame(width: 20)
-                        Text(action.title)
-                            .font(.system(.caption, design: .default, weight: .medium))
-                            .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                            .lineLimit(1)
-                    }
-                }
-            }
-            .accessibilityElement(children: .contain)
-
             HStack(spacing: 10) {
-                Button("采用新计划") {
+                Button("改成减量版") {
                     accept(candidate)
                 }
-                .font(.system(.footnote, design: .default, weight: .semibold))
+                .font(VelaTheme.subheadline().weight(.semibold))
                 .foregroundStyle(VelaTheme.rhythmDeepOn)
-                .padding(.horizontal, 14)
-                .frame(minHeight: 40)
-                .background(VelaTheme.rhythmDeep, in: Capsule())
-                .buttonStyle(.cardPress)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .background(VelaTheme.rhythmDeep, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .buttonStyle(.plain)
 
-                Button(payload?.hasUserEdits == true ? "保留我的安排" : "先保持现在的安排") {
+                Button(payload?.hasUserEdits == true ? "保留我的安排" : "保持原计划") {
                     keepCurrentPlan()
                 }
-                .font(.system(.footnote, design: .default, weight: .semibold))
-                .foregroundStyle(VelaTheme.rhythmDeep)
-                .padding(.horizontal, 12)
-                .frame(minHeight: 40)
-                .buttonStyle(.cardPress)
+                .font(VelaTheme.subheadline().weight(.semibold))
+                .foregroundStyle(VelaTheme.rhythmInk)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .background(VelaTheme.rhythmCanvas, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(VelaTheme.rhythmInk, lineWidth: 1.2)
+                )
+                .buttonStyle(.plain)
             }
         }
         .padding(VelaTheme.cardPadding)
-        .background(VelaTheme.rhythmDeep.opacity(0.08), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(VelaTheme.rhythmDeep.opacity(0.20), lineWidth: 0.8)
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+                .stroke(VelaTheme.rhythmInk, lineWidth: 1.2)
         }
     }
 
@@ -491,7 +473,11 @@ struct VelaPlanView: View {
             planError = nil
             planRevision += 1
         } catch {
-            planError = .unavailable("计划未能读取或保存：\(error.localizedDescription)")
+            if DailySummaryUseCase.isPreviewDashboardEnabled() {
+                planError = nil
+            } else {
+                planError = .unavailable("计划未能读取或保存：\(error.localizedDescription)")
+            }
         }
     }
 
@@ -621,8 +607,6 @@ private struct PlanActionRow: View {
     let onReplace: () -> Void
     let onDelete: () -> Void
 
-    private var style: PlanDomainStyle { PlanDomainStyle(action.domain) }
-
     var body: some View {
         Group {
             if dynamicTypeSize.isAccessibilitySize {
@@ -652,16 +636,15 @@ private struct PlanActionRow: View {
         Button(action: onToggle) {
             ZStack {
                 Circle()
-                    .stroke(action.completedAt == nil ? style.color.opacity(0.62) : style.color, lineWidth: 1.8)
+                    .stroke(VelaTheme.rhythmInk, lineWidth: 1.25)
                 if action.completedAt != nil {
-                    Circle().fill(style.color)
+                    Circle().fill(VelaTheme.rhythmInk)
                     Image(systemName: "checkmark")
                         .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(Color.white)
+                        .foregroundStyle(VelaTheme.rhythmDeepOn)
                 } else {
-                    Image(systemName: style.icon)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(style.color)
+                    Circle()
+                        .fill(Color.clear)
                 }
             }
             .frame(width: 40, height: 40)
@@ -677,8 +660,7 @@ private struct PlanActionRow: View {
                 HStack(spacing: 7) {
                     Text(action.title)
                         .font(.system(.subheadline, design: .default, weight: isPrimary ? .semibold : .medium))
-                        .foregroundStyle(VelaTheme.rhythmInk)
-                        .strikethrough(action.completedAt != nil, color: VelaTheme.rhythmInkSecondary)
+                        .foregroundStyle(action.completedAt == nil ? VelaTheme.rhythmInk : VelaTheme.rhythmInkSecondary)
                         .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
                         .fixedSize(horizontal: false, vertical: true)
                     if isPrimary && showsPrimaryBadgeInline {

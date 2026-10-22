@@ -1,4 +1,5 @@
 import SwiftUI
+import BodySeekDomain
 
 private struct ScoreTrendDescriptor: Identifiable {
     let metric: CoreHealthMetric
@@ -28,10 +29,48 @@ private struct SummaryTrendsHistoryProvider: TrendsHistoryProviding {
             finding: findings.first {
                 $0.metric == metric && $0.horizon == horizon
             },
+            baselineBand: usualRange(metric: metric, snapshots: snapshots, horizon: horizon, endingAt: selectedDay, calendar: calendar),
             provenanceByDay: isPreview ? Dictionary(uniqueKeysWithValues: snapshots.map {
                 (calendar.startOfDay(for: $0.date), TrendsPointProvenance(source: .derived, sourceLabel: "示例数据", detail: "仅用于界面预览"))
             }) : [:]
         )
+    }
+
+    /// Usual personal range is the baseline median ± one robust scale.
+    /// A flat history has no scale, so the band stays absent instead of a made-up width.
+    private func usualRange(
+        metric: CoreHealthMetric,
+        snapshots: [DailyHealthSnapshot],
+        horizon: HealthTrendHorizon,
+        endingAt selectedDay: Date,
+        calendar: Calendar
+    ) -> ClosedRange<Double>? {
+        let samples = snapshots.compactMap { snapshot -> BaselineSample? in
+            guard let value = scoreValue(metric, snapshot: snapshot) else { return nil }
+            return BaselineSample(date: snapshot.date, value: value)
+        }
+        guard let estimate = BaselineEstimator.estimate(
+            samples: samples,
+            asOf: selectedDay,
+            windowDays: horizon.windowDays,
+            minimumSamples: horizon.requiredSampleCount,
+            calendar: calendar
+        ), let scale = estimate.robustScale, scale > 0 else {
+            return nil
+        }
+        let half = scale * BaselineEstimator.stableZ
+        return (estimate.median - half)...(estimate.median + half)
+    }
+
+    private func scoreValue(_ metric: CoreHealthMetric, snapshot: DailyHealthSnapshot) -> Double? {
+        switch metric {
+        case .sleepScore: return snapshot.sleepScore
+        case .recovery: return snapshot.recoveryScore
+        case .strain: return snapshot.strainScore
+        case .stress: return snapshot.stressIndex
+        case .energy: return snapshot.currentEnergy ?? snapshot.energyBank
+        default: return nil
+        }
     }
 }
 
@@ -89,19 +128,16 @@ struct VelaTrendsView: View {
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: VelaTheme.sectionGap) {
-                VStack(spacing: 0) {
-                    horizonPicker
-                }
+                horizonPicker
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("trends-horizon-picker")
                 trendHistoryErrorCard
+                compactAgentObservation
                 fiveScoreTrendSection
                 recoveryTrendChart
 
                 if !hasAnyScoreHistory && scoreDescriptors.allSatisfy({ finding(for: $0.metric)?.isAvailable != true }) {
                     compactCalibrationCard
-                } else {
-                    compactAgentObservation
                 }
 
                 metricCatalogDisclosure
@@ -124,12 +160,6 @@ struct VelaTrendsView: View {
         .scrollIndicators(.hidden)
         .accessibilityIdentifier("trends-content")
         .background(VelaTheme.rhythmCanvas)
-        .safeAreaInset(edge: .top, spacing: 0) {
-            VelaSurfaceHeader(
-                title: "趋势"
-            )
-            .background(VelaTheme.rhythmCanvas.opacity(0.96))
-        }
         .toolbar(.hidden, for: .navigationBar)
         .task(id: trendLoadID) {
             await loadTrends()
@@ -278,7 +308,9 @@ struct VelaTrendsView: View {
                             points: trendPoints,
                             color: color,
                             height: 42,
-                            width: 220
+                            width: 220,
+                            band: scoreBand(for: descriptor.metric),
+                            marksLatestPoint: true
                         )
                         .accessibilityHidden(true)
                     }
@@ -312,7 +344,9 @@ struct VelaTrendsView: View {
                             points: trendPoints,
                             color: color,
                             height: 34,
-                            width: 88
+                            width: 88,
+                            band: scoreBand(for: descriptor.metric),
+                            marksLatestPoint: true
                         )
                         .accessibilityHidden(true)
 
@@ -374,26 +408,12 @@ struct VelaTrendsView: View {
     @ViewBuilder
     private var compactAgentObservation: some View {
         if let brief = healthBrief, !brief.subheadline.isEmpty {
-            Button {
-                onAskCoach(selectedHorizonCoachQuestion)
-            } label: {
-                HStack(spacing: 10) {
-                    Image(systemName: "sparkles")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(VelaTheme.rhythmDeep)
-                    Text(brief.subheadline)
-                        .font(VelaTheme.footnote())
-                        .foregroundStyle(VelaTheme.rhythmInk)
-                        .lineLimit(2)
-                    Spacer(minLength: 4)
-                    Image(systemName: "chevron.right")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                }
-                .padding(14)
-                .background(VelaTheme.rhythmMist.opacity(0.42), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            }
-            .buttonStyle(.cardPress)
+            Text(brief.subheadline)
+                .font(VelaTheme.body())
+                .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                .lineSpacing(4)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -426,6 +446,10 @@ struct VelaTrendsView: View {
 
     private func scoreTrendPoints(for metric: CoreHealthMetric) -> [TrendsChartPoint] {
         trendStates[metric]?.series?.points ?? []
+    }
+
+    private func scoreBand(for metric: CoreHealthMetric) -> ClosedRange<Double>? {
+        trendStates[metric]?.series?.baselineBand
     }
 
     private func scoreHistory(for metric: CoreHealthMetric) -> [Double] {
