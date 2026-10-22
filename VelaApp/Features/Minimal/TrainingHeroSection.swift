@@ -381,7 +381,7 @@ struct TrainingHeroSection: View {
             }
             Text(groupsText)
                 .font(.headline.weight(.bold))
-                .foregroundStyle(isRest ? VelaTheme.sleepColor : VelaTheme.rhythmDeep)
+                .foregroundStyle(isRest ? VelaTheme.rhythmInk : VelaTheme.rhythmDeep)
             Text(primaryNote)
                 .font(.footnote)
                 .foregroundStyle(VelaTheme.rhythmInkSecondary)
@@ -425,7 +425,7 @@ struct TrainingHeroSection: View {
             }
             Text(groupsText)
                 .font(.headline.weight(.bold))
-                .foregroundStyle(isRest ? VelaTheme.sleepColor : VelaTheme.rhythmDeep)
+                .foregroundStyle(isRest ? VelaTheme.rhythmInk : VelaTheme.rhythmDeep)
             Text(isRest ? recommendation.note : shortNote(recommendation.note))
                 .font(.footnote)
                 .foregroundStyle(VelaTheme.rhythmInkSecondary)
@@ -580,7 +580,7 @@ private struct TrainingAmbientField: View {
         case .keep: VelaTheme.rhythmGlow
         case .reduce: VelaTheme.rhythmWarm
         case .swap: VelaTheme.rhythmMist
-        case .rest: VelaTheme.sleepColor
+        case .rest: VelaTheme.rhythmInk
         }
     }
 
@@ -1845,7 +1845,7 @@ struct TrainingStatusSection: View {
             value: dashboard.recovery.formattedScore,
             detail: recoveryDetail,
             context: "越高越好",
-            color: VelaTheme.recoveryColor
+            color: VelaTheme.rhythmInk
         )
         metricCard(
             metric: .strain,
@@ -1855,7 +1855,7 @@ struct TrainingStatusSection: View {
             context: dashboard.strain.hasData
                 ? "目标 \(dashboard.strain.recommendedRange.lowerBound)-\(dashboard.strain.recommendedRange.upperBound)"
                 : "越高负荷越大",
-            color: VelaTheme.strainColor
+            color: VelaTheme.rhythmInk
         )
         metricCard(
             metric: .stress,
@@ -1863,7 +1863,7 @@ struct TrainingStatusSection: View {
             value: dashboard.stress.formattedScore,
             detail: stressDetail,
             context: "越高越需关注",
-            color: VelaTheme.stressColor
+            color: VelaTheme.rhythmInk
         )
     }
 

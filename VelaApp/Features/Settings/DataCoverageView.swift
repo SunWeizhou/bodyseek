@@ -99,7 +99,7 @@ struct DataCoverageView: View {
                         title: AppLanguage.stored.isChinese ? "缺失" : "Missing",
                         value: "\(missing)",
                         systemImage: "exclamationmark.triangle.fill",
-                        tint: missing == 0 ? VelaTheme.recoveryColor : VelaTheme.strainColor
+                        tint: missing == 0 ? VelaTheme.rhythmInk : VelaTheme.rhythmInk
                     )
                 }
 
@@ -179,7 +179,7 @@ struct DataCoverageView: View {
                         ? "在系统健康权限中打开相关数据类型，可提升 Vela 今天判断的置信度。"
                         : "Enable the related Health data types in system permissions to improve today's confidence.",
                         systemImage: "lock.open.fill",
-                        tint: VelaTheme.strainColor
+                        tint: VelaTheme.rhythmInk
                     )
                 }
             }
@@ -196,16 +196,16 @@ struct DataCoverageView: View {
     // MARK: - Helpers
 
     private func coverageColor(_ pct: Int) -> Color {
-        if pct >= 80 { return VelaTheme.energyColor }
+        if pct >= 80 { return VelaTheme.rhythmInk }
         if pct >= 50 { return VelaTheme.accent }
-        return VelaTheme.strainColor
+        return VelaTheme.rhythmInk
     }
 
     private func qualityColor(_ quality: SignalQuality) -> Color {
         switch quality {
-        case .enough: return VelaTheme.energyColor
+        case .enough: return VelaTheme.rhythmInk
         case .partial: return VelaTheme.accent
-        case .insufficient: return VelaTheme.strainColor
+        case .insufficient: return VelaTheme.rhythmInk
         }
     }
 
@@ -228,12 +228,12 @@ struct DataCoverageView: View {
 
     private func groupColor(_ group: CoverageGroup) -> Color {
         switch group.id {
-        case "recovery": return VelaTheme.recoveryColor
-        case "sleep": return VelaTheme.sleepColor
-        case "training": return VelaTheme.strainColor
+        case "recovery": return VelaTheme.rhythmInk
+        case "sleep": return VelaTheme.rhythmInk
+        case "training": return VelaTheme.rhythmInk
         case "gait": return VelaTheme.accent
-        case "cardio": return VelaTheme.energyColor
-        case "nutrition": return VelaTheme.stressColor
+        case "cardio": return VelaTheme.rhythmInk
+        case "nutrition": return VelaTheme.rhythmInk
         case "environment": return VelaTheme.fg2
         default: return VelaTheme.accent
         }

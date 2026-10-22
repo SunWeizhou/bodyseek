@@ -528,7 +528,7 @@ struct StrengthWorkoutSummarySheet: View {
                     VStack(alignment: .leading, spacing: 5) {
                         Label("训练已保存", systemImage: "checkmark.circle.fill")
                             .font(.system(.footnote, design: .rounded, weight: .bold))
-                            .foregroundStyle(VelaTheme.recoveryColor)
+                            .foregroundStyle(VelaTheme.rhythmInk)
                         Text(workout?.title ?? "力量训练")
                             .font(.system(.title2, design: .default, weight: .bold))
                         Text("基于本次已完成的训练组生成")

@@ -280,11 +280,11 @@ struct CorrelationArtifactView: View {
 
     private func color(_ metric: String) -> Color {
         switch metric {
-        case "hrv", "recovery", "recovery_score": VelaTheme.recoveryColor
-        case "sleep", "sleep_score", "sleep_hours": VelaTheme.sleepColor
-        case "strain", "strain_score", "steps": VelaTheme.strainColor
-        case "stress", "stress_index", "alcohol", "late_meal": VelaTheme.stressColor
-        case "energy", "energy_bank", "caffeine": VelaTheme.energyColor
+        case "hrv", "recovery", "recovery_score": VelaTheme.rhythmInk
+        case "sleep", "sleep_score", "sleep_hours": VelaTheme.rhythmInk
+        case "strain", "strain_score", "steps": VelaTheme.rhythmInk
+        case "stress", "stress_index", "alcohol", "late_meal": VelaTheme.rhythmInk
+        case "energy", "energy_bank", "caffeine": VelaTheme.rhythmInk
         default: VelaTheme.accent
         }
     }

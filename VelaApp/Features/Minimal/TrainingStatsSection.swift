@@ -1005,7 +1005,7 @@ struct SafeZoneWorkloadChartView: View {
                 }
                 .stroke(
                     LinearGradient(
-                        colors: [VelaTheme.recoveryColor, VelaTheme.strainColor, VelaTheme.rhythmDeep],
+                        colors: [VelaTheme.rhythmInk, VelaTheme.rhythmInk, VelaTheme.rhythmDeep],
                         startPoint: .leading,
                         endPoint: .trailing
                     ),
@@ -1285,7 +1285,7 @@ struct RecoveryLoadStressTrendsCard: View {
                 id: "recovery",
                 title: "恢复",
                 metric: .recovery,
-                color: VelaTheme.recoveryColor,
+                color: VelaTheme.rhythmInk,
                 values: metricValues(\.recoveryScore),
                 dates: metricDates(\.recoveryScore)
             ),
@@ -1293,7 +1293,7 @@ struct RecoveryLoadStressTrendsCard: View {
                 id: "strain",
                 title: "负荷",
                 metric: .strain,
-                color: VelaTheme.strainColor,
+                color: VelaTheme.rhythmInk,
                 values: metricValues(\.strainScore),
                 dates: metricDates(\.strainScore)
             ),
@@ -1301,7 +1301,7 @@ struct RecoveryLoadStressTrendsCard: View {
                 id: "stress",
                 title: "压力",
                 metric: .stress,
-                color: VelaTheme.stressColor,
+                color: VelaTheme.rhythmInk,
                 values: metricValues(\.stressIndex),
                 dates: metricDates(\.stressIndex)
             )

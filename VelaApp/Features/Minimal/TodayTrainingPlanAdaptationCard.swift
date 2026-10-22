@@ -61,10 +61,10 @@ struct PlanProposalDiffCard: View {
         case AdaptationStatus.accepted.rawValue:
             Label("已采纳", systemImage: "checkmark.circle.fill")
                 .font(.system(.caption2, design: .default, weight: .bold))
-                .foregroundStyle(VelaTheme.recoveryColor)
+                .foregroundStyle(VelaTheme.rhythmInk)
                 .padding(.horizontal, 9)
                 .padding(.vertical, 4)
-                .background(VelaTheme.recoveryColor.opacity(0.12), in: Capsule())
+                .background(VelaTheme.rhythmInk.opacity(0.12), in: Capsule())
         case AdaptationStatus.rejected.rawValue:
             Label("已保持原计划", systemImage: "arrow.uturn.backward")
                 .font(.system(.caption2, design: .default, weight: .semibold))
@@ -209,7 +209,7 @@ struct PlanProposalDiffCard: View {
         } else if status == AdaptationStatus.accepted.rawValue {
             HStack(spacing: 8) {
                 Image(systemName: "checkmark.seal.fill")
-                    .foregroundStyle(VelaTheme.recoveryColor)
+                    .foregroundStyle(VelaTheme.rhythmInk)
                 Text("已采纳并更新至训练轮转")
                     .font(.system(.footnote, design: .default, weight: .semibold))
                     .foregroundStyle(VelaTheme.rhythmInk)
@@ -244,7 +244,7 @@ struct PlanProposalDiffCard: View {
     private func adjustmentChipInfo(_ adj: String) -> (title: String, color: Color) {
         switch adj {
         case "rest":
-            return ("休息日", VelaTheme.recoveryColor)
+            return ("休息日", VelaTheme.rhythmInk)
         case "reduce":
             return ("减量", VelaTheme.tagOrange)
         case "swap":
@@ -294,7 +294,7 @@ struct TodayTrainingPlanAdaptationCard: View {
             if let actionError {
                 Text(actionError)
                     .font(.footnote)
-                    .foregroundStyle(VelaTheme.stressColor)
+                    .foregroundStyle(VelaTheme.rhythmInk)
                     .padding(.horizontal, 16)
                     .padding(.top, 4)
             }

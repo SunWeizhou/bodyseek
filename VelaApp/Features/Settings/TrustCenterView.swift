@@ -58,14 +58,14 @@ struct TrustCenterView: View {
     // MARK: - Ownership overview
 
     private var trustOverviewCard: some View {
-        VelaHeroSurface(tint: VelaTheme.recoveryColor) {
+        VelaHeroSurface(tint: VelaTheme.rhythmInk) {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(alignment: .top, spacing: 12) {
                     Image(systemName: "hand.raised.fill")
                         .font(.title3.weight(.semibold))
-                        .foregroundStyle(VelaTheme.recoveryColor)
+                        .foregroundStyle(VelaTheme.rhythmInk)
                         .frame(width: 44, height: 44)
-                        .background(Circle().fill(VelaTheme.recoveryColor.opacity(0.12)))
+                        .background(Circle().fill(VelaTheme.rhythmInk.opacity(0.12)))
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text(AppLanguage.stored.isChinese ? "你的数据，你的决定" : "Your data. Your decision.")
@@ -86,7 +86,7 @@ struct TrustCenterView: View {
                         title: AppLanguage.stored.isChinese ? "身体数据" : "Body Data",
                         detail: AppLanguage.stored.isChinese ? "Apple 健康只读；分数在本机计算" : "Read-only Apple Health; scores compute on device",
                         status: AppLanguage.stored.isChinese ? "本机" : "On Device",
-                        tint: VelaTheme.recoveryColor,
+                        tint: VelaTheme.rhythmInk,
                         destination: DataSourceSettingsView(
                             dashboard: dashboard,
                             onRefresh: onRefresh
@@ -98,7 +98,7 @@ struct TrustCenterView: View {
                         title: AppLanguage.stored.isChinese ? "联网 Agent" : "Network Agent",
                         detail: AppLanguage.stored.isChinese ? "逐类选择允许发送的上下文" : "Choose each context category that may be sent",
                         status: outboundConsentStatus,
-                        tint: VelaTheme.sleepColor,
+                        tint: VelaTheme.rhythmInk,
                         destination: AIModelSettingsView()
                     )
                     Divider().padding(.leading, 54)
@@ -107,7 +107,7 @@ struct TrustCenterView: View {
                         title: AppLanguage.stored.isChinese ? "计划与长期记忆" : "Plans and Long-term Memory",
                         detail: AppLanguage.stored.isChinese ? "Agent 写入前先由你确认" : "You confirm before the Agent writes",
                         status: AppLanguage.stored.isChinese ? "需确认" : "Confirm First",
-                        tint: VelaTheme.energyColor,
+                        tint: VelaTheme.rhythmInk,
                         destination: UserWikiArchiveView()
                     )
                     Divider().padding(.leading, 54)
@@ -116,7 +116,7 @@ struct TrustCenterView: View {
                         title: AppLanguage.stored.isChinese ? "导出与删除" : "Export and Delete",
                         detail: AppLanguage.stored.isChinese ? "管理保存在 Vela 的本地资料" : "Manage local data stored by Vela",
                         status: AppLanguage.stored.isChinese ? "可管理" : "Available",
-                        tint: VelaTheme.strainColor,
+                        tint: VelaTheme.rhythmInk,
                         destination: PrivacyDataControlsView()
                     )
                 }
@@ -218,14 +218,14 @@ struct TrustCenterView: View {
         let failed = runRecords.filter { $0.status == "failed" }.count
         let running = runRecords.filter { $0.status == "running" }.count
 
-        return VelaHeroSurface(tint: failed > 0 ? VelaTheme.strainColor : VelaTheme.accent) {
+        return VelaHeroSurface(tint: failed > 0 ? VelaTheme.rhythmInk : VelaTheme.accent) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .top, spacing: 12) {
                     Image(systemName: "checkmark.shield.fill")
                         .font(.title3.weight(.semibold))
-                        .foregroundStyle(failed > 0 ? VelaTheme.strainColor : VelaTheme.accent)
+                        .foregroundStyle(failed > 0 ? VelaTheme.rhythmInk : VelaTheme.accent)
                         .frame(width: 42, height: 42)
-                        .background(Circle().fill((failed > 0 ? VelaTheme.strainColor : VelaTheme.accent).opacity(0.12)))
+                        .background(Circle().fill((failed > 0 ? VelaTheme.rhythmInk : VelaTheme.accent).opacity(0.12)))
                     VStack(alignment: .leading, spacing: 4) {
                         Text(AppLanguage.stored.isChinese ? "Agent 审计日志" : "Agent Audit Log")
                             .font(.headline.weight(.semibold))
@@ -236,8 +236,8 @@ struct TrustCenterView: View {
 
                 HStack(spacing: 8) {
                     VelaMetricPill(title: AppLanguage.stored.isChinese ? "显示" : "Shown", value: "\(shown)", systemImage: "list.bullet", tint: VelaTheme.accent)
-                    VelaMetricPill(title: AppLanguage.stored.isChinese ? "失败" : "Failed", value: "\(failed)", systemImage: "exclamationmark.triangle.fill", tint: failed > 0 ? VelaTheme.strainColor : VelaTheme.recoveryColor)
-                    VelaMetricPill(title: AppLanguage.stored.isChinese ? "运行中" : "Running", value: "\(running)", systemImage: "clock.fill", tint: VelaTheme.energyColor)
+                    VelaMetricPill(title: AppLanguage.stored.isChinese ? "失败" : "Failed", value: "\(failed)", systemImage: "exclamationmark.triangle.fill", tint: failed > 0 ? VelaTheme.rhythmInk : VelaTheme.rhythmInk)
+                    VelaMetricPill(title: AppLanguage.stored.isChinese ? "运行中" : "Running", value: "\(running)", systemImage: "clock.fill", tint: VelaTheme.rhythmInk)
                 }
             }
         }
@@ -282,13 +282,13 @@ struct TrustCenterView: View {
 
                         HStack(spacing: 8) {
                             if let endedAt = run.endedAt {
-                                VelaStatusBadge(label: durationText(start: run.startedAt, end: endedAt), systemImage: "timer", tint: VelaTheme.sleepColor)
+                                VelaStatusBadge(label: durationText(start: run.startedAt, end: endedAt), systemImage: "timer", tint: VelaTheme.rhythmInk)
                             }
                             if !run.inputContextHash.isEmpty {
                                 VelaStatusBadge(label: String(run.inputContextHash.prefix(8)), systemImage: "number", tint: VelaTheme.fg2)
                             }
                             if hasToolCalls(run) {
-                                VelaStatusBadge(label: AppLanguage.stored.isChinese ? "工具" : "Tools", systemImage: "wrench.and.screwdriver.fill", tint: VelaTheme.energyColor)
+                                VelaStatusBadge(label: AppLanguage.stored.isChinese ? "工具" : "Tools", systemImage: "wrench.and.screwdriver.fill", tint: VelaTheme.rhythmInk)
                             }
                         }
                     }
@@ -322,7 +322,7 @@ struct TrustCenterView: View {
                             HStack(spacing: 8) {
                                 VelaMetricPill(title: AppLanguage.stored.isChinese ? "开始" : "Started", value: run.startedAt.formatted(date: .omitted, time: .shortened), systemImage: "play.fill", tint: VelaTheme.accent)
                                 if let endedAt = run.endedAt {
-                                    VelaMetricPill(title: AppLanguage.stored.isChinese ? "耗时" : "Duration", value: durationText(start: run.startedAt, end: endedAt), systemImage: "timer", tint: VelaTheme.sleepColor)
+                                    VelaMetricPill(title: AppLanguage.stored.isChinese ? "耗时" : "Duration", value: durationText(start: run.startedAt, end: endedAt), systemImage: "timer", tint: VelaTheme.rhythmInk)
                                 }
                             }
                         }
@@ -391,7 +391,7 @@ struct TrustCenterView: View {
                             title: AppLanguage.stored.isChinese ? "错误" : "Error",
                             message: error,
                             systemImage: "exclamationmark.triangle.fill",
-                            tint: VelaTheme.strainColor
+                            tint: VelaTheme.rhythmInk
                         )
                     }
                 }
@@ -443,8 +443,8 @@ struct TrustCenterView: View {
 
     private func colorFor(_ status: String) -> Color {
         switch status {
-        case "success": return VelaTheme.energyColor
-        case "failed": return VelaTheme.strainColor
+        case "success": return VelaTheme.rhythmInk
+        case "failed": return VelaTheme.rhythmInk
         case "running": return VelaTheme.accent
         case "skipped": return VelaTheme.muted
         default: return VelaTheme.fg2

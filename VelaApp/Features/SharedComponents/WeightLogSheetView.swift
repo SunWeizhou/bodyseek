@@ -20,14 +20,14 @@ struct WeightLogSheetView: View {
                         if let errorMsg = errorMsg {
                             HStack {
                                 Image(systemName: "exclamationmark.octagon.fill")
-                                    .foregroundStyle(VelaTheme.stressColor)
+                                    .foregroundStyle(VelaTheme.rhythmInk)
                                 Text(errorMsg)
                                     .font(.caption)
                                     .foregroundStyle(VelaTheme.fg)
                             }
                             .padding()
                             .frame(maxWidth: .infinity)
-                            .background(VelaTheme.stressColor.opacity(0.12))
+                            .background(VelaTheme.rhythmInk.opacity(0.12))
                             .cornerRadius(10)
                         }
 

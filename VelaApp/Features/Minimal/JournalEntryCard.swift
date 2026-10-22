@@ -82,7 +82,7 @@ extension JournalEntryRecord {
         if tags.contains("caffeine") || tags.contains("咖啡因") { return VelaTheme.caffeineTagColor }
         if tags.contains("hydration") || tags.contains("补水") { return VelaTheme.accent }
         if tags.contains("mood") || tags.contains("每日心情") { return VelaTheme.systemYellow }
-        if tags.contains("alcohol") || tags.contains("酒") { return VelaTheme.stressColor }
+        if tags.contains("alcohol") || tags.contains("酒") { return VelaTheme.rhythmInk }
         return VelaTheme.accent
     }
 

@@ -373,11 +373,11 @@ extension VelaMetricDetailView {
         // Core-domain colors provide stable identity across Today, Trends and
         // details. State is expressed separately through labels and markers.
         switch metric {
-        case .strain: return VelaTheme.strainColor
-        case .recovery: return VelaTheme.recoveryColor
-        case .sleep: return VelaTheme.sleepColor
-        case .stress: return VelaTheme.stressColor
-        case .energy: return VelaTheme.energyColor
+        case .strain: return VelaTheme.rhythmInk
+        case .recovery: return VelaTheme.rhythmInk
+        case .sleep: return VelaTheme.rhythmInk
+        case .stress: return VelaTheme.rhythmInk
+        case .energy: return VelaTheme.rhythmInk
         case .hrv, .rhr, .respiratoryRate, .bloodOxygen, .weight, .bodyFat,
              .steps, .activeCalories, .activeMinutes:
             return VelaTheme.brand

@@ -24,7 +24,7 @@ struct MetricEvidenceSection: View {
                         title: item.title,
                         detail: item.detail,
                         value: item.value,
-                        tint: isSleep ? VelaTheme.sleepColor : VelaTheme.rhythmDeep
+                        tint: isSleep ? VelaTheme.rhythmInk : VelaTheme.rhythmDeep
                     )
 
                     if index < items.count - 1 {

@@ -144,7 +144,7 @@ struct WikiProfileView: View {
             HStack(spacing: 12) {
                 Image(systemName: "heart.text.square.fill")
                     .font(.title3)
-                    .foregroundStyle(VelaTheme.energyColor)
+                    .foregroundStyle(VelaTheme.rhythmInk)
                     .frame(width: 32, height: 32)
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -578,13 +578,13 @@ struct WikiProfileView: View {
     private func tintForFile(_ filename: String) -> Color {
         switch filename {
         case "profile.md": return VelaTheme.accent
-        case "goals.md": return VelaTheme.energyColor
-        case "habits.md": return VelaTheme.recoveryColor
-        case "training_history.md": return VelaTheme.strainColor
-        case "health_context.md": return VelaTheme.sleepColor
+        case "goals.md": return VelaTheme.rhythmInk
+        case "habits.md": return VelaTheme.rhythmInk
+        case "training_history.md": return VelaTheme.rhythmInk
+        case "health_context.md": return VelaTheme.rhythmInk
         case "notes.md", "observations.md": return VelaTheme.fg2
-        case "constraints.md": return VelaTheme.stressColor
-        case "preferences.md": return VelaTheme.energyColor
+        case "constraints.md": return VelaTheme.rhythmInk
+        case "preferences.md": return VelaTheme.rhythmInk
         case "strategies.md": return VelaTheme.accent
         default: return VelaTheme.accent
         }
@@ -594,14 +594,14 @@ struct WikiProfileView: View {
 
     @ViewBuilder
     private var pendingMemoriesSection: some View {
-        VelaHeroSurface(tint: VelaTheme.energyColor) {
+        VelaHeroSurface(tint: VelaTheme.rhythmInk) {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .top, spacing: 12) {
                     Image(systemName: "brain.head.profile")
                         .font(.title3.weight(.semibold))
-                        .foregroundStyle(VelaTheme.energyColor)
+                        .foregroundStyle(VelaTheme.rhythmInk)
                         .frame(width: 40, height: 40)
-                        .background(Circle().fill(VelaTheme.energyColor.opacity(0.12)))
+                        .background(Circle().fill(VelaTheme.rhythmInk.opacity(0.12)))
                         .accessibilityHidden(true)
 
                     VStack(alignment: .leading, spacing: 4) {
@@ -626,7 +626,7 @@ struct WikiProfileView: View {
                     ? "\(pendingProposals.count) 条候选长期记忆会影响未来建议、解释和训练调整。"
                     : "\(pendingProposals.count) proposed memories may shape future recommendations, explanations, and training adjustments.",
                     systemImage: "person.crop.circle.badge.questionmark",
-                    tint: VelaTheme.energyColor
+                    tint: VelaTheme.rhythmInk
                 )
 
                 ForEach(pendingProposals) { proposal in
@@ -648,7 +648,7 @@ struct WikiProfileView: View {
             HStack(spacing: 10) {
                 Image(systemName: "clock.badge.questionmark")
                     .font(.title3)
-                    .foregroundStyle(VelaTheme.energyColor)
+                    .foregroundStyle(VelaTheme.rhythmInk)
                     .frame(width: 32, height: 32)
 
                 VStack(alignment: .leading, spacing: 2) {

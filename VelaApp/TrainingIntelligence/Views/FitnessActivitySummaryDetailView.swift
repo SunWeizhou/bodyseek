@@ -152,9 +152,9 @@ struct FitnessActivitySummaryDetailView: View {
     private var activityStats: some View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 2), spacing: 12) {
             activityStat(title: "活跃天数", value: "\(activeDays) 天", icon: "calendar", color: VelaTheme.accent)
-            activityStat(title: "训练次数", value: "\(workoutCount) 次", icon: "figure.run", color: VelaTheme.strainColor)
+            activityStat(title: "训练次数", value: "\(workoutCount) 次", icon: "figure.run", color: VelaTheme.rhythmInk)
             activityStat(title: "活动消耗", value: "\(activeCalories) kcal", icon: "flame.fill", color: VelaTheme.systemOrange)
-            activityStat(title: "平均耗力", value: averageStrain.map { String(format: "%.0f", $0) } ?? "--", icon: "bolt.heart.fill", color: VelaTheme.recoveryColor)
+            activityStat(title: "平均耗力", value: averageStrain.map { String(format: "%.0f", $0) } ?? "--", icon: "bolt.heart.fill", color: VelaTheme.rhythmInk)
         }
     }
 

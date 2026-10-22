@@ -8,8 +8,8 @@ enum IntradayPhysiologyMetric {
 
     var signalColor: Color {
         switch self {
-        case .stress: VelaTheme.stressColor
-        case .energy: VelaTheme.energyColor
+        case .stress: VelaTheme.rhythmInk
+        case .energy: VelaTheme.rhythmInk
         }
     }
 

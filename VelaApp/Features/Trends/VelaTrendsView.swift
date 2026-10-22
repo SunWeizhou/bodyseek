@@ -217,7 +217,7 @@ struct VelaTrendsView: View {
                 TrendsOneMetricChart(
                     series: series,
                     selectedDate: $selectedRecoveryTrendDate,
-                    tint: VelaTheme.recoveryColor
+                    tint: VelaTheme.rhythmInk
                 )
                 .accessibilityIdentifier("trends-recovery-store-chart")
             }
@@ -484,11 +484,11 @@ struct VelaTrendsView: View {
 
     private func scoreColor(for metric: CoreHealthMetric) -> Color {
         switch metric {
-        case .recovery: return VelaTheme.recoveryColor
-        case .sleepScore: return VelaTheme.sleepColor
-        case .strain: return VelaTheme.strainColor
-        case .stress: return VelaTheme.stressColor
-        case .energy: return VelaTheme.energyColor
+        case .recovery: return VelaTheme.rhythmInk
+        case .sleepScore: return VelaTheme.rhythmInk
+        case .strain: return VelaTheme.rhythmInk
+        case .stress: return VelaTheme.rhythmInk
+        case .energy: return VelaTheme.rhythmInk
         default: return VelaTheme.rhythmDeep
         }
     }
@@ -995,11 +995,11 @@ struct VelaTrendsView: View {
 
     private func accentColor(for metric: CoreHealthMetric) -> Color {
         switch metric {
-        case .hrv, .recovery: return VelaTheme.recoveryColor
-        case .restingHeartRate, .strain: return VelaTheme.strainColor
-        case .sleepDuration, .sleepScore: return VelaTheme.sleepColor
-        case .stress: return VelaTheme.stressColor
-        case .energy: return VelaTheme.energyColor
+        case .hrv, .recovery: return VelaTheme.rhythmInk
+        case .restingHeartRate, .strain: return VelaTheme.rhythmInk
+        case .sleepDuration, .sleepScore: return VelaTheme.rhythmInk
+        case .stress: return VelaTheme.rhythmInk
+        case .energy: return VelaTheme.rhythmInk
         case .respiratoryRate, .oxygenSaturation, .bodyWeight, .bodyFat, .steps, .activeCalories:
             return VelaTheme.rhythmDeep
         }
@@ -1008,7 +1008,7 @@ struct VelaTrendsView: View {
     private func assessmentColor(for assessment: TrendAssessment) -> Color {
         switch assessment {
         case .favorable: return VelaTheme.brandLeaf
-        case .unfavorable: return VelaTheme.strainColor
+        case .unfavorable: return VelaTheme.rhythmInk
         case .neutral: return VelaTheme.rhythmInkSecondary
         case .insufficientData: return VelaTheme.muted
         }

@@ -2,8 +2,8 @@ import SwiftUI
 import UIKit
 
 // MARK: - BodySeek Monochrome System
-// Neutral surfaces and system typography keep the interface quiet.
-// Blue identifies actions; health colours retain their independent meanings.
+// D palette: ink on white or pure black. Actions use the same ink.
+// The five metric hues stay defined for Watch and widgets; iOS screens use ink.
 
 enum VelaTheme {
 
@@ -32,44 +32,42 @@ enum VelaTheme {
 
     // MARK: - Surface
 
-    static let backgroundUIColor = adaptiveUIColor("#F5F5F7", "#111113")
+    static let backgroundUIColor = adaptiveUIColor("#FFFFFF", "#000000")
     static let bg            = Color(backgroundUIColor)
     static let systemGroupedBackground = bg
-    static let secondaryGroupedBackground = adaptive("#EBEBEF", "#1A1A1A")
-    static let tertiaryGroupedBackground = adaptive("#DFDFE5", "#262626")
-    static let surface       = adaptive("#F5F5F7", "#111113")
-    static let cardBg        = adaptive("#FFFFFF", "#1A1A1A")
-    static let elevatedBg    = adaptive("#EBEBEF", "#262626")
+    static let secondaryGroupedBackground = adaptive("#F2F2F3", "#1B1B1C")
+    static let tertiaryGroupedBackground = adaptive("#E5E5E8", "#262628")
+    static let surface       = adaptive("#FFFFFF", "#000000")
+    static let cardBg        = adaptive("#F7F7F8", "#111112")
+    static let elevatedBg    = adaptive("#F2F2F3", "#1B1B1C")
     static let groupedBg     = bg
     /// Inset surface — for nested content areas within cards
-    static let surfaceInset = adaptive("#F0F0F4", "#151517")
-    /// Floating surface — for elements that hover above content (popovers, dock)
-    static let surfaceFloating = adaptive("#FFFFFF", "#222224")
+    static let surfaceInset = adaptive("#F2F2F3", "#1B1B1C")
+    /// Floating surface — input bars, round buttons, user bubbles.
+    static let surfaceFloating = adaptive("#F2F2F3", "#1B1B1C")
 
     // MARK: - Vela Rhythm Identity
 
     /// Shared neutral canvas for Today, Trends, Plan and Coach.
-    static let rhythmCanvas       = adaptive("#F5F5F7", "#111113")
-    static let rhythmCanvasRaised = adaptive("#FFFFFF", "#1A1A1A")
-    static let rhythmInk          = adaptive("#111111", "#F5F5F5")
-    static let rhythmInkSecondary = adaptive("#666666", "#B8B8B8")
-    static let rhythmMist         = adaptive("#E2E2E7", "#333333")
-    static let rhythmGlow         = adaptive("#E8F0FC", "#1C2A40")
-    static let rhythmDeepUIColor = adaptiveUIColor("#175CD3", "#91BAFF")
+    static let rhythmCanvas       = adaptive("#FFFFFF", "#000000")
+    static let rhythmCanvasRaised = adaptive("#F7F7F8", "#111112")
+    static let rhythmInk          = adaptive("#111111", "#F2F2F2")
+    static let rhythmInkSecondary = adaptive("#5E5E63", "#9A9A9E")
+    static let rhythmMist         = adaptive("#E5E5E8", "#262628")
+    static let rhythmGlow         = adaptive("#F2F2F3", "#1B1B1C")
+    static let rhythmDeepUIColor = adaptiveUIColor("#111111", "#FFFFFF")
     static let rhythmDeep         = Color(rhythmDeepUIColor)
-    /// Foreground on solid action buttons: white in light mode, ink in dark mode.
-    static let rhythmDeepOnUIColor = adaptiveUIColor("#FFFFFF", "#111113")
+    /// Foreground on solid action buttons: white on ink, black on white.
+    static let rhythmDeepOnUIColor = adaptiveUIColor("#FFFFFF", "#000000")
     static let rhythmDeepOn        = Color(rhythmDeepOnUIColor)
-    static let rhythmWarm         = adaptive("#B8B8B8", "#D0D0D0")
+    static let rhythmWarm         = adaptive("#6E6E73", "#808086")
 
-    // MARK: - iOS 26 Glassmorphic Tokens
-    static let glassCardBgAdaptive   = adaptive("#FFFFFF", "#1A1A1A")
-    static let glassCardStrokeColor  = adaptive("#FFFFFF", "#FFFFFF")
-    static let glassAccentGlow       = adaptive("#5664E8", "#7F8CFF").opacity(0.18)
-    static let glassRecoveryGlow     = adaptive("#159A7B", "#4DD6AD").opacity(0.16)
-    static let glassSleepGlow        = adaptive("#6B5EDB", "#A99DFF").opacity(0.16)
-    static let glassStressGlow       = adaptive("#D64D72", "#FF7C9B").opacity(0.16)
-    static let glassEnergyGlow       = adaptive("#C88A18", "#F2BC4D").opacity(0.16)
+    /// Usual personal range behind a sparkline. Not a status color.
+    static let rangeBand = adaptive("#E3E3E6", "#2C2C2E")
+    /// Track behind a score ring or progress bar.
+    static let scoreTrack = adaptive("#EFEFF1", "#1E1E20")
+    /// Selected segment fill.
+    static let segmentOn = adaptive("#ECECEE", "#2A2A2C")
 
 
     // MARK: - Foreground
@@ -79,27 +77,27 @@ enum VelaTheme {
     static let muted         = Color(uiColor: .secondaryLabel)
     // tertiaryLabel 在暖灰绿画布上对比度仅 ~1.9:1（WCAG 不达标），
     // 用自适配色保证至少 4.5:1。
-    static let meta          = adaptive("#6B726D", "#A6B0AA")
+    static let meta          = adaptive("#6E6E73", "#808086")
 
     // MARK: - Accent
 
-    /// Action blue is independent of health-state colours.
-    static let accent        = adaptive("#175CD3", "#91BAFF")
+    /// Primary action ink. Same family as body text, not a separate brand hue.
+    static let accent        = adaptive("#111111", "#FFFFFF")
     // Match the contrast treatment of rhythmDeepOn.
-    static let accentOn      = adaptive("#FFFFFF", "#111113")
-    static let accentHover   = adaptive("#144EAE", "#B7D2FF")
-    static let accentActive  = adaptive("#124391", "#80ACF5")
+    static let accentOn      = adaptive("#FFFFFF", "#000000")
+    static let accentHover   = adaptive("#3A3A3C", "#E4E4E6")
+    static let accentActive  = adaptive("#000000", "#C8C8C8")
 
     // MARK: - Brand actions
 
     /// Shared interactive accent.
-    static let brand       = adaptive("#175CD3", "#91BAFF")
-    /// Gradient highlight.
-    static let brandBright = adaptive("#4C8CEB", "#C9DFFF")
+    static let brand       = adaptive("#111111", "#FFFFFF")
+    /// Pressed or secondary ink.
+    static let brandBright = adaptive("#3A3A3C", "#E4E4E6")
     /// 按压态/深色文字
-    static let brandDeep   = adaptive("#124391", "#80ACF5")
+    static let brandDeep   = adaptive("#000000", "#C8C8C8")
     /// Subtle action background.
-    static let brandSoft   = adaptive("#EAF1FC", "#1C2A40")
+    static let brandSoft   = adaptive("#F2F2F3", "#1B1B1C")
 
     // MARK: - State Colors (G1: 颜色只表达「好不好」,不装饰)
 
@@ -157,7 +155,7 @@ enum VelaTheme {
     /// 睡眠主题浅色文字(睡眠小部件专用)
     static let sleepText     = adaptive("#F2EFE8", "#161512")
     /// 发丝灰(描边/分隔)
-    static let hairline      = adaptive("#E5E5EA", "#3A4048")
+    static let hairline      = adaptive("#E5E5E8", "#262628")
 
     // MARK: - Borders
 
@@ -183,8 +181,8 @@ enum VelaTheme {
     /// 能量 Energy — gold
     static let energyColor   = adaptive("#B47C18", "#F2BC4D")
     /// Personal Baseline Deviation — unusual-for-you, not a good/bad alarm.
-    /// WCAG AA on rhythmCanvas: light #4A4A4A ≈8.1:1, dark #C8C8C8 ≈11.4:1.
-    static let deviationInk  = adaptive("#4A4A4A", "#C8C8C8")
+    /// Same ink as secondary text. WCAG AA on the D canvas is checked by scripts/check_contrast.py.
+    static let deviationInk  = adaptive("#5E5E63", "#9A9A9E")
 
     // MARK: - Workout & Physiology Tokens
 
@@ -346,7 +344,7 @@ enum VelaTheme {
     static let cardGap: CGFloat = 12
     static let sectionGap: CGFloat = 24
     static let compactCardPadding: CGFloat = 14
-    static let cardPadding: CGFloat = 18
+    static let cardPadding: CGFloat = 16
     static let pagePadding: CGFloat = 20
     static let minimumHitTarget: CGFloat = 44
     static let circularControlSize: CGFloat = 44
@@ -356,53 +354,31 @@ enum VelaTheme {
     // MARK: - Radius
 
     static let radiusSm: CGFloat   = 8
-    static let radiusMd: CGFloat   = 12
-    static let radiusCard: CGFloat = 20
-    static let radiusLg: CGFloat   = 20
-    static let radiusCardStandard: CGFloat = 20
-    static let radiusCardLarge: CGFloat = 24
-    static let radiusHero: CGFloat = 24
-    static let radiusFeature: CGFloat = 24
-    static let radiusXl: CGFloat   = 24
+    static let radiusMd: CGFloat   = radiusSm
+    static let radiusCard: CGFloat = 18
+    static let radiusLg: CGFloat   = radiusCard
+    static let radiusCardStandard: CGFloat = radiusCard
+    static let radiusCardLarge: CGFloat = radiusCard
+    static let radiusHero: CGFloat = radiusCard
+    static let radiusFeature: CGFloat = radiusCard
+    static let radiusXl: CGFloat   = radiusCard
+    static let radiusInput: CGFloat = 26
     static let radiusSheet: CGFloat = 32
     static let radiusPill: CGFloat = 980
 
-    static let fillSoft = adaptive("#5664E81A", "#FFFFFF16")
+    static let fillSoft = adaptive("#11111114", "#FFFFFF14")
 
     /// 大号 caption：基于系统 TextStyle（默认 13pt，随 Dynamic Type 缩放；原 14pt 固定，审计 H1）。
     static func captionLarge() -> Font { .system(.footnote, design: .default) }
     static func pageTitle() -> Font { .system(.title2, design: .default, weight: .bold) }
-    static func metricHeroValue() -> Font {
-        .system(size: 48, weight: .semibold, design: .rounded).monospacedDigit()
-    }
+    /// Score numerals on a card. Semantic size, tabular digits, no rounded design.
     static func cardValue() -> Font {
-        .system(size: 30, weight: .semibold, design: .rounded).monospacedDigit()
+        .title2.weight(.medium).monospacedDigit()
     }
-    /// 旗舰大数字(就绪度等),SF Rounded,等宽。
-    static func displayValue() -> Font {
-        .system(size: 60, weight: .bold, design: .rounded).monospacedDigit()
-    }
-    /// Premium hero score — largest display number, used in Today dashboard
-    static func heroScore() -> Font {
-        .system(size: 64, weight: .bold, design: .rounded).monospacedDigit()
-    }
+    static func briefBody() -> Font { .body }
     /// Section eyebrow label
     static func eyebrow() -> Font {
         .system(.caption2, design: .default, weight: .semibold)
-    }
-    /// 体征大卡数值。
-    static func vitalValue() -> Font {
-        .system(size: 24, weight: .bold, design: .rounded).monospacedDigit()
-    }
-
-    // MARK: - Shadow
-
-    static func cardShadow(_ cs: ColorScheme) -> Color {
-        cs == .dark ? Color.black.opacity(0.34) : Color(hex: "#25304F").opacity(0.07)
-    }
-
-    static func nativeShadow(_ cs: ColorScheme) -> Color {
-        cs == .dark ? Color.clear : Color(hex: "#25304F").opacity(0.025)
     }
 
     // MARK: - Animation
@@ -471,15 +447,9 @@ enum VelaMetricDomain: String, CaseIterable {
     case energy
     case neutral
 
+    /// iOS screens draw every score in ink. Watch and widgets keep `VelaTheme.*Color`.
     var color: Color {
-        switch self {
-        case .strain: VelaTheme.strainColor
-        case .recovery: VelaTheme.recoveryColor
-        case .sleep: VelaTheme.sleepColor
-        case .stress: VelaTheme.stressColor
-        case .energy: VelaTheme.energyColor
-        case .neutral: VelaTheme.accent
-        }
+        VelaTheme.rhythmInk
     }
 
     var systemImage: String {

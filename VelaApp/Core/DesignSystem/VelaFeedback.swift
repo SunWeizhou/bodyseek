@@ -28,7 +28,7 @@ enum VelaDataPresentationState: String, CaseIterable, Equatable {
         case .loading, .calibrating: VelaTheme.accent
         case .empty: VelaTheme.muted
         case .partial, .stale: VelaTheme.warn
-        case .offline: VelaTheme.sleepColor
+        case .offline: VelaTheme.rhythmInk
         case .error: VelaTheme.danger
         }
     }

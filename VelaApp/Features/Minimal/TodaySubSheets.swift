@@ -621,7 +621,7 @@ struct PostWorkoutCheckInSheet: View {
                 if let saveError {
                     Text(saveError)
                         .font(VelaTheme.caption1())
-                        .foregroundStyle(VelaTheme.stressColor)
+                        .foregroundStyle(VelaTheme.rhythmInk)
                 }
                 saveButton
             }
@@ -1028,12 +1028,12 @@ struct PostWorkoutImpactSheet: View {
                 Spacer()
                 Text(impact.postPeakHeartRateText)
                     .font(.system(.body, design: .default, weight: .bold))
-                    .foregroundStyle(VelaTheme.strainColor)
+                    .foregroundStyle(VelaTheme.rhythmInk)
             }
 
             PostWorkoutTrendLine(
                 points: impact.postWorkoutHeartRateTrend,
-                color: VelaTheme.strainColor,
+                color: VelaTheme.rhythmInk,
                 valueRange: impact.postWorkoutHeartRateRange
             )
                 .frame(height: 86)

@@ -112,7 +112,7 @@ struct AppCoordinator: View {
     private var storeWarningBanner: some View {
         HStack(spacing: 10) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(VelaTheme.energyColor)
+                .foregroundStyle(VelaTheme.warn)
             Text(appState.isReadOnlySafetyMode
                  ? (language.isChinese
                     ? "数据库无法打开，原文件已备份并进入只读安全模式。"

@@ -143,7 +143,7 @@ struct VelaTodayView: View {
             if conflicted {
                 Label("AI 与本机判断不一致，以本机今日决定为准", systemImage: "exclamationmark.triangle")
                     .font(.system(.caption2, design: .default, weight: .medium))
-                    .foregroundStyle(VelaTheme.stressColor)
+                    .foregroundStyle(VelaTheme.rhythmInk)
             } else if !insight.evidence.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
                     ForEach(insight.evidence.prefix(3), id: \.self) { line in
@@ -179,7 +179,7 @@ struct VelaTodayView: View {
                                 colors: [
                                     VelaTheme.rhythmDeep.opacity(0.65),
                                     Color(hex: "#8B5CF6").opacity(0.55),
-                                    VelaTheme.energyColor.opacity(0.45)
+                                    VelaTheme.rhythmInk.opacity(0.45)
                                 ],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
@@ -221,11 +221,11 @@ struct VelaTodayView: View {
 
     private func signalAccentColor(_ accent: DailyPlanAccent) -> Color {
         switch accent {
-        case .recovery: return VelaTheme.recoveryColor
-        case .sleep:    return VelaTheme.sleepColor
-        case .strain:   return VelaTheme.strainColor
-        case .stress:   return VelaTheme.stressColor
-        case .energy:   return VelaTheme.energyColor
+        case .recovery: return VelaTheme.rhythmInk
+        case .sleep:    return VelaTheme.rhythmInk
+        case .strain:   return VelaTheme.rhythmInk
+        case .stress:   return VelaTheme.rhythmInk
+        case .energy:   return VelaTheme.rhythmInk
         }
     }
 
@@ -349,7 +349,7 @@ struct VelaTodayView: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 8) {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(VelaTheme.stressColor)
+                        .foregroundStyle(VelaTheme.rhythmInk)
                     Text(errorMessage)
                         .font(.system(.footnote, design: .default, weight: .semibold))
                         .foregroundStyle(VelaTheme.rhythmInk)
@@ -360,7 +360,7 @@ struct VelaTodayView: View {
             .background(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
             .overlay(
                 RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
-                    .stroke(VelaTheme.stressColor.opacity(0.3), lineWidth: 1)
+                    .stroke(VelaTheme.rhythmInk.opacity(0.3), lineWidth: 1)
             )
         }
     }
@@ -756,11 +756,11 @@ struct VelaTodayView: View {
 
     func accentColor(_ accent: DailyPlanAccent) -> Color {
         switch accent {
-        case .recovery: return VelaTheme.recoveryColor
-        case .sleep: return VelaTheme.sleepColor
-        case .strain: return VelaTheme.strainColor
-        case .energy: return VelaTheme.energyColor
-        case .stress: return VelaTheme.stressColor
+        case .recovery: return VelaTheme.rhythmInk
+        case .sleep: return VelaTheme.rhythmInk
+        case .strain: return VelaTheme.rhythmInk
+        case .energy: return VelaTheme.rhythmInk
+        case .stress: return VelaTheme.rhythmInk
         }
     }
 }
@@ -944,7 +944,7 @@ struct TodayDateAndStatusHeader: View {
                                 .foregroundStyle(VelaTheme.rhythmDeep)
                         }
                     Circle()
-                        .fill(settingsSynced ? VelaTheme.success : VelaTheme.rhythmGlow)
+                        .fill(settingsSynced ? VelaTheme.rhythmInk : VelaTheme.rhythmInkSecondary)
                         .frame(width: 8, height: 8)
                         .overlay(Circle().stroke(VelaTheme.rhythmCanvas, lineWidth: 1.5))
                 }
@@ -1069,17 +1069,17 @@ struct DataCoverageCompactCard: View {
     
     private func dataCoverageColor(_ status: DataCoverageSummaryModel.Status) -> Color {
         switch status {
-        case .high: return VelaTheme.energyColor
+        case .high: return VelaTheme.rhythmInk
         case .moderate: return VelaTheme.accent
-        case .low: return VelaTheme.strainColor
+        case .low: return VelaTheme.rhythmInk
         case .unknown: return VelaTheme.muted
         }
     }
 
     private func dataCoveragePercentColor(_ percent: Int) -> Color {
-        if percent >= 80 { return VelaTheme.energyColor }
+        if percent >= 80 { return VelaTheme.rhythmInk }
         if percent >= 50 { return VelaTheme.accent }
-        return VelaTheme.strainColor
+        return VelaTheme.rhythmInk
     }
 }
 

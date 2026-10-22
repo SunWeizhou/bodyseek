@@ -74,14 +74,14 @@ struct AIModelSettingsView: View {
                     Text("餐食照片仅在你确认分析后发送给 Kimi。自动任务还需要在“联网 AI 授权”中单独开启。")
                 } icon: {
                     Image(systemName: "photo.badge.checkmark.fill")
-                        .foregroundStyle(VelaTheme.energyColor)
+                        .foregroundStyle(VelaTheme.rhythmInk)
                 }
 
                 Label {
                     Text("API 密钥保存在系统钥匙串；模型选择保存在本机设置。Vela 不会把密钥写入聊天记录。")
                 } icon: {
                     Image(systemName: "key.fill")
-                        .foregroundStyle(VelaTheme.recoveryColor)
+                        .foregroundStyle(VelaTheme.rhythmInk)
                 }
             }
             .font(.footnote)

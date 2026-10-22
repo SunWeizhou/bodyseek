@@ -76,7 +76,7 @@ struct MetricCoachCard: View {
                     if let errorMessage = errorMessage {
                         Text(errorMessage)
                             .font(.footnote)
-                            .foregroundStyle(VelaTheme.stressColor)
+                            .foregroundStyle(VelaTheme.rhythmInk)
                             .padding(.vertical, 4)
                     } else if hasFinished {
                         MetricCoachAdviceView(advice: MetricCoachAdviceFormatter.parse(streamText))

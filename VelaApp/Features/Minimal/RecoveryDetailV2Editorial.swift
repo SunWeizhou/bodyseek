@@ -19,7 +19,7 @@ struct RecoveryDetailV2EditorialView: View {
     @State private var selectedDate: Date?
     @State private var showsEvidence = false
 
-    private let recovery = VelaTheme.recoveryColor
+    private let recovery = VelaTheme.rhythmInk
     private let ink = VelaTheme.rhythmInk
     private let secondary = VelaTheme.rhythmInkSecondary
     private let hairline = VelaTheme.rhythmMist

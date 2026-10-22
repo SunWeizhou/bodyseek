@@ -232,10 +232,10 @@ struct TodayVitalCard: View {
 
     private var accentColor: Color {
         switch card.kind {
-        case .hrv:   return VelaTheme.recoveryColor
+        case .hrv:   return VelaTheme.rhythmInk
         case .rhr:   return VelaTheme.rhythmDeep
         case .spo2:  return VelaTheme.accent
-        case .sleep: return VelaTheme.sleepColor
+        case .sleep: return VelaTheme.rhythmInk
         }
     }
 

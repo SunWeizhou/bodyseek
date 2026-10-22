@@ -402,7 +402,7 @@ struct WorkoutDetailView: View {
                     span: MKCoordinateSpan(latitudeDelta: 0.008, longitudeDelta: 0.008)
                 )))) {
                     MapPolyline(coordinates: routeCoordinates)
-                        .stroke(VelaTheme.strainColor, lineWidth: 4.5) // Reddish-orange loop like Apple Watch route!
+                        .stroke(VelaTheme.rhythmInk, lineWidth: 4.5) // Reddish-orange loop like Apple Watch route!
                     
                     if let first = routeCoordinates.first {
                         Annotation(L10n.t("Start", "起点"), coordinate: first) {

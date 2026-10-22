@@ -423,9 +423,9 @@ struct VelaRhythmHorizonHero: View {
                 }()
                 let color: Color = {
                     switch card.id {
-                    case "recovery": return VelaTheme.recoveryColor
-                    case "sleep":    return VelaTheme.sleepColor
-                    case "strain":   return VelaTheme.strainColor
+                    case "recovery": return VelaTheme.rhythmInk
+                    case "sleep":    return VelaTheme.rhythmInk
+                    case "strain":   return VelaTheme.rhythmInk
                     default:         return VelaTheme.accent
                     }
                 }()

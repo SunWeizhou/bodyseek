@@ -818,7 +818,7 @@ final class VelaThemeTests: XCTestCase {
         XCTAssertEqual(VelaTheme.pagePadding, 20)
         XCTAssertTrue((12...14).contains(VelaTheme.compactCardPadding))
         XCTAssertTrue((22...28).contains(VelaTheme.sectionGap))
-        XCTAssertTrue((20...24).contains(VelaTheme.radiusCardLarge))
+        XCTAssertEqual(VelaTheme.radiusCardLarge, 18)
         XCTAssertTrue((28...34).contains(VelaTheme.radiusSheet))
         XCTAssertGreaterThanOrEqual(VelaTheme.minimumHitTarget, 44)
         XCTAssertGreaterThanOrEqual(VelaTheme.bottomContentClearance, 104)

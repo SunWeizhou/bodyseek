@@ -63,7 +63,6 @@ struct VelaPlanView: View {
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.colorScheme) private var colorScheme
     @ObservedObject private var appState = VelaAppState.shared
 
     @State private var plan: DailyOperatingPlanRecord?
@@ -177,7 +176,7 @@ struct VelaPlanView: View {
                                 .font(VelaTheme.footnote())
                             Button("重新读取计划") { loadOrCreatePlan() }
                         }
-                        .foregroundStyle(VelaTheme.stressColor)
+                        .foregroundStyle(VelaTheme.rhythmInk)
                         .accessibilityIdentifier("plan-save-error")
                     }
                         rhythmSummary
@@ -294,7 +293,6 @@ struct VelaPlanView: View {
             RoundedRectangle(cornerRadius: 26, style: .continuous)
                 .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
         }
-        .shadow(color: VelaTheme.cardShadow(colorScheme), radius: 14, x: 0, y: 6)
     }
 
     private var actionSection: some View {
@@ -420,9 +418,9 @@ struct VelaPlanView: View {
             HStack(spacing: 14) {
                 Image(systemName: "figure.run")
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(VelaTheme.strainColor)
+                    .foregroundStyle(VelaTheme.rhythmInk)
                     .frame(width: 42, height: 42)
-                    .background(VelaTheme.strainColor.opacity(0.11), in: Circle())
+                    .background(VelaTheme.rhythmInk.opacity(0.11), in: Circle())
                 VStack(alignment: .leading, spacing: 3) {
                     Text("训练")
                         .font(.system(.headline, design: .default))
@@ -750,7 +748,7 @@ private struct PlanActionEditorSheet: View {
                 if let saveError {
                     Section {
                         Text("未保存：\(saveError)")
-                            .foregroundStyle(VelaTheme.stressColor)
+                            .foregroundStyle(VelaTheme.rhythmInk)
                         Text("修改内容仍保留在这里，可以再次点击保存。")
                             .font(.footnote)
                     }
@@ -912,11 +910,11 @@ private struct PlanDomainStyle {
 
     var color: Color {
         switch domain {
-        case .training: VelaTheme.strainColor
-        case .movement: VelaTheme.recoveryColor
-        case .eatingRhythm: VelaTheme.energyColor
-        case .stressRecovery: VelaTheme.stressColor
-        case .sleep: VelaTheme.sleepColor
+        case .training: VelaTheme.rhythmInk
+        case .movement: VelaTheme.rhythmInk
+        case .eatingRhythm: VelaTheme.rhythmInk
+        case .stressRecovery: VelaTheme.rhythmInk
+        case .sleep: VelaTheme.rhythmInk
         }
     }
 

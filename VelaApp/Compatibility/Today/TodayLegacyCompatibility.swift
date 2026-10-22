@@ -984,7 +984,7 @@ extension VelaTodayView {
         case .keep: return VelaTheme.success
         case .reduce: return VelaTheme.systemOrange
         case .swap: return VelaTheme.indigo
-        case .recover: return VelaTheme.sleepColor
+        case .recover: return VelaTheme.rhythmInk
         }
     }
 

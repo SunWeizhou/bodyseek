@@ -500,11 +500,11 @@ struct RecoveryDetailV2View: View {
     private var scoreRing: some View {
         ZStack {
             Circle()
-                .stroke(VelaTheme.recoveryColor.opacity(0.14), lineWidth: 9)
+                .stroke(VelaTheme.rhythmInk.opacity(0.14), lineWidth: 9)
             if model.scoreValue != nil {
                 Circle()
                     .trim(from: 0, to: min(1, max(0, (model.scoreValue ?? 0) / 100)))
-                    .stroke(VelaTheme.recoveryColor, style: StrokeStyle(lineWidth: 9, lineCap: .round))
+                    .stroke(VelaTheme.rhythmInk, style: StrokeStyle(lineWidth: 9, lineCap: .round))
                     .rotationEffect(.degrees(-90))
                     .animation(VelaTheme.dataAnimation(reduceMotion: reduceMotion), value: model.scoreValue)
             } else {
@@ -534,7 +534,7 @@ struct RecoveryDetailV2View: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("今日恢复")
                 .font(VelaTheme.caption1().weight(.semibold))
-                .foregroundStyle(VelaTheme.recoveryColor)
+                .foregroundStyle(VelaTheme.rhythmInk)
                 .accessibilityIdentifier("metric-detail-hero")
             Text(model.bandText)
                 .font(VelaTheme.headline())
@@ -657,7 +657,7 @@ struct RecoveryDetailV2View: View {
                         yStart: .value("下界", band.lowerBound),
                         yEnd: .value("上界", band.upperBound)
                     )
-                    .foregroundStyle(VelaTheme.recoveryColor.opacity(0.12))
+                    .foregroundStyle(VelaTheme.rhythmInk.opacity(0.12))
                 }
                 if model.showsBaselineLine, let median = model.baselineMedianValue {
                     RuleMark(y: .value("窗口中位数", median))
@@ -670,7 +670,7 @@ struct RecoveryDetailV2View: View {
                             x: .value("日期", point.date, unit: .day),
                             y: .value("恢复分", value)
                         )
-                        .foregroundStyle(VelaTheme.recoveryColor)
+                        .foregroundStyle(VelaTheme.rhythmInk)
                         .symbolSize(36)
                     } else {
                         ForEach(segment) { point in
@@ -680,7 +680,7 @@ struct RecoveryDetailV2View: View {
                                     y: .value("恢复分", value),
                                     series: .value("分段", index)
                                 )
-                                .foregroundStyle(VelaTheme.recoveryColor)
+                                .foregroundStyle(VelaTheme.rhythmInk)
                                 .interpolationMethod(.linear)
                                 .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
                             }
@@ -702,7 +702,7 @@ struct RecoveryDetailV2View: View {
                             x: .value("选中日期", scrubbedPoint.date, unit: .day),
                             y: .value("选中分数", value)
                         )
-                        .foregroundStyle(VelaTheme.recoveryColor)
+                        .foregroundStyle(VelaTheme.rhythmInk)
                         .symbolSize(70)
                     }
                 }

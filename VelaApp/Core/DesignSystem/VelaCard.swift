@@ -385,7 +385,7 @@ struct VelaMemoryProposalCardCompat: View {
                 Spacer()
                 Text("\(displayConfidence) confidence")
                     .font(.caption2.weight(.bold))
-                    .foregroundStyle(VelaTheme.energyColor)
+                    .foregroundStyle(VelaTheme.rhythmInk)
             }
             Text(displayTitle)
                 .font(.subheadline.weight(.semibold))
@@ -395,8 +395,8 @@ struct VelaMemoryProposalCardCompat: View {
                 .foregroundStyle(VelaTheme.fg2)
             if !source.isEmpty || !target.isEmpty {
                 HStack(spacing: 8) {
-                    VelaMetricPill(title: "Source", value: source, systemImage: "point.3.connected.trianglepath.dotted", tint: VelaTheme.sleepColor)
-                    VelaMetricPill(title: "Target", value: target, systemImage: "doc.text", tint: VelaTheme.recoveryColor)
+                    VelaMetricPill(title: "Source", value: source, systemImage: "point.3.connected.trianglepath.dotted", tint: VelaTheme.rhythmInk)
+                    VelaMetricPill(title: "Target", value: target, systemImage: "doc.text", tint: VelaTheme.rhythmInk)
                 }
             }
             HStack(spacing: 10) {

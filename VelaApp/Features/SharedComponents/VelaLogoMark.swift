@@ -10,7 +10,7 @@ struct VelaLogoMark: View {
                     LinearGradient(
                         colors: [
                             VelaTheme.accent.opacity(0.12),
-                            VelaTheme.sleepColor.opacity(0.06)
+                            VelaTheme.rhythmInk.opacity(0.06)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
@@ -39,7 +39,7 @@ struct VelaLogoMark: View {
                 context.fill(
                     sail,
                     with: .linearGradient(
-                        Gradient(colors: [VelaTheme.accent, VelaTheme.sleepColor]),
+                        Gradient(colors: [VelaTheme.accent, VelaTheme.rhythmInk]),
                         startPoint: left,
                         endPoint: right
                     )

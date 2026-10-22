@@ -282,7 +282,7 @@ struct StrengthWorkoutLogSheetView: View {
                     systemImage: groupKind == .superset ? "link" : "arrow.triangle.2.circlepath"
                 )
                 .font(VelaTheme.caption1().weight(.bold))
-                .foregroundStyle(groupKind == .superset ? VelaTheme.accent : VelaTheme.energyColor)
+                .foregroundStyle(groupKind == .superset ? VelaTheme.accent : VelaTheme.rhythmInk)
             }
 
             HStack {
@@ -500,9 +500,9 @@ struct StrengthWorkoutLogSheetView: View {
         switch kind {
         case .working: VelaTheme.accent
         case .warmup: VelaTheme.warn
-        case .drop: VelaTheme.sleepColor
-        case .backoff: VelaTheme.recoveryColor
-        case .failure: VelaTheme.strainColor
+        case .drop: VelaTheme.rhythmInk
+        case .backoff: VelaTheme.rhythmInk
+        case .failure: VelaTheme.rhythmInk
         }
     }
 

@@ -299,8 +299,8 @@ struct StrengthWorkoutDetailView: View {
 
     private func progressionStatusColor(_ status: StrengthProgressionStatus) -> Color {
         switch status {
-        case .ready: VelaTheme.recoveryColor
-        case .hold: VelaTheme.energyColor
+        case .ready: VelaTheme.rhythmInk
+        case .hold: VelaTheme.rhythmInk
         case .collecting: VelaTheme.muted
         }
     }
@@ -458,9 +458,9 @@ struct StrengthWorkoutDetailView: View {
         switch kind {
         case .working: VelaTheme.accent
         case .warmup: VelaTheme.systemOrange
-        case .drop: VelaTheme.sleepColor
-        case .backoff: VelaTheme.recoveryColor
-        case .failure: VelaTheme.strainColor
+        case .drop: VelaTheme.rhythmInk
+        case .backoff: VelaTheme.rhythmInk
+        case .failure: VelaTheme.rhythmInk
         }
     }
 

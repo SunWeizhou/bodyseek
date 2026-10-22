@@ -140,7 +140,7 @@ struct CoachHistoryDrawer: View {
                                 } label: {
                                     Image(systemName: "trash")
                                         .font(.system(size: 12))
-                                        .foregroundStyle(VelaTheme.stressColor)
+                                        .foregroundStyle(VelaTheme.rhythmInk)
                                         .frame(width: VelaTheme.minimumHitTarget, height: VelaTheme.minimumHitTarget)
                                         .contentShape(Rectangle())
                                 }

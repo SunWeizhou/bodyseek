@@ -271,9 +271,9 @@ struct CoachDataCoverageStrip: View {
 
     private var accent: Color {
         switch model.status {
-        case .high: return VelaTheme.energyColor
+        case .high: return VelaTheme.rhythmInk
         case .moderate: return VelaTheme.accent
-        case .low: return VelaTheme.strainColor
+        case .low: return VelaTheme.rhythmInk
         case .unknown: return VelaTheme.muted
         }
     }

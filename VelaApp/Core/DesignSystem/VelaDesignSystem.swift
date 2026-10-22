@@ -412,8 +412,8 @@ struct CoachArtifactCard: View {
 
     private var accent: Color {
         switch artifact.type {
-        case .postWorkoutReview, .trainingAdjustment, .workoutReadiness: return VelaTheme.strainColor
-        case .eveningReview: return VelaTheme.sleepColor
+        case .postWorkoutReview, .trainingAdjustment, .workoutReadiness: return VelaTheme.rhythmInk
+        case .eveningReview: return VelaTheme.rhythmInk
         case .wikiUpdateProposal: return Color(hex: "#FF9F0A")
         default: return VelaTheme.accent
         }
@@ -558,9 +558,9 @@ struct WorkoutSessionCard: View {
             HStack(spacing: 12) {
                 Image(systemName: "figure.strengthtraining.traditional")
                     .font(.system(.body, design: .rounded, weight: .bold))
-                    .foregroundStyle(VelaTheme.strainColor)
+                    .foregroundStyle(VelaTheme.rhythmInk)
                     .frame(width: 36, height: 36)
-                    .background(RoundedRectangle(cornerRadius: 10).fill(VelaTheme.strainColor.opacity(0.12)))
+                    .background(RoundedRectangle(cornerRadius: 10).fill(VelaTheme.rhythmInk.opacity(0.12)))
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
@@ -682,27 +682,19 @@ struct AmbientGlowModifier: ViewModifier {
     let intensity: CGFloat
 
     func body(content: Content) -> some View {
+        let _ = (color, intensity)
         content
-            .background(
-                RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous)
-                    .fill(color.opacity(intensity))
-            )
     }
 }
 
 struct VelaThemeBackground: View {
     var body: some View {
-        LinearGradient(
-            colors: [VelaTheme.accent.opacity(0.055), VelaTheme.bg, VelaTheme.bg],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-        .ignoresSafeArea()
+        VelaTheme.bg
+            .ignoresSafeArea()
     }
 }
 
 struct VelaNativeCardModifier: ViewModifier {
-    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
     let radius: CGFloat
 
@@ -713,61 +705,18 @@ struct VelaNativeCardModifier: ViewModifier {
             .clipShape(shape)
             .overlay(
                 shape.stroke(
-                    colorSchemeContrast == .increased
-                        ? AnyShapeStyle(VelaTheme.rhythmInk)
-                        : AnyShapeStyle(
-                            LinearGradient(
-                                colors: [
-                                    colorScheme == .dark ? Color.white.opacity(0.12) : VelaTheme.rhythmMist.opacity(0.85),
-                                    colorScheme == .dark ? Color.white.opacity(0.03) : VelaTheme.rhythmMist.opacity(0.40)
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        ),
-                    lineWidth: colorSchemeContrast == .increased ? 1 : 0.75
+                    colorSchemeContrast == .increased ? VelaTheme.rhythmInk : VelaTheme.hairline,
+                    lineWidth: 1
                 )
             )
     }
 }
 
 struct VelaGlassSurfaceModifier: ViewModifier {
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
-    @Environment(\.colorScheme) private var colorScheme
-
     let radius: CGFloat
 
     func body(content: Content) -> some View {
-        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
-        let needsSolidSurface = reduceTransparency || colorSchemeContrast == .increased
-
-        content
-            .background {
-                if needsSolidSurface {
-                    shape.fill(VelaTheme.cardBg)
-                } else {
-                    shape.fill(.ultraThinMaterial)
-                }
-            }
-            .clipShape(shape)
-            .overlay(
-                shape.stroke(
-                    colorSchemeContrast == .increased
-                        ? AnyShapeStyle(VelaTheme.border)
-                        : AnyShapeStyle(
-                            LinearGradient(
-                                colors: [
-                                    colorScheme == .dark ? Color.white.opacity(0.14) : Color.white.opacity(0.65),
-                                    colorScheme == .dark ? Color.white.opacity(0.03) : Color.white.opacity(0.20)
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        ),
-                    lineWidth: colorSchemeContrast == .increased ? 1 : 0.65
-                )
-            )
+        content.modifier(VelaNativeCardModifier(radius: radius))
     }
 }
 
@@ -775,26 +724,8 @@ struct AppleIntelligenceGlowModifier: ViewModifier {
     let isHighlighted: Bool
     let radius: CGFloat
     func body(content: Content) -> some View {
-        if isHighlighted {
-            content
-                .overlay(
-                    RoundedRectangle(cornerRadius: radius, style: .continuous)
-                        .stroke(
-                            LinearGradient(
-                                colors: [
-                                    Color(hex: "#9C5FF2"),
-                                    Color(hex: "#00A2FF"),
-                                    Color(hex: "#9C5FF2")
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1.5
-                        )
-                )
-        } else {
-            content
-        }
+        let _ = (isHighlighted, radius)
+        content
     }
 }
 
@@ -807,7 +738,7 @@ extension View {
         self.modifier(AmbientGlowModifier(color: color, intensity: intensity))
     }
 
-    func velaNativeCard(radius: CGFloat = 16) -> some View {
+    func velaNativeCard(radius: CGFloat = VelaTheme.radiusCard) -> some View {
         self.modifier(VelaNativeCardModifier(radius: radius))
     }
 
@@ -819,18 +750,11 @@ extension View {
     }
 
     func heroCardSurface(accent: Color = VelaTheme.accent, padding: CGFloat = VelaTheme.space4) -> some View {
-        self
+        let _ = accent
+        return self
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: VelaTheme.radiusFeature, style: .continuous)
-                    .fill(accent.opacity(0.06))
-            )
-            .glassEffect(radius: VelaTheme.radiusFeature)
-            .overlay(
-                RoundedRectangle(cornerRadius: VelaTheme.radiusFeature, style: .continuous)
-                    .stroke(accent.opacity(0.25), lineWidth: 0.8)
-            )
+            .velaNativeCard(radius: VelaTheme.radiusCard)
     }
 
     func glassEffect(radius: CGFloat = VelaTheme.radiusCardLarge) -> some View {

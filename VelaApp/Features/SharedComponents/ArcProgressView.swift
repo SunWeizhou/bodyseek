@@ -21,8 +21,8 @@ struct ArcProgressView: View {
 
     private var scoreColor: Color {
         switch score {
-        case ..<40: return VelaTheme.stressColor
-        case ..<70: return VelaTheme.energyColor
+        case ..<40: return VelaTheme.rhythmInk
+        case ..<70: return VelaTheme.rhythmInk
         default: return tint
         }
     }
@@ -148,19 +148,19 @@ struct ArcProgressPreview: View {
         VStack(spacing: 24) {
             ArcProgressView(
                 score: 65,
-                tint: VelaTheme.strainColor,
+                tint: VelaTheme.rhythmInk,
                 recommendedRange: 40...70
             )
 
             ArcProgressView(
                 score: 30,
-                tint: VelaTheme.strainColor,
+                tint: VelaTheme.rhythmInk,
                 recommendedRange: 40...70
             )
 
             ArcProgressView(
                 score: 85,
-                tint: VelaTheme.recoveryColor,
+                tint: VelaTheme.rhythmInk,
                 recommendedRange: 60...80
             )
         }

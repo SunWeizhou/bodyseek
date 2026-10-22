@@ -378,7 +378,7 @@ struct PrivacyDataControlsView: View {
                 if !statusMessage.isEmpty {
                     Text(statusMessage)
                         .font(.footnote)
-                        .foregroundStyle(isError ? VelaTheme.strainColor : VelaTheme.recoveryColor)
+                        .foregroundStyle(isError ? VelaTheme.rhythmInk : VelaTheme.rhythmInk)
                 }
             }
         }

@@ -610,7 +610,7 @@ struct MetricCustomWidgetsSection: View {
                     systemImage: isPositive ? "arrow.up.right" : "arrow.down.right"
                 )
                 .font(VelaTheme.caption2().weight(.semibold))
-                .foregroundStyle(isPositive ? VelaTheme.recoveryColor : VelaTheme.warn)
+                .foregroundStyle(isPositive ? VelaTheme.rhythmInk : VelaTheme.warn)
             }
         }
         .padding(14)
@@ -677,7 +677,7 @@ struct MetricCustomWidgetsSection: View {
                 .foregroundStyle(VelaTheme.muted)
             Text(value.map { "\(positive ? "+" : "−")\(String(format: "%.0f", abs($0)))" } ?? "--")
                 .font(VelaTheme.caption1().weight(.bold).monospacedDigit())
-                .foregroundStyle(positive ? VelaTheme.recoveryColor : VelaTheme.fg)
+                .foregroundStyle(positive ? VelaTheme.rhythmInk : VelaTheme.fg)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
@@ -693,9 +693,9 @@ struct MetricCustomWidgetsSection: View {
         return HStack(spacing: 10) {
             Image(systemName: symbol)
                 .font(VelaTheme.caption1().weight(.semibold))
-                .foregroundStyle(VelaTheme.stressColor)
+                .foregroundStyle(VelaTheme.rhythmInk)
                 .frame(width: 28, height: 28)
-                .background(VelaTheme.stressColor.opacity(0.10), in: Circle())
+                .background(VelaTheme.rhythmInk.opacity(0.10), in: Circle())
             Text(title)
                 .font(VelaTheme.subheadline())
                 .foregroundStyle(VelaTheme.rhythmInk)
@@ -730,7 +730,7 @@ struct MetricCustomWidgetsSection: View {
             SegmentedBatteryBar(
                 percentage: min(1, max(0, (value ?? 0) / 100)),
                 barCount: 20,
-                color: VelaTheme.energyColor
+                color: VelaTheme.rhythmInk
             )
             .opacity(value == nil ? 0.35 : 1)
             Text(value.map { "\(Int($0.rounded()))" } ?? "--")
