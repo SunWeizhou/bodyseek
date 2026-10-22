@@ -71,13 +71,11 @@ struct VelaTodayView: View {
     /// The score remains the conclusion. This one short line is a bridge to
     /// Coach, with a deterministic local brief available when AI is offline.
     private var todayAgentSentence: String {
-        switch todayExperience.baselineFormation.phase {
-        case .waitingForEvidence:
-            return "连接 Apple 健康后开始形成个人基线。"
-        case .learning:
-            return "继续正常佩戴，Vela 正在了解你的日常波动。"
-        case .ready:
-            break
+        let measured = todayMeasuredBrief
+        let phaseNote: String = switch todayExperience.baselineFormation.phase {
+        case .waitingForEvidence: "连接 Apple 健康后开始形成个人基线。"
+        case .learning: "继续正常佩戴，Vela 正在了解你的日常波动。"
+        case .ready: ""
         }
         let localBriefParts = [
             dashboard.personalHealthBrief?.headline,
@@ -85,13 +83,29 @@ struct VelaTodayView: View {
         ]
             .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
-        if !localBriefParts.isEmpty {
-            return localBriefParts.joined(separator: " ")
+        let brief = localBriefParts.joined(separator: " ")
+        let tail = brief.isEmpty ? phaseNote : brief
+        if measured.isEmpty { return tail.isEmpty ? "五项状态已更新，点此继续问我。" : tail }
+        if tail.isEmpty || tail == measured { return measured }
+        return "\(measured)。\(tail)"
+    }
+
+    /// Numbers come only from the scores already shown on this screen.
+    private var todayMeasuredBrief: String {
+        let cards = todayExperience.signalCards
+        func shown(_ id: String, _ title: String) -> String? {
+            guard let card = cards.first(where: { $0.id == id }), card.value != "--" else { return nil }
+            return "\(title) \(card.value)"
         }
-        if !todayExperience.hero.summary.isEmpty {
-            return todayExperience.hero.summary
+        var parts = [shown("sleep", "睡眠"), shown("recovery", "恢复")].compactMap { $0 }
+        if let hrv = dashboard.recoveryMetrics.hrvMilliseconds {
+            var clause = "HRV \(Int(hrv.rounded())) ms"
+            if let usual = dashboard.recoveryBaseline.hrvMilliseconds {
+                clause += "，平时 \(Int(usual.rounded())) ms"
+            }
+            parts.append(clause)
         }
-        return "五项状态已更新，点此继续问我。"
+        return parts.joined(separator: "。")
     }
 
     private var todayNotableChange: String {

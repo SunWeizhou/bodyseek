@@ -763,7 +763,7 @@ struct RecoveryDetailV2View: View {
                         .foregroundStyle(VelaTheme.rhythmInkSecondary)
                 }
             }
-            .frame(height: dynamicTypeSize.isAccessibilitySize ? 220 : 180)
+            .frame(height: dynamicTypeSize.isAccessibilitySize ? 180 : 112)
             .accessibilityLabel("恢复趋势")
             .accessibilityValue("有效 \(model.observedDayCount) 天，缺失 \(model.missingDayCount) 天")
         }

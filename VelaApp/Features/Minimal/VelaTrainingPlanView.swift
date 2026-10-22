@@ -181,8 +181,8 @@ struct VelaPlanView: View {
                         .accessibilityIdentifier("plan-save-error")
                     }
                     actionSection
-                    if let candidatePayload {
-                        candidateCard(candidatePayload)
+                    if let suggestion = candidatePayload ?? previewDisplayPayload {
+                        candidateCard(suggestion)
                     }
                     rhythmSummary
                     trainingPortal

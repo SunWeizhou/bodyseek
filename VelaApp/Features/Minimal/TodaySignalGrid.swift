@@ -64,6 +64,19 @@ struct TodaySignalGrid: View {
         }
     }
 
+    private var scoreLine: String {
+        let shown = model.signalCards.filter { $0.value != "--" }
+        var parts = shown.map { "\($0.title) \($0.value)" }
+        if let hrv = dashboardSnapshot.recoveryMetrics.hrvMilliseconds {
+            var clause = "HRV \(Int(hrv.rounded())) ms"
+            if let usual = dashboardSnapshot.recoveryBaseline.hrvMilliseconds {
+                clause += "，平时 \(Int(usual.rounded())) ms"
+            }
+            parts.append(clause)
+        }
+        return parts.joined(separator: " · ")
+    }
+
     private var briefStamp: String {
         let hour = Calendar.current.component(.hour, from: model.generatedAt)
         let dayPart = hour < 12 ? "早上" : (hour < 18 ? "下午" : "晚上")
@@ -95,14 +108,22 @@ struct TodaySignalGrid: View {
                         .foregroundStyle(VelaTheme.rhythmInkSecondary)
                 }
             }
-            Text(agentSentence)
+            Text(scoreLine.isEmpty ? agentSentence : scoreLine)
                 .font(VelaTheme.briefBody().weight(.semibold))
                 .foregroundStyle(VelaTheme.rhythmInk)
                 .lineSpacing(6)
                 .fixedSize(horizontal: false, vertical: true)
+            if !agentSentence.isEmpty, agentSentence != scoreLine {
+                Text(agentSentence)
+                    .font(VelaTheme.briefBody())
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                    .lineSpacing(6)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             if let action = model.actions.first,
                !action.detail.isEmpty,
-               action.detail != agentSentence {
+               action.detail != agentSentence,
+               action.detail != scoreLine {
                 Text(action.detail)
                     .font(VelaTheme.briefBody())
                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
