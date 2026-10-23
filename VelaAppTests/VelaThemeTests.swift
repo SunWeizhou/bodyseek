@@ -16,53 +16,6 @@ final class VelaThemeTests: XCTestCase {
         )
     }
 
-    func testRhythmTrendSourceUsesRealHistoricalTrendNotFabricatedSeries() {
-        // 节律曲线回归：数据源必须是 signal card 自带的真实历史趋势，
-        // 而不是把 5 个截面分数平铺到假时间轴。
-        func card(trend: [Double], value: String = "78") -> TodayExperienceSignalCard {
-            TodayExperienceSignalCard(
-                id: "recovery",
-                title: "恢复",
-                value: value,
-                directionLabel: "",
-                confidenceLabel: "",
-                coverageLabel: "",
-                subtitle: "",
-                trend: trend,
-                accent: .recovery,
-                state: .good
-            )
-        }
-
-        let full = RhythmTrendSource.series(for: card(trend: [66, 70, 72, 69, 74, 71, 78]))
-        XCTAssertEqual(full, [66, 70, 72, 69, 74, 71, 78])
-
-        // 历史不足时不伪造曲线
-        XCTAssertTrue(RhythmTrendSource.series(for: card(trend: [78])).isEmpty)
-        XCTAssertTrue(RhythmTrendSource.series(for: card(trend: [])).isEmpty)
-
-        // 越界值钳制到 0-100
-        XCTAssertEqual(RhythmTrendSource.series(for: card(trend: [-10, 150])), [0, 100])
-    }
-
-    func testRhythmHourlyHeartRateAggregatesRealSamplesByHour() {
-        // 按小时模式回归：逐小时曲线必须来自当日真实心率样本的均值聚合。
-        let calendar = Calendar.current
-        let day = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_700_000_000))
-        let samples = [
-            HeartRateSample(date: day.addingTimeInterval(3_600), bpm: 60),
-            HeartRateSample(date: day.addingTimeInterval(3_660), bpm: 64),
-            HeartRateSample(date: day.addingTimeInterval(7_200), bpm: 80),
-            HeartRateSample(date: day.addingTimeInterval(-500), bpm: 200), // 前一天，忽略
-        ]
-
-        let points = RhythmTrendSource.hourlyHeartRate(samples: samples, day: day, calendar: calendar)
-
-        XCTAssertEqual(points.map(\.hour), [1, 2])
-        XCTAssertEqual(points[0].value, 62, accuracy: 0.001, "同小时多样本应取均值")
-        XCTAssertEqual(points[1].value, 80, accuracy: 0.001)
-    }
-
     func testTrainingPlanAdvisorParsesJSONAndIgnoresGarbage() {
         // Coach 规划解析回归：容忍 markdown 包裹、过滤非法肌群与越界天数。
         let markdownWrapped = """
@@ -486,39 +439,6 @@ final class VelaThemeTests: XCTestCase {
         let dayAfterEnd = calendar.date(byAdding: .day, value: 1, to: end)!
         let futureDay = weeks.flatMap(\.days).first { calendar.isDate($0.date, inSameDayAs: dayAfterEnd) }
         XCTAssertEqual(futureDay?.isFuture, true)
-    }
-
-    func testRhythmHourlyExertionLoadUsesHeartRateReserve() {        // 按小时活动强度：小时平均心率储备率 × 覆盖分钟（5 分钟/样本封顶 60）。
-        let calendar = Calendar.current
-        let day = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_700_000_000))
-        let samples = [
-            // 1 点：静息水平 60 → 储备率 0 → 负荷 0
-            HeartRateSample(date: day.addingTimeInterval(3_600), bpm: 60),
-            HeartRateSample(date: day.addingTimeInterval(3_660), bpm: 60),
-            // 2 点：110 bpm，储备率 (110-60)/(160-60)=0.5，覆盖 10 分钟 → 负荷 5
-            HeartRateSample(date: day.addingTimeInterval(7_200), bpm: 110),
-            HeartRateSample(date: day.addingTimeInterval(7_500), bpm: 110),
-        ]
-
-        let points = RhythmTrendSource.hourlyExertionLoad(
-            samples: samples,
-            day: day,
-            restingHeartRate: 60,
-            maxHeartRate: 160,
-            calendar: calendar
-        )
-
-        XCTAssertEqual(points.map(\.hour), [1, 2])
-        XCTAssertEqual(points[0].value, 0, accuracy: 0.001)
-        XCTAssertEqual(points[1].value, 5, accuracy: 0.001)
-
-        // 缺基线 → 空（不伪造）
-        XCTAssertTrue(
-            RhythmTrendSource.hourlyExertionLoad(
-                samples: samples, day: day,
-                restingHeartRate: nil, maxHeartRate: 160, calendar: calendar
-            ).isEmpty
-        )
     }
 
     func testStrengthGroupingPlannerCreatesContiguousSuperset() {

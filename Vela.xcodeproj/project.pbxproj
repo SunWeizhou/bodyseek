@@ -11,7 +11,6 @@
 		0B4A00010000000000000001 /* VelaWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B4A10010000000000000001 /* VelaWatchApp.swift */; };
 		0B4A00020000000000000002 /* WristSnapshotBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B4A10020000000000000002 /* WristSnapshotBridge.swift */; };
 		0B4A00150000000000000015 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0B1001580000000000000058 /* Assets.xcassets */; };
-		030D51E11F504938A9EED418 /* ArcProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32407F306A454D93A254BB24 /* ArcProgressView.swift */; };
 		0B25D0740000000000000074 /* DataFreshnessIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1740000000000000074 /* DataFreshnessIndicator.swift */; };
 		0B1009010000000000000901 /* TrainingIntelligenceModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1009020000000000000902 /* TrainingIntelligenceModels.swift */; };
 		0B1009110000000000000911 /* StrengthWorkoutLogSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1009120000000000000912 /* StrengthWorkoutLogSheetView.swift */; };
@@ -506,7 +505,6 @@
 		0B21D1060000000000000006 /* VelaInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/DesignSystem/VelaInput.swift; sourceTree = "<group>"; };
 		133A4EB88D8CAFC310065B46 /* DailyPlanLimiterEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DailyPlanLimiterEngine.swift; path = VelaApp/Scoring/DailyPlan/DailyPlanLimiterEngine.swift; sourceTree = SOURCE_ROOT; };
 		2CF8EED0E93741AB80179897 /* HealthStoreProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Health/Services/HealthStoreProvider.swift; sourceTree = "<group>"; };
-		32407F306A454D93A254BB24 /* ArcProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/SharedComponents/ArcProgressView.swift; sourceTree = "<group>"; };
 		0B25D1740000000000000074 /* DataFreshnessIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/SharedComponents/DataFreshnessIndicator.swift; sourceTree = "<group>"; };
 		359118EB7D9C43659D1C55C1 /* BodyInterpreterEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scoring/BodyInterpreter/BodyInterpreterEngine.swift; sourceTree = "<group>"; };
 		4746CA84311E3C6D12654200 /* WorkoutAggregationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WorkoutAggregationTests.swift; sourceTree = "<group>"; };
@@ -754,7 +752,6 @@
 				0B1001420000000000000042 /* HealthAgeTrendEngine.swift */,
 				0B1001750000000000000075 /* JournalCorrelationEngine.swift */,
 				0B1001810000000000000081 /* PersonalBaselineEngine.swift */,
-				32407F306A454D93A254BB24 /* ArcProgressView.swift */,
 				0B25D1740000000000000074 /* DataFreshnessIndicator.swift */,
 				0B1001600000000000000060 /* WikiProfileView.swift */,
 				0B1001610000000000000061 /* Vela-Info.plist */,
@@ -1270,7 +1267,6 @@
 				0B1000410000000000000041 /* HealthAgeTrendEngine.swift in Sources */,
 				0B1000750000000000000075 /* JournalCorrelationEngine.swift in Sources */,
 				0B1001800000000000000080 /* PersonalBaselineEngine.swift in Sources */,
-				030D51E11F504938A9EED418 /* ArcProgressView.swift in Sources */,
 				0B25D0740000000000000074 /* DataFreshnessIndicator.swift in Sources */,
 				0B1000600000000000000060 /* WikiProfileView.swift in Sources */,
 				0B1000710000000000000071 /* MorningBriefScheduler.swift in Sources */,
