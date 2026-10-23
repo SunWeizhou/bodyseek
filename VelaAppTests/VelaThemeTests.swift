@@ -3060,6 +3060,14 @@ final class VelaThemeTests: XCTestCase {
         XCTAssertFalse(questions.first?.contains("训练") == true)
     }
 
+    func testCoachEmptyStateKeepsASingleInvite() {
+        XCTAssertEqual(CoachEmptyStateCopy.invite, "问一句今天的状态")
+        XCTAssertEqual(CoachEmptyStateCopy.inviteHint, "输入或点麦克风即可。")
+        XCTAssertEqual(CoachEmptyStateCopy.inlineInvite, "结合当前页面直接问")
+        XCTAssertFalse(CoachEmptyStateCopy.invite.contains("记录与记忆"))
+        XCTAssertFalse(VelaFeatureFlags.biologicalAgeEnabled)
+    }
+
     func testCoachRouteFocusPreservesSurfaceSemantics() {
         let trends = CoachContextFocus.routed(
             from: .trends,

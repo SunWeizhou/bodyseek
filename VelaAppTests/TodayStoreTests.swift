@@ -784,6 +784,8 @@ final class BodySeekInstrumentCopyTests: XCTestCase {
         XCTAssertEqual(readings[1].isUnusual, false)
         XCTAssertEqual(readings[2].value, nil)
         XCTAssertEqual(readings[2].caption, "暂无数据")
+        XCTAssertEqual(readings.map(\.id), ["recovery", "sleep", "strain", "stress", "energy"])
+        XCTAssertFalse(readings.contains { $0.id.contains("age") || $0.title.contains("年龄") })
     }
 
     func testAskSuggestionsFollowPublishedDeviationAndPlan() {

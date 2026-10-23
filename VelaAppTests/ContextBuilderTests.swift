@@ -931,6 +931,33 @@ final class ContextBuilderTests: XCTestCase {
         XCTAssertTrue(rendered.contains("content_hash: \(canonical.contextHash)"))
     }
 
+    func testPrimaryFactSnapshotOmitsBiologicalAgeByDefault() {
+        XCTAssertFalse(VelaFeatureFlags.showsBiologicalAgeInPrimaryFact)
+        XCTAssertNil(
+            CoachCompactContextAdapter.healthReferenceLineForPrimaryFact(
+                "- 生物年龄估算：32.0 岁（完整 PhenoAge 化验指标）"
+            )
+        )
+
+        let generatedAt = makeDate()
+        let canonical = AIContextBuilder().buildFacts(
+            dashboard: .preview(date: generatedAt),
+            journalEntries: [],
+            historicalReports: [],
+            userWiki: [:],
+            generatedAt: generatedAt
+        ).snapshot
+        let rendered = CoachCompactContextAdapter().render(
+            snapshot: canonical,
+            language: .simplifiedChinese,
+            maxCharacters: 2_000,
+            healthReferenceLine: "- 生物年龄估算：32.0 岁（完整 PhenoAge 化验指标）"
+        )
+        XCTAssertFalse(rendered.contains("生物年龄"))
+        XCTAssertFalse(rendered.contains("健康信号参考"))
+        XCTAssertTrue(rendered.contains("今日事实快照"))
+    }
+
     @MainActor
     func testAIContextIncludesOnboardingBodyModel() {
         let generatedAt = makeDate()
