@@ -198,3 +198,21 @@ codesign --verify --deep --strict build/DeviceDeployDerivedData/Build/Products/D
 构建身份为 `com.sunweizhou.Vela4` / 4.0.0 (1)，以源码差异和二进制哈希区分本轮，不依赖版本号。`build/data-presentation-repair/source.diff` SHA-256 为 `c978872f29bf89416fa3fda9d438d7c5591a80f4f4488bfc64270090725efe3b`；`device-build-receipt.json` 保存主程序、dylib、Info.plist 的哈希。`git diff --check` 通过。尚未覆盖安装本轮构建，需新的明确部署授权。
 
 上述是定向本地回归、原生布局及签名构建证据，不是全套 CI、完整评分科学有效性或所有设备验收。真实 provider 网络问答、HealthKit 授权/三年真实数据运行、设备听写和 FPS 尚未验证。评分补算入口已实现，但没有对用户真实数据库自动运行。
+
+
+## 2026-10-23：分支归并与 Xcode 26.5 构建修复
+
+用户明确要求将各开发分支合入 main 并保留单一分支。起点 `a4580e4991a9de08aaf874ce3b009b4b2d935293`，工作树干净；远端 main 为 `caf2f5cc751611c5f0fe868e1eae52967d971dd8`。四个远端开发分支是同一提交链：`cursor/recovery-detail-v2-1d20` → `cursor/neutral-deviation-missing-labels-d427` → `cursor/d-monochrome-tokens` → `codex/ui/readable-trend-charts`。本地 recovery 分支另有 `0ff8effd`，只新增 15 份 D 方向设计资料，已用保留历史的 merge 纳入；设计稿是历史参考，不覆盖当前 PRD。归并 PR 为 #11。删除分支前逐条检查 tip 已被 main 包含；本机另有 `build/branch-consolidation/before-cleanup.bundle` 和 refs-before.txt 可恢复，bundle verify 退出 0。
+
+最新起点 CI run 39927750097 的 iOS build 退出 65：CoachView.swift 的过长 body 修饰器表达式在 Xcode 26.5 无法完成类型推断；Backend tests 通过。本机只有 Xcode 27，不能据本机通过声称 26.5 兼容。修复 `a5e1f6e7` 将原视图链分为 conversationContent、conversationLifecycle、conversationSessions、body 四个 opaque return type 边界，不改变修饰器顺序、状态所有权或业务行为。26.5 的最终判定以 PR 的 GitHub Actions 为准。
+
+本地验证（Xcode 27，iPhone 17 / iOS 26.5 模拟器）：
+
+- `xcodebuild -project Vela.xcodeproj -scheme Vela -configuration Debug -destination 'generic/platform=iOS Simulator' -derivedDataPath build/UIOnboardingDerivedData CODE_SIGNING_ALLOWED=NO build`：退出 0。
+- `swift test --package-path BodySeekDomain`：退出 0，41 项通过。
+- `python3 scripts/schema_fingerprint.py --check`：退出 0，live/frozen V3 均 32 个模型。
+- `python3 scripts/check_contrast.py`：退出 0，保留既有非文本调色板 informational warnings。
+- `git diff --check`：退出 0。
+- `xcodebuild ... -destination 'platform=iOS Simulator,id=80FFA19E-69E6-499F-B246-F071A2D369BF' -parallel-testing-enabled NO -derivedDataPath build/UIOnboardingDerivedData -resultBundlePath build/branch-consolidation/CoachUI.xcresult -only-testing:VelaUITests/VelaSmokeUITests/testDataRepairLayoutsAndLegacyProtocolRecovery -only-testing:VelaUITests/VelaSmokeUITests/testAskBarOffersExplicitSendAndStaysOnCurrentPage -testLanguage zh -testRegion CN CODE_SIGNING_ALLOWED=NO test`：退出 0，两项通过，覆盖旧协议失败展示与恢复草稿、页内发送及对话恢复。
+
+本轮只归并版本与修复编译阻塞，没有部署真机或触发真实健康数据补算。分支清理不是新的完整设备验收，既有产品验证边界继续适用；最新完整 CI 状态及最终合并身份记录在 PR #11。
