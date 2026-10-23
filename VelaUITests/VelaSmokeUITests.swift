@@ -717,7 +717,9 @@ final class VelaSmokeUITests: XCTestCase {
 /// there so a reviewer can page through the daily flow.
 @MainActor
 final class BodySeekWalkthroughUITests: XCTestCase {
-    private var outputDirectory: URL?
+    // setUpWithError() overrides a nonisolated XCTest method, so this
+    // directory is written off the main actor and later read by capture().
+    private nonisolated(unsafe) var outputDirectory: URL?
     private var step = 0
 
     func testDailyWalkthrough() throws {
