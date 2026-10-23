@@ -470,6 +470,7 @@ struct VelaPlanView: View {
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("plan-proposal-diff")
 
+            }
             HStack(spacing: 10) {
                 Button("采用建议") {
                     accept(candidate)
@@ -493,7 +494,6 @@ struct VelaPlanView: View {
                 )
                 .buttonStyle(.plain)
             }
-            }
             Text("确认前，当前计划和你的完成记录都不会改变。")
                 .font(VelaTheme.caption2())
                 .foregroundStyle(VelaTheme.rhythmInkSecondary)
@@ -502,7 +502,7 @@ struct VelaPlanView: View {
         .background(VelaTheme.deviationWash, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
-                .stroke(VelaTheme.deviationInk.opacity(0.35), lineWidth: 1)
+                .stroke(VelaTheme.rhythmInk, lineWidth: 1.2)
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("plan-proposal-card")
@@ -1423,7 +1423,7 @@ struct VelaTrainingRotationView: View {
             Button {
                 VelaAppState.shared.routeToCoach(question: coachPlanQuestion, surface: .plan)
             } label: {
-                Label("和 Vela 调整计划", systemImage: "sparkles")
+                Label("和 BodySeek 调整计划", systemImage: "bubble.left")
                     .font(.system(.subheadline, design: .default, weight: .semibold))
                     .foregroundStyle(VelaTheme.rhythmDeepOn)
                     .frame(maxWidth: .infinity)

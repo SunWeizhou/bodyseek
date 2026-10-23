@@ -10,14 +10,16 @@ struct SettingsRow: View {
     var onTap: () -> Void
 
     var body: some View {
+        let _ = iconBg
         Button(action: onTap) {
             HStack(spacing: 14) {
                 Image(systemName: icon)
                     .font(.system(.callout, design: .default))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(VelaTheme.rhythmInk)
                     .frame(width: 30, height: 30)
-                    .background(iconBg)
+                    .background(VelaTheme.rhythmMist)
                     .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                    .accessibilityHidden(true)
 
                 Text(title)
                     .font(VelaTheme.body())
@@ -53,12 +55,13 @@ struct ToggleRow: View {
     var onToggle: ((Bool) -> Void)?
 
     var body: some View {
+        let _ = iconBg
         HStack(spacing: 14) {
             Image(systemName: icon)
                 .font(.system(.callout, design: .default))
-                .foregroundStyle(.white)
+                .foregroundStyle(VelaTheme.rhythmInk)
                 .frame(width: 30, height: 30)
-                .background(iconBg)
+                .background(VelaTheme.rhythmMist)
                 .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
 
             Text(title)
@@ -216,12 +219,13 @@ struct PlusAction: View {
     let subtitle: String
 
     var body: some View {
+        let _ = (iconBg, iconFg)
         VStack(spacing: 8) {
             Image(systemName: icon)
                 .font(.system(.title2, design: .default))
-                .foregroundStyle(iconFg)
+                .foregroundStyle(VelaTheme.rhythmInk)
                 .frame(width: 44, height: 44)
-                .background(iconBg)
+                .background(VelaTheme.rhythmMist)
                 .clipShape(Circle())
 
             Text(title)

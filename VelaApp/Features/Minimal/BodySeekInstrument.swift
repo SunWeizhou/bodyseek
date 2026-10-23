@@ -191,6 +191,19 @@ struct ScoreInstrumentReading: Equatable, Identifiable {
         value.map { String(Int($0.rounded())) + (id == "energy" ? "%" : "") } ?? "--"
     }
 
+    /// Short Today-strip caption. Unusual readings show the published direction
+    /// ("低于平时") next to a hollow mark; usual or missing values stay blank.
+    var stripDeviationLabel: String? {
+        guard isUnusual, value != nil else { return nil }
+        if let first = caption.split(separator: " ").first {
+            let word = String(first)
+            if word.contains("低") || word.contains("高") || word.contains("偏离") {
+                return word
+            }
+        }
+        return BaselineDeviationCopy.unusualFallback
+    }
+
     var accessibilityText: String {
         let reading = value == nil ? "暂无数据" : id == "energy" ? "\(valueText) 可用余量" : "\(valueText) 分"
         return "\(title)，\(reading)，\(caption)"
@@ -253,63 +266,39 @@ struct ScoreInstrumentReading: Equatable, Identifiable {
 
 // MARK: - Today instrument
 
-/// Today's five independent scores, each read against the person's own usual
-/// value. All five share one type size and one row template. There is no total.
+/// Today's five independent scores as an equal-width strip. There is no total
+/// and no vertical baseline gauge on this surface — `BaselineGauge` stays for
+/// Trends / detail if those screens need a track.
 struct TodayScoreInstrument: View {
     let readings: [ScoreInstrumentReading]
     let selectedDate: Date
     let dashboardSnapshot: DashboardSummary
 
     var body: some View {
-        VStack(spacing: 0) {
+        HStack(spacing: 0) {
             ForEach(Array(readings.enumerated()), id: \.element.id) { index, reading in
                 if index > 0 {
-                    Divider()
-                        .overlay(VelaTheme.rhythmMist)
-                        .padding(.leading, 16)
+                    Rectangle()
+                        .fill(VelaTheme.hairline)
+                        .frame(width: VelaTheme.hairlineWidth)
+                        .padding(.vertical, 12)
                 }
-                row(reading)
+                column(reading)
+                    .frame(maxWidth: .infinity)
             }
-            legend
         }
+        .padding(.vertical, 12)
         .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
-                .stroke(VelaTheme.hairline, lineWidth: 1)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         )
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("today-score-instrument")
     }
 
-    private var legend: some View {
-        HStack(spacing: 14) {
-            HStack(spacing: 5) {
-                Circle().fill(VelaTheme.rhythmInk).frame(width: 7, height: 7)
-                Text("今天")
-            }
-            HStack(spacing: 5) {
-                Capsule().fill(VelaTheme.rhythmInkSecondary).frame(width: 2, height: 10)
-                Text("个人平时")
-            }
-            HStack(spacing: 5) {
-                Circle()
-                    .strokeBorder(VelaTheme.deviationInk, lineWidth: 1.25)
-                    .frame(width: 7, height: 7)
-                Text("对你不常见")
-            }
-            Spacer(minLength: 0)
-        }
-        .font(VelaTheme.caption2())
-        .foregroundStyle(VelaTheme.rhythmInkSecondary)
-        .padding(.horizontal, 16)
-        .padding(.top, 2)
-        .padding(.bottom, 12)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("实心圆是今天，竖线是个人平时水平，空心圆表示对你而言不常见，不代表好坏。")
-    }
-
     @ViewBuilder
-    private func row(_ reading: ScoreInstrumentReading) -> some View {
+    private func column(_ reading: ScoreInstrumentReading) -> some View {
         if let metric = detailMetric(for: reading.id) {
             NavigationLink {
                 VelaMetricDetailView(
@@ -319,7 +308,7 @@ struct TodayScoreInstrument: View {
                     isPresentedInSheet: false
                 )
             } label: {
-                rowContent(reading)
+                columnContent(reading)
             }
             .buttonStyle(.plain)
             .accessibilityElement(children: .ignore)
@@ -328,49 +317,40 @@ struct TodayScoreInstrument: View {
             .accessibilityAddTraits(.isButton)
             .accessibilityIdentifier(identifier(for: reading.id))
         } else {
-            rowContent(reading)
+            columnContent(reading)
         }
     }
 
-    private func rowContent(_ reading: ScoreInstrumentReading) -> some View {
-        HStack(alignment: .center, spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 5) {
-                    Text(reading.title)
-                        .font(VelaTheme.subheadline().weight(.semibold))
-                        .foregroundStyle(VelaTheme.rhythmInk)
-                    if reading.isUnusual {
-                        BaselineDeviationMarker(showsLabel: false, diameter: 7)
-                    }
-                }
-                Text(reading.caption)
-                    .font(VelaTheme.caption2())
-                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.85)
-            }
-            .frame(minWidth: 96, maxWidth: 96, alignment: .leading)
-
-            BaselineGauge(
-                value: reading.value,
-                baseline: reading.baseline,
-                isUnusual: reading.isUnusual,
-                height: 22
-            )
-            .frame(maxWidth: .infinity)
-
+    private func columnContent(_ reading: ScoreInstrumentReading) -> some View {
+        VStack(spacing: 4) {
             Text(reading.valueText)
                 .font(VelaTheme.instrumentValue())
                 .monospacedDigit()
                 .foregroundStyle(reading.value == nil ? VelaTheme.rhythmInkSecondary : VelaTheme.rhythmInk)
-                .frame(minWidth: 44, alignment: .trailing)
-
-            Image(systemName: "chevron.right")
-                .font(.caption2.weight(.bold))
-                .foregroundStyle(VelaTheme.rhythmInkSecondary.opacity(0.55))
+                .minimumScaleFactor(0.7)
+                .lineLimit(1)
+            Text(reading.title)
+                .font(VelaTheme.caption1())
+                .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            if let label = reading.stripDeviationLabel {
+                HStack(spacing: 3) {
+                    Circle()
+                        .strokeBorder(VelaTheme.deviationInk, lineWidth: 1)
+                        .frame(width: 6, height: 6)
+                    Text(label)
+                        .font(VelaTheme.caption2())
+                        .foregroundStyle(VelaTheme.deviationInk)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                }
+            } else {
+                Color.clear.frame(height: 14)
+            }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 7)
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 2)
         .contentShape(Rectangle())
     }
 

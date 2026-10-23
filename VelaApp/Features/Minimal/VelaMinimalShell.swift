@@ -831,34 +831,28 @@ private struct BodySeekAskComposer: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .center, spacing: 6) {
-                if isCompact {
-                    if vm.messages.isEmpty { addButton } else { resumeButton }
-                }
-                // The field keeps one position in the tree so focus survives
-                // the compact → expanded switch.
-                TextField(placeholder, text: $draftState.text, axis: .vertical)
-                    .font(VelaTheme.callout())
-                    .foregroundStyle(VelaTheme.rhythmInk)
-                    .lineLimit(isCompact ? 1...1 : 1...5)
-                    .frame(minHeight: isCompact ? 40 : 28)
-                    .padding(.horizontal, isCompact ? 2 : 4)
-                    .focused($isFocused)
-                    .submitLabel(.send)
-                    .onSubmit(send)
-                    .accessibilityIdentifier("bodyseek-ask-input")
-                if isCompact {
-                    contextChip
-                    micButton
-                }
-            }
+            // The field keeps one position in the tree so focus survives
+            // the compact → expanded switch.
+            TextField(placeholder, text: $draftState.text, axis: .vertical)
+                .font(VelaTheme.callout())
+                .foregroundStyle(VelaTheme.rhythmInk)
+                .lineLimit(isCompact ? 1...1 : 1...5)
+                .frame(minHeight: isCompact ? 28 : 28)
+                .padding(.horizontal, 4)
+                .focused($isFocused)
+                .submitLabel(.send)
+                .onSubmit(send)
+                .accessibilityIdentifier("bodyseek-ask-input")
 
-            if !isCompact {
-                HStack(spacing: 6) {
-                    addButton
-                    contextChip
-                    Spacer(minLength: 0)
-                    micButton
+            HStack(spacing: 6) {
+                addButton
+                contextChip
+                Spacer(minLength: 0)
+                if vm.isStreaming {
+                    trailingAction
+                } else if dictation.isRecording || dictation.isStarting || !canSend {
+                    speakPill
+                } else {
                     trailingAction
                 }
             }
@@ -871,12 +865,12 @@ private struct BodySeekAskComposer: View {
             }
         }
         .buttonStyle(.plain)
-        .padding(.horizontal, 8)
-        .padding(.vertical, isCompact ? 6 : 10)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 10)
         .background(VelaTheme.surfaceFloating, in: RoundedRectangle(cornerRadius: VelaTheme.radiusInput, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: VelaTheme.radiusInput, style: .continuous)
-                .stroke(VelaTheme.hairline, lineWidth: 1)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         }
         .animation(VelaTheme.interfaceAnimation(reduceMotion: reduceMotion), value: isCompact)
         .accessibilityElement(children: .contain)
@@ -969,7 +963,9 @@ private struct BodySeekAskComposer: View {
         .accessibilityLabel("继续对话")
     }
 
-    private var micButton: some View {
+    /// Idle Speak is the highest-contrast control on the AskBar: ink fill, white label.
+    /// Dictation still uses the same `CoachDictationController` path.
+    private var speakPill: some View {
         Button {
             if dictation.isRecording || dictation.isStarting {
                 dictation.stop()
@@ -978,16 +974,22 @@ private struct BodySeekAskComposer: View {
                 dictation.begin(existingText: draft)
             }
         } label: {
-            Group {
-                if dictation.isStarting { ProgressView().controlSize(.small) }
-                else { Image(systemName: dictation.isRecording ? "stop.fill" : "mic") }
+            HStack(spacing: 5) {
+                if dictation.isStarting {
+                    ProgressView().controlSize(.small).tint(VelaTheme.rhythmDeepOn)
+                } else {
+                    Image(systemName: dictation.isRecording ? "stop.fill" : "mic")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                Text(dictation.isRecording ? "停止" : dictation.isStarting ? "…" : "说话")
+                    .font(VelaTheme.callout().weight(.semibold))
             }
-            .font(.system(size: 17, weight: .medium))
-            .foregroundStyle(dictation.isRecording ? VelaTheme.rhythmDeepOn : VelaTheme.rhythmInk)
-            .frame(width: 40, height: 40)
-            .background(dictation.isRecording ? VelaTheme.rhythmDeep : VelaTheme.rhythmCanvas, in: Circle())
-            .frame(width: 44, height: 44)
-            .contentShape(Rectangle())
+            .foregroundStyle(VelaTheme.rhythmDeepOn)
+            .padding(.horizontal, 14)
+            .frame(minHeight: 40)
+            .background(VelaTheme.rhythmDeep, in: Capsule())
+            .frame(minHeight: 44)
+            .contentShape(Capsule())
         }
         .accessibilityLabel(dictation.isRecording ? "停止听写" : dictation.isStarting ? "取消听写" : "说话")
         .accessibilityIdentifier("bodyseek-speak")
@@ -1007,12 +1009,18 @@ private struct BodySeekAskComposer: View {
             .accessibilityLabel("停止回复")
         } else if canSend {
             Button(action: send) {
-                Image(systemName: "arrow.up")
-                    .font(.system(size: 17, weight: .semibold))
-                    .frame(width: 40, height: 40)
-                    .foregroundStyle(VelaTheme.rhythmDeepOn)
-                    .background(VelaTheme.rhythmDeep, in: Circle())
-                    .frame(width: 44, height: 44)
+                HStack(spacing: 5) {
+                    Image(systemName: "arrow.up")
+                        .font(.system(size: 13, weight: .bold))
+                    Text("发送")
+                        .font(VelaTheme.callout().weight(.semibold))
+                }
+                .foregroundStyle(VelaTheme.rhythmDeepOn)
+                .padding(.horizontal, 14)
+                .frame(minHeight: 40)
+                .background(VelaTheme.rhythmDeep, in: Capsule())
+                .frame(minHeight: 44)
+                .contentShape(Capsule())
             }
             .accessibilityLabel("发送")
             .accessibilityIdentifier("bodyseek-send")

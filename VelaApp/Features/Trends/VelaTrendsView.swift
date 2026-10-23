@@ -187,7 +187,7 @@ struct VelaTrendsView: View {
     // MARK: - Five scored time series
 
     private var fiveScoreTrendSection: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 8) {
             ForEach(scoreDescriptors) { descriptor in
                 scoreTrendRow(descriptor)
             }
@@ -232,55 +232,71 @@ struct VelaTrendsView: View {
         let finding = finding(for: descriptor.metric)
         let trendPoints = scoreTrendPoints(for: descriptor.metric)
         let values = trendPoints.compactMap(\.value)
-        let color = scoreColor(for: descriptor.metric)
         let valueText = scoreValueText(descriptor: descriptor, finding: finding, values: values)
+        let series = currentSeries(for: descriptor.metric)
 
         return Button {
             selectedMetricForDetail = descriptor.detail
         } label: {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(descriptor.title)
-                        .font(VelaTheme.subheadline().weight(.semibold))
-                        .foregroundStyle(VelaTheme.rhythmInk)
-                    if finding?.isNotable == true {
-                        BaselineDeviationMarker(
-                            directionLabel: finding.flatMap { BaselineDeviationCopy.label(for: $0) },
-                            showsLabel: false,
-                            diameter: 7
-                        )
+            HStack(alignment: .center, spacing: 10) {
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 5) {
+                        Text(descriptor.title)
+                            .font(VelaTheme.subheadline().weight(.semibold))
+                            .foregroundStyle(VelaTheme.rhythmInk)
+                        if finding?.isNotable == true {
+                            BaselineDeviationMarker(
+                                directionLabel: finding.flatMap { BaselineDeviationCopy.label(for: $0) },
+                                showsLabel: false,
+                                diameter: 7
+                            )
+                        }
                     }
-                    Spacer(minLength: 8)
-                    Text(valueText)
-                        .font(VelaTheme.cardValue())
-                        .monospacedDigit()
-                        .foregroundStyle(valueText == "--" ? VelaTheme.muted : VelaTheme.rhythmInk)
-                    Image(systemName: "chevron.right")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                }
-
-                if let series = currentSeries(for: descriptor.metric) {
-                    TrendsOverviewChart(series: series, tint: color)
-                        .accessibilityIdentifier("trends-overview-chart-\(descriptor.metric.rawValue)")
-                } else {
-                    Text(dailyRecordsLoadError == nil ? "正在读取记录…" : "暂无可用记录")
+                    Text(scoreTrendCaption(finding: finding, sampleCount: values.count))
                         .font(VelaTheme.caption2())
                         .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                        .frame(maxWidth: .infinity, minHeight: 80)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.85)
                 }
+                .frame(width: 88, alignment: .leading)
 
-                Text(scoreTrendCaption(finding: finding, sampleCount: values.count))
-                    .font(VelaTheme.caption2())
+                Group {
+                    if let series {
+                        GeometryReader { geo in
+                            DateAwareSparkline(
+                                points: series.points,
+                                color: VelaTheme.rhythmInk,
+                                height: geo.size.height,
+                                width: geo.size.width,
+                                band: series.baselineBand,
+                                marksLatestPoint: true
+                            )
+                        }
+                        .accessibilityIdentifier("trends-overview-chart-\(descriptor.metric.rawValue)")
+                    } else {
+                        Text(dailyRecordsLoadError == nil ? "正在读取记录…" : "暂无可用记录")
+                            .font(VelaTheme.caption2())
+                            .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                    }
+                }
+                .frame(maxWidth: .infinity, minHeight: 36, maxHeight: 36)
+
+                Text(valueText)
+                    .font(VelaTheme.instrumentValue())
+                    .monospacedDigit()
+                    .foregroundStyle(valueText == "--" ? VelaTheme.rhythmInkSecondary : VelaTheme.rhythmInk)
+                    .frame(minWidth: 36, alignment: .trailing)
+                Image(systemName: "chevron.right")
+                    .font(.caption2.weight(.semibold))
                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
             .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
-                    .stroke(VelaTheme.hairline, lineWidth: 1)
+                    .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
             }
             .contentShape(Rectangle())
         }
@@ -441,19 +457,18 @@ struct VelaTrendsView: View {
                     Text("阴影为个人常见范围")
                 }
             }
-            if horizonNotableShifts.contains(where: { $0.metric.todayScoreRingID != nil }) {
-                HStack(spacing: 6) {
-                    Circle()
-                        .stroke(VelaTheme.rhythmInk, lineWidth: 1.5)
-                        .frame(width: 8, height: 8)
-                    Text("对你不常见（不代表不好）")
-                }
+            HStack(spacing: 6) {
+                Circle()
+                    .stroke(VelaTheme.rhythmInk, lineWidth: 1.25)
+                    .frame(width: 8, height: 8)
+                Text("空心圆 ≠ 不好，只表示偏离你的平时")
             }
             Text("空档日期暂无评分")
         }
         .font(VelaTheme.caption2())
         .foregroundStyle(VelaTheme.rhythmInkSecondary)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityLabel("空心圆不等于不好，只表示偏离你的平时")
     }
 
     private var metricCatalogDisclosure: some View {
@@ -548,17 +563,6 @@ struct VelaTrendsView: View {
         case .stress: return dashboard.stress.hasData ? dashboard.stress.value : nil
         case .energy: return dashboard.energy.hasData ? dashboard.energy.value : nil
         default: return nil
-        }
-    }
-
-    private func scoreColor(for metric: CoreHealthMetric) -> Color {
-        switch metric {
-        case .recovery: return VelaTheme.rhythmInk
-        case .sleepScore: return VelaTheme.rhythmInk
-        case .strain: return VelaTheme.rhythmInk
-        case .stress: return VelaTheme.rhythmInk
-        case .energy: return VelaTheme.rhythmInk
-        default: return VelaTheme.rhythmDeep
         }
     }
 

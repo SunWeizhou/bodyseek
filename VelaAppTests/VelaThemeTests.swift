@@ -743,7 +743,8 @@ final class VelaThemeTests: XCTestCase {
         XCTAssertEqual(VelaTheme.radiusLg, VelaTheme.radiusCard)
         XCTAssertTrue((28...34).contains(VelaTheme.radiusSheet))
         XCTAssertGreaterThanOrEqual(VelaTheme.minimumHitTarget, 44)
-        XCTAssertGreaterThanOrEqual(VelaTheme.bottomContentClearance, 104)
+        XCTAssertEqual(VelaTheme.bottomContentClearance, 132)
+        XCTAssertEqual(VelaTheme.hairlineWidth, 1)
     }
 
     func testDHairlineStrokeContractUsesSolidCardRadius() {

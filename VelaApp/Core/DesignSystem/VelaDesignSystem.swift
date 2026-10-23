@@ -461,7 +461,7 @@ struct ActionPill: View {
             )
             .overlay(
                 Capsule(style: .continuous)
-                    .stroke(isPrimary ? Color.clear : VelaTheme.rhythmMist, lineWidth: 0.75)
+                    .stroke(isPrimary ? Color.clear : VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
             )
             .contentShape(Capsule())
         }
@@ -499,7 +499,7 @@ struct DataSourceBadge: View {
 
     var body: some View {
         Text(label)
-            .font(.system(.caption2, design: .rounded, weight: .bold))
+            .font(.system(.caption2, design: .default, weight: .bold))
             .foregroundStyle(VelaTheme.muted)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
@@ -546,7 +546,7 @@ struct ConfidenceBadge: View {
 
     var body: some View {
         Text(ConfidenceBadgeCopy.label(confidence: confidence, score: score))
-            .font(.system(.caption2, design: .rounded, weight: .medium))
+            .font(.system(.caption2, design: .default, weight: .medium))
             .foregroundStyle(VelaTheme.rhythmInkSecondary)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
@@ -564,7 +564,7 @@ struct WorkoutSessionCard: View {
         Button(action: action) {
             HStack(spacing: 12) {
                 Image(systemName: "figure.strengthtraining.traditional")
-                    .font(.system(.body, design: .rounded, weight: .bold))
+                    .font(.system(.body, design: .default, weight: .bold))
                     .foregroundStyle(VelaTheme.rhythmInk)
                     .frame(width: 36, height: 36)
                     .background(RoundedRectangle(cornerRadius: 10).fill(VelaTheme.rhythmInk.opacity(0.12)))
@@ -582,7 +582,7 @@ struct WorkoutSessionCard: View {
                 Spacer()
 
                 Text(metric)
-                    .font(.system(.footnote, design: .rounded, weight: .bold))
+                    .font(.system(.footnote, design: .default, weight: .bold))
                     .foregroundStyle(VelaTheme.fg)
             }
             .padding(14)
@@ -972,12 +972,14 @@ struct VelaMakeIconTile: View {
     var size: CGFloat = 36
 
     var body: some View {
+        let _ = color
         Image(systemName: systemName)
             .font(.system(size: size * 0.46, weight: .semibold))
-            .foregroundStyle(.white)
+            .foregroundStyle(VelaTheme.rhythmInk)
             .frame(width: size, height: size)
-            .background(color)
+            .background(VelaTheme.rhythmMist)
             .clipShape(RoundedRectangle(cornerRadius: size * 0.25, style: .continuous))
+            .accessibilityHidden(true)
     }
 }
 

@@ -153,7 +153,7 @@ struct CoachThinkingView: View {
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(VelaTheme.rhythmMist, lineWidth: 0.6)
+                        .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                 )
             }
             .buttonStyle(.plain)
@@ -262,7 +262,7 @@ struct CoachDataCoverageStrip: View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                    .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
             )
         }
         .buttonStyle(.cardPress)
@@ -518,38 +518,88 @@ struct ArtifactRendererView: View {
 
 struct CoachFollowUpChipsView: View {
     let suggestions: [String]
+    var wraps: Bool = false
     let onSelect: (String) -> Void
 
     var body: some View {
-        ScrollView(.horizontal) {
-            HStack(spacing: 8) {
-                ForEach(suggestions, id: \.self) { suggestion in
-                    Button {
-                        VelaHaptic.selection()
-                        onSelect(suggestion)
-                    } label: {
-                        Label(suggestion, systemImage: "arrow.turn.down.right")
-                            .font(.footnote.weight(.medium))
-                            .foregroundStyle(VelaTheme.rhythmInk)
-                            .padding(.horizontal, 12)
-                            .frame(minHeight: VelaTheme.minimumHitTarget)
-                            .background(
-                                Capsule()
-                                    .fill(VelaTheme.rhythmCanvasRaised)
-                            )
-                            .overlay(
-                                Capsule()
-                                    .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
-                            )
-                            .fixedSize(horizontal: true, vertical: false)
-                    }
-                    .buttonStyle(.cardPress)
+        let chips = Array(suggestions.prefix(3))
+        Group {
+            if wraps {
+                ChipFlowLayout(spacing: VelaTheme.inlineGap) {
+                    ForEach(chips, id: \.self) { chip($0) }
                 }
+            } else {
+                ScrollView(.horizontal) {
+                    HStack(spacing: VelaTheme.inlineGap) {
+                        ForEach(chips, id: \.self) { chip($0) }
+                    }
+                }
+                .scrollIndicators(.hidden)
             }
         }
-        .scrollIndicators(.hidden)
-        .padding(.leading, 8)
-        .padding(.trailing, 8)
+        .padding(.leading, wraps ? 0 : 8)
+        .padding(.trailing, wraps ? 0 : 8)
         .transition(.opacity.combined(with: .move(edge: .bottom)))
+    }
+
+    private func chip(_ suggestion: String) -> some View {
+        Button {
+            VelaHaptic.selection()
+            onSelect(suggestion)
+        } label: {
+            Text(suggestion)
+                .font(VelaTheme.footnote().weight(.medium))
+                .foregroundStyle(VelaTheme.rhythmInk)
+                .padding(.horizontal, 12)
+                .frame(minHeight: VelaTheme.minimumHitTarget)
+                .background(Capsule().fill(VelaTheme.rhythmCanvasRaised))
+                .overlay(
+                    Capsule().stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
+                )
+                .fixedSize(horizontal: true, vertical: false)
+        }
+        .buttonStyle(.cardPress)
+        .accessibilityLabel(suggestion)
+    }
+}
+
+/// Wraps chips to the next line instead of scrolling them off-screen.
+private struct ChipFlowLayout: Layout {
+    var spacing: CGFloat = 8
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        arrange(proposal: proposal, subviews: subviews).size
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let result = arrange(proposal: proposal, subviews: subviews)
+        for (index, position) in result.positions.enumerated() {
+            subviews[index].place(
+                at: CGPoint(x: bounds.minX + position.x, y: bounds.minY + position.y),
+                proposal: .unspecified
+            )
+        }
+    }
+
+    private func arrange(proposal: ProposedViewSize, subviews: Subviews) -> (size: CGSize, positions: [CGPoint]) {
+        let maxWidth = proposal.width ?? .infinity
+        var positions: [CGPoint] = []
+        var x: CGFloat = 0
+        var y: CGFloat = 0
+        var rowHeight: CGFloat = 0
+        var width: CGFloat = 0
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x > 0, x + size.width > maxWidth {
+                x = 0
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            positions.append(CGPoint(x: x, y: y))
+            rowHeight = max(rowHeight, size.height)
+            x += size.width + spacing
+            width = max(width, x - spacing)
+        }
+        return (CGSize(width: width, height: y + rowHeight), positions)
     }
 }

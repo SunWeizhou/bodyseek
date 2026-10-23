@@ -76,7 +76,7 @@ struct CoachWelcomeWorkspace: View {
         .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous)
-                .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         }
         .accessibilityIdentifier("coach-contextual-questions")
     }
@@ -110,7 +110,7 @@ struct VelaReportsView: View {
                     NavigationLink("查看全部") {
                         AgentArtifactLibraryView()
                     }
-                    .font(.system(.footnote, design: .rounded, weight: .semibold))
+                    .font(.system(.footnote, design: .default, weight: .semibold))
                 }
                 artifactRows
 
@@ -118,7 +118,7 @@ struct VelaReportsView: View {
                 automationRows
 
                 Text("可在「设置 · 通知」中调整时间与开关。")
-                    .font(.system(.caption, design: .rounded))
+                    .font(.system(.caption, design: .default))
                     .foregroundStyle(VelaTheme.fg2)
                     .padding(.horizontal, 4)
             }
@@ -168,26 +168,23 @@ struct VelaReportsView: View {
         let latest = reports.first
         return VStack(alignment: .leading, spacing: 8) {
             Label("今日 Morning Brief · 6:00", systemImage: "sun.max.fill")
-                .font(.system(.footnote, design: .rounded))
-                .foregroundStyle(Color.white.opacity(0.9))
+                .font(.system(.footnote, design: .default))
+                .foregroundStyle(VelaTheme.rhythmInkSecondary)
             Text(latest?.title ?? "今日身体状态简报")
-                .font(.system(.title2, design: .rounded, weight: .bold))
-                .foregroundStyle(.white)
+                .font(.system(.title2, design: .default, weight: .bold))
+                .foregroundStyle(VelaTheme.rhythmInk)
             Text(reportPreview(latest?.markdownContent) ?? "同步健康数据后，Vela 会自动生成恢复、睡眠和训练建议。")
-                .font(.system(.footnote, design: .rounded))
-                .foregroundStyle(Color.white.opacity(0.9))
+                .font(.system(.footnote, design: .default))
+                .foregroundStyle(VelaTheme.rhythmInkSecondary)
                 .lineLimit(4)
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            LinearGradient(
-                colors: [.orange, Color(uiColor: .systemPink)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
+        }
     }
 
     @ViewBuilder
@@ -195,7 +192,7 @@ struct VelaReportsView: View {
         if reports.isEmpty {
             VelaMakeCard {
                 Text("暂无历史报告")
-                    .font(.system(.subheadline, design: .rounded))
+                    .font(.system(.subheadline, design: .default))
                     .foregroundStyle(VelaTheme.fg2)
             }
         } else {
@@ -231,10 +228,10 @@ struct VelaReportsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     Text(report.title)
-                        .font(.system(.title2, design: .rounded, weight: .bold))
+                        .font(.system(.title2, design: .default, weight: .bold))
                         .foregroundStyle(VelaTheme.rhythmInk)
                     Text(report.createdAt.formatted(date: .abbreviated, time: .shortened))
-                        .font(.system(.caption, design: .rounded))
+                        .font(.system(.caption, design: .default))
                         .foregroundStyle(VelaTheme.rhythmInkSecondary)
                     MarkdownText(markdown: report.markdownContent, color: VelaTheme.rhythmInk)
                 }
@@ -252,7 +249,7 @@ struct VelaReportsView: View {
         if artifacts.isEmpty {
             VelaMakeCard {
                 Text("暂无生成物")
-                    .font(.system(.subheadline, design: .rounded))
+                    .font(.system(.subheadline, design: .default))
                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
             }
         } else {
@@ -305,10 +302,10 @@ struct VelaReportsView: View {
             VelaMakeIconTile(systemName: icon, color: color, size: 32)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(.subheadline, design: .rounded, weight: .medium))
+                    .font(.system(.subheadline, design: .default, weight: .medium))
                     .foregroundStyle(VelaTheme.fg)
                 Text(subtitle)
-                    .font(.system(.caption, design: .rounded))
+                    .font(.system(.caption, design: .default))
                     .foregroundStyle(VelaTheme.fg2)
             }
             Spacer()
@@ -330,9 +327,9 @@ struct VelaReportsView: View {
             VelaMakeIconTile(systemName: "sparkles", color: color, size: 32)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(.subheadline, design: .rounded, weight: .medium))
+                    .font(.system(.subheadline, design: .default, weight: .medium))
                 Text(subtitle)
-                    .font(.system(.caption, design: .rounded))
+                    .font(.system(.caption, design: .default))
                     .foregroundStyle(VelaTheme.fg2)
             }
             Spacer()
@@ -597,11 +594,11 @@ private struct AgentArtifactLibraryRow: View {
             )
             VStack(alignment: .leading, spacing: 3) {
                 Text(record.title)
-                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                    .font(.system(.subheadline, design: .default, weight: .semibold))
                     .foregroundStyle(VelaTheme.fg)
                     .lineLimit(2)
                 Text("\(AgentArtifactPresentation.typeLabel(for: record.type)) · \(record.createdAt.formatted(.dateTime.month().day().hour().minute()))")
-                    .font(.system(.caption, design: .rounded))
+                    .font(.system(.caption, design: .default))
                     .foregroundStyle(VelaTheme.fg2)
                     .lineLimit(1)
             }

@@ -313,8 +313,11 @@ enum VelaTheme {
     static let minimumHitTarget: CGFloat = 44
     static let circularControlSize: CGFloat = 44
     /// The ask bar is a bottom safe-area inset, so pages only need breathing room.
-    static let bottomContentClearance: CGFloat = 112
+    /// 132pt clears the two-row AskBar (~86pt + home indicator) and the fade above it.
+    static let bottomContentClearance: CGFloat = 132
     static let tabBarHeight: CGFloat = 84
+    /// Cards, chips, and AskBar use one solid hairline. Do not mix 0.75pt mist strokes.
+    static let hairlineWidth: CGFloat = 1
 
     // MARK: - Radius
 
