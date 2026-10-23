@@ -623,8 +623,7 @@ struct VelaCoachView: View {
 
     @State private var todayOperatingPlanRecord: DailyOperatingPlanRecord?
     @State private var evidencePoints: [TrendsChartPoint] = []
-    @State private var pendingMemoryProposals: [MemoryEventRecord] = []
-    @State private var agentArtifacts: [AgentArtifactRecord] = []
+    @State private var showReports = false
 
     private var headerTitle: String {
         guard !vm.isGhostMode else { return "私密对话" }
@@ -688,8 +687,6 @@ struct VelaCoachView: View {
             .fetchAllSortedByCreatedAt(newestFirst: true)) ?? []
         savedReports = (try? SwiftDataAIReportRepository(modelContext: modelContext)
             .fetchAllSortedByCreatedAt()) ?? []
-        pendingMemoryProposals = MemoryLedger(modelContext: modelContext).pendingProposals()
-        agentArtifacts = (try? AgentArtifactRepository(modelContext: modelContext).fetchAllSortedByCreatedAt()) ?? []
         evidencePoints = loadEvidencePoints()
     }
 
@@ -734,29 +731,22 @@ struct VelaCoachView: View {
                             if vm.messages.isEmpty {
                                 if presentation == .inline {
                                     VStack(alignment: .leading, spacing: 12) {
-                                        VStack(alignment: .leading, spacing: 6) {
-                                            Text("结合当前页面，直接问我")
-                                                .font(VelaTheme.headline())
-                                            Text("回复会留在这里，收起后可以继续查看身体数据。")
-                                                .font(VelaTheme.footnote())
-                                                .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                                        }
+                                        Text(CoachEmptyStateCopy.inlineInvite)
+                                            .font(VelaTheme.headline())
+                                            .foregroundStyle(VelaTheme.rhythmInk)
+                                            .accessibilityIdentifier("coach-welcome-greeting")
                                         inlineSuggestionChips(inlineSuggestions)
                                     }
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                 } else if dashboard.source == .preview {
                                     previewConversation
                                 } else {
-                                coachEvidenceCard
-                                CoachWelcomeWorkspace(
-                                    vm: vm,
-                                    dashboard: dashboard,
-                                    todayOperatingPlan: todayOperatingPlan,
-                                    pendingMemoryProposals: pendingMemoryProposals,
-                                    agentArtifacts: agentArtifacts,
-                                    showWikiProfile: $showWikiProfile,
-                                    onSendMessage: { sendMessage($0) }
-                                )
+                                    CoachWelcomeWorkspace(
+                                        vm: vm,
+                                        dashboard: dashboard,
+                                        todayOperatingPlan: todayOperatingPlan,
+                                        onSendMessage: { sendMessage($0) }
+                                    )
                                 }
                             }
 
@@ -997,6 +987,11 @@ struct VelaCoachView: View {
         .sheet(isPresented: $showWikiProfile) {
             NavigationStack {
                 WikiProfileView()
+            }
+        }
+        .sheet(isPresented: $showReports) {
+            NavigationStack {
+                VelaReportsView()
             }
         }
         .sheet(isPresented: $showModelSettings) {
@@ -1437,6 +1432,9 @@ struct VelaCoachView: View {
                 Button { showWikiProfile = true } label: {
                     Label("健康档案", systemImage: "books.vertical")
                 }
+                Button { showReports = true } label: {
+                    Label("历史分析报告", systemImage: "clock.arrow.circlepath")
+                }
                 Button { showModelSettings = true } label: {
                     Label("模型与联网设置", systemImage: "gearshape")
                 }
@@ -1512,6 +1510,12 @@ struct VelaCoachView: View {
                     showWikiProfile = true
                 } label: {
                     Label("健康档案", systemImage: "books.vertical")
+                }
+
+                Button {
+                    showReports = true
+                } label: {
+                    Label("历史分析报告", systemImage: "clock.arrow.circlepath")
                 }
 
                 Button {

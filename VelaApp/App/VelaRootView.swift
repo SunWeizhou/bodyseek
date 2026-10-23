@@ -4,15 +4,15 @@ import UIKit
 enum VelaFeatureFlags {
     static let bevelParityInterfaceKey = "vela.feature.bevelParityInterface"
 
-    /// Product scope switches (2026-08): hide secondary feature entries while keeping
-    /// the underlying code in the repo. Flip back to `true` to re-enable instantly.
-    /// Nutrition (food log / photo / barcode) is hidden to narrow scope to the core
-    /// train–recover loop; Biological Age is hidden because it needs 9 blood-panel
-    /// inputs most users never have. Code paths stay intact behind these flags.
+    /// Product scope switches: hide secondary entries while keeping the code.
+    /// Nutrition is off to keep the train–recover loop. Biological age stays
+    /// compiled but is not a default Fact / Today instrument readout (PRD
+    /// non-goal). Flip `biologicalAgeEnabled` after re-validation.
     static let nutritionEnabled = false
-    // Wearable-only mode: BiologicalAgeEngine falls back to "健康信号参考" when
-    // blood biomarkers are unavailable (isPhenoAge == false). No lab panel required.
-    static let biologicalAgeEnabled = true
+    static let biologicalAgeEnabled = false
+
+    /// Compact Fact snapshot, Today instrument, and equivalent primary readouts.
+    static var showsBiologicalAgeInPrimaryFact: Bool { biologicalAgeEnabled }
 
     static func bevelParityInterfaceEnabled(
         defaults: UserDefaults = .standard,
