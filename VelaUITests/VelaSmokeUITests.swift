@@ -17,7 +17,7 @@ final class VelaSmokeUITests: XCTestCase {
         selectTab(index: 3, label: "Vela", in: app)
         assertSurface(3, in: app)
         XCTAssertTrue(
-            app.descendants(matching: .any)["coach-surface-header"].waitForExistence(timeout: 8),
+            app.buttons["收起对话"].waitForExistence(timeout: 8),
             "Coach surface did not become visible"
         )
     }
@@ -368,7 +368,7 @@ final class VelaSmokeUITests: XCTestCase {
         for (index, name) in [(0, "today"), (1, "trends"), (2, "plan"), (3, "coach")] {
             let app = launchApp(initialTab: index, extraArguments: ["-vela_dark_mode", "light"])
             assertSurface(index, in: app)
-            let readyID = index == 0 ? "today-score-recovery" : index == 3 ? "coach-surface-header" : "surface-\(index)"
+            let readyID = index == 0 ? "today-score-recovery" : index == 3 ? "inline-coach-panel" : "surface-\(index)"
             XCTAssertTrue(app.descendants(matching: .any)[readyID].waitForExistence(timeout: 8))
             // Allow the existing score-ring entrance animation to finish.
             Thread.sleep(forTimeInterval: 1)
@@ -626,7 +626,7 @@ final class VelaSmokeUITests: XCTestCase {
             app.descendants(matching: .any)["metric-detail-strain"].waitForExistence(timeout: 10),
             "Strain detail did not open from its launch route"
         )
-        XCTAssertTrue(app.staticTexts["耗力"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["负荷"].firstMatch.waitForExistence(timeout: 5))
         let closeButton = app.buttons["关闭"].firstMatch
         XCTAssertTrue(closeButton.waitForExistence(timeout: 5), "Strain sheet should show close button")
         closeButton.tap()

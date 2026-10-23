@@ -228,3 +228,6 @@ codesign --verify --deep --strict build/DeviceDeployDerivedData/Build/Products/D
 
 
 初轮完整 UI 运行退出 65，共 24 项（含 opt-in walkthrough 跳过 1 项），11 项旧查询失败。已导出原生附件到 build/branch-consolidation/initial-ui-attachments。AX 明确显示：Today 的 instrument 仍是 push，按钮标签为「返回」；深链详情是 sheet，标签「关闭」；顶层 metric-detail 标识传播到直接子元素，使旧 close identifier 查询不可用。测试改为操作真实「返回」/「关闭」按钮，保留 push/深链 sheet 两种路径的关闭行为断言，并将标题查询改为自定义标题 Text。首页依据改为点击真实 today-advice-evidence 按钮；Coach 截图改查 inline-coach-panel 和 coach-surface-header。未改生产导航、布局或弱化为只查底层首页 exists。
+
+
+UI 查询第二轮还确认两个既有标识变化：Strain 当前标题是「负荷」，不再是「耗力」；页内 Coach 的直接子标识被 inline-coach-panel 覆盖。保留 panel 存在断言，并用实际「收起对话」按钮检查 Coach 已可交互。以上仍只修正测试查询，不改生产界面。
