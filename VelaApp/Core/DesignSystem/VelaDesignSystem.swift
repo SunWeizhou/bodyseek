@@ -684,16 +684,6 @@ struct PlusButtonStyle: ButtonStyle {
 
 // MARK: - View Modifiers
 
-struct AmbientGlowModifier: ViewModifier {
-    let color: Color
-    let intensity: CGFloat
-
-    func body(content: Content) -> some View {
-        let _ = (color, intensity)
-        content
-    }
-}
-
 struct VelaThemeBackground: View {
     var body: some View {
         VelaTheme.bg
@@ -739,10 +729,6 @@ struct AppleIntelligenceGlowModifier: ViewModifier {
 extension View {
     func appleIntelligenceGlow(isHighlighted: Bool = true, radius: CGFloat = 18) -> some View {
         self.modifier(AppleIntelligenceGlowModifier(isHighlighted: isHighlighted, radius: radius))
-    }
-
-    func ambientGlow(color: Color, intensity: CGFloat = 0.05) -> some View {
-        self.modifier(AmbientGlowModifier(color: color, intensity: intensity))
     }
 
     func velaNativeCard(radius: CGFloat = VelaTheme.radiusCard) -> some View {

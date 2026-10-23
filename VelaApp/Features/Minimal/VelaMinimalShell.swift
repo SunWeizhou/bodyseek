@@ -1,13 +1,6 @@
 import SwiftUI
 import SwiftData
-import UIKit
 import Observation
-
-enum VelaNavigationVisibility {
-    static func shouldShowBottomBar(keyboardVisible: Bool) -> Bool {
-        !keyboardVisible
-    }
-}
 
 enum VelaFloatingNavigationMetrics {
     static let barHeight: CGFloat = 58
@@ -56,22 +49,17 @@ private final class TodayLegacyRuntimeHolder: ObservableObject {
     var runtime: TodayLegacyRuntime?
 }
 
-// MARK: - VelaShell — Native iOS 26 Navigation with Legacy Fallback
-//
-// iOS 26 uses the system Liquid Glass tab bar and its native scroll minimization.
-// Earlier releases keep the custom floating glass navigation.
+// MARK: - VelaShell — segmented header + AskBar (Design D)
 
 struct VelaShell: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject private var services: VelaServices
 
     @State private var showPlusSheet = false
     @State private var showCoach     = false
     @State private var showTodayEvidence = false
-    @State private var keyboardVisible = false
     @State private var showSidePanel = false
     @State private var showCoverage = false
     @State private var showMemory = false
@@ -94,7 +82,6 @@ struct VelaShell: View {
 
     @ObservedObject private var appState = VelaAppState.shared
     @EnvironmentObject private var dashboardVM: DashboardViewModel
-    @Namespace private var tabAnimation
 
     // MARK: - Tab Enum
 
@@ -181,12 +168,6 @@ struct VelaShell: View {
             if let sheet {
                 lastPresentedAppSheet = sheet
             }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
-            keyboardVisible = true
-        }
-        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
-            keyboardVisible = false
         }
         .onChange(of: scenePhase) { _, phase in
             services.coachChat.handleAppActiveChange(isActive: phase == .active)
@@ -368,95 +349,9 @@ struct VelaShell: View {
 
     @ViewBuilder
     private var navigationSurface: some View {
-        // BodySeek owns one navigation grammar on every supported iOS
-        // release. The system TabView is intentionally kept below as a
-        // reference implementation while the product Dock is validated.
+        // Product chrome is the segmented header + AskBar. The former Dock
+        // and iOS 26 TabView were never mounted on this path.
         legacyFloatingNavigation
-    }
-
-    @available(iOS 26.0, *)
-    private var nativeTabNavigation: some View {
-        TabView(selection: $appState.selectedTab) {
-            nativeTabSurface(.today) {
-                VelaTodayView(
-                    showCoach: $showCoach,
-                    showSettings: $appState.showSettings,
-                    showEvidence: $showTodayEvidence,
-                    todayStore: todayStore
-                )
-                    .environment(\.todayLegacyRuntime, todayLegacyRuntime)
-            }
-            .tabItem {
-                Label(label(for: .today), systemImage: iconName(for: .today))
-            }
-            .tag(0)
-
-            nativeTabSurface(.trends) {
-                VelaTrendsHost(
-                    selectedDate: todayStore.state.selectedDay,
-                    dashboard: dashboardVM.dashboard
-                )
-            }
-            .tabItem {
-                Label(label(for: .trends), systemImage: iconName(for: .trends))
-            }
-            .tag(1)
-
-            nativeTabSurface(.plan) {
-                VelaPlanView(
-                    selectedDate: todayStore.state.selectedDay,
-                    dashboard: dashboardVM.dashboard,
-                    dailyTrainingDecision: dashboardVM.dailyTrainingDecision,
-                    onRefresh: {
-                        await todayStore.send(.refresh(force: false))
-                        await dashboardVM.refresh(modelContext: modelContext)
-                    }
-                )
-            }
-            .tabItem {
-                Label(label(for: .plan), systemImage: iconName(for: .plan))
-            }
-            .tag(2)
-
-            nativeTabSurface(.coach) {
-                VelaCoachView(
-                    presentation: .embedded,
-                    selectedDate: todayStore.state.selectedDay,
-                    dashboard: dashboardVM.dashboard,
-                    onRefresh: {
-                        await todayStore.send(.refresh(force: false))
-                        await dashboardVM.refresh(modelContext: modelContext)
-                    },
-                    vm: services.coachChat
-                )
-            }
-            .tabItem {
-                Label(label(for: .coach), systemImage: iconName(for: .coach))
-            }
-            .tag(3)
-        }
-        // Perf: `tabBarMinimizeBehavior(.onScrollDown)` makes the tab bar track
-        // the scroll offset on every frame. On iOS 26 that invalidates the whole
-        // tab hierarchy (all four mounted tab roots re-evaluate their bodies
-        // per frame), which is the dominant hitch source in DEBUG builds.
-        // Remove the minimize behavior; the tab bar stays visible instead.
-        // .tabBarMinimizeBehavior(.onScrollDown)
-        .toolbar(keyboardVisible ? .hidden : .visible, for: .tabBar)
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                BodySeekBrandMark(size: 26, monochrome: true)
-            }
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                Button { showPlusSheet = true } label: {
-                    Image(systemName: "plus")
-                }
-                .accessibilityLabel("记录或提问")
-                Button { appState.present(.settings) } label: {
-                    Image(systemName: "person.crop.circle")
-                }
-                .accessibilityLabel("个人档案")
-            }
-        }
     }
 
     private var legacyFloatingNavigation: some View {
@@ -548,7 +443,6 @@ struct VelaShell: View {
                             RoundedRectangle(cornerRadius: 22, style: .continuous)
                                 .stroke(VelaTheme.hairline, lineWidth: 1)
                         }
-                        .shadow(color: .black.opacity(0.10), radius: 18, y: -4)
                         .accessibilityIdentifier("inline-coach-panel")
                     }
                     .padding(.horizontal, VelaTheme.pagePadding)
@@ -830,58 +724,6 @@ struct VelaShell: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: - Legacy Floating Glass Navigation
-    
-    private var bodySeekDock: some View {
-        HStack(spacing: 5) {
-            customTabButton(.today)
-            customTabButton(.trends)
-            Button { showPlusSheet = true } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 17, weight: .bold))
-                    .foregroundStyle(VelaTheme.rhythmDeepOn)
-                    .frame(width: 46, height: 46)
-                    .background(Circle().fill(VelaTheme.rhythmDeep))
-            }
-            .accessibilityLabel("记录或提问")
-            customTabButton(.plan)
-            customTabButton(.coach)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .background {
-            dockBackground
-        }
-        .padding(.horizontal, 14)
-        // Navigation chrome has a fixed hit-target grid; reading content keeps
-        // the user's full Dynamic Type size inside each destination.
-        .dynamicTypeSize(...DynamicTypeSize.xxLarge)
-    }
-
-    @ViewBuilder
-    private var dockBackground: some View {
-        let shape = RoundedRectangle(cornerRadius: 28, style: .continuous)
-        shape
-            .fill(.ultraThinMaterial)
-            .overlay(
-                shape
-                    .stroke(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(colorScheme == .dark ? 0.08 : 0.5),
-                                Color.white.opacity(colorScheme == .dark ? 0.02 : 0.15)
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        ),
-                        lineWidth: 0.5
-                    )
-            )
-            .shadow(color: Color.black.opacity(0.08), radius: 18, y: 8)
-    }
-
-    // MARK: - Individual Tab Button with Premium Sliding Highlight
-
     private func tabSurface<Content: View>(
         _ tab: VelaTab,
         @ViewBuilder content: () -> Content
@@ -902,55 +744,6 @@ struct VelaShell: View {
         )
     }
 
-    private func customTabButton(_ tab: VelaTab) -> some View {
-        let isActive = appState.selectedTab == tab.rawValue
-        return Button {
-            guard !isActive else { return }
-            withAnimation(VelaTheme.interfaceAnimation(reduceMotion: reduceMotion)) {
-                appState.selectedTab = tab.rawValue
-            }
-        } label: {
-            VStack(spacing: 3) {
-                Image(systemName: iconName(for: tab))
-                    .font(.system(size: 17, weight: isActive ? .semibold : .regular))
-                    .frame(height: 22)
-                Text(label(for: tab))
-                    .font(.caption2.weight(.bold))
-            }
-            .foregroundStyle(isActive ? VelaTheme.fg : VelaTheme.muted)
-            .frame(maxWidth: .infinity)
-            .frame(height: 44)
-            .background(
-                ZStack {
-                    if isActive {
-                        if reduceMotion {
-                            Capsule(style: .continuous)
-                                .fill(VelaTheme.accent.opacity(0.10))
-                        } else {
-                            Capsule(style: .continuous)
-                                .fill(VelaTheme.accent.opacity(0.10))
-                                .matchedGeometryEffect(id: "activeTabHighlight", in: tabAnimation)
-                        }
-                    }
-                }
-            )
-        }
-        .buttonStyle(.tabItem)
-        .accessibilityLabel(label(for: tab))
-        .accessibilityValue(isActive ? L10n.t("Selected", "已选中") : "")
-        .accessibilityAddTraits(isActive ? .isSelected : [])
-        .accessibilityIdentifier("tab-\(tab.rawValue)")
-    }
-
-    private func iconName(for tab: VelaTab) -> String {
-        switch tab {
-        case .today:    "sun.max"
-        case .trends:   "waveform.path.ecg"
-        case .plan:     "checklist"
-        case .coach:    "sparkles"
-        }
-    }
-
     private func label(for tab: VelaTab) -> String {
         switch tab {
         case .today:    L10n.t("Today", "今日")
@@ -958,22 +751,6 @@ struct VelaShell: View {
         case .plan:     L10n.t("Plan", "计划")
         case .coach:    L10n.t("Coach", "教练")
         }
-    }
-
-    private var bottomBarTransition: AnyTransition {
-        reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity)
-    }
-
-    @ViewBuilder
-    private func nativeTabSurface<Content: View>(
-        _ tab: VelaTab,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        NavigationStack {
-            content()
-        }
-        .environment(\.velaSurfaceIsActive, appState.selectedTab == tab.rawValue)
-        .accessibilityIdentifier("surface-\(tab.rawValue)")
     }
 }
 

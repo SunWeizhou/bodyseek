@@ -553,157 +553,6 @@ struct VelaMetricDetailView: View {
     }
 
 
-
-
-
-
-
-
-
-    // MARK: - 1. Procedural Landscape Header
-    private func landscapeHeaderSection(isSleep: Bool) -> some View {
-        ZStack {
-            MetricLandscapeHeader(metric: metric, isSleep: isSleep)
-            
-            // Metric-specific hero grammar: primary score rings, stress trace,
-            // energy reserve, and absolute-value raw signals.
-            VStack(spacing: 8) {
-                Spacer()
-                
-                // Metric hero container
-                ZStack {
-                    switch metric.heroPresentation {
-                    case .stressTrace:
-                        VStack(spacing: 6) {
-                            Image(systemName: "waveform.path.ecg")
-                                .font(.system(size: 17, weight: .semibold))
-                                .foregroundStyle(metricColor)
-                            Text(dynamicValueText)
-                                .font(.system(.title, design: .rounded, weight: .bold))
-                                .monospacedDigit()
-                                .foregroundStyle(VelaTheme.rhythmInk)
-                            Text(stressBandLabel(dashboard.stress.band))
-                                .font(VelaTheme.caption2().weight(.semibold))
-                                .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                        }
-                        .frame(width: 140, height: 104)
-                        .background(
-                            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                                .fill(isSleep ? VelaTheme.inkDark.opacity(0.85) : VelaTheme.rhythmCanvasRaised)
-                                .shadow(color: isSleep ? .clear : Color.black.opacity(0.012), radius: 10, x: 0, y: 3)
-                        )
-                    case .energyReserve:
-                        VStack(spacing: 10) {
-                            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                                Image(systemName: "bolt.fill")
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundStyle(metricColor)
-                                Text(dynamicValueText)
-                                    .font(.system(.title2, design: .rounded, weight: .bold))
-                                    .monospacedDigit()
-                                    .foregroundStyle(VelaTheme.rhythmInk)
-                            }
-                            SegmentedBatteryBar(
-                                percentage: min(max(dynamicScore / 100, 0), 1),
-                                barCount: 16,
-                                color: metricColor
-                            )
-                        }
-                        .frame(width: 156, height: 96)
-                        .background(
-                            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                                .fill(isSleep ? VelaTheme.inkDark.opacity(0.85) : VelaTheme.rhythmCanvasRaised)
-                                .shadow(color: isSleep ? .clear : Color.black.opacity(0.012), radius: 10, x: 0, y: 3)
-                        )
-                    case .scoreGauge:
-                        BevelScoreRing(
-                            score: max(0.01, dynamicScore / 100.0),
-                            color: metricColor,
-                            useGradient: true,
-                            size: 110,
-                            label: "",
-                            valueText: dynamicValueText
-                        )
-                        .background(
-                            Circle()
-                                .fill(isSleep ? VelaTheme.inkDark.opacity(0.85) : VelaTheme.rhythmCanvasRaised)
-                                .frame(width: 140, height: 140)
-                                .shadow(color: isSleep ? .clear : Color.black.opacity(0.012), radius: 10, x: 0, y: 3)
-                        )
-                    case .absoluteValue:
-                        ZStack {
-                            Circle()
-                                .fill(isSleep ? VelaTheme.inkDark.opacity(0.85) : VelaTheme.rhythmCanvasRaised)
-                                .frame(width: 140, height: 140)
-                                .shadow(color: isSleep ? .clear : Color.black.opacity(0.012), radius: 10, x: 0, y: 3)
-
-                            Circle()
-                                .stroke(metricColor.opacity(0.3), lineWidth: 8)
-                                .frame(width: 110, height: 110)
-
-                            VStack(spacing: 6) {
-                                Image(systemName: leftIcon)
-                                    .font(.system(size: 18, weight: .semibold))
-                                    .foregroundStyle(metricColor)
-
-                                Text(dynamicValueText)
-                                    .font(.system(.body, design: .default, weight: .bold))
-                                    .foregroundStyle(isSleep ? VelaTheme.sleepText : VelaTheme.fg)
-                                    .lineLimit(1)
-                                    .minimumScaleFactor(0.58)
-                                    .frame(width: 96)
-                            }
-                        }
-                    }
-                }
-                .padding(.bottom, 8)
-
-                // Subtitle/Target Text below the ring
-                if metric == .strain {
-                    let range = dashboard.strain.recommendedRange
-                    Text("目标负荷：\(range.lowerBound)–\(range.upperBound)")
-                        .font(VelaTheme.caption1())
-                        .fontWeight(.semibold)
-                        .foregroundStyle(isSleep ? VelaTheme.mistGray : VelaTheme.fg2)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 4)
-                        .background(
-                            Capsule()
-                                .fill(isSleep ? VelaTheme.inkDark.opacity(0.6) : Color.white.opacity(0.6))
-                        )
-                } else if metric == .sleep {
-                    Text("目标睡眠: \(VelaMinimalFormatting.duration(minutes: sleepTargetMinutes))")
-                        .font(VelaTheme.caption1())
-                        .fontWeight(.semibold)
-                        .foregroundStyle(VelaTheme.mistGray)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 4)
-                        .background(Capsule().fill(VelaTheme.inkDark.opacity(0.6)))
-                } else if metric == .stress {
-                    Text("目标压力: 保持平静")
-                        .font(VelaTheme.caption1())
-                        .fontWeight(.semibold)
-                        .foregroundStyle(isSleep ? VelaTheme.mistGray : VelaTheme.fg2)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 4)
-                        .background(Capsule().fill(isSleep ? VelaTheme.inkDark.opacity(0.6) : Color.white.opacity(0.6)))
-                } else {
-                    Text(metricSubtitle)
-                        .font(VelaTheme.caption1())
-                        .fontWeight(.semibold)
-                        .foregroundStyle(isSleep ? VelaTheme.mistGray : VelaTheme.fg2)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 4)
-                        .background(Capsule().fill(isSleep ? VelaTheme.inkDark.opacity(0.6) : Color.white.opacity(0.6)))
-                }
-                
-                Spacer()
-                    .frame(height: 16)
-            }
-        }
-        .frame(height: 240)
-    }
-
     // MARK: - 2. Double Highlight Cards (Duration, Calories, Sleep, HRV etc.)
     private func doubleHighlightsSection(isSleep: Bool) -> some View {
         MetricHighlightsSection(
@@ -947,13 +796,6 @@ struct VelaMetricDetailView: View {
 
 }
 
-enum MetricHeroPresentation: Equatable {
-    case scoreGauge
-    case stressTrace
-    case energyReserve
-    case absoluteValue
-}
-
 extension VelaMetricDetailView.MetricType {
     var isScoredHealthDomain: Bool {
         switch self {
@@ -961,19 +803,6 @@ extension VelaMetricDetailView.MetricType {
             return true
         case .hrv, .rhr, .weight, .bodyFat, .respiratoryRate, .bloodOxygen, .steps, .activeCalories, .activeMinutes:
             return false
-        }
-    }
-
-    var heroPresentation: MetricHeroPresentation {
-        switch self {
-        case .strain, .recovery, .sleep:
-            return .scoreGauge
-        case .stress:
-            return .stressTrace
-        case .energy:
-            return .energyReserve
-        case .hrv, .rhr, .weight, .bodyFat, .respiratoryRate, .bloodOxygen, .steps, .activeCalories, .activeMinutes:
-            return .absoluteValue
         }
     }
 }

@@ -220,10 +220,10 @@ struct VelaTrendsView: View {
                 .accessibilityIdentifier("trends-recovery-store-chart")
             }
             .padding(14)
-            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous))
+            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous)
-                    .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+                    .stroke(VelaTheme.hairline, lineWidth: 1)
             }
         }
     }
@@ -252,7 +252,7 @@ struct VelaTrendsView: View {
                     }
                     Spacer(minLength: 8)
                     Text(valueText)
-                        .font(.system(.title2, design: .rounded, weight: .semibold))
+                        .font(VelaTheme.cardValue())
                         .monospacedDigit()
                         .foregroundStyle(valueText == "--" ? VelaTheme.muted : VelaTheme.rhythmInk)
                     Image(systemName: "chevron.right")
@@ -277,10 +277,10 @@ struct VelaTrendsView: View {
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(VelaTheme.rhythmMist.opacity(0.65), lineWidth: 0.75)
+                RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+                    .stroke(VelaTheme.hairline, lineWidth: 1)
             }
             .contentShape(Rectangle())
         }
@@ -666,7 +666,7 @@ struct VelaTrendsView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                .stroke(VelaTheme.hairline, lineWidth: 1)
         )
         .accessibilityIdentifier("trends-empty-state")
     }
@@ -720,7 +720,7 @@ struct VelaTrendsView: View {
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                        .stroke(VelaTheme.hairline, lineWidth: 1)
                 )
             }
         }
@@ -934,7 +934,7 @@ struct VelaTrendsView: View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                    .stroke(VelaTheme.hairline, lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
