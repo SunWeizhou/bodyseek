@@ -721,7 +721,7 @@ struct VelaCoachView: View {
         _showHistoryDrawer = State(initialValue: CoachHistoryLaunchState.isPresented())
     }
 
-    var body: some View {
+    private var conversationContent: some View {
         ZStack {
             // Main Chat Panel
             VStack(spacing: 0) {
@@ -894,6 +894,10 @@ struct VelaCoachView: View {
             }
             .background(VelaTheme.rhythmCanvas)
         }
+    }
+
+    private var conversationLifecycle: some View {
+        conversationContent
         .task(id: isActiveSurface) {
             guard isActiveSurface else { return }
             vm.refreshKeyState()
@@ -935,6 +939,10 @@ struct VelaCoachView: View {
         .onChange(of: appState.coachRouteRevision) { _, _ in
             consumePendingRouteIfVisible()
         }
+    }
+
+    private var conversationSessions: some View {
+        conversationLifecycle
         .sheet(isPresented: $showHistoryDrawer) {
             CoachHistoryDrawer(
                 vm: vm,
@@ -982,6 +990,10 @@ struct VelaCoachView: View {
         } message: {
             Text("删除后将无法恢复这段本机保存的对话。")
         }
+    }
+
+    var body: some View {
+        conversationSessions
         .sheet(isPresented: $showWikiProfile) {
             NavigationStack {
                 WikiProfileView()
