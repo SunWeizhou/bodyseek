@@ -29,6 +29,34 @@ struct PlanCompletionProjection: Equatable, Sendable {
         guard total > 0 else { return 0 }
         return min(max(Double(completed) / Double(total), 0), 1)
     }
+
+    var footnote: String? {
+        guard total > 0 else { return nil }
+        return "已完成 \(completed)/\(total) 项"
+    }
+}
+
+/// Plan first-screen copy: training decision and the next action lead;
+/// completion count is a footnote, not the headline.
+enum PlanFirstScreenCopy {
+    static func trainingDecisionLine(decision: DailyTrainingDecisionType?) -> String? {
+        guard let decision else { return nil }
+        return "今日训练 · \(decision.todayDecisionTitle)"
+    }
+
+    static func primaryActionTitle(actions: [DailyOperatingPlanAction]) -> String {
+        if actions.isEmpty { return "今天由你决定" }
+        if actions.allSatisfy({ $0.completedAt != nil }) { return "今天的安排已完成" }
+        return actions.first(where: { $0.completedAt == nil })?.title ?? "今天的安排"
+    }
+
+    static func stabilityNote(
+        decision: DailyTrainingDecisionType?,
+        hasPendingCandidate: Bool
+    ) -> String? {
+        guard decision == .keep, !hasPendingCandidate else { return nil }
+        return "今天身体状态稳定，计划无需改动"
+    }
 }
 
 /// Immutable plan read model used by the redesigned page. Persistence and
@@ -274,34 +302,41 @@ struct VelaPlanView: View {
 
     private var planHeader: some View {
         let total = actions.count
-        let completed = completedCount
+        let completion = PlanCompletionProjection(completed: completedCount, total: total)
+        let hasPendingCandidate = (candidatePayload ?? previewCandidatePayload) != nil
         return VStack(alignment: .leading, spacing: 8) {
+            if let decisionLine = PlanFirstScreenCopy.trainingDecisionLine(decision: payload?.decision) {
+                Text(decisionLine)
+                    .font(VelaTheme.subheadline().weight(.semibold))
+                    .foregroundStyle(VelaTheme.rhythmInk)
+                    .accessibilityIdentifier("plan-header-decision")
+            }
+            Text(PlanFirstScreenCopy.primaryActionTitle(actions: actions))
+                .font(VelaTheme.statement())
+                .foregroundStyle(VelaTheme.rhythmInk)
+                .accessibilityIdentifier("plan-header-primary-action")
+            if let stability = PlanFirstScreenCopy.stabilityNote(
+                decision: payload?.decision,
+                hasPendingCandidate: hasPendingCandidate
+            ) {
+                Text(stability)
+                    .font(VelaTheme.footnote())
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("plan-header-stability")
+            }
             HStack(spacing: 6) {
                 Text(dateSubtitle.replacingOccurrences(of: "今天 · ", with: ""))
-                if let decision = payload?.decision, total > 0 {
+                if let footnote = completion.footnote {
                     Text("·")
-                    Text("训练\(decision.todayDecisionTitle)")
+                    Text(footnote)
+                        .monospacedDigit()
+                        .accessibilityLabel("已完成 \(completion.completed) 项，共 \(completion.total) 项")
+                        .accessibilityIdentifier("plan-header-progress")
                 }
             }
             .font(VelaTheme.caption1())
             .foregroundStyle(VelaTheme.rhythmInkSecondary)
-            HStack(alignment: .firstTextBaseline) {
-                Text(planTitle(total: total, completed: completed))
-                    .font(VelaTheme.statement())
-                    .foregroundStyle(VelaTheme.rhythmInk)
-                Spacer(minLength: 8)
-                if total > 0 {
-                    Text("\(completed)/\(total)")
-                        .font(.system(.title3, design: .default, weight: .medium))
-                        .monospacedDigit()
-                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                        .accessibilityLabel("已完成 \(completed) 项，共 \(total) 项")
-                }
-            }
-            if total > 0 {
-                BodySeekPlanProgressRail(completed: completed, total: total, tint: VelaTheme.rhythmInk)
-                    .animation(VelaTheme.dataAnimation(reduceMotion: reduceMotion), value: completed)
-            }
             if let summary = payload?.summary.trimmingCharacters(in: .whitespacesAndNewlines), !summary.isEmpty {
                 Text("已保存的安排：" + summary)
                     .font(VelaTheme.footnote())
@@ -314,16 +349,8 @@ struct VelaPlanView: View {
                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
             }
         }
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("plan-header")
-    }
-
-    private func planTitle(total: Int, completed: Int) -> String {
-        if total == 0 { return "今天由你决定" }
-        if completed == total { return "今天的安排已完成" }
-        if let next = actions.first(where: { $0.completedAt == nil }) {
-            return next.title
-        }
-        return "今天的安排"
     }
 
     private var actionSection: some View {
