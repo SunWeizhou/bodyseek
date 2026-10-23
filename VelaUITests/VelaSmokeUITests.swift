@@ -6,7 +6,7 @@ final class VelaSmokeUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    func testFourPrimarySurfacesAreReachable() {
+    func testThreePrimarySurfacesAndInlineCoachAreReachable() {
         let app = launchApp(initialTab: 0)
 
         assertSurface(0, in: app)
@@ -403,7 +403,7 @@ final class VelaSmokeUITests: XCTestCase {
             app.descendants(matching: .any)["metric-detail-recovery"].waitForExistence(timeout: 10),
             "Recovery detail did not open from its launch route"
         )
-        XCTAssertTrue(app.navigationBars["恢复"].exists)
+        XCTAssertTrue(app.staticTexts["恢复"].firstMatch.exists)
 
         let closeButton = app.buttons["metric-detail-close"]
         XCTAssertTrue(closeButton.waitForExistence(timeout: 5), "Sheet should show close button")
@@ -414,7 +414,7 @@ final class VelaSmokeUITests: XCTestCase {
         )
     }
 
-    func testRecoveryDetailPushNavigationAndReturn() {
+    func testRecoveryDetailSheetNavigationAndReturn() {
         let app = launchApp(initialTab: 0)
 
         XCTAssertTrue(
@@ -431,17 +431,17 @@ final class VelaSmokeUITests: XCTestCase {
             app.descendants(matching: .any)["metric-detail-recovery"].waitForExistence(timeout: 8),
             "Recovery detail did not open from Today push"
         )
-        XCTAssertFalse(
+        XCTAssertTrue(
             app.buttons["metric-detail-close"].exists,
-            "Push navigation should not display custom sheet close button"
+            "Today metric route should expose its sheet close button"
         )
         XCTAssertTrue(
             app.descendants(matching: .any)["metric-detail-hero"].waitForExistence(timeout: 5),
             "Recovery detail hero section should be present"
         )
 
-        let backButton = app.navigationBars.buttons.element(boundBy: 0)
-        XCTAssertTrue(backButton.waitForExistence(timeout: 5), "System back button should be present")
+        let backButton = app.buttons["metric-detail-close"]
+        XCTAssertTrue(backButton.waitForExistence(timeout: 5), "Metric sheet close button should be present")
         backButton.tap()
 
         XCTAssertTrue(
@@ -489,7 +489,7 @@ final class VelaSmokeUITests: XCTestCase {
         )
         let screenshot = XCUIScreen.main.screenshot()
         try? screenshot.pngRepresentation.write(to: URL(fileURLWithPath: "/tmp/recovery-detail-historical.png"))
-        let backButton = app.navigationBars.buttons.element(boundBy: 0)
+        let backButton = app.buttons["metric-detail-close"]
         if backButton.waitForExistence(timeout: 5) {
             backButton.tap()
         }
@@ -516,7 +516,7 @@ final class VelaSmokeUITests: XCTestCase {
             app.descendants(matching: .any)["metric-detail-sleep"].waitForExistence(timeout: 10),
             "Sleep detail did not open from its launch route"
         )
-        XCTAssertTrue(app.navigationBars["睡眠"].exists)
+        XCTAssertTrue(app.staticTexts["睡眠"].firstMatch.exists)
         XCTAssertTrue(
             app.descendants(matching: .any)["sleep-timeline-card"].waitForExistence(timeout: 5),
             "Sleep timeline card should be present in sleep detail"
@@ -531,7 +531,7 @@ final class VelaSmokeUITests: XCTestCase {
         )
     }
 
-    func testSleepDetailPushNavigationAndReturn() {
+    func testSleepDetailSheetNavigationAndReturn() {
         let app = launchApp(initialTab: 0)
 
         XCTAssertTrue(
@@ -548,9 +548,9 @@ final class VelaSmokeUITests: XCTestCase {
             app.descendants(matching: .any)["metric-detail-sleep"].waitForExistence(timeout: 8),
             "Sleep detail did not open from Today push"
         )
-        XCTAssertFalse(
+        XCTAssertTrue(
             app.buttons["metric-detail-close"].exists,
-            "Push navigation should not display custom sheet close button"
+            "Today metric route should expose its sheet close button"
         )
         XCTAssertTrue(
             app.descendants(matching: .any)["sleep-timeline-card"].waitForExistence(timeout: 5),
@@ -562,8 +562,8 @@ final class VelaSmokeUITests: XCTestCase {
         screenshot.lifetime = .keepAlways
         add(screenshot)
 
-        let backButton = app.navigationBars.buttons.element(boundBy: 0)
-        XCTAssertTrue(backButton.waitForExistence(timeout: 5), "System back button should be present")
+        let backButton = app.buttons["metric-detail-close"]
+        XCTAssertTrue(backButton.waitForExistence(timeout: 5), "Metric sheet close button should be present")
         backButton.tap()
 
         XCTAssertTrue(
@@ -597,7 +597,7 @@ final class VelaSmokeUITests: XCTestCase {
         if sleepScore.waitForExistence(timeout: 5) {
             sleepScore.tap()
             XCTAssertTrue(app.descendants(matching: .any)["metric-detail-sleep"].waitForExistence(timeout: 8))
-            let backButton = app.navigationBars.buttons.element(boundBy: 0)
+            let backButton = app.buttons["metric-detail-close"]
             if backButton.waitForExistence(timeout: 5) {
                 backButton.tap()
             }
@@ -625,7 +625,7 @@ final class VelaSmokeUITests: XCTestCase {
             app.descendants(matching: .any)["metric-detail-strain"].waitForExistence(timeout: 10),
             "Strain detail did not open from its launch route"
         )
-        XCTAssertTrue(app.navigationBars["耗力"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["耗力"].firstMatch.waitForExistence(timeout: 5))
         let closeButton = app.buttons["metric-detail-close"]
         XCTAssertTrue(closeButton.waitForExistence(timeout: 5), "Strain sheet should show close button")
         closeButton.tap()
@@ -641,7 +641,7 @@ final class VelaSmokeUITests: XCTestCase {
             app.descendants(matching: .any)["metric-detail-stress"].waitForExistence(timeout: 10),
             "Stress detail did not open from its launch route"
         )
-        XCTAssertTrue(app.navigationBars["压力"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["压力"].firstMatch.waitForExistence(timeout: 5))
         let closeButton = app.buttons["metric-detail-close"]
         XCTAssertTrue(closeButton.waitForExistence(timeout: 5), "Stress sheet should show close button")
         closeButton.tap()
@@ -657,7 +657,7 @@ final class VelaSmokeUITests: XCTestCase {
             app.descendants(matching: .any)["metric-detail-energy"].waitForExistence(timeout: 10),
             "Energy detail did not open from its launch route"
         )
-        XCTAssertTrue(app.navigationBars["能量"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["能量"].firstMatch.waitForExistence(timeout: 5))
         let closeButton = app.buttons["metric-detail-close"]
         XCTAssertTrue(closeButton.waitForExistence(timeout: 5), "Energy sheet should show close button")
         closeButton.tap()
@@ -690,6 +690,12 @@ final class VelaSmokeUITests: XCTestCase {
         label: String,
         in app: XCUIApplication
     ) {
+        if index == 3 {
+            let ask = app.descendants(matching: .any)["bodyseek-ask-input"]
+            XCTAssertTrue(ask.waitForExistence(timeout: 8), "Inline Coach entry should be reachable")
+            ask.tap()
+            return
+        }
         let customButton = app.buttons["tab-\(index)"]
         if customButton.exists {
             customButton.tap()

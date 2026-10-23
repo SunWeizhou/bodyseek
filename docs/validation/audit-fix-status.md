@@ -222,3 +222,6 @@ codesign --verify --deep --strict build/DeviceDeployDerivedData/Build/Products/D
 
 
 同步期间远端 Cursor 提交 `a220e130` 也处理 walkthrough 问题，已正常 merge 保留历史；最终目录仍限定主线程，不需要 nonisolated(unsafe)。本机完整 673 项 App 测试初轮有 1 项旧断言失败：TodayExperienceModel 在既有 `236f236b` 已将趋势从 7 个读数扩为 14 个，测试仍期待 7。核对原提交后将测试更名为 IncludesFourteenSignalValues，使用 20 条历史并断言只保留最近 13 条加当天值，其他四项当天读数断言保留；生产窗口不变。
+
+
+`FullAppFixed.xcresult` 已通过本机全部 673 项 App 测试（退出 0）。完整 UI 初轮进一步发现既有 smoke 仍寻找第四个 Coach Tab、已隐藏的系统导航栏标题/返回按钮，而生产版本已改为三段顶部导航、页内 Coach 和 Today 详情 sheet。更新查询为现有页内输入入口、自定义标题和 metric-detail-close，并保留打开/关闭/切页断言；详情返回测试名称同步为 SheetNavigationAndReturn。没有为匹配旧测试恢复过时导航，也未修改生产页面。完整 UI 结果以 PR 最新检查为准。
