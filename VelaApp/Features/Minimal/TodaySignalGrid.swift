@@ -1,12 +1,11 @@
 import BodySeekDomain
-import SwiftData
 import SwiftUI
 
 // MARK: - Today score dashboard
 
-/// The score-led opening of Today: one statement, the five independent scores
-/// read against the person's own usual values, the canonical plan for today,
-/// and one named recent change. Nothing here derives a score or a total.
+/// The score-led opening of Today: Agent body, equal-width five-score strip,
+/// one named recent change, follow-up chips, then a one-line next action.
+/// Nothing here derives a score or a total.
 struct TodaySignalGrid: View {
     let model: TodayExperienceModel
     let freshness: DataFreshness
@@ -41,6 +40,8 @@ struct TodaySignalGrid: View {
                 selectedDate: selectedDate,
                 dashboardSnapshot: dashboardSnapshot
             )
+            recentChangeCard
+            followUpChips(readings)
             TodayPlanSection(
                 payload: planPayload,
                 fallback: model.actions.first,
@@ -50,27 +51,46 @@ struct TodaySignalGrid: View {
                 onInspectGuidance: onInspectGuidance,
                 onAsk: onAsk
             )
-            recentChangeCard
+        }
+    }
+
+    private func followUpChips(_ readings: [ScoreInstrumentReading]) -> some View {
+        let suggestions = BodySeekAskSuggestions.make(
+            surface: .home,
+            readings: readings,
+            nextActionTitle: planPayload?.allActions.first(where: { $0.completedAt == nil })?.title
+                ?? model.actions.first?.title,
+            hasPendingProposal: hasPendingProposal
+        )
+        return Group {
+            if !suggestions.isEmpty {
+                CoachFollowUpChipsView(suggestions: suggestions, wraps: true) { question in
+                    onAsk(question)
+                }
+                .accessibilityIdentifier("today-follow-up-chips")
+            }
         }
     }
 
     // MARK: Statement
 
-    private var stampText: String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_Hans_CN")
-        formatter.setLocalizedDateFormatFromTemplate("MMMdEEE")
-        let day = formatter.string(from: selectedDate)
+    private var bylineText: String {
         let time = model.generatedAt.formatted(date: .omitted, time: .shortened)
-        return "\(day) · \(time) 更新"
+        return "BodySeek · \(time)"
     }
 
     private func statement(_ readings: [ScoreInstrumentReading]) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                Text(stampText)
-                    .font(VelaTheme.caption1())
-                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(VelaTheme.rhythmInk)
+                        .frame(width: 7, height: 7)
+                    Text(bylineText)
+                        .font(VelaTheme.caption1())
+                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                }
+                .accessibilityIdentifier("today-agent-byline")
                 Spacer(minLength: 8)
                 if dashboardSnapshot.source == .preview {
                     Text("示例数据")
@@ -78,7 +98,7 @@ struct TodaySignalGrid: View {
                         .foregroundStyle(VelaTheme.rhythmInkSecondary)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(Capsule().stroke(VelaTheme.hairline, lineWidth: 1))
+                        .background(Capsule().stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
                 } else if freshness == .missing || freshness == .stale {
                     Text(freshness == .missing ? "未同步" : "数据较旧")
                         .font(VelaTheme.caption2().weight(.semibold))
@@ -86,11 +106,12 @@ struct TodaySignalGrid: View {
                 }
             }
             Text(agentSentence)
-                .font(VelaTheme.statement())
+                .font(VelaTheme.briefBody())
                 .foregroundStyle(VelaTheme.rhythmInk)
+                .lineSpacing(6)
                 .fixedSize(horizontal: false, vertical: true)
             Text(Self.comparisonLine(readings, formation: model.baselineFormation))
-                .font(VelaTheme.subheadline())
+                .font(VelaTheme.footnote())
                 .foregroundStyle(VelaTheme.rhythmInkSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -191,7 +212,7 @@ struct TodaySignalGrid: View {
             .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
-                    .stroke(VelaTheme.hairline, lineWidth: 1)
+                    .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
             )
             .contentShape(Rectangle())
         }
@@ -203,10 +224,8 @@ struct TodaySignalGrid: View {
 
 // MARK: - Today plan
 
-/// Today renders the same persisted Daily Operating Plan as Plan. Checking an
-/// action here writes through `DailyOperatingPlanEditor`, exactly like Plan.
-/// Without a stored plan yet, the local recommendation is shown as a preview
-/// of what Plan will create.
+/// Today only shows the next action. Completing, editing, and the full list
+/// live on Plan so the first screen stays Agent → five scores → chips.
 struct TodayPlanSection: View {
     let payload: DailyOperatingPlanPayload?
     let fallback: TodayExperienceAction?
@@ -216,252 +235,69 @@ struct TodayPlanSection: View {
     let onInspectGuidance: () -> Void
     let onAsk: (String) -> Void
 
-    @Environment(\.modelContext) private var modelContext
-    @State private var localPayload: DailyOperatingPlanPayload?
-    @State private var saveError: String?
-    @State private var showAllActions = false
-
-    private var shownPayload: DailyOperatingPlanPayload? { localPayload ?? payload }
-    private var actions: [DailyOperatingPlanAction] { shownPayload?.allActions ?? [] }
-    private var completed: Int { actions.filter { $0.completedAt != nil }.count }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            header
-                .padding(.horizontal, 16)
-                .padding(.top, 14)
-                .padding(.bottom, 6)
-
-            if hasPendingProposal {
-                Button(action: onOpenPlan) {
-                    HStack(spacing: 8) {
-                        Circle()
-                            .strokeBorder(VelaTheme.deviationInk, lineWidth: 1.25)
-                            .frame(width: 7, height: 7)
-                        Text("状态有变化，有一份调整建议待你确认")
-                            .font(VelaTheme.footnote().weight(.semibold))
-                        Spacer(minLength: 0)
-                        Image(systemName: "chevron.right").font(.caption2.weight(.bold))
-                    }
-                    .foregroundStyle(VelaTheme.deviationInk)
-                    .padding(.horizontal, 12)
-                    .frame(minHeight: 40)
-                    .background(VelaTheme.deviationWash, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                }
-                .buttonStyle(.plain)
-                .padding(.horizontal, 12)
-                .padding(.bottom, 6)
-                .accessibilityIdentifier("today-plan-proposal")
-            }
-
-            if !actions.isEmpty {
-                let visibleActions = showAllActions ? actions : Array(actions.filter { $0.completedAt == nil }.prefix(1))
-                ForEach(Array(visibleActions.enumerated()), id: \.element.id) { index, action in
-                    if index > 0 {
-                        Divider().overlay(VelaTheme.rhythmMist).padding(.leading, 56)
-                    }
-                    actionRow(action, isPrimary: action.id == actions.first?.id)
-                }
-                if actions.count > 1 || completed > 0 {
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.18)) { showAllActions.toggle() }
-                    } label: {
-                        HStack {
-                            Text(showAllActions ? "收起安排" : completed == actions.count ? "查看已完成的 \(completed) 项安排" : "查看全部 \(actions.count) 项 · 已完成 \(completed) 项")
-                            Spacer()
-                            Image(systemName: showAllActions ? "chevron.up" : "chevron.down")
-                        }
-                        .font(VelaTheme.footnote()).frame(minHeight: 44)
-                        .padding(.horizontal, 16)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("today-plan-disclosure")
-                }
-            } else if let fallback {
-                fallbackRow(fallback)
-            } else {
-                Text("今天还没有安排，打开计划添加一项真正有帮助的行动。")
-                    .font(VelaTheme.subheadline())
-                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-            }
-
-            if let saveError {
-                Text(saveError)
-                    .font(VelaTheme.caption1())
-                    .foregroundStyle(VelaTheme.deviationInk)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 4)
-                    .accessibilityIdentifier("today-plan-save-error")
-            }
-
-            Divider().overlay(VelaTheme.rhythmMist).padding(.top, 4)
-            footer
+    private var actions: [DailyOperatingPlanAction] { payload?.allActions ?? [] }
+    private var nextActionTitle: String {
+        if let next = actions.first(where: { $0.completedAt == nil })?.title {
+            return next
         }
-        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
-                .stroke(VelaTheme.hairline, lineWidth: 1)
+        if payload?.allActionsCompleted == true, !actions.isEmpty {
+            return "今天的安排已完成"
         }
-        .onChange(of: payload) { _, _ in localPayload = nil }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("today-advice-panel")
+        return fallback?.title ?? "打开计划添加一项安排"
     }
 
-    private var header: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(shownPayload?.allActionsCompleted == true ? "今天的安排已完成" : "今天的安排")
-                .font(VelaTheme.headline())
-                .foregroundStyle(VelaTheme.rhythmInk)
-                .accessibilityIdentifier(shownPayload?.allActionsCompleted == true ? "today-plan-finished" : "today-plan-title")
-            Spacer(minLength: 8)
-            if !actions.isEmpty {
-                Text("\(completed)/\(actions.count)")
-                    .font(VelaTheme.subheadline().monospacedDigit())
-                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                    .accessibilityLabel("已完成 \(completed) 项，共 \(actions.count) 项")
-                    .padding(.trailing, 6)
-            }
+    var body: some View {
+        let _ = (selectedDate, onAsk)
+        HStack(spacing: 8) {
             Button(action: onOpenPlan) {
-                HStack(spacing: 3) {
-                    Text(actions.isEmpty ? "打开计划" : "编辑")
-                    Image(systemName: "chevron.right").font(.caption2.weight(.bold))
+                HStack(spacing: 10) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(hasPendingProposal ? "今天的安排 · 待确认" : "今天的安排 · 下一件")
+                            .font(VelaTheme.caption1().weight(.semibold))
+                            .foregroundStyle(hasPendingProposal ? VelaTheme.deviationInk : VelaTheme.rhythmInkSecondary)
+                            .accessibilityIdentifier(
+                                payload?.allActionsCompleted == true ? "today-plan-finished" : "today-plan-title"
+                            )
+                        Text(nextActionTitle)
+                            .font(VelaTheme.subheadline().weight(.semibold))
+                            .foregroundStyle(VelaTheme.rhythmInk)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
+                            .accessibilityIdentifier("today-next-action")
+                    }
+                    Spacer(minLength: 4)
+                    Image(systemName: "chevron.right")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(VelaTheme.rhythmInkSecondary.opacity(0.55))
                 }
-                .font(VelaTheme.subheadline().weight(.medium))
-                .foregroundStyle(VelaTheme.rhythmInk)
-                .frame(minHeight: 44)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("today-open-plan")
-        }
-    }
+            .accessibilityHint("打开计划查看全部安排")
 
-    private func actionRow(_ action: DailyOperatingPlanAction, isPrimary: Bool) -> some View {
-        let done = action.completedAt != nil
-        return HStack(alignment: .top, spacing: 12) {
-            Button {
-                toggle(action)
-            } label: {
-                ZStack {
-                    Circle()
-                        .strokeBorder(done ? Color.clear : VelaTheme.rhythmInk.opacity(0.55), lineWidth: 1.5)
-                        .background(Circle().fill(done ? VelaTheme.rhythmInk : Color.clear))
-                        .frame(width: 26, height: 26)
-                    if done {
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(VelaTheme.rhythmCanvas)
-                    }
-                }
-                .frame(width: 44, height: 44)
-                .contentShape(Rectangle())
+            Button(action: onInspectGuidance) {
+                Text("依据")
+                    .font(VelaTheme.footnote().weight(.semibold))
+                    .foregroundStyle(VelaTheme.rhythmInk)
+                    .padding(.horizontal, 10)
+                    .frame(minHeight: 44)
+                    .background(Capsule().stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .disabled(shownPayload == nil || payload == nil)
-            .accessibilityLabel(done ? "标记“\(action.title)”为未完成" : "完成“\(action.title)”")
-            .accessibilityIdentifier("today-plan-toggle-\(action.domain.rawValue)")
-
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
-                    Text(action.title)
-                        .font(VelaTheme.subheadline().weight(.semibold))
-                        .foregroundStyle(done ? VelaTheme.rhythmInkSecondary : VelaTheme.rhythmInk)
-                        .strikethrough(done, color: VelaTheme.rhythmInkSecondary)
-                    if isPrimary && !done {
-                        Text("重点")
-                            .font(VelaTheme.caption2().weight(.semibold))
-                            .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Capsule().stroke(VelaTheme.hairline, lineWidth: 1))
-                    }
-                }
-                if !done, !action.detail.isEmpty {
-                    Text(action.detail)
-                        .font(VelaTheme.footnote())
-                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            .padding(.top, 11)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .padding(.leading, 6)
-        .padding(.trailing, 16)
-        .padding(.bottom, 6)
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier(isPrimary ? "today-next-action" : "today-plan-action")
-    }
-
-    private func fallbackRow(_ action: TodayExperienceAction) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(action.title)
-                .font(VelaTheme.subheadline().weight(.semibold))
-                .foregroundStyle(VelaTheme.rhythmInk)
-            if !action.detail.isEmpty {
-                Text(action.detail)
-                    .font(VelaTheme.footnote())
-                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            Text("打开计划后会保存为今天的安排，你可以随时修改。")
-                .font(VelaTheme.caption1())
-                .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                .padding(.top, 2)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .accessibilityIdentifier("today-next-action")
-    }
-
-    private var footer: some View {
-        HStack(spacing: 0) {
-            Button(action: onInspectGuidance) {
-                Label("为什么这样安排", systemImage: "list.bullet.rectangle")
-                    .frame(maxWidth: .infinity, minHeight: 44)
-                    .contentShape(Rectangle())
-            }
             .accessibilityIdentifier("today-advice-evidence")
-            Rectangle().fill(VelaTheme.rhythmMist).frame(width: 1, height: 20)
-            Button {
-                onAsk("结合我今天的五项状态，帮我看看今天的安排是否合适，需要怎样调整。")
-            } label: {
-                Label("和 BodySeek 商量", systemImage: "bubble.left")
-                    .frame(maxWidth: .infinity, minHeight: 44)
-                    .contentShape(Rectangle())
-            }
-            .accessibilityIdentifier("today-plan-ask")
+            .accessibilityLabel("为什么这样安排")
         }
-        .font(VelaTheme.footnote().weight(.medium))
-        .foregroundStyle(VelaTheme.rhythmInk)
-        .buttonStyle(.plain)
-        .labelStyle(.titleAndIcon)
-    }
-
-    private func toggle(_ action: DailyOperatingPlanAction) {
-        guard let current = shownPayload else { return }
-        let dayIdentifier = DailyHealthSummaryRecord.dayIdentifier(for: selectedDate)
-        do {
-            guard let record = try DailyOperatingPlanRepository(modelContext: modelContext)
-                .fetchLatest(dayIdentifier: dayIdentifier) else {
-                saveError = "今天的计划还没有保存，请先打开计划。"
-                return
-            }
-            let updated = DailyOperatingPlanEditor.applying(
-                .toggleCompletion(actionID: action.id, at: Date()),
-                to: record.operatingPlanPayload ?? current
-            )
-            try DailyOperatingPlanEditor.persist(updated, to: record, modelContext: modelContext)
-            localPayload = updated
-            saveError = nil
-            if action.completedAt == nil { VelaHaptic.success() } else { VelaHaptic.selection() }
-            VelaAppState.shared.markLocalDataChanged()
-        } catch {
-            saveError = "完成状态未保存：\(error.localizedDescription)"
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("today-advice-panel")
     }
 }
 

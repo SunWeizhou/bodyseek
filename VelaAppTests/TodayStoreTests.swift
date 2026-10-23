@@ -860,4 +860,27 @@ final class BodySeekInstrumentCopyTests: XCTestCase {
         XCTAssertEqual(plan.first, "这份调整建议值得采用吗？为什么？")
         XCTAssertTrue(plan.contains("今天继续「按计划开展训练」还合适吗？"))
     }
+
+    func testScoreStripDeviationLabelUsesPublishedDirectionOnly() {
+        let low = ScoreInstrumentReading(
+            id: "recovery",
+            title: "恢复",
+            value: 48,
+            baseline: 61,
+            isUnusual: true,
+            caption: "低于平时 61"
+        )
+        XCTAssertEqual(low.stripDeviationLabel, "低于平时")
+        XCTAssertEqual(low.valueText, "48")
+
+        let usual = ScoreInstrumentReading(
+            id: "sleep",
+            title: "睡眠",
+            value: 79,
+            baseline: 78,
+            isUnusual: false,
+            caption: "30 天平时 78"
+        )
+        XCTAssertNil(usual.stripDeviationLabel)
+    }
 }

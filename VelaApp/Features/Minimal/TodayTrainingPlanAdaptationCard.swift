@@ -90,7 +90,7 @@ struct PlanProposalDiffCard: View {
                     .background(VelaTheme.rhythmMist.opacity(0.8), in: Capsule())
 
                 Text(originalTitle.isEmpty ? "今日训练" : originalTitle)
-                    .font(.system(.subheadline, design: .rounded, weight: .medium))
+                    .font(.system(.subheadline, design: .default, weight: .medium))
                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
                     .lineLimit(1)
 
@@ -109,7 +109,7 @@ struct PlanProposalDiffCard: View {
                     .foregroundStyle(VelaTheme.rhythmDeep.opacity(0.8))
                     .frame(width: 22, height: 22)
                     .background(Circle().fill(VelaTheme.rhythmCanvasRaised))
-                    .overlay(Circle().stroke(VelaTheme.rhythmMist, lineWidth: 0.75))
+                    .overlay(Circle().stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
                 Spacer()
             }
 
@@ -124,7 +124,7 @@ struct PlanProposalDiffCard: View {
                         .background(VelaTheme.rhythmDeep, in: Capsule())
 
                     Text(adaptationLabel(adjustment))
-                        .font(.system(.subheadline, design: .rounded, weight: .bold))
+                        .font(.system(.subheadline, design: .default, weight: .bold))
                         .foregroundStyle(VelaTheme.rhythmInk)
 
                     Spacer()
@@ -146,7 +146,7 @@ struct PlanProposalDiffCard: View {
         .background(VelaTheme.rhythmCanvas.opacity(0.6), in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
-                .stroke(VelaTheme.rhythmMist.opacity(0.6), lineWidth: 0.6)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         }
     }
 
