@@ -1,5 +1,106 @@
 import SwiftUI
 
+// MARK: - Today Agent brief
+
+/// One Today sentence: now → optional recent change → whether action is needed.
+/// Facts come from `PersonalHealthBrief` (`evaluateAction` + morning-brief fields).
+/// A single recovery score never implies the other vitals are fine.
+enum TodayAgentBriefCopy {
+    static func sentence(
+        brief: PersonalHealthBrief?,
+        formation: PersonalBaselineFormation
+    ) -> String {
+        guard let brief else {
+            return fallback(for: formation)
+        }
+
+        var parts: [String] = []
+        let now = nowClause(brief, formation: formation)
+        if !now.isEmpty { parts.append(now) }
+
+        if let change = changeClause(brief), !now.contains(change) {
+            parts.append(change)
+        }
+
+        let action = actionClause(brief)
+        if !action.isEmpty, !parts.contains(where: { $0.contains(action) }) {
+            parts.append(action)
+        }
+
+        let joined = parts.joined(separator: "，")
+        if joined.isEmpty { return fallback(for: formation) }
+        return joined.hasSuffix("。") ? joined : joined + "。"
+    }
+
+    static func nowClause(_ brief: PersonalHealthBrief, formation: PersonalBaselineFormation) -> String {
+        let raw = stripPeriod(brief.subheadline)
+        if raw.isEmpty || looksLikeOverclaim(raw) {
+            if let recovery = recoveryCitation(in: raw) {
+                return "现在\(recovery)"
+            }
+            switch formation.phase {
+            case .waitingForEvidence:
+                return "连接 Apple 健康后开始形成个人基线"
+            case .learning:
+                return "现在先看今天的读数，个人基线还在建立"
+            case .ready:
+                return "现在先看五项各自的读数"
+            }
+        }
+        if raw.hasPrefix("现在") { return raw }
+        return "现在\(raw)"
+    }
+
+    static func changeClause(_ brief: PersonalHealthBrief) -> String? {
+        guard let first = brief.notableChanges.first(where: \.isNotable)
+                ?? brief.notableChanges.first else { return nil }
+        let summary = stripPeriod(first.summary)
+        if !summary.isEmpty { return summary }
+        return "\(first.metric.shortTitle)出现短期波动"
+    }
+
+    static func actionClause(_ brief: PersonalHealthBrief) -> String {
+        if brief.needsAction {
+            if let headline = brief.actionHeadline?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !headline.isEmpty,
+               !looksLikeOverclaim(headline) {
+                return headline
+            }
+            return "今天可能需要调整安排"
+        }
+        return "今天不必改计划"
+    }
+
+    private static func fallback(for formation: PersonalBaselineFormation) -> String {
+        switch formation.phase {
+        case .waitingForEvidence:
+            return "连接 Apple 健康后开始形成个人基线。"
+        case .learning:
+            return "继续正常佩戴，Vela 正在了解你的日常波动。"
+        case .ready:
+            return "今天的数据还没有同步，五项暂显示 --。"
+        }
+    }
+
+    private static func stripPeriod(_ text: String) -> String {
+        text.trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "。"))
+    }
+
+    /// Local brief / evaluateAction copy that treats one score as every vital.
+    static func looksLikeOverclaim(_ text: String) -> Bool {
+        let markers = ["各项", "都好", "都在", "机能充沛", "处于良好", "核心体征平稳", "节奏良好", "身体机能"]
+        return markers.contains { text.contains($0) }
+    }
+
+    static func recoveryCitation(in text: String) -> String? {
+        guard let range = text.range(of: #"恢复\s*\d+"#, options: .regularExpression) else {
+            return nil
+        }
+        return text[range].replacingOccurrences(of: "  ", with: " ")
+    }
+}
+
 // MARK: - Baseline gauge
 
 /// A 0–100 track that places today's reading next to the person's own usual
@@ -57,7 +158,15 @@ struct BaselineGauge: View {
             if let value {
                 let dot = CGRect(x: x(value) - 6, y: midY - 6, width: 12, height: 12)
                 context.fill(Path(ellipseIn: dot.insetBy(dx: -2.5, dy: -2.5)), with: .color(VelaTheme.rhythmCanvasRaised))
-                context.fill(Path(ellipseIn: dot), with: .color(ink))
+                if isUnusual {
+                    context.stroke(
+                        Path(ellipseIn: dot),
+                        with: .color(ink),
+                        style: StrokeStyle(lineWidth: 1.5)
+                    )
+                } else {
+                    context.fill(Path(ellipseIn: dot), with: .color(ink))
+                }
             }
         }
         .frame(height: height)
@@ -145,8 +254,7 @@ struct ScoreInstrumentReading: Equatable, Identifiable {
 // MARK: - Today instrument
 
 /// Today's five independent scores, each read against the person's own usual
-/// value. Recovery / Sleep / Strain stay primary; Stress / Energy secondary.
-/// There is no total.
+/// value. All five share one type size and one row template. There is no total.
 struct TodayScoreInstrument: View {
     let readings: [ScoreInstrumentReading]
     let selectedDate: Date
@@ -155,14 +263,12 @@ struct TodayScoreInstrument: View {
     var body: some View {
         VStack(spacing: 0) {
             ForEach(Array(readings.enumerated()), id: \.element.id) { index, reading in
-                if index == 3 {
-                    secondaryDivider
-                } else if index > 0 {
+                if index > 0 {
                     Divider()
                         .overlay(VelaTheme.rhythmMist)
                         .padding(.leading, 16)
                 }
-                row(reading, primary: index < 3)
+                row(reading)
             }
             legend
         }
@@ -173,14 +279,6 @@ struct TodayScoreInstrument: View {
         )
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("today-score-instrument")
-    }
-
-    private var secondaryDivider: some View {
-        Rectangle()
-            .fill(VelaTheme.rhythmMist)
-            .frame(height: 6)
-            .padding(.vertical, 2)
-            .accessibilityHidden(true)
     }
 
     private var legend: some View {
@@ -194,7 +292,9 @@ struct TodayScoreInstrument: View {
                 Text("个人平时")
             }
             HStack(spacing: 5) {
-                Circle().fill(VelaTheme.deviationInk).frame(width: 7, height: 7)
+                Circle()
+                    .strokeBorder(VelaTheme.deviationInk, lineWidth: 1.25)
+                    .frame(width: 7, height: 7)
                 Text("对你不常见")
             }
             Spacer(minLength: 0)
@@ -205,11 +305,11 @@ struct TodayScoreInstrument: View {
         .padding(.top, 2)
         .padding(.bottom, 12)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("圆点是今天，竖线是个人平时水平，参考窗口见各项说明，琥珀色表示对你而言不常见，不代表好坏。")
+        .accessibilityLabel("实心圆是今天，竖线是个人平时水平，空心圆表示对你而言不常见，不代表好坏。")
     }
 
     @ViewBuilder
-    private func row(_ reading: ScoreInstrumentReading, primary: Bool) -> some View {
+    private func row(_ reading: ScoreInstrumentReading) -> some View {
         if let metric = detailMetric(for: reading.id) {
             NavigationLink {
                 VelaMetricDetailView(
@@ -219,7 +319,7 @@ struct TodayScoreInstrument: View {
                     isPresentedInSheet: false
                 )
             } label: {
-                rowContent(reading, primary: primary)
+                rowContent(reading)
             }
             .buttonStyle(.plain)
             .accessibilityElement(children: .ignore)
@@ -228,43 +328,49 @@ struct TodayScoreInstrument: View {
             .accessibilityAddTraits(.isButton)
             .accessibilityIdentifier(identifier(for: reading.id))
         } else {
-            rowContent(reading, primary: primary)
+            rowContent(reading)
         }
     }
 
-    private func rowContent(_ reading: ScoreInstrumentReading, primary: Bool) -> some View {
+    private func rowContent(_ reading: ScoreInstrumentReading) -> some View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(reading.title)
-                    .font(primary ? VelaTheme.subheadline().weight(.semibold) : VelaTheme.footnote().weight(.semibold))
-                    .foregroundStyle(VelaTheme.rhythmInk)
+                HStack(spacing: 5) {
+                    Text(reading.title)
+                        .font(VelaTheme.subheadline().weight(.semibold))
+                        .foregroundStyle(VelaTheme.rhythmInk)
+                    if reading.isUnusual {
+                        BaselineDeviationMarker(showsLabel: false, diameter: 7)
+                    }
+                }
                 Text(reading.caption)
                     .font(VelaTheme.caption2())
-                    .foregroundStyle(reading.isUnusual ? VelaTheme.deviationInk : VelaTheme.rhythmInkSecondary)
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
             }
-            .frame(width: 96, alignment: .leading)
+            .frame(minWidth: 96, maxWidth: 96, alignment: .leading)
 
             BaselineGauge(
                 value: reading.value,
                 baseline: reading.baseline,
                 isUnusual: reading.isUnusual,
-                height: primary ? 24 : 18
+                height: 22
             )
+            .frame(maxWidth: .infinity)
 
             Text(reading.valueText)
-                .font(VelaTheme.instrumentValue(primary: primary))
+                .font(VelaTheme.instrumentValue())
                 .monospacedDigit()
                 .foregroundStyle(reading.value == nil ? VelaTheme.rhythmInkSecondary : VelaTheme.rhythmInk)
-                .frame(minWidth: primary ? 44 : 36, alignment: .trailing)
+                .frame(minWidth: 44, alignment: .trailing)
 
             Image(systemName: "chevron.right")
                 .font(.caption2.weight(.bold))
                 .foregroundStyle(VelaTheme.rhythmInkSecondary.opacity(0.55))
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, primary ? 7 : 6)
+        .padding(.vertical, 7)
         .contentShape(Rectangle())
     }
 

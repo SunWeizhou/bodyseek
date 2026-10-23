@@ -235,7 +235,9 @@ struct TodayPlanSection: View {
             if hasPendingProposal {
                 Button(action: onOpenPlan) {
                     HStack(spacing: 8) {
-                        Circle().fill(VelaTheme.deviationInk).frame(width: 7, height: 7)
+                        Circle()
+                            .strokeBorder(VelaTheme.deviationInk, lineWidth: 1.25)
+                            .frame(width: 7, height: 7)
                         Text("状态有变化，有一份调整建议待你确认")
                             .font(VelaTheme.footnote().weight(.semibold))
                         Spacer(minLength: 0)

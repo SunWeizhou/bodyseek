@@ -786,6 +786,51 @@ final class BodySeekInstrumentCopyTests: XCTestCase {
         XCTAssertEqual(readings[2].caption, "暂无数据")
     }
 
+    func testTodayAgentBriefAnswersNowChangeAndActionWithoutOverclaimingRecovery() {
+        let recoveryOnly = PersonalHealthBrief(
+            date: Date(),
+            overallState: .optimal,
+            headline: "身体机能处于良好水平",
+            subheadline: "恢复 82。",
+            needsAction: false,
+            suggestedActionCategory: .training,
+            actionHeadline: "机能充沛",
+            actionDetail: "各项身体指标平稳，无须大幅调整日常计划。"
+        )
+        let sentence = TodayAgentBriefCopy.sentence(
+            brief: recoveryOnly,
+            formation: .ready
+        )
+        XCTAssertEqual(sentence, "现在恢复 82，今天不必改计划。")
+        XCTAssertFalse(TodayAgentBriefCopy.looksLikeOverclaim(sentence))
+        XCTAssertFalse(sentence.contains("各项"))
+        XCTAssertFalse(sentence.contains("机能充沛"))
+
+        let sleepShift = HealthTrendFinding(
+            metric: .sleepScore,
+            horizon: .thirtyDays,
+            direction: .declining,
+            currentValue: 62,
+            currentValueFormatted: "62",
+            summary: "近两周睡眠得分较个人基线有所下降",
+            isNotable: true
+        )
+        let needsRest = PersonalHealthBrief(
+            date: Date(),
+            overallState: .strained,
+            headline: "生理负荷有所累积，建议关注恢复",
+            subheadline: "恢复 70。",
+            notableChanges: [sleepShift],
+            needsAction: true,
+            suggestedActionCategory: .recovery,
+            actionHeadline: "建议关注恢复"
+        )
+        XCTAssertEqual(
+            TodayAgentBriefCopy.sentence(brief: needsRest, formation: .ready),
+            "现在恢复 70，近两周睡眠得分较个人基线有所下降，建议关注恢复。"
+        )
+    }
+
     func testAskSuggestionsFollowPublishedDeviationAndPlan() {
         let recovery = ScoreInstrumentReading(
             id: "recovery",

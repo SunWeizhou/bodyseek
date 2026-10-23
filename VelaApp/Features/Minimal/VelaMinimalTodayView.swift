@@ -69,24 +69,14 @@ struct VelaTodayView: View {
         return labels
     }
 
-    /// The score remains the conclusion. This one short line is a bridge to
-    /// Coach, with a deterministic local brief available when AI is offline.
+    /// The score remains the conclusion. This one short line answers now →
+    /// optional recent change → whether action is needed, using evaluateAction
+    /// and morning-brief facts. It never treats one recovery score as all vitals.
     private var todayAgentSentence: String {
-        let phaseNote: String = switch todayExperience.baselineFormation.phase {
-        case .waitingForEvidence: "连接 Apple 健康后开始形成个人基线。"
-        case .learning: "继续正常佩戴，Vela 正在了解你的日常波动。"
-        case .ready: ""
-        }
-        if let brief = dashboard.personalHealthBrief,
-           let first = brief.notableChanges.first, first.metric.todayScoreRingID == nil {
-            return brief.overallState.title
-        }
-        if let headline = dashboard.personalHealthBrief?.headline
-            .trimmingCharacters(in: .whitespacesAndNewlines),
-           !headline.isEmpty {
-            return headline
-        }
-        return phaseNote.isEmpty ? "五项状态已更新，点此继续问我。" : phaseNote
+        TodayAgentBriefCopy.sentence(
+            brief: dashboard.personalHealthBrief,
+            formation: todayExperience.baselineFormation
+        )
     }
 
     private var todayBriefDetail: String {

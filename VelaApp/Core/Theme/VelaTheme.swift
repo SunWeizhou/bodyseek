@@ -181,11 +181,11 @@ enum VelaTheme {
     /// 能量 Energy — gold
     static let energyColor   = adaptive("#B47C18", "#F2BC4D")
     /// Personal Baseline Deviation — unusual-for-you, not a good/bad alarm.
-    /// The only hue on the monochrome canvas: amber reads as "look here", not
-    /// danger. WCAG AA on the canvas is checked by scripts/check_contrast.py.
-    static let deviationInk  = adaptive("#9A5800", "#F0A845")
+    /// Same secondary gray as body captions so Today/Trends never read as amber warning.
+    /// WCAG AA on the canvas is checked by scripts/check_contrast.py.
+    static let deviationInk  = adaptive("#5E5E63", "#9A9A9E")
     /// Quiet fill behind an unusual reading or a pending Plan Proposal.
-    static let deviationWash = adaptive("#FBF3E6", "#24190B")
+    static let deviationWash = adaptive("#F2F2F3", "#1B1B1C")
 
     // MARK: - Workout & Physiology Tokens
 
@@ -380,11 +380,9 @@ enum VelaTheme {
         .title2.weight(.medium).monospacedDigit()
     }
     static func briefBody() -> Font { .body }
-    /// Instrument numerals: primary scores read first, secondary ones quieter.
-    static func instrumentValue(primary: Bool) -> Font {
-        primary
-            ? .system(.title, design: .default, weight: .semibold).monospacedDigit()
-            : .system(.title3, design: .default, weight: .medium).monospacedDigit()
+    /// Instrument numerals: five Today scores share one type size.
+    static func instrumentValue() -> Font {
+        .system(.title2, design: .default, weight: .medium).monospacedDigit()
     }
     /// Page-level statement on Today / Trends / Plan.
     static func statement() -> Font { .system(.title2, design: .default, weight: .semibold) }
