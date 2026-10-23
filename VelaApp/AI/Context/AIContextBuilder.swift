@@ -1092,7 +1092,7 @@ struct CoachCompactContextAdapter {
         }
 
         appendIfFits(bodyDrivers.isEmpty ? nil : (isChinese ? "- 主要驱动：\(bodyDrivers)" : "- Main drivers: \(bodyDrivers)"))
-        appendIfFits(healthReferenceLine)
+        appendIfFits(Self.healthReferenceLineForPrimaryFact(healthReferenceLine))
 
         let trendLines = snapshot.weeklyTrends
             .sorted { $0.key < $1.key }
@@ -1171,6 +1171,12 @@ struct CoachCompactContextAdapter {
             compact.remove(at: compact.count - 3)
         }
         return String(compact.joined(separator: "\n").prefix(maxCharacters))
+    }
+
+    /// Biological age stays out of the default Fact snapshot unless the product
+    /// flag is on. Callers may still pass a line for Coach-only use.
+    static func healthReferenceLineForPrimaryFact(_ line: String?) -> String? {
+        VelaFeatureFlags.showsBiologicalAgeInPrimaryFact ? line : nil
     }
 
     private func metric(_ metric: MetricValue<Double>, language: AppLanguage) -> String {

@@ -986,6 +986,48 @@ final class VelaThemeTests: XCTestCase {
             PlanCompletionProjection(completed: 0, total: 0).progress,
             0
         )
+        XCTAssertEqual(
+            PlanCompletionProjection(completed: 1, total: 3).footnote,
+            "已完成 1/3 项"
+        )
+        XCTAssertNil(PlanCompletionProjection(completed: 0, total: 0).footnote)
+    }
+
+    func testPlanFirstScreenCopyLeadsWithDecisionAndDemotesProgress() {
+        let next = DailyOperatingPlanAction(
+            id: "primary",
+            domain: .training,
+            title: "上肢力量",
+            detail: "",
+            destination: "training"
+        )
+        var done = next
+        done.id = "done"
+        done.title = "步行恢复"
+        done.completedAt = Date(timeIntervalSince1970: 1_800_000_000)
+
+        XCTAssertEqual(
+            PlanFirstScreenCopy.trainingDecisionLine(decision: .keep),
+            "今日训练 · 按计划"
+        )
+        XCTAssertEqual(
+            PlanFirstScreenCopy.trainingDecisionLine(decision: .reduce),
+            "今日训练 · 减量"
+        )
+        XCTAssertEqual(
+            PlanFirstScreenCopy.primaryActionTitle(actions: [done, next]),
+            "上肢力量"
+        )
+        XCTAssertEqual(
+            PlanFirstScreenCopy.primaryActionTitle(actions: [done]),
+            "今天的安排已完成"
+        )
+        XCTAssertEqual(
+            PlanFirstScreenCopy.stabilityNote(decision: .keep, hasPendingCandidate: false),
+            "今天身体状态稳定，计划无需改动"
+        )
+        XCTAssertNil(PlanFirstScreenCopy.stabilityNote(decision: .keep, hasPendingCandidate: true))
+        XCTAssertNil(PlanFirstScreenCopy.stabilityNote(decision: .reduce, hasPendingCandidate: false))
     }
 
     func testBodySeekPresentationContractsPreserveUnknownState() {
@@ -3066,6 +3108,14 @@ final class VelaThemeTests: XCTestCase {
         XCTAssertTrue(questions.contains { $0.contains("个人基线") })
         XCTAssertTrue(questions.contains { $0.contains("调整今天的计划") })
         XCTAssertFalse(questions.first?.contains("训练") == true)
+    }
+
+    func testCoachEmptyStateKeepsASingleInvite() {
+        XCTAssertEqual(CoachEmptyStateCopy.invite, "问一句今天的状态")
+        XCTAssertEqual(CoachEmptyStateCopy.inviteHint, "输入或点麦克风即可。")
+        XCTAssertEqual(CoachEmptyStateCopy.inlineInvite, "结合当前页面直接问")
+        XCTAssertFalse(CoachEmptyStateCopy.invite.contains("记录与记忆"))
+        XCTAssertFalse(VelaFeatureFlags.biologicalAgeEnabled)
     }
 
     func testCoachRouteFocusPreservesSurfaceSemantics() {

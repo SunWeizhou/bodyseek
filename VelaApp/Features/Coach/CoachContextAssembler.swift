@@ -536,7 +536,7 @@ struct CoachContextAssembler {
             snapshot: canonical,
             language: lang,
             maxCharacters: 800,
-            healthReferenceLine: VelaFeatureFlags.biologicalAgeEnabled
+            healthReferenceLine: VelaFeatureFlags.showsBiologicalAgeInPrimaryFact
                 ? buildHealthReferenceLine(
                     dashboard: outboundDashboard,
                     biomarkers: biomarkers,

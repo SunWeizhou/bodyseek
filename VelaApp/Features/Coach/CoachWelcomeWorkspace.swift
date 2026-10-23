@@ -3,19 +3,20 @@ import SwiftData
 
 // MARK: - Coach welcome workspace
 
-/// A compact dated context leaves room for the conversation and its next question.
+/// First-open / idle Coach copy. One invite; the composer (and mic) stay the CTA.
+enum CoachEmptyStateCopy {
+    static let invite = "问一句今天的状态"
+    static let inviteHint = "输入或点麦克风即可。"
+    static let inlineInvite = "结合当前页面直接问"
+}
+
+/// A quiet empty state: one invite and at most a few questions. Memory, reports,
+/// and history stay in the existing overflow menu — not duplicated here.
 struct CoachWelcomeWorkspace: View {
     @ObservedObject var vm: CoachChatVM
     let dashboard: DashboardSummary
     let todayOperatingPlan: DailyOperatingPlanRecord?
-    let pendingMemoryProposals: [MemoryEventRecord]
-    let agentArtifacts: [AgentArtifactRecord]
-    @Binding var showWikiProfile: Bool
     let onSendMessage: (String) -> Void
-
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @Environment(\.colorScheme) private var colorScheme
-    @ObservedObject private var appState = VelaAppState.shared
 
     private var questions: [String] {
         Array(vm.contextualQuickQuestions(
@@ -25,187 +26,60 @@ struct CoachWelcomeWorkspace: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 22) {
-            Text("今天想聊什么？")
-                .font(VelaTheme.largeTitle())
-                .foregroundStyle(VelaTheme.rhythmInk)
-                .accessibilityIdentifier("coach-welcome-greeting")
-            currentContextSection
-            questionSection
-            workspaceSection
-        }
-    }
-
-    private var currentContextSection: some View {
-        Button {
-            VelaHaptic.selection()
-            appState.routeToToday()
-        } label: {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Text(dashboard.date, format: .dateTime.month().day())
-                    Spacer()
-                    Text("查看状态")
-                    Image(systemName: "chevron.right")
-                        .imageScale(.small)
-                }
-                .font(VelaTheme.subheadline())
-                .foregroundStyle(VelaTheme.rhythmInkSecondary)
-
-                Text(contextSummary)
-                    .font(VelaTheme.body())
+        VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(CoachEmptyStateCopy.invite)
+                    .font(VelaTheme.headline())
                     .foregroundStyle(VelaTheme.rhythmInk)
-                    .multilineTextAlignment(.leading)
-                    .fixedSize(horizontal: false, vertical: true)
+                Text(CoachEmptyStateCopy.inviteHint)
+                    .font(VelaTheme.footnote())
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
             }
-            .padding(18)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("coach-current-context")
-    }
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("coach-welcome-greeting")
 
-    private var contextSummary: String {
-        let metrics: [(String, MetricResult)] = [
-            ("恢复", dashboard.recovery), ("睡眠", dashboard.sleepScore),
-            ("负荷", dashboard.strain), ("压力", dashboard.stress), ("能量", dashboard.energy)
-        ]
-        return metrics.map { title, metric in
-            "\(title) \(metric.value.map { String(Int($0.rounded())) } ?? "—")"
-        }.joined(separator: " · ")
+            questionSection
+        }
     }
 
     private var questionSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            VStack(spacing: 0) {
-                ForEach(Array(questions.enumerated()), id: \.offset) { index, question in
-                    Button {
-                        VelaHaptic.selection()
-                        onSendMessage(question)
-                    } label: {
-                        HStack(spacing: 12) {
-                            Text(question)
-                                .font(VelaTheme.body())
-                                .foregroundStyle(VelaTheme.rhythmInk)
-                                .multilineTextAlignment(.leading)
-                                .fixedSize(horizontal: false, vertical: true)
-                            Spacer(minLength: 6)
-                            Image(systemName: "arrow.up.right")
-                                .font(VelaTheme.caption2().weight(.bold))
-                                .foregroundStyle(VelaTheme.rhythmInkSecondary.opacity(0.55))
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 18)
-                        .contentShape(Rectangle())
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(questions.enumerated()), id: \.offset) { index, question in
+                Button {
+                    VelaHaptic.selection()
+                    onSendMessage(question)
+                } label: {
+                    HStack(spacing: 12) {
+                        Text(question)
+                            .font(VelaTheme.body())
+                            .foregroundStyle(VelaTheme.rhythmInk)
+                            .multilineTextAlignment(.leading)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: 6)
+                        Image(systemName: "arrow.up.right")
+                            .font(VelaTheme.caption2().weight(.bold))
+                            .foregroundStyle(VelaTheme.rhythmInkSecondary.opacity(0.55))
                     }
-                    .buttonStyle(.plain)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 14)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
 
-                    if index < questions.count - 1 {
-                        Divider()
-                            .overlay(VelaTheme.rhythmMist)
-                            .padding(.horizontal, 14)
-                    }
+                if index < questions.count - 1 {
+                    Divider()
+                        .overlay(VelaTheme.rhythmMist)
+                        .padding(.horizontal, 14)
                 }
             }
-            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous)
-                    .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
-            }
+        }
+        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous)
+                .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
         }
         .accessibilityIdentifier("coach-contextual-questions")
     }
-
-    private var workspaceSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("记录与记忆")
-                .font(VelaTheme.headline())
-                .foregroundStyle(VelaTheme.rhythmInk)
-
-            VStack(spacing: 0) {
-                if !pendingMemoryProposals.isEmpty {
-                    Button {
-                        onSendMessage("请展示待确认的记忆更新提案，并逐项说明来源。")
-                    } label: {
-                        workspaceRow(
-                            icon: "brain.head.profile",
-                            title: "待确认记忆",
-                            badge: "\(pendingMemoryProposals.count)"
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    workspaceDivider
-                }
-
-                if !agentArtifacts.isEmpty {
-                    NavigationLink(destination: AgentArtifactLibraryView()) {
-                        workspaceRow(
-                            icon: "doc.text.magnifyingglass",
-                            title: "分析生成物",
-                            badge: "\(agentArtifacts.count)"
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    workspaceDivider
-                }
-
-                Button {
-                    showWikiProfile = true
-                } label: {
-                    workspaceRow(icon: "person.text.rectangle", title: "健康记忆档案")
-                }
-                .buttonStyle(.plain)
-
-                workspaceDivider
-
-                NavigationLink(destination: VelaReportsView()) {
-                    workspaceRow(icon: "clock.arrow.circlepath", title: "历史分析报告")
-                }
-                .buttonStyle(.plain)
-            }
-            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous)
-                    .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
-            }
-        }
-    }
-
-    private var workspaceDivider: some View {
-        Divider()
-            .overlay(VelaTheme.rhythmMist)
-            .padding(.leading, 52)
-    }
-
-    private func workspaceRow(icon: String, title: String, badge: String? = nil) -> some View {
-        HStack(spacing: 11) {
-            Image(systemName: icon)
-                .font(VelaTheme.footnote().weight(.semibold))
-                .foregroundStyle(VelaTheme.rhythmDeep)
-                .frame(width: 28, height: 28)
-            Text(title)
-                .font(VelaTheme.subheadline().weight(.medium))
-                .foregroundStyle(VelaTheme.rhythmInk)
-            Spacer()
-            if let badge {
-                Text(badge)
-                    .font(VelaTheme.caption2().weight(.bold))
-                    .foregroundStyle(VelaTheme.rhythmDeep)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 3)
-                    .background(VelaTheme.rhythmDeep.opacity(0.09), in: Capsule())
-            }
-            Image(systemName: "chevron.right")
-                .font(VelaTheme.caption2().weight(.bold))
-                .foregroundStyle(VelaTheme.rhythmInkSecondary.opacity(0.55))
-        }
-        .padding(.horizontal, 14)
-        .frame(minHeight: 50)
-        .contentShape(Rectangle())
-    }
-
 }
 
 
