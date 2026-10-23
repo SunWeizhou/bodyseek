@@ -134,3 +134,26 @@ final class TrendsStoreTests: XCTestCase {
         calendar.date(byAdding: .day, value: days, to: date)!
     }
 }
+
+final class DataPresentationCopyTests: XCTestCase {
+    func testPriorBaselineAndInclusiveChartCountsAreExplicitlyDifferent() {
+        let finding = HealthTrendFinding.unavailable(metric: .recovery, horizon: .thirtyDays, sampleCount: 6)
+        let summary = TrendsPeriodSummary.make(horizon: .thirtyDays, findings: [finding])
+        XCTAssertTrue(summary.detail?.contains("6 天") == true)
+        XCTAssertTrue(summary.detail?.contains("不含所选当天") == true)
+        let row = TrendsCoverageRow(id: "recovery", title: "恢复", scoredDays: 7, windowDays: 30, requiredDays: 14, isLoaded: true, baselineDays: 6)
+        let chartText = TrendsCoverageRow.summaryText([row], horizon: .thirtyDays)
+        XCTAssertTrue(chartText.contains("7/30"))
+        XCTAssertTrue(chartText.contains("含当天"))
+    }
+
+    func testUnusualReadingNamesItsActualReferenceWindow() {
+        let finding = HealthTrendFinding(metric: .energy, horizon: .sevenDays, direction: .elevated,
+            valueDirection: .rising, currentValue: 63, currentValueFormatted: "63%", baselineValue: 48,
+            sampleCount: 6, requiredSampleCount: 5, summary: "higher", isNotable: true)
+        let reading = ScoreInstrumentReading.make(cardValues: ["energy": "63%"], deviations: ["energy": "高于平时"], findings: [finding]).last!
+        XCTAssertEqual(reading.baseline, 48)
+        XCTAssertTrue(reading.caption.contains("7天"))
+        XCTAssertEqual(reading.valueText, "63%")
+    }
+}

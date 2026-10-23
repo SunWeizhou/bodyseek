@@ -397,7 +397,7 @@ struct CoachContextAssembler {
             let history = outboundPolicy.conversationHistory
                 ? CoachChatVM.historyBeforeCurrentPrompt(from: messages, limit: 6)
                 : []
-            for msg in history {
+            for msg in history where msg.role == .user || !CoachProtocolOutput.isMalformed(msg.content) {
                 result.append(ChatMessage(
                     role: msg.role == .user ? .user : .assistant,
                     content: CoachChatVM.timestampedHistoryContent(for: msg)
@@ -629,7 +629,7 @@ struct CoachContextAssembler {
         let history = outboundPolicy.conversationHistory
             ? CoachChatVM.historyBeforeCurrentPrompt(from: messages, limit: 10)
             : []
-        for msg in history {
+        for msg in history where msg.role == .user || !CoachProtocolOutput.isMalformed(msg.content) {
             result.append(ChatMessage(
                 role: msg.role == .user ? .user : .assistant,
                 content: CoachChatVM.timestampedHistoryContent(for: msg)

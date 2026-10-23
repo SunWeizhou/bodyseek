@@ -67,6 +67,7 @@ struct VelaPlanView: View {
 
     @State private var plan: DailyOperatingPlanRecord?
     @State private var editorDraft: PlanActionDraft?
+    @State private var showProposalDetails = false
     @State private var pendingDelete: DailyOperatingPlanAction?
     @State private var showTraining = false
     @State private var lastHandledTrainingRequest = 0
@@ -302,8 +303,8 @@ struct VelaPlanView: View {
                     .animation(VelaTheme.dataAnimation(reduceMotion: reduceMotion), value: completed)
             }
             if let summary = payload?.summary.trimmingCharacters(in: .whitespacesAndNewlines), !summary.isEmpty {
-                Text(summary)
-                    .font(VelaTheme.subheadline())
+                Text("已保存的安排：" + summary)
+                    .font(VelaTheme.footnote())
                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 2)
@@ -411,7 +412,7 @@ struct VelaPlanView: View {
                     .font(VelaTheme.headline())
                     .foregroundStyle(VelaTheme.rhythmInk)
                     .fixedSize(horizontal: false, vertical: true)
-                if !candidate.summary.isEmpty, candidate.summary != current.summary {
+                if showProposalDetails, !candidate.summary.isEmpty, candidate.summary != current.summary {
                     Text(candidate.summary)
                         .font(VelaTheme.footnote())
                         .foregroundStyle(VelaTheme.rhythmInkSecondary)
@@ -419,6 +420,16 @@ struct VelaPlanView: View {
                 }
             }
 
+            Button {
+                withAnimation(VelaTheme.interfaceAnimation(reduceMotion: reduceMotion)) { showProposalDetails.toggle() }
+            } label: {
+                Label(showProposalDetails ? "收起调整详情" : "查看 \(rows.filter { $0.change != .same }.count) 处调整",
+                      systemImage: showProposalDetails ? "chevron.up" : "chevron.down")
+                    .font(VelaTheme.footnote().weight(.semibold))
+                    .frame(minHeight: 44)
+            }
+            .accessibilityIdentifier("plan-proposal-expand")
+            if showProposalDetails {
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(rows) { row in
                     proposalRow(row)
@@ -454,6 +465,7 @@ struct VelaPlanView: View {
                         .stroke(VelaTheme.rhythmInk, lineWidth: 1.2)
                 )
                 .buttonStyle(.plain)
+            }
             }
             Text("确认前，当前计划和你的完成记录都不会改变。")
                 .font(VelaTheme.caption2())
@@ -559,6 +571,13 @@ struct VelaPlanView: View {
     }
 
     private func loadOrCreatePlan() {
+        #if DEBUG
+        if DailySummaryUseCase.isPreviewDashboardEnabled(), ProcessInfo.processInfo.arguments.contains("-velaPlanProposalFixture") {
+            plan = nil
+            planError = nil
+            return
+        }
+        #endif
         if plan?.dayIdentifier != dayIdentifier { plan = nil }
         do {
             if let stored = try DailyOperatingPlanRepository(modelContext: modelContext)

@@ -76,6 +76,8 @@ struct VelaShell: View {
     @State private var showCoverage = false
     @State private var showMemory = false
     @State private var showInlineConversation = false
+    @State private var inlineHeightOverride: CGFloat?
+    @GestureState private var inlineResizeTranslation: CGFloat = 0
     @State private var composerDraft = BodySeekComposerDraft()
     @State private var mountedLegacyTabs: Set<VelaTab> = [.today]
     @State private var lastPresentedAppSheet: VelaAppState.AppSheet?
@@ -503,6 +505,10 @@ struct VelaShell: View {
         .overlay(alignment: .bottom) {
             if showInlineConversation {
                 GeometryReader { geometry in
+                    let contentHeight: CGFloat = services.coachChat.messages.isEmpty ? 270 : 420
+                    let limit = max(160, geometry.size.height * 0.9)
+                    let base = min(limit, inlineHeightOverride ?? contentHeight)
+                    let height = min(limit, max(160, base - inlineResizeTranslation))
                     VStack(spacing: 0) {
                         Spacer(minLength: 0)
                         VelaCoachView(
@@ -521,7 +527,21 @@ struct VelaShell: View {
                             inlineSuggestions: askSuggestions,
                             vm: services.coachChat
                         )
-                        .frame(height: min(420, max(140, geometry.size.height * 0.72)))
+                        .padding(.top, 10)
+                        .frame(height: height)
+                        .overlay(alignment: .top) {
+                            Capsule().fill(VelaTheme.rhythmMist)
+                                .frame(width: 34, height: 4)
+                                .frame(width: 96, height: 16)
+                                .contentShape(Rectangle())
+                                .gesture(DragGesture(minimumDistance: 6)
+                                    .updating($inlineResizeTranslation) { value, state, _ in state = value.translation.height }
+                                    .onEnded { value in inlineHeightOverride = min(limit, max(160, base - value.translation.height)) })
+                                .accessibilityLabel("调整对话高度")
+                                .accessibilityAdjustableAction { direction in
+                                    inlineHeightOverride = min(limit, max(160, base + (direction == .increment ? 80 : -80)))
+                                }
+                        }
                         .background(VelaTheme.rhythmCanvas)
                         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                         .overlay {
@@ -1035,7 +1055,9 @@ private struct BodySeekAskComposer: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .center, spacing: 6) {
-                if isCompact { addButton }
+                if isCompact {
+                    if vm.messages.isEmpty { addButton } else { resumeButton }
+                }
                 // The field keeps one position in the tree so focus survives
                 // the compact → expanded switch.
                 TextField(placeholder, text: $draftState.text, axis: .vertical)
@@ -1050,7 +1072,6 @@ private struct BodySeekAskComposer: View {
                     .accessibilityIdentifier("bodyseek-ask-input")
                 if isCompact {
                     contextChip
-                    if !isExpanded, !vm.messages.isEmpty { resumeButton }
                     micButton
                 }
             }

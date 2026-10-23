@@ -470,6 +470,15 @@ final class CoachChatVM: ObservableObject {
     // MARK: - Session Delegation
 
     func loadSessions(modelContext: ModelContext) {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-velaCoachProtocolFixture") {
+            messages = [
+                ChatMsg(role: .user, content: "Explain this trend"),
+                ChatMsg(role: .assistant, content: #"<tool_call>{"name":"check_health_data","arguments":{}}</tool_call>"#)
+            ]
+            return
+        }
+        #endif
         sessionStore.loadSessions(
             modelContext: modelContext,
             isStreaming: isStreaming,

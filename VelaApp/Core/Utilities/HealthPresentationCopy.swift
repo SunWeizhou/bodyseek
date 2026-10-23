@@ -96,9 +96,9 @@ enum MissingInputLabel {
 enum TrendSampleCopy {
     static func text(sampleCount: Int, requiredSampleCount: Int, horizon: HealthTrendHorizon) -> String {
         if sampleCount >= requiredSampleCount {
-            return "\(horizon.windowDays) 天中 \(min(sampleCount, horizon.windowDays)) 天有记录"
+            return "历史 \(horizon.windowDays) 天中 \(min(sampleCount, horizon.windowDays)) 天有评分，不含当天"
         }
-        return "有效记录 \(sampleCount)/\(requiredSampleCount) 天，基线建立中"
+        return "基线历史 \(sampleCount)/\(requiredSampleCount) 天，不含当天"
     }
 }
 

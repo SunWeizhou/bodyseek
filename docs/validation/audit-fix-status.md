@@ -138,3 +138,63 @@ xcrun devicectl device process launch --device 00008140-00164DE022C3801C \
 - 结束时回到今日页，测试草稿已清空，录音已停止；读取的最新 Vela crash 仍是修复前 `Vela-2026-10-22-212945.ips`。安装、启动、文件元数据和 crash 列表回执均保存于本地忽略目录 `build/interaction-review/`。
 
 `git diff --check` 通过。未完成物理设备 Instruments/FPS 测量（xctrace 当时将设备列为 offline）、真实 AI 网络问答或所有页面/机型的无障碍验收，因此不宣称已消除全部卡顿、语音端到端完成或医疗判断有效。
+
+## 2026-10-23：AI 协议恢复、历史评分补算与数据呈现
+
+起点：`9444b04e975ba846cb822d3402f979b5cf70b237`，分支 `codex/ui/readable-trend-charts`，开始时工作树干净。本轮为未提交修改，不推送、不发布。此前真机已复现普通 assistant 回复直接显示 `<tool_call>` / JSON、基线与图表天数含义不清、调整建议遮住正式行动等现象。
+
+### 诊断与修改
+
+- `Before.xcresult` 首次测试因测试语言枚举拼写失败，未计为症状复现。修正为 `simplifiedChinese` 后，`Before2.xcresult` 的两个测试确实失败（退出 65）：短健康问题被划为无工具闲聊；文本化工具协议被当成最终答案。
+- 健康词判断现在先于招呼语和文本长度判断；「恢复？」「今天能跑吗」「今晚怎么睡更好」以及混合招呼的健康问题进入原有正式工具链。提示词中的旧 `check_health_data` 改为已注册的 `get_health_history` / `get_today_health`。
+- AgentLoop 遇到文本化协议最多要求模型纠正一次，只有正式 tool_calls 可以执行，原有 allowlist、写操作确认和预算仍有效。重复异常抛出可重试错误。旧会话原文保留；界面显示明确失败，可恢复对应问题为未发送草稿，并移除失败回复下的行动追问。上下文装配不再将旧协议片段回送给模型。
+- 6 与 7 的主要差异并非算术错误：基线排除所选当天，图表包含当天。现明确写「基线历史，不含当天」及「图中评分日，含当天」，保持既有评分窗口、样本门槛和算法不变。参考范围只在该窗口 finding 可用时显示；七天偏离提示注明七天，能量读数保留百分号。恢复图增加 0/50/100 纵轴，保留已有日期选择、真实零值和空档。
+- 历史覆盖页分别显示本机已有原始信号、尚无任何评分的原始日及空记录。原始回填不再承诺五项评分立即可用，查询失败不再被吞成空字典后推进游标。
+- 新增本机历史评分补算：只处理已结束、已有原始信号、没有任何既有评分且没有计算证据的日期。复用生产 `DailyHealthComputation` 和当前个人设置，历史健康证据截止该日末；按时间正序计算，后续日期使用已补算的前序结果。已有部分评分和已评估但不可用的结果均保留。写入使用独立 ModelContext、串行写门禁及旧记录版本检查，只填计算字段，不覆盖原始汇总；并发更新会暂停并提示重试。已保存结果支持暂停后续算。
+- 首页先显示下一项未完成行动，其他行动可展开；正式计划与完成记录仍由原编辑器维护。调整建议默认摘要，展开完整差异后才出现确认按钮，并明确区分已保存安排和新建议。
+- 页内对话按内容选择较小初始高度，支持拖动高度和主动全屏；空闲输入栏用继续对话替代重复加号，给输入留空间。打开长回答及键盘出现时定位回答开头，避免只看到末尾快捷问题。切换趋势窗口读取期间不复用上一窗口的曲线和覆盖数字。
+
+### 定向回归与实际 SwiftUI 证据
+
+环境：Xcode 27.0 / 27A266a；仓库固定版本仍为 26.5.0。iPhone 17 / iOS 26.5 模拟器，中文、常用字号，明暗模式；大字体不作为本轮专项。
+
+`Final.xcresult`：64 项 App + 4 项 UI 通过，退出 0。App 分组为 AgentActionParserTests 27、BodySeekInstrumentCopyTests 2、DataPresentationCopyTests 2、HistoricalScoreRepairTests 6、RecoveryDetailV2Tests 10、TodayStoreTests 13、TrendsStoreTests 4。最后两个纯 UI 修正（长回答定位、窗口加载隔离）后，`FinalUI.xcresult` 重跑相同四项 UI，退出 0。合计 **68 项不同检查通过**，不重复计数。
+
+```sh
+xcodebuild -project Vela.xcodeproj -scheme Vela -configuration Debug \
+  -destination 'platform=iOS Simulator,id=80FFA19E-69E6-499F-B246-F071A2D369BF' \
+  -parallel-testing-enabled NO -derivedDataPath build/UIOnboardingDerivedData \
+  -resultBundlePath build/data-presentation-repair/Final.xcresult \
+  -only-testing:VelaTests/AgentActionParserTests \
+  -only-testing:VelaTests/HistoricalScoreRepairTests \
+  -only-testing:VelaTests/BodySeekInstrumentCopyTests \
+  -only-testing:VelaTests/DataPresentationCopyTests \
+  -only-testing:VelaTests/RecoveryDetailV2Tests \
+  -only-testing:VelaTests/TrendsStoreTests \
+  -only-testing:VelaTests/TodayStoreTests \
+  -only-testing:VelaUITests/VelaSmokeUITests/testDataRepairLayoutsAndLegacyProtocolRecovery \
+  -only-testing:VelaUITests/VelaSmokeUITests/testHistoryRepairEntryIsReachableWithoutStartingHealthQueries \
+  -only-testing:VelaUITests/VelaSmokeUITests/testPeriodSummaryCoverageAndCompactComposer \
+  -only-testing:VelaUITests/VelaSmokeUITests/testAskBarOffersExplicitSendAndStaysOnCurrentPage \
+  -testLanguage zh -testRegion CN CODE_SIGNING_ALLOWED=NO test
+```
+
+最后 UI 重跑沿用上述环境、四个 UI 过滤器，结果包改为 `FinalUI.xcresult`。历史补算测试覆盖写入原始值保留、重复运行、部分评分保留、并发更新不覆盖、未来数据不影响历史，以及批量补算与逐日补算一致。真实零值与无数据分开统计。
+
+调试记录：`Core.xcresult` 中已有的三个详情文案预期与起点 HEAD 的生产文案不符（原期望旧「信号基线」字样，当前显示「平时」或 nil），已按当前公开文案修订，数值断言保留。`Regression.xcresult` 的 UI 初轮按 Button 查询被组合为其他类型的图表入口失败，改用原有稳定 identifier 并继续验证详情实际打开；未删除行为断言。以上失败不计为通过。
+
+原生附件清单：`build/data-presentation-repair/final-ui-attachments/manifest.json`；`Final.xcresult` 的 App 图表样例另在 `final-attachments/manifest.json`。主要可读副本包括 `repair-today-light.png`、`repair-today-dark.png`、`repair-trends-light.png`、`repair-coverage-light.png`、`repair-recovery-chart-light.png`、`repair-legacy-protocol.png`、`repair-restored-question.png`、`repair-plan-collapsed.png`、`repair-plan-diff.png`、`repair-history-entry.png`。已人工查看主要布局、键盘状态、失败提示与调整差异。均为本机预览或合成输入，不是真实健康记录；未触发真实 HealthKit 回填或联网 AI。
+
+### 构建产物与边界
+
+签名设备构建及 `codesign --verify --deep --strict` 均退出 0：
+
+```sh
+xcodebuild -project Vela.xcodeproj -scheme Vela -configuration Debug \
+  -destination 'generic/platform=iOS' -derivedDataPath build/DeviceDeployDerivedData build
+codesign --verify --deep --strict build/DeviceDeployDerivedData/Build/Products/Debug-iphoneos/Vela.app
+```
+
+构建身份为 `com.sunweizhou.Vela4` / 4.0.0 (1)，以源码差异和二进制哈希区分本轮，不依赖版本号。`build/data-presentation-repair/source.diff` SHA-256 为 `c978872f29bf89416fa3fda9d438d7c5591a80f4f4488bfc64270090725efe3b`；`device-build-receipt.json` 保存主程序、dylib、Info.plist 的哈希。`git diff --check` 通过。尚未覆盖安装本轮构建，需新的明确部署授权。
+
+上述是定向本地回归、原生布局及签名构建证据，不是全套 CI、完整评分科学有效性或所有设备验收。真实 provider 网络问答、HealthKit 授权/三年真实数据运行、设备听写和 FPS 尚未验证。评分补算入口已实现，但没有对用户真实数据库自动运行。

@@ -763,10 +763,22 @@ struct VelaCoachView: View {
                             ForEach(vm.messages.filter { !$0.isStreaming }) { msg in
                                 VStack(alignment: .leading, spacing: 8) {
                                     MessageBubble(
-                                        text: msg.content,
+                                        text: msg.role == .assistant && CoachProtocolOutput.isMalformed(msg.content) ? CoachProtocolOutput.failureText : msg.content,
                                         isUser: msg.role == .user,
                                         time: msg.timestamp.formatted(.dateTime.hour().minute())
                                     )
+
+                                    if msg.role == .assistant, CoachProtocolOutput.isMalformed(msg.content) {
+                                        Button("恢复问题") {
+                                            if let index = vm.messages.firstIndex(where: { $0.id == msg.id }),
+                                               let question = vm.messages[..<index].last(where: { $0.role == .user })?.content {
+                                                if presentation == .inline { onRestoreDraft?(question) }
+                                                else { inputText = question }
+                                            }
+                                        }
+                                        .font(VelaTheme.footnote().weight(.semibold))
+                                        .frame(minHeight: 44)
+                                    }
 
                                     if presentation != .inline, msg.role == .assistant, msg.id == vm.messages.last(where: { !$0.isStreaming })?.id {
                                         coachEvidenceCard
@@ -782,11 +794,11 @@ struct VelaCoachView: View {
                                         .padding(.leading, 8)
                                     }
 
-                                    if presentation == .inline, msg.id == vm.messages.last?.id, msg.role == .assistant, !vm.isStreaming {
+                                    if presentation == .inline, msg.id == vm.messages.last?.id, msg.role == .assistant, !vm.isStreaming, !CoachProtocolOutput.isMalformed(msg.content) {
                                         inlineSuggestionChips(
                                             Array(NSOrderedSet(array: vm.followUpSuggestions(for: msg.content) + inlineSuggestions)) as? [String] ?? inlineSuggestions
                                         )
-                                    } else if msg.id == vm.messages.last?.id, msg.role == .assistant, !vm.isStreaming {
+                                    } else if msg.id == vm.messages.last?.id, msg.role == .assistant, !vm.isStreaming, !CoachProtocolOutput.isMalformed(msg.content) {
                                         let followUps = vm.followUpSuggestions(for: msg.content)
                                         if !followUps.isEmpty {
                                             CoachFollowUpChipsView(suggestions: followUps) { suggestion in
@@ -804,7 +816,7 @@ struct VelaCoachView: View {
                                         .id("typing")
                                 } else {
                                     MessageBubble(
-                                        text: vm.streamingContent,
+                                        text: CoachProtocolOutput.isMalformed(vm.streamingContent) ? "正在重新整理回复…" : vm.streamingContent,
                                         isUser: false,
                                         time: "",
                                         isStreaming: true
@@ -844,9 +856,14 @@ struct VelaCoachView: View {
                             scrollToBottom(using: proxy, animated: false)
                         }
                     }
+                    .onAppear { revealLatestMessage(using: proxy) }
                     .onChange(of: isKeyboardVisible) { _, visible in
                         guard visible else { return }
-                        scrollToBottom(using: proxy, animated: true)
+                        if presentation == .inline && !vm.isStreaming {
+                            revealLatestMessage(using: proxy)
+                        } else {
+                            scrollToBottom(using: proxy, animated: true)
+                        }
                     }
                     .onChange(of: isFocused) { _, focused in
                         guard focused else { return }

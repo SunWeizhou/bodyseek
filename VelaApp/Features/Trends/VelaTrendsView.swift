@@ -94,6 +94,8 @@ struct VelaTrendsView: View {
     @State private var trendRetryNonce = 0
     @State private var selectedRecoveryTrendDate: Date?
     @State private var showHistoryCoverage = false
+    @State private var rawCoverage: HistoricalCoverageSummary?
+    @State private var loadedWindowID: String?
 
     private var healthBrief: PersonalHealthBrief? { dashboard.personalHealthBrief }
     private var allTrends: [HealthTrendFinding] { dashboard.healthTrends }
@@ -258,7 +260,7 @@ struct VelaTrendsView: View {
                         .foregroundStyle(VelaTheme.rhythmInkSecondary)
                 }
 
-                if let series = trendStates[descriptor.metric]?.series {
+                if let series = currentSeries(for: descriptor.metric) {
                     TrendsOverviewChart(series: series, tint: color)
                         .accessibilityIdentifier("trends-overview-chart-\(descriptor.metric.rawValue)")
                 } else {
@@ -344,7 +346,8 @@ struct VelaTrendsView: View {
             TrendsHistoryCoverageSheet(
                 horizon: selectedHorizon,
                 rows: coverageRows,
-                isPreview: dashboard.source == .preview
+                isPreview: dashboard.source == .preview,
+                rawCoverage: loadedWindowID == trendLoadID ? rawCoverage : nil
             )
             .presentationDetents([.medium, .large])
             .velaSheetSurface()
@@ -360,7 +363,8 @@ struct VelaTrendsView: View {
                 scoredDays: points.filter { $0.value != nil }.count,
                 windowDays: points.isEmpty ? selectedHorizon.windowDays : points.count,
                 requiredDays: selectedHorizon.requiredSampleCount,
-                isLoaded: trendStates[descriptor.metric]?.series != nil
+                isLoaded: currentSeries(for: descriptor.metric) != nil,
+                baselineDays: finding(for: descriptor.metric)?.sampleCount
             )
         }
     }
@@ -479,8 +483,15 @@ struct VelaTrendsView: View {
         allTrends.first { $0.metric == metric && $0.horizon == selectedHorizon }
     }
 
+    private func currentSeries(for metric: CoreHealthMetric) -> TrendsMetricSeries? {
+        guard loadedWindowID == trendLoadID,
+              let series = trendStates[metric]?.series,
+              series.horizon == selectedHorizon else { return nil }
+        return series
+    }
+
     private func scoreTrendPoints(for metric: CoreHealthMetric) -> [TrendsChartPoint] {
-        trendStates[metric]?.series?.points ?? []
+        currentSeries(for: metric)?.points ?? []
     }
 
     private func scoreBand(for metric: CoreHealthMetric) -> ClosedRange<Double>? {
@@ -506,9 +517,9 @@ struct VelaTrendsView: View {
     private func scoreTrendCaption(finding: HealthTrendFinding?, sampleCount: Int) -> String {
         guard let finding, finding.isAvailable else {
             if sampleCount >= selectedHorizon.requiredSampleCount {
-                return "\(sampleCount) 天记录"
+                return "图中 \(sampleCount) 个评分日（含当天）"
             }
-            return "已记录 \(sampleCount) 天 · 满 \(selectedHorizon.requiredSampleCount) 天后分析趋势"
+            return "图中 \(sampleCount) 个评分日（含当天） · 基线历史 \(finding?.sampleCount ?? 0)/\(selectedHorizon.requiredSampleCount) 天"
         }
         if finding.isNotable {
             return BaselineDeviationCopy.label(for: finding) ?? BaselineDeviationCopy.unusualFallback
@@ -583,6 +594,8 @@ struct VelaTrendsView: View {
             states[metric] = store.state
         }
         guard !Task.isCancelled else { return }
+        loadedWindowID = trendLoadID
+        rawCoverage = loaded.rawCoverage
         dailyRecordsLoadError = loaded.errorMessage
         trendStates = states
     }
@@ -1034,7 +1047,7 @@ struct TrendsPeriodSummary: Equatable {
             let most = scoped.map(\.sampleCount).max() ?? 0
             return TrendsPeriodSummary(
                 headline: "\(horizon.title)内的评分记录还不够判断变化",
-                detail: "每项至少需要 \(horizon.requiredSampleCount) 天有评分，目前最多 \(most) 天。"
+                detail: "基线需要至少 \(horizon.requiredSampleCount) 个历史评分日，目前最多 \(most) 天，不含所选当天。"
             )
         }
 
@@ -1086,6 +1099,7 @@ struct TrendsCoverageRow: Identifiable, Equatable {
     let windowDays: Int
     let requiredDays: Int
     let isLoaded: Bool
+    var baselineDays: Int? = nil
 
     static func summaryText(_ rows: [TrendsCoverageRow], horizon: HealthTrendHorizon) -> String {
         guard let window = rows.map(\.windowDays).max(), !rows.isEmpty else {
@@ -1095,7 +1109,7 @@ struct TrendsCoverageRow: Identifiable, Equatable {
         let low = scored.min() ?? 0
         let high = scored.max() ?? 0
         let range = low == high ? "\(low)" : "\(low)–\(high)"
-        return "\(window) 天中 \(range) 天有评分"
+        return "图中 \(range)/\(window) 天有评分（含当天）"
     }
 }
 
@@ -1103,13 +1117,14 @@ struct TrendsHistoryCoverageSheet: View {
     let horizon: HealthTrendHorizon
     let rows: [TrendsCoverageRow]
     let isPreview: Bool
+    var rawCoverage: HistoricalCoverageSummary? = nil
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    Text("\(horizon.detailedTitle)里，每一项有多少天真的有评分。空档不会补零，也不会插值。")
+                    Text("图表包含所选当天；个人基线只使用当天之前的有效记录。因此图中评分天数与基线天数可能不同。")
                         .font(VelaTheme.subheadline())
                         .foregroundStyle(VelaTheme.rhythmInkSecondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -1125,6 +1140,16 @@ struct TrendsHistoryCoverageSheet: View {
                     .padding(.horizontal, 16)
                     .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
 
+                    if let rawCoverage {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("本机已有的原始汇总").font(VelaTheme.subheadline().weight(.semibold))
+                            Text("有原始信号 \(rawCoverage.rawDays) 天，其中 \(rawCoverage.rawDaysWithoutScores) 天没有五项评分；另有 \(rawCoverage.emptyDays) 天仅有空记录。")
+                                .font(VelaTheme.footnote())
+                            Text("没有评分不等于没有健康记录。补算只处理从未计算的历史日；已计算但证据不足的日期仍可能没有分数。")
+                                .font(VelaTheme.caption1()).foregroundStyle(VelaTheme.rhythmInkSecondary)
+                        }
+                    }
+
                     VStack(alignment: .leading, spacing: 8) {
                         Text("空档通常来自")
                             .font(VelaTheme.subheadline().weight(.semibold))
@@ -1132,6 +1157,7 @@ struct TrendsHistoryCoverageSheet: View {
                         ForEach([
                             "那天没有佩戴 Apple Watch，或关键信号（如 HRV、睡眠）没有记录；",
                             "数据还没有从 Apple 健康同步到本机；",
+                            "原始汇总已回填，但该日期尚未计算评分；",
                             "评分所需的证据不足，这一天按规则不计算。"
                         ], id: \.self) { line in
                             Text(line)
@@ -1192,8 +1218,8 @@ struct TrendsHistoryCoverageSheet: View {
                 }
             }
             .frame(height: 6)
-            if row.isLoaded, row.scoredDays < row.requiredDays {
-                Text("至少需要 \(row.requiredDays) 天才分析这个窗口的趋势")
+            if row.isLoaded {
+                Text("基线历史 \(row.baselineDays ?? 0)/\(row.requiredDays) 天，不含当天")
                     .font(VelaTheme.caption1())
                     .foregroundStyle(VelaTheme.deviationInk)
             }

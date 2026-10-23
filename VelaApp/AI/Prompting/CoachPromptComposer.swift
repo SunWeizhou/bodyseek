@@ -204,7 +204,7 @@ enum PromptFragments {
                - **你的职责**：若发现临时发生的异常或行为（如“今天头痛”、“昨晚睡了5小时”、“今天吃了一顿大餐”），诊断其为 transient (临时) 信息。在对话中向用户表达关怀并给出今日调整建议，但**严禁**调用 `update_user_wiki`，系统会自动将这些当天的琐碎信息记在每日日志中。
 
             3. 📊 **全局数据调取与深度分析指令**：
-               - 在回答用户关于历史趋势、指标波动或多天相关性的提问时，不要凭空猜测。你随时可以并应当主动调用 `check_health_data` 或相关数据调取工具去查看全局的历史数据，以提供高度准确的量化趋势分析。
+               - 在回答用户关于历史趋势、指标波动或多天相关性的提问时，不要凭空猜测。你随时可以并应当主动调用 `get_health_history`（历史记录）或 `get_today_health`（当日状态）去查看全局的历史数据，以提供高度准确的量化趋势分析。
 
             在决定是否发起 `update_user_wiki` 时，先进行【心智自省】：这是长期反复发生或订立的习惯/特征（是 Wiki 级别），还是仅为今天一天的状况/状态（是 Daily 级别）？
             """
@@ -252,7 +252,6 @@ enum ResponseLengthPolicy {
     }
 
     private static func isCasual(_ trimmed: String) -> Bool {
-        if trimmed.count < 6 { return true }
         let casualPatterns = [
             "hi", "hello", "hey", "hola", "yo", "sup",
             "你好", "嗨", "在吗", "哈喽", "嘿",
@@ -262,11 +261,8 @@ enum ResponseLengthPolicy {
             "你会什么", "你能做什么", "你叫什么", "你是谁",
             "谢谢", "thanks", "thank you",
         ]
-        for pattern in casualPatterns {
-            if trimmed.contains(pattern) { return true }
-        }
         let dataPatterns = [
-            "分析", "数据", "睡眠", "恢复", "压力", "负荷", "能量",
+            "分析", "数据", "睡", "恢复", "压力", "负荷", "能量", "身体", "累", "疲劳", "跑",
             "analyze", "data", "sleep", "recovery", "strain", "stress", "energy",
             "今天状态", "今日总结", "报告", "总结", "简报",
             "建议", "训练", "workout", "training",
@@ -278,6 +274,9 @@ enum ResponseLengthPolicy {
         ]
         for pattern in dataPatterns {
             if trimmed.contains(pattern) { return false }
+        }
+        for pattern in casualPatterns {
+            if trimmed == pattern { return true }
         }
         return trimmed.count < 20
     }

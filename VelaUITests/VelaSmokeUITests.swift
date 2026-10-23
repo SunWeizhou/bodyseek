@@ -143,6 +143,61 @@ final class VelaSmokeUITests: XCTestCase {
         captureTrends("trends-accessibility-chart")
     }
 
+    func testDataRepairLayoutsAndLegacyProtocolRecovery() {
+        var app = launchApp(initialTab: 1, extraArguments: ["-velaDisableNetworkAI", "-vela_dark_mode", "light"])
+        let coverage = app.buttons["trends-history-coverage"]
+        XCTAssertTrue(coverage.waitForExistence(timeout: 10))
+        XCTAssertTrue(coverage.label.contains("含当天"))
+        captureTrends("repair-trends-light")
+        coverage.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["history-coverage-details"].waitForExistence(timeout: 4))
+        captureTrends("repair-coverage-light")
+        app.buttons["关闭"].tap()
+        app.descendants(matching: .any)["trends-score-recovery"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["recovery-detail-chart"].waitForExistence(timeout: 5))
+        captureTrends("repair-recovery-chart-light")
+        app.terminate()
+        app = launchApp(initialTab: 0, extraArguments: ["-velaDisableNetworkAI", "-velaCoachProtocolFixture", "-vela_dark_mode", "light"])
+        XCTAssertTrue(app.descendants(matching: .any)["today-score-instrument"].waitForExistence(timeout: 10))
+        captureTrends("repair-today-light")
+        app.descendants(matching: .any)["bodyseek-ask-input"].tap()
+        XCTAssertTrue(app.buttons["恢复问题"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "<tool_call>")).firstMatch.exists)
+        XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "未形成可用结论")).firstMatch.isHittable)
+        captureTrends("repair-legacy-protocol")
+        app.buttons["恢复问题"].tap()
+        let field = app.descendants(matching: .any)["bodyseek-ask-input"]
+        XCTAssertTrue((field.value as? String)?.contains("Explain this trend") == true)
+        captureTrends("repair-restored-question")
+        app.buttons["收起对话"].tap()
+        app.terminate()
+        app = launchApp(initialTab: 2, extraArguments: ["-velaDisableNetworkAI", "-velaPlanProposalFixture", "-vela_dark_mode", "light"])
+        captureTrends("repair-plan-collapsed")
+        let expand = app.buttons["plan-proposal-expand"]
+        XCTAssertTrue(expand.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["采用建议"].exists)
+        expand.tap()
+        XCTAssertTrue(app.buttons["采用建议"].waitForExistence(timeout: 3))
+        captureTrends("repair-plan-diff")
+        app.terminate()
+        app = launchApp(initialTab: 0, extraArguments: ["-velaDisableNetworkAI", "-vela_dark_mode", "dark"])
+        XCTAssertTrue(app.descendants(matching: .any)["today-score-instrument"].waitForExistence(timeout: 10))
+        captureTrends("repair-today-dark")
+    }
+
+    func testHistoryRepairEntryIsReachableWithoutStartingHealthQueries() {
+        let app = launchApp(initialTab: 0, extraArguments: ["-velaDisableNetworkAI"])
+        app.buttons["个人档案"].tap()
+        let history = app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "三年 Apple 健康回填")).firstMatch
+        for _ in 0..<8 where !history.isHittable { app.swipeUp() }
+        XCTAssertTrue(history.isHittable)
+        history.tap()
+        let repair = app.buttons["history-score-repair"]
+        for _ in 0..<8 where !repair.isHittable { app.swipeUp() }
+        XCTAssertTrue(repair.isHittable)
+        captureTrends("repair-history-entry")
+    }
+
     func testPeriodSummaryCoverageAndCompactComposer() {
         let app = launchApp(initialTab: 1, extraArguments: ["-velaDisableNetworkAI", "-vela_dark_mode", "light"])
         let summary = app.descendants(matching: .any)["trends-period-summary"]

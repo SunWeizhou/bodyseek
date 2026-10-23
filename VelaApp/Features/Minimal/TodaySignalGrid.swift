@@ -219,6 +219,7 @@ struct TodayPlanSection: View {
     @Environment(\.modelContext) private var modelContext
     @State private var localPayload: DailyOperatingPlanPayload?
     @State private var saveError: String?
+    @State private var showAllActions = false
 
     private var shownPayload: DailyOperatingPlanPayload? { localPayload ?? payload }
     private var actions: [DailyOperatingPlanAction] { shownPayload?.allActions ?? [] }
@@ -252,11 +253,27 @@ struct TodayPlanSection: View {
             }
 
             if !actions.isEmpty {
-                ForEach(Array(actions.enumerated()), id: \.element.id) { index, action in
+                let visibleActions = showAllActions ? actions : Array(actions.filter { $0.completedAt == nil }.prefix(1))
+                ForEach(Array(visibleActions.enumerated()), id: \.element.id) { index, action in
                     if index > 0 {
                         Divider().overlay(VelaTheme.rhythmMist).padding(.leading, 56)
                     }
-                    actionRow(action, isPrimary: index == 0)
+                    actionRow(action, isPrimary: action.id == actions.first?.id)
+                }
+                if actions.count > 1 || completed > 0 {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.18)) { showAllActions.toggle() }
+                    } label: {
+                        HStack {
+                            Text(showAllActions ? "收起安排" : completed == actions.count ? "查看已完成的 \(completed) 项安排" : "查看全部 \(actions.count) 项 · 已完成 \(completed) 项")
+                            Spacer()
+                            Image(systemName: showAllActions ? "chevron.up" : "chevron.down")
+                        }
+                        .font(VelaTheme.footnote()).frame(minHeight: 44)
+                        .padding(.horizontal, 16)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("today-plan-disclosure")
                 }
             } else if let fallback {
                 fallbackRow(fallback)

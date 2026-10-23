@@ -96,7 +96,7 @@ final class RecoveryDetailV2Tests: XCTestCase {
         XCTAssertNil(model.baselineMedianValue)
         XCTAssertNil(model.baselineBand)
         XCTAssertNil(model.deviationText)
-        XCTAssertEqual(model.sampleText, "有效记录 2/5 天，基线建立中")
+        XCTAssertEqual(model.sampleText, "基线历史 2/5 天，不含当天")
     }
 
     func testMissingScoreStaysDashAndSkipsDeviation() {
@@ -214,9 +214,9 @@ final class RecoveryDetailV2Tests: XCTestCase {
         XCTAssertNil(model.baselineBand)
         XCTAssertTrue(model.showsBaselineLine)
         XCTAssertEqual(model.observations.first { $0.id == "hrv" }?.valueText, "42 ms")
-        XCTAssertEqual(model.observations.first { $0.id == "hrv" }?.baselineText, "信号基线 · 中位数 46 ms")
-        XCTAssertEqual(model.observations.first { $0.id == "rhr" }?.baselineText, "信号基线 · 近端均值 60 bpm")
-        XCTAssertEqual(model.observations.first { $0.id == "respiratory" }?.baselineText, "信号基线 · 近端均值建立中")
+        XCTAssertEqual(model.observations.first { $0.id == "hrv" }?.baselineText, "平时 46 ms")
+        XCTAssertEqual(model.observations.first { $0.id == "rhr" }?.baselineText, "平时 60 bpm")
+        XCTAssertNil(model.observations.first { $0.id == "respiratory" }?.baselineText)
         XCTAssertEqual(model.evidence.first { $0.id == "sleep-input" }?.valueText, "81")
         XCTAssertEqual(model.evidence.first { $0.id == "strain-input" }?.valueText, "40")
         XCTAssertEqual(model.candidateExplanation?.contains("HRV"), true)

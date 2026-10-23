@@ -79,11 +79,11 @@ struct ScoreInstrumentReading: Equatable, Identifiable {
     let caption: String
 
     var valueText: String {
-        value.map { String(Int($0.rounded())) } ?? "--"
+        value.map { String(Int($0.rounded())) + (id == "energy" ? "%" : "") } ?? "--"
     }
 
     var accessibilityText: String {
-        let reading = value == nil ? "暂无数据" : "\(valueText) 分"
+        let reading = value == nil ? "暂无数据" : id == "energy" ? "\(valueText) 可用余量" : "\(valueText) 分"
         return "\(title)，\(reading)，\(caption)"
     }
 
@@ -109,19 +109,24 @@ struct ScoreInstrumentReading: Equatable, Identifiable {
             let raw = cardValues[entry.id]?.replacingOccurrences(of: "%", with: "")
             let value = raw.flatMap { $0 == "--" ? nil : Double($0) }
             let finding = findings.first { $0.metric == entry.metric && $0.horizon == horizon }
-            let baseline = finding?.isAvailable == true ? finding?.baselineValue : nil
             let deviation = deviations[entry.id]
+            let deviationFinding = findings.first {
+                $0.metric == entry.metric && $0.isAvailable && $0.isNotable
+                    && deviation != nil && (BaselineDeviationCopy.label(for: $0) ?? "") == deviation
+            }
+            let reference = deviationFinding ?? finding
+            let baseline = reference?.isAvailable == true ? reference?.baselineValue : nil
             let isUnusual = value != nil && deviation != nil
             let caption: String
             if value == nil {
                 caption = "暂无数据"
             } else if let deviation {
                 let label = deviation.isEmpty ? BaselineDeviationCopy.unusualFallback : deviation
-                caption = baseline.map { "\(label) \(Int($0.rounded()))" } ?? label
+                caption = reference?.isAvailable == true ? "\(label) · \((reference?.horizon.title ?? horizon.title))" : label
             } else if let baseline {
-                caption = "平时 \(Int(baseline.rounded()))"
+                caption = "\(horizon.title)平时 \(Int(baseline.rounded()))"
             } else if let finding {
-                caption = "基线 \(min(finding.sampleCount, finding.requiredSampleCount))/\(finding.requiredSampleCount) 天"
+                caption = "历史 \(finding.sampleCount)/\(finding.requiredSampleCount) 天"
             } else {
                 caption = "基线建立中"
             }
@@ -186,7 +191,7 @@ struct TodayScoreInstrument: View {
             }
             HStack(spacing: 5) {
                 Capsule().fill(VelaTheme.rhythmInkSecondary).frame(width: 2, height: 10)
-                Text("近 30 天平时")
+                Text("个人平时")
             }
             HStack(spacing: 5) {
                 Circle().fill(VelaTheme.deviationInk).frame(width: 7, height: 7)
@@ -200,7 +205,7 @@ struct TodayScoreInstrument: View {
         .padding(.top, 2)
         .padding(.bottom, 12)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("圆点是今天，竖线是你近 30 天的平时水平，琥珀色表示对你而言不常见，不代表好坏。")
+        .accessibilityLabel("圆点是今天，竖线是个人平时水平，参考窗口见各项说明，琥珀色表示对你而言不常见，不代表好坏。")
     }
 
     @ViewBuilder
@@ -259,7 +264,7 @@ struct TodayScoreInstrument: View {
                 .foregroundStyle(VelaTheme.rhythmInkSecondary.opacity(0.55))
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, primary ? 10 : 7)
+        .padding(.vertical, primary ? 7 : 6)
         .contentShape(Rectangle())
     }
 

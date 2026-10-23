@@ -6,6 +6,7 @@ struct TrendsWindowLoad {
     var snapshots: [DailyHealthSnapshot]
     var errorMessage: String?
     var isPreview: Bool
+    var rawCoverage: HistoricalCoverageSummary? = nil
 }
 
 /// Reads persisted daily summaries for one trend window and converts them to
@@ -34,7 +35,8 @@ struct PersistedTrendsWindowLoader {
             return TrendsWindowLoad(
                 snapshots: records.map(snapshot(from:)),
                 errorMessage: nil,
-                isPreview: false
+                isPreview: false,
+                rawCoverage: HistoricalCoverageSummary(snapshots: records.map(snapshot(from:)))
             )
         } catch {
             return TrendsWindowLoad(

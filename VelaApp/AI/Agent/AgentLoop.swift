@@ -144,6 +144,28 @@ private extension UInt64 {
     }
 }
 
+/// Provider protocol fragments are never an executable command or a user answer.
+/// Keep old stored messages intact; presentation can explain the failed turn.
+enum CoachProtocolOutput {
+    static func isMalformed(_ text: String) -> Bool {
+        let markers = ["<tool", "</tool", "<function", "<|", "DSML", "\"tool_calls\"", "\"function_call\""]
+        if markers.contains(where: { text.localizedCaseInsensitiveContains($0) }) { return true }
+        guard let data = text.trimmingCharacters(in: .whitespacesAndNewlines).data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return false }
+        return object["name"] is String && object["arguments"] != nil
+    }
+
+    static var failureText: String {
+        L10n.t("The data request did not finish, so this reply has no usable conclusion. Restore your question and try again.",
+               "这条回复没有完成数据查询，未形成可用结论。你可以恢复问题后重新提问。")
+    }
+
+    static func answer(_ text: String) throws -> String {
+        guard !isMalformed(text) else { throw LLMProviderError.invalidResponse }
+        return text
+    }
+}
+
 /// Encapsulates the tool-call loop: sends messages to LLM, executes tool calls, collects results.
 /// Extracted from CoachChatVM.send() so that CoachChatPanel.swift remains UI-only.
 struct AgentLoop {
@@ -227,6 +249,7 @@ struct AgentLoop {
         // we must NOT make a final unbounded provider call (the deadline would be
         // a lie, and the [CANCELLED]/[TIME EXCEEDED] injection strings must never
         // be sent to the model). Instead we return an honest local message.
+        var protocolRepairAttempted = false
         var didTerminateEarly = false
         // 深度专项批次 2：区分「用户取消」与「deadline 到期」——用户取消必须把
         // CancellationError 抛回 CoachChatVM（保留部分流式内容），deadline 才用
@@ -287,6 +310,15 @@ struct AgentLoop {
             } catch is AgentLoopTimeoutError {
                 didTerminateEarly = true
                 break
+            }
+
+            if response.toolCalls?.isEmpty != false, CoachProtocolOutput.isMalformed(response.content) {
+                guard !protocolRepairAttempted else { throw LLMProviderError.invalidResponse }
+                protocolRepairAttempted = true
+                agentMessages.append(ChatMessage(role: .assistant, content: response.content))
+                agentMessages.append(ChatMessage(role: .system, content:
+                    "Your last message contained protocol text, not an actual tool call. No tool or action was executed. Use only the native tools supplied in this request with their registered names and schemas. Never print XML/DSML/function-call JSON as an answer. After a tool result, answer in plain language. If no permitted tool can answer, state that limitation."))
+                continue
             }
 
             if let toolCalls = response.toolCalls, !toolCalls.isEmpty {
@@ -398,7 +430,7 @@ struct AgentLoop {
 
             // Final text response (no more tool calls)
             if let onStreamDelta {
-                fullResponse = response.content
+                fullResponse = try CoachProtocolOutput.answer(response.content)
                 if !fullResponse.isEmpty {
                     await onStreamDelta(fullResponse)
                 }
@@ -417,7 +449,7 @@ struct AgentLoop {
                     )
                 )
             } else {
-                fullResponse = response.content
+                fullResponse = try CoachProtocolOutput.answer(response.content)
             }
             break
         }
@@ -454,7 +486,7 @@ struct AgentLoop {
                         "该请求已被中止，未能完成。你可以重试，或换个说法再问。"
                     )
                 } else if let finalResponse {
-                    fullResponse = finalResponse.content
+                    fullResponse = try CoachProtocolOutput.answer(finalResponse.content)
                     if !fullResponse.isEmpty {
                         await onStreamDelta(fullResponse)
                     }
@@ -504,7 +536,7 @@ struct AgentLoop {
                 }
                 fullResponse = finalResponse.content.isEmpty
                     ? "I wasn't able to generate a response. Please try again."
-                    : finalResponse.content
+                    : try CoachProtocolOutput.answer(finalResponse.content)
             }
         }
 

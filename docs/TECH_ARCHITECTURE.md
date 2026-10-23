@@ -16,6 +16,8 @@
 - **UI 风格**: Apple Native Design System + Rhythm 视觉 Tokens（`VelaTheme`）
 - **数据流**: 单向数据流（Unidirectional Data Flow），本地确定性计算优先，AI 作为解释与提案增强
 - **交互状态复用（2026-10-22）**：Today 首次读取成功后，15 分钟内返回页面复用已发布状态；显式刷新、换日、失败重试和本地数据变更仍走既有读取路径，不改变评分或数据新鲜度时间戳。Plan/Coach 打开时不再附带刷新整套仪表盘。底部草稿由独立 Observation 状态持有，输入与听写局部更新；Coach 默认页内面板，完整会话为主动展开。
+- **数据呈现与失败恢复（2026-10-23）**：基线 prior-day count 与含当天 chart count 分别标注；详情范围仅在对应 finding 可用时显示。AgentLoop 对文本化工具协议最多纠正一次，仅执行正式工具调用；旧协议回复在呈现及上下文装配边界隔离，不改写原会话。HistoricalScoreBackfillService 复用 DailyHealthComputation 的历史日 cutoff，以串行写门禁、独立 ModelContext 和旧记录版本检查，只填从未评分日的计算字段，不覆盖原始汇总或已有分数。
+
 - **语音回调边界**：Speech 授权、识别结果与音频 tap 的系统回调在非 MainActor 边界定义；只把可传输结果投递到 MainActor。录音启动可取消，返回过期结果不重启录音；听写限本机识别，结果停留在草稿。
 - **运行时 AI 连接**: iOS 端直连 DeepSeek API (`api.deepseek.com`，Keychain 存储 Key)，可选 Kimi Vision 识别食物照片。`VelaBackend` 的测试在 CI 的 `backend` job 里运行；它仍不是线上服务。工具链版本在仓库根目录的 `.xcode-version`。
 

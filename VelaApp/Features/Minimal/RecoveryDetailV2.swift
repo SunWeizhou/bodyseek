@@ -268,7 +268,7 @@ enum RecoveryDetailV2Builder {
             deviationText: deviationText,
             sampleText: TrendSampleCopy.text(sampleCount: finding.sampleCount, requiredSampleCount: finding.requiredSampleCount, horizon: horizon),
             showsBaselineLine: hasMedian,
-            baselineBand: source.baselineBand,
+            baselineBand: finding.isAvailable ? source.baselineBand : nil,
             trendSummary: finding.isAvailable ? finding.temporalTrendSummary : finding.summary,
             points: points,
             range: range,
@@ -626,7 +626,7 @@ struct RecoveryDetailV2View: View {
                     .foregroundStyle(VelaTheme.rhythmInk)
                 Spacer(minLength: 8)
                 if let band = model.baselineBand {
-                    Text("灰带 = 常见范围 \(Int(band.lowerBound.rounded()))–\(Int(band.upperBound.rounded()))")
+                    Text("个人范围 \(Int(band.lowerBound.rounded()))–\(Int(band.upperBound.rounded()))")
                         .font(VelaTheme.caption2())
                         .foregroundStyle(VelaTheme.rhythmInkSecondary)
                         .lineLimit(1)
@@ -648,7 +648,7 @@ struct RecoveryDetailV2View: View {
                 .foregroundStyle(VelaTheme.rhythmInkSecondary)
             }
             if model.missingDayCount > 0 {
-                Text("缺失 \(model.missingDayCount) 天留空，不插值，也不记为 0。")
+                Text("图中 \(model.observedDayCount) 天有评分，\(model.missingDayCount) 天暂无评分（含当天）")
                     .font(VelaTheme.caption2())
                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
                     .lineLimit(1)
@@ -730,9 +730,15 @@ struct RecoveryDetailV2View: View {
             .chartXScale(domain: xDomain)
             .chartXSelection(value: $scrubbedDate)
             .chartXAxis(.hidden)
-            .chartYAxis(.hidden)
+            .chartYScale(domain: 0...100)
+            .chartYAxis {
+                AxisMarks(position: .trailing, values: [0, 50, 100]) {
+                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [2, 4]))
+                    AxisValueLabel().font(.caption2)
+                }
+            }
             .chartLegend(.hidden)
-            .frame(height: dynamicTypeSize.isAccessibilitySize ? 180 : 84)
+            .frame(height: dynamicTypeSize.isAccessibilitySize ? 180 : 100)
             .accessibilityLabel("恢复趋势")
             .accessibilityValue("有效 \(model.observedDayCount) 天，缺失 \(model.missingDayCount) 天")
         }

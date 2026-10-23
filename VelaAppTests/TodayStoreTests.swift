@@ -778,7 +778,7 @@ final class BodySeekInstrumentCopyTests: XCTestCase {
             deviations: ["recovery": "低于平时"],
             findings: []
         )
-        XCTAssertEqual(readings.map(\.valueText), ["62", "88", "--", "42", "47"])
+        XCTAssertEqual(readings.map(\.valueText), ["62", "88", "--", "42", "47%"])
         XCTAssertEqual(readings[0].isUnusual, true)
         XCTAssertEqual(readings[0].caption, "低于平时")
         XCTAssertEqual(readings[1].isUnusual, false)

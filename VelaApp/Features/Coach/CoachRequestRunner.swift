@@ -40,6 +40,7 @@ final class CoachRequestRunner {
                 onStreamDelta(delta)
             }
             
+            _ = try CoachProtocolOutput.answer(fullResponse)
             let trace = AgentRunTrace(
                 id: UUID(),
                 startedAt: Date(),

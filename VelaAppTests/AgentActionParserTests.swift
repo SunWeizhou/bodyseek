@@ -3,6 +3,51 @@ import SwiftData
 @testable import Vela
 
 final class AgentActionParserTests: XCTestCase {
+    func testShortHealthQuestionsUseToolCapablePath() {
+        for text in ["今晚怎么睡更好？", "恢复？", "今天能跑吗", "谢谢，帮我分析恢复", "hi, analyze my sleep"] {
+            XCTAssertFalse(ResponseLengthPolicy.forQuery(text, lang: .simplifiedChinese) == .casual, text)
+        }
+        XCTAssertTrue(ResponseLengthPolicy.forQuery("你好", lang: .simplifiedChinese) == .casual)
+    }
+
+    @MainActor
+    func testMalformedToolTextIsRepairedThroughNativeCalls() async throws {
+        let provider = FakeAgentChatProvider(responses: [
+            LLMResponse(content: #"<tool_call>{"name":"check_health_data","arguments":{}}</tool_call>"#, toolCalls: nil),
+            LLMResponse(content: "", toolCalls: [ToolCall(id: "read-1", name: "first_tool", arguments: "{}")]),
+            LLMResponse(content: "Based on the returned evidence.", toolCalls: nil)
+        ])
+        let loop = AgentLoop(provider: provider, toolRegistry: ToolRegistry(tools: [
+            StaticAgentTool(name: "first_tool", result: "known evidence")
+        ]), maxIterations: 3)
+        var displayed = ""
+        let result = try await loop.run(messages: [ChatMessage(role: .user, content: "read evidence")], onStreamDelta: { displayed += $0 })
+        XCTAssertEqual(result.executedTools.map(\.name), ["first_tool"])
+        XCTAssertEqual(result.response, "Based on the returned evidence.")
+        XCTAssertFalse(displayed.contains("<tool_call>"))
+    }
+
+    @MainActor
+    func testRepeatedProtocolTextDoesNotExecuteOrAppearAsSuccess() async throws {
+        let raw = #"<tool_call>{"name":"first_tool","arguments":{}}</tool_call>"#
+        let provider = FakeAgentChatProvider(responses: [
+            LLMResponse(content: raw, toolCalls: nil), LLMResponse(content: raw, toolCalls: nil)
+        ])
+        let loop = AgentLoop(provider: provider, toolRegistry: ToolRegistry(tools: [
+            StaticAgentTool(name: "first_tool", result: "must not execute")
+        ]))
+        do {
+            _ = try await loop.run(messages: [ChatMessage(role: .user, content: "question")])
+            XCTFail("Malformed protocol must produce a retryable error")
+        } catch let error as LLMProviderError {
+            XCTAssertEqual(error, .invalidResponse)
+        }
+        XCTAssertEqual(provider.chatCallToolAvailability, [true, true])
+        XCTAssertTrue(CoachProtocolOutput.isMalformed(raw))
+        XCTAssertFalse(CoachProtocolOutput.failureText.contains("<tool_call>"))
+        XCTAssertFalse(CoachProtocolOutput.isMalformed("Normal answer [ARTIFACT:correlation:sleep]"))
+    }
+
     func testAgentActionParserPreservesActionOrderAndCleansDisplayText() {
         let raw = """
         我会先更新长期档案，然后记录今天日志。

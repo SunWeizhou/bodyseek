@@ -77,6 +77,10 @@ struct VelaTodayView: View {
         case .learning: "继续正常佩戴，Vela 正在了解你的日常波动。"
         case .ready: ""
         }
+        if let brief = dashboard.personalHealthBrief,
+           let first = brief.notableChanges.first, first.metric.todayScoreRingID == nil {
+            return brief.overallState.title
+        }
         if let headline = dashboard.personalHealthBrief?.headline
             .trimmingCharacters(in: .whitespacesAndNewlines),
            !headline.isEmpty {

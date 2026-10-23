@@ -430,7 +430,7 @@ struct VelaMetricDetailView: View {
             samples: samples,
             asOf: endingAt,
             windowDays: max(selectedRange.days, 7),
-            minimumSamples: 5,
+            minimumSamples: (selectedRange.trendHorizon ?? .sevenDays).requiredSampleCount,
             calendar: .current
         ), let scale = estimate.robustScale, scale > 0 else {
             return nil
