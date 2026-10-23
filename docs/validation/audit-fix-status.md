@@ -224,4 +224,7 @@ codesign --verify --deep --strict build/DeviceDeployDerivedData/Build/Products/D
 同步期间远端 Cursor 提交 `a220e130` 也处理 walkthrough 问题，已正常 merge 保留历史；最终目录仍限定主线程，不需要 nonisolated(unsafe)。本机完整 673 项 App 测试初轮有 1 项旧断言失败：TodayExperienceModel 在既有 `236f236b` 已将趋势从 7 个读数扩为 14 个，测试仍期待 7。核对原提交后将测试更名为 IncludesFourteenSignalValues，使用 20 条历史并断言只保留最近 13 条加当天值，其他四项当天读数断言保留；生产窗口不变。
 
 
-`FullAppFixed.xcresult` 已通过本机全部 673 项 App 测试（退出 0）。完整 UI 初轮进一步发现既有 smoke 仍寻找第四个 Coach Tab、已隐藏的系统导航栏标题/返回按钮，而生产版本已改为三段顶部导航、页内 Coach 和 Today 详情 sheet。更新查询为现有页内输入入口、自定义标题和 metric-detail-close，并保留打开/关闭/切页断言；详情返回测试名称同步为 SheetNavigationAndReturn。没有为匹配旧测试恢复过时导航，也未修改生产页面。完整 UI 结果以 PR 最新检查为准。
+`FullAppFixed.xcresult` 已通过本机全部 673 项 App 测试（退出 0）。完整 UI 初轮进一步发现既有 smoke 仍寻找第四个 Coach Tab、已隐藏的系统导航栏标题/返回按钮，而生产版本已改为三段顶部导航、页内 Coach 和自定义详情导航。初步查询适配后，再用初轮失败的原生 AX 附件核对实际入口（见下）。没有为匹配旧测试恢复过时导航，也未修改生产页面。完整 UI 结果以 PR 最新检查为准。
+
+
+初轮完整 UI 运行退出 65，共 24 项（含 opt-in walkthrough 跳过 1 项），11 项旧查询失败。已导出原生附件到 build/branch-consolidation/initial-ui-attachments。AX 明确显示：Today 的 instrument 仍是 push，按钮标签为「返回」；深链详情是 sheet，标签「关闭」；顶层 metric-detail 标识传播到直接子元素，使旧 close identifier 查询不可用。测试改为操作真实「返回」/「关闭」按钮，保留 push/深链 sheet 两种路径的关闭行为断言，并将标题查询改为自定义标题 Text。首页依据改为点击真实 today-advice-evidence 按钮；Coach 截图改查 inline-coach-panel 和 coach-surface-header。未改生产导航、布局或弱化为只查底层首页 exists。
