@@ -91,6 +91,17 @@ enum MissingInputLabel {
     }
 }
 
+/// How many days in a window actually carry a score. Once the minimum is met
+/// the count is stated against the window, not against the minimum.
+enum TrendSampleCopy {
+    static func text(sampleCount: Int, requiredSampleCount: Int, horizon: HealthTrendHorizon) -> String {
+        if sampleCount >= requiredSampleCount {
+            return "\(horizon.windowDays) 天中 \(min(sampleCount, horizon.windowDays)) 天有记录"
+        }
+        return "有效记录 \(sampleCount)/\(requiredSampleCount) 天，基线建立中"
+    }
+}
+
 /// Personal Baseline Deviation is "unusual for you", never a good/bad alarm.
 enum BaselineDeviationCopy {
     static let unusualFallback = "偏离个人基线"

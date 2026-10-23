@@ -368,7 +368,7 @@ struct VelaTodayView: View {
     @ViewBuilder
     private var todayDataStateView: some View {
         let hasSignal = todayExperience.signalCards.contains { $0.value != "--" }
-        if case .loading = todayStore.state.phase {
+        if case .loading = todayStore.state.phase, !hasSignal {
             VelaStateCard(
                 state: .loading,
                 title: "正在同步今日数据",
@@ -406,65 +406,52 @@ struct VelaTodayView: View {
                     freshness: todayScoreFreshness,
                     scoreDeviations: scoreDeviations,
                     agentSentence: todayAgentSentence,
-                    briefDetail: todayBriefDetail,
                     notableChangeText: todayNotableChange,
-                    accentColor: signalAccentColor,
+                    notableFinding: dashboard.personalHealthBrief?.notableChanges.first { $0.isNotable },
                     onInspectGuidance: {
-                        dispatchToday(.askCoach("请结合今天的状态继续说明。"))
+                        presentEvidenceSheet()
                     },
                     onAsk: { question in
                         dispatchToday(.askCoach(question))
                     },
+                    onOpenPlan: { dispatchToday(.openPlan) },
+                    onOpenTrends: { dispatchToday(.openTrends) },
                     selectedDate: todayStore.state.selectedDay,
-                    dashboardSnapshot: todayStore.state.dashboard
+                    dashboardSnapshot: todayStore.state.dashboard,
+                    planPayload: todayStore.state.operatingPlanPayload,
+                    hasPendingProposal: todayStore.state.pendingPlan != nil
                 )
+                .equatable()
                 .padding(.horizontal, VelaTheme.pagePadding)
-                .padding(.top, 76)
+                .padding(.top, 72)
 
                 if calendarIsToday(todayStore.state.selectedDay) {
+                    livedStatePrompt
+                        .padding(.horizontal, VelaTheme.pagePadding)
+                        .padding(.top, 16)
+
                     Button {
-                        showsTodayExtras.toggle()
+                        withAnimation(VelaTheme.interfaceAnimation(reduceMotion: reduceMotion)) {
+                            showsTodayExtras.toggle()
+                        }
                     } label: {
                         HStack {
-                            Text(showsTodayExtras ? "收起今天的安排" : "今天的安排和反馈")
+                            Text("反馈与数据覆盖")
                                 .font(VelaTheme.subheadline().weight(.semibold))
                             Spacer()
                             Image(systemName: showsTodayExtras ? "chevron.up" : "chevron.down")
                                 .font(.caption.weight(.bold))
                         }
-                        .foregroundStyle(VelaTheme.rhythmInk)
+                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
                         .frame(minHeight: 44)
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .padding(.horizontal, VelaTheme.pagePadding)
-                    .padding(.top, 200)
+                    .padding(.top, 8)
+                    .accessibilityIdentifier("today-extras-toggle")
 
                     if showsTodayExtras {
-                    TodayDailyPlanCard(
-                        model: todayExperience,
-                        payload: todayStore.state.operatingPlanPayload,
-                        onAction: { performExperienceAction($0) },
-                        onOpenPlan: { dispatchToday(.openPlan) }
-                    )
-                    .equatable()
-                    .padding(.horizontal, VelaTheme.pagePadding)
-                    .padding(.top, 12)
-
-                    livedStatePrompt
-                        .padding(.horizontal, VelaTheme.pagePadding)
-                        .padding(.top, 12)
-
-                    if let activePlan = todayStore.state.activePlan,
-                       let pendingProposal = todayStore.state.pendingPlan {
-                        TodayPlanAdaptationProjectionCard(
-                            activePlan: activePlan,
-                            pendingProposal: pendingProposal,
-                            onOpenPlan: { dispatchToday(.openPlan) }
-                        )
-                        .padding(.horizontal, VelaTheme.pagePadding)
-                        .padding(.top, 12)
-                    }
-
                     VStack(alignment: .leading, spacing: 24) {
                         if todayStore.state.activePlan != nil {
                             TodayFeedbackProjectionCard(
@@ -483,7 +470,7 @@ struct VelaTodayView: View {
                         )
                     }
                     .padding(.horizontal, VelaTheme.pagePadding)
-                    .padding(.top, 24)
+                    .padding(.top, 8)
                     }
                 }
             }
@@ -501,7 +488,9 @@ struct VelaTodayView: View {
             } else {
                 await todayStore.send(.appear)
             }
-            await loadDataCoverageSummary()
+            if todayStore.state.coverage.status == .unknown {
+                await loadDataCoverageSummary()
+            }
             loadTodayLivedStateAlignment()
             trackDailyDecisionViewed()
         }
@@ -668,20 +657,20 @@ struct VelaTodayView: View {
     }
 
     private var livedStatePrompt: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text("和你的感受一致吗？")
-                    .font(VelaTheme.subheadline().weight(.semibold))
-                    .foregroundStyle(VelaTheme.rhythmInk)
+                Text("和分数一致吗")
+                    .font(VelaTheme.footnote().weight(.semibold))
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
 
                 Spacer()
 
-                Button("补充细节") {
+                Button("补充") {
                     VelaHaptic.selection()
                     presentedTodaySheet = .livedState
                 }
-                .font(VelaTheme.subheadline().weight(.medium))
-                .foregroundStyle(VelaTheme.rhythmDeep)
+                .font(VelaTheme.footnote().weight(.medium))
+                .foregroundStyle(VelaTheme.rhythmInk)
             }
 
             if dynamicTypeSize.isAccessibilitySize {

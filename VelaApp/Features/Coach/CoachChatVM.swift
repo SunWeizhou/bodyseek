@@ -21,6 +21,7 @@ struct CoachScreenContext: Codable, Hashable, Sendable {
     var surface: CoachScreenSurface
     var entityType: String? = nil
     var selectedDate: Date? = nil
+    var horizon: HealthTrendHorizon? = nil
 
     func json() -> String {
         let encoder = JSONEncoder()
@@ -59,11 +60,15 @@ struct CoachContextFocus: Hashable, Sendable {
 
     static func routed(
         from surface: CoachScreenSurface,
-        selectedDate: Date? = nil
+        selectedDate: Date? = nil,
+        horizon: HealthTrendHorizon? = nil,
+        entityType: String? = nil
     ) -> CoachContextFocus {
         let screenContext = CoachScreenContext(
             surface: surface,
-            selectedDate: selectedDate
+            entityType: entityType,
+            selectedDate: selectedDate,
+            horizon: surface == .trends ? horizon : nil
         )
 
         switch surface {
@@ -80,8 +85,8 @@ struct CoachContextFocus: Hashable, Sendable {
             return CoachContextFocus(
                 title: L10n.t("Trends", "趋势"),
                 systemContext: L10n.t(
-                    "Explain the selected time-series horizon, distinguish current deviation from temporal trend, and avoid claiming causality without evidence.",
-                    "解释选定时间尺度，区分当前基线偏离与时间趋势；没有证据时不得声称因果。"
+                    "Explain the selected time-series horizon (\(horizon?.rawValue ?? "unspecified")), distinguish current deviation from temporal trend, and avoid claiming causality without evidence.",
+                    "用户正在查看\(horizon?.detailedTitle ?? "未指定时间尺度的")趋势。区分当前基线偏离与时间趋势；没有证据时不得声称因果。"
                 ),
                 screenContext: screenContext
             )
@@ -445,6 +450,16 @@ final class CoachChatVM: ObservableObject {
     }
 
     func refreshKeyState() {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-velaDisableNetworkAI") {
+            isReady = false
+            return
+        }
+        if ProcessInfo.processInfo.arguments.contains("-velaCoachConsentFixture") {
+            isReady = true
+            return
+        }
+        #endif
         do {
             isReady = !(try keychain.read(account: apiKeyAccount) ?? "").isEmpty
         } catch {

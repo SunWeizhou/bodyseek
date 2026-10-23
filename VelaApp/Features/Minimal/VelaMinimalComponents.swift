@@ -237,42 +237,41 @@ struct VelaMetricDetailView: View {
 
     private var detailAskBar: some View {
         let context = makeDetailAskContext()
-        return VStack(alignment: .leading, spacing: 8) {
-            Text(context.askPlaceholder)
-                .font(VelaTheme.callout())
-                .foregroundStyle(VelaTheme.rhythmInkSecondary)
+        return Button {
+            appState.routeToQuickCoach(question: nil, surface: .metricDetail)
+        } label: {
             HStack(spacing: 8) {
-                Image(systemName: "plus")
-                    .font(.body.weight(.semibold))
+                Image(systemName: "bubble.left")
+                    .font(.system(size: 16, weight: .medium))
                     .foregroundStyle(VelaTheme.rhythmInk)
-                    .frame(width: 44, height: 36)
-                    .background(Capsule().fill(VelaTheme.rhythmCanvas))
-                Text(context.contextTitle)
-                    .font(VelaTheme.caption1())
+                    .frame(width: 40, height: 40)
+                    .background(VelaTheme.rhythmCanvas, in: Circle())
+                Text(context.askPlaceholder)
+                    .font(VelaTheme.callout())
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                Spacer(minLength: 6)
+                Text("\(navTitle)详情")
+                    .font(VelaTheme.caption1().weight(.medium))
                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
                     .padding(.horizontal, 10)
-                    .frame(height: 36)
-                    .background(Capsule().fill(VelaTheme.rhythmCanvas))
-                Spacer(minLength: 8)
-                Button {
-                    appState.routeToQuickCoach(question: nil, surface: .metricDetail)
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "waveform")
-                        Text("说话")
-                    }
-                    .font(VelaTheme.subheadline().weight(.semibold))
-                    .foregroundStyle(VelaTheme.rhythmDeepOn)
-                    .padding(.horizontal, 14)
-                    .frame(height: 36)
-                    .background(Capsule().fill(VelaTheme.rhythmDeep))
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("说话")
+                    .frame(height: 30)
+                    .background(VelaTheme.rhythmCanvas, in: Capsule())
             }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(VelaTheme.surfaceFloating, in: RoundedRectangle(cornerRadius: VelaTheme.radiusInput, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: VelaTheme.radiusInput, style: .continuous)
+                    .stroke(VelaTheme.hairline, lineWidth: 1)
+            }
+            .contentShape(Rectangle())
         }
-        .padding(12)
+        .buttonStyle(.plain)
+        .accessibilityLabel(context.askPlaceholder)
+        .accessibilityHint("带上\(navTitle)详情，打开对话")
+        .accessibilityIdentifier("metric-detail-ask")
         .padding(.horizontal, VelaTheme.pagePadding)
+        .padding(.top, 8)
         .padding(.bottom, 8)
         .background(VelaTheme.rhythmCanvas)
     }
@@ -662,7 +661,7 @@ struct VelaMetricDetailView: View {
                 // Subtitle/Target Text below the ring
                 if metric == .strain {
                     let range = dashboard.strain.recommendedRange
-                    Text("目标耗力: \(range.lowerBound) - \(range.upperBound)%")
+                    Text("目标负荷：\(range.lowerBound)–\(range.upperBound)")
                         .font(VelaTheme.caption1())
                         .fontWeight(.semibold)
                         .foregroundStyle(isSleep ? VelaTheme.mistGray : VelaTheme.fg2)

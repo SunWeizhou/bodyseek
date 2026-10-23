@@ -10,10 +10,10 @@ enum DailyTrainingDecisionType: String, Codable, Hashable, Sendable {
     /// Short Plan headline. Completion progress is not this decision.
     var todayDecisionTitle: String {
         switch self {
-        case .keep: return "保持"
+        case .keep: return "按计划"
         case .reduce: return "减量"
-        case .swap: return "替换"
-        case .rest: return "恢复"
+        case .swap: return "换部位"
+        case .rest: return "恢复日"
         }
     }
 }

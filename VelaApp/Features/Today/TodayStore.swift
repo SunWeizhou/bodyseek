@@ -35,6 +35,10 @@ final class TodayStore: ObservableObject {
     private var nextLoadToken: UInt64 = 0
     private var requestGeneration: UInt64 = 0
     private var lastStableState: TodayViewState
+    private var lastSuccessfulLoadAt: Date?
+    /// Tab navigation reuses an already-published snapshot. Explicit refresh
+    /// and local-data changes still go through the existing refresh actions.
+    private let appearanceCacheLifetime: TimeInterval = 15 * 60
 
     init(
         reader: any TodayReadingModule,
@@ -108,6 +112,12 @@ final class TodayStore: ObservableObject {
     }
 
     private func appear() async {
+        if let loadedAt = lastSuccessfulLoadAt,
+           clock.now.timeIntervalSince(loadedAt) >= 0,
+           clock.now.timeIntervalSince(loadedAt) < appearanceCacheLifetime,
+           state.phase == .ready || state.phase == .empty {
+            return
+        }
         let day = state.selectedDay
         do {
             if let cached = try await reader.cached(for: day) {
@@ -144,6 +154,7 @@ final class TodayStore: ObservableObject {
         }
 
         requestGeneration &+= 1
+        lastSuccessfulLoadAt = nil
         let generation = requestGeneration
         state = TodayViewState.initial(day: day)
         lastStableState = state
@@ -229,6 +240,7 @@ final class TodayStore: ObservableObject {
                 calendar: calendar
             )
             apply(projected, generation: generation)
+            lastSuccessfulLoadAt = clock.now
         } catch is CancellationError {
             guard generation == requestGeneration, day == state.selectedDay else { return }
             state = lastStableState

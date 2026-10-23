@@ -2315,7 +2315,7 @@ final class PersistenceFoundationTests: XCTestCase {
             usedPersistedDecision: false,
             persistedPayload: payload
         ))
-        XCTAssertEqual(payload.decision.todayDecisionTitle, "保持")
+        XCTAssertEqual(payload.decision.todayDecisionTitle, "按计划")
     }
 
     @MainActor

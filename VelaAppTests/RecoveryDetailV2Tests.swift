@@ -96,7 +96,7 @@ final class RecoveryDetailV2Tests: XCTestCase {
         XCTAssertNil(model.baselineMedianValue)
         XCTAssertNil(model.baselineBand)
         XCTAssertNil(model.deviationText)
-        XCTAssertEqual(model.sampleText, "有效样本 2/5 天")
+        XCTAssertEqual(model.sampleText, "有效记录 2/5 天，基线建立中")
     }
 
     func testMissingScoreStaysDashAndSkipsDeviation() {

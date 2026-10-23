@@ -266,7 +266,7 @@ enum RecoveryDetailV2Builder {
             baselineMedianText: hasMedian ? scoreText(finding.baselineValue) : nil,
             baselineMedianValue: hasMedian ? finding.baselineValue : nil,
             deviationText: deviationText,
-            sampleText: "有效样本 \(finding.sampleCount)/\(finding.requiredSampleCount) 天",
+            sampleText: TrendSampleCopy.text(sampleCount: finding.sampleCount, requiredSampleCount: finding.requiredSampleCount, horizon: horizon),
             showsBaselineLine: hasMedian,
             baselineBand: source.baselineBand,
             trendSummary: finding.isAvailable ? finding.temporalTrendSummary : finding.summary,
@@ -301,7 +301,7 @@ enum RecoveryDetailV2Builder {
         hasMedian: Bool
     ) -> [RecoveryEvidenceLine] {
         var lines: [RecoveryEvidenceLine] = [
-            .init(id: "sample", title: "有效样本", valueText: "\(finding.sampleCount)/\(finding.requiredSampleCount) 天", kind: .statisticalDescription),
+            .init(id: "sample", title: "有效样本", valueText: TrendSampleCopy.text(sampleCount: finding.sampleCount, requiredSampleCount: finding.requiredSampleCount, horizon: finding.horizon), kind: .statisticalDescription),
             .init(id: "median", title: "窗口中位数", valueText: hasMedian ? scoreText(finding.baselineValue) : "--", kind: .statisticalDescription),
             .init(
                 id: "trend",

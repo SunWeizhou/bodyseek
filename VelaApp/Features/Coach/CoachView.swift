@@ -16,6 +16,7 @@ private let logger = Logger(subsystem: "com.sunweizhou.Vela", category: "Coach")
 enum CoachPresentationStyle {
     case embedded
     case quickCover
+    case inline
 }
 
 /// Presentation-only state for the redesigned Coach surface. It deliberately
@@ -106,10 +107,25 @@ enum CoachFileContextError: LocalizedError {
 
 // MARK: - Dictation
 
+enum CoachSpeechAuthorization {
+    /// Speech calls its completion on a system queue. Defining that completion
+    /// outside MainActor prevents Swift 6 from asserting the callback's executor.
+    nonisolated static func request(
+        using authorize: @Sendable (@escaping @Sendable (SFSpeechRecognizerAuthorizationStatus) -> Void) -> Void = {
+            SFSpeechRecognizer.requestAuthorization($0)
+        }
+    ) async -> SFSpeechRecognizerAuthorizationStatus {
+        await withCheckedContinuation { continuation in
+            authorize { status in continuation.resume(returning: status) }
+        }
+    }
+}
+
 @MainActor
 final class CoachDictationController: ObservableObject {
     @Published var transcript = ""
     @Published var isRecording = false
+    @Published private(set) var isStarting = false
     @Published var errorMessage: String?
 
     private let audioEngine = AVAudioEngine()
@@ -119,14 +135,25 @@ final class CoachDictationController: ObservableObject {
     /// 是否已安装 audio tap。removeTap(onBus:) 在无 tap 时会抛不可捕获的 ObjC 异常，
     /// 因此必须在安装与移除处严格配对。
     private var hasTapInstalled = false
+    private var startTask: Task<Void, Never>?
+    private var generation = 0
 
     func begin(existingText: String) {
-        guard !isRecording else { return }
+        guard !isRecording, !isStarting else { return }
+        generation += 1
+        let requestGeneration = generation
+        errorMessage = nil
+        transcript = existingText
+        isStarting = true
         initialText = existingText.trimmingCharacters(in: .whitespacesAndNewlines)
-        Task { await requestAndStart() }
+        startTask = Task { await requestAndStart(generation: requestGeneration) }
     }
 
     func stop() {
+        generation += 1
+        startTask?.cancel()
+        startTask = nil
+        isStarting = false
         if audioEngine.isRunning { audioEngine.stop() }
         if hasTapInstalled {
             audioEngine.inputNode.removeTap(onBus: 0)
@@ -140,10 +167,11 @@ final class CoachDictationController: ObservableObject {
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 
-    private func requestAndStart() async {
-        let speechStatus = await withCheckedContinuation { continuation in
-            SFSpeechRecognizer.requestAuthorization { continuation.resume(returning: $0) }
-        }
+    private func requestAndStart(generation requestGeneration: Int) async {
+        defer { if generation == requestGeneration { isStarting = false; startTask = nil } }
+        guard !Task.isCancelled, generation == requestGeneration else { return }
+        let speechStatus = await CoachSpeechAuthorization.request()
+        guard !Task.isCancelled, generation == requestGeneration else { return }
         guard speechStatus == .authorized else {
             errorMessage = "未获得语音识别权限。你仍可使用键盘输入，或前往系统设置授权。"
             return
@@ -163,6 +191,7 @@ final class CoachDictationController: ObservableObject {
             errorMessage = "未获得麦克风权限。Vela 不会在后台录音；你仍可使用键盘输入。"
             return
         }
+        guard !Task.isCancelled, generation == requestGeneration else { return }
 
         do {
             try startAudioRecognition()
@@ -173,7 +202,6 @@ final class CoachDictationController: ObservableObject {
     }
 
     private func startAudioRecognition() throws {
-        stop()
         let locale = Locale.current
         guard let recognizer = SFSpeechRecognizer(locale: locale) ?? SFSpeechRecognizer(locale: Locale(identifier: "zh_CN")),
               recognizer.isAvailable else {
@@ -181,11 +209,14 @@ final class CoachDictationController: ObservableObject {
         }
 
         let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.record, mode: .measurement, options: [.duckOthers, .defaultToSpeaker])
+        try session.setCategory(.record, mode: .measurement, options: [.duckOthers])
         try session.setActive(true, options: .notifyOthersOnDeactivation)
+        guard session.isInputAvailable else { throw CoachDictationError.recognizerUnavailable }
 
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.shouldReportPartialResults = true
+        guard recognizer.supportsOnDeviceRecognition else { throw CoachDictationError.recognizerUnavailable }
+        request.requiresOnDeviceRecognition = true
         recognitionRequest = request
 
         let inputNode = audioEngine.inputNode
@@ -195,21 +226,17 @@ final class CoachDictationController: ObservableObject {
             throw CoachDictationError.recognizerUnavailable
         }
 
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak request] buffer, _ in
-            request?.append(buffer)
-        }
+        Self.installAudioTap(on: inputNode, format: format, request: request)
         hasTapInstalled = true
 
         audioEngine.prepare()
         try audioEngine.start()
         isRecording = true
 
-        recognitionTask = recognizer.recognitionTask(with: request) { [weak self] result, error in
-            let recognizedText = result?.bestTranscription.formattedString
-            let isFinal = result?.isFinal ?? false
-            let errorDescription = error?.localizedDescription
+        let recognitionGeneration = generation
+        recognitionTask = Self.recognize(using: recognizer, request: request) { [weak self] recognizedText, isFinal, errorDescription in
             Task { @MainActor [weak self, recognizedText, isFinal, errorDescription] in
-                guard let self else { return }
+                guard let self, self.generation == recognitionGeneration else { return }
                 if let recognizedText {
                     self.transcript = self.initialText.isEmpty
                         ? recognizedText
@@ -222,6 +249,24 @@ final class CoachDictationController: ObservableObject {
                     }
                 }
             }
+        }
+    }
+
+    private nonisolated static func installAudioTap(
+        on node: AVAudioInputNode, format: AVAudioFormat, request: SFSpeechAudioBufferRecognitionRequest
+    ) {
+        node.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak request] buffer, _ in
+            request?.append(buffer)
+        }
+    }
+
+    private nonisolated static func recognize(
+        using recognizer: SFSpeechRecognizer,
+        request: SFSpeechAudioBufferRecognitionRequest,
+        onResult: @escaping @Sendable (String?, Bool, String?) -> Void
+    ) -> SFSpeechRecognitionTask {
+        recognizer.recognitionTask(with: request) { result, error in
+            onResult(result?.bestTranscription.formattedString, result?.isFinal ?? false, error?.localizedDescription)
         }
     }
 }
@@ -522,6 +567,12 @@ struct VelaCoachView: View {
     let selectedDate: Date
     let dashboard: DashboardSummary
     var onRefresh: (() async -> Void)?
+    var onClose: (() -> Void)?
+    var onExpand: (() -> Void)?
+    var onRestoreDraft: ((String) -> Void)?
+    let suppliedCoverage: DataCoverageSummaryModel?
+    /// Questions that fit the page the inline panel was opened from.
+    var inlineSuggestions: [String] = []
     @ObservedObject var vm: CoachChatVM
 
     @Environment(\.colorScheme) private var cs
@@ -628,10 +679,11 @@ struct VelaCoachView: View {
         todayOperatingPlanRecord
     }
 
-    private func loadTodayOperatingPlan() {
+    private func loadTodayOperatingPlan(includeContext: Bool = true) {
         let identifier = DailyHealthSummaryRecord.dayIdentifier(for: selectedDate)
         todayOperatingPlanRecord = (try? DailyOperatingPlanRepository(modelContext: modelContext)
             .fetchLatest(dayIdentifier: identifier)) ?? nil
+        guard includeContext else { return }
         journalEntries = (try? SwiftDataJournalRepository(modelContext: modelContext)
             .fetchAllSortedByCreatedAt(newestFirst: true)) ?? []
         savedReports = (try? SwiftDataAIReportRepository(modelContext: modelContext)
@@ -647,14 +699,25 @@ struct VelaCoachView: View {
         selectedDate: Date,
         dashboard: DashboardSummary,
         onRefresh: (() async -> Void)? = nil,
+        onClose: (() -> Void)? = nil,
+        onExpand: (() -> Void)? = nil,
+        onRestoreDraft: ((String) -> Void)? = nil,
+        coverage: DataCoverageSummaryModel? = nil,
+        inlineSuggestions: [String] = [],
         vm: CoachChatVM
     ) {
+        self.inlineSuggestions = inlineSuggestions
         self.presentation = presentation
         self.usesOverlayNavigation = usesOverlayNavigation
         self.selectedDate = selectedDate
         self.dashboard = dashboard
         self.onRefresh = onRefresh
+        self.onClose = onClose
+        self.onExpand = onExpand
+        self.onRestoreDraft = onRestoreDraft
+        self.suppliedCoverage = coverage
         self.vm = vm
+        _dataCoverageSummary = State(initialValue: coverage ?? .unknown)
         _showHistoryDrawer = State(initialValue: CoachHistoryLaunchState.isPresented())
     }
 
@@ -669,7 +732,19 @@ struct VelaCoachView: View {
                     ScrollView {
                         VStack(spacing: 20) {
                             if vm.messages.isEmpty {
-                                if dashboard.source == .preview {
+                                if presentation == .inline {
+                                    VStack(alignment: .leading, spacing: 12) {
+                                        VStack(alignment: .leading, spacing: 6) {
+                                            Text("结合当前页面，直接问我")
+                                                .font(VelaTheme.headline())
+                                            Text("回复会留在这里，收起后可以继续查看身体数据。")
+                                                .font(VelaTheme.footnote())
+                                                .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                                        }
+                                        inlineSuggestionChips(inlineSuggestions)
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                } else if dashboard.source == .preview {
                                     previewConversation
                                 } else {
                                 coachEvidenceCard
@@ -693,7 +768,7 @@ struct VelaCoachView: View {
                                         time: msg.timestamp.formatted(.dateTime.hour().minute())
                                     )
 
-                                    if msg.role == .assistant, msg.id == vm.messages.last(where: { !$0.isStreaming })?.id {
+                                    if presentation != .inline, msg.role == .assistant, msg.id == vm.messages.last(where: { !$0.isStreaming })?.id {
                                         coachEvidenceCard
                                     }
 
@@ -707,7 +782,11 @@ struct VelaCoachView: View {
                                         .padding(.leading, 8)
                                     }
 
-                                    if msg.id == vm.messages.last?.id, msg.role == .assistant, !vm.isStreaming {
+                                    if presentation == .inline, msg.id == vm.messages.last?.id, msg.role == .assistant, !vm.isStreaming {
+                                        inlineSuggestionChips(
+                                            Array(NSOrderedSet(array: vm.followUpSuggestions(for: msg.content) + inlineSuggestions)) as? [String] ?? inlineSuggestions
+                                        )
+                                    } else if msg.id == vm.messages.last?.id, msg.role == .assistant, !vm.isStreaming {
                                         let followUps = vm.followUpSuggestions(for: msg.content)
                                         if !followUps.isEmpty {
                                             CoachFollowUpChipsView(suggestions: followUps) { suggestion in
@@ -776,12 +855,13 @@ struct VelaCoachView: View {
                 }
             }
             .onChange(of: scenePhase) { _, phase in
-                if phase != .active, dictation.isRecording {
+                if phase == .background || (phase != .active && dictation.isRecording) {
                     dictation.stop()
                 }
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                composerView
+                if presentation != .inline {
+                  composerView
                     // Explicitly add the real keyboard height so the composer (and its
                     // send button / TextField) clears the software keyboard even when
                     // SwiftUI's safeAreaInset auto-lift is defeated by the ZStack of
@@ -793,26 +873,36 @@ struct VelaCoachView: View {
                         usesOverlayNavigation: usesOverlayNavigation
                     ))
                     .background(VelaTheme.rhythmCanvas)
+                }
             }
             .background(VelaTheme.rhythmCanvas)
         }
         .task(id: isActiveSurface) {
             guard isActiveSurface else { return }
             vm.refreshKeyState()
-            vm.loadSessions(modelContext: modelContext)
-            consumePendingRouteIfVisible()
-            try? DailyLogService.refresh(dashboard: dashboard)
-            if let onRefresh {
-                await onRefresh()
+            if presentation != .inline, !vm.draft.isEmpty {
+                inputText = vm.draft
+                vm.draft = ""
             }
-            await loadDataCoverageSummary()
-            loadTodayOperatingPlan()
+            if presentation != .inline || vm.currentSession == nil {
+                vm.loadSessions(modelContext: modelContext)
+            }
+            loadTodayOperatingPlan(includeContext: presentation != .inline)
+            consumePendingRouteIfVisible()
+            if presentation != .inline {
+                try? DailyLogService.refresh(dashboard: dashboard)
+                if let onRefresh { await onRefresh() }
+                await loadDataCoverageSummary()
+            }
         }
         .onChange(of: appState.localDataRevision) { _, _ in
-            loadTodayOperatingPlan()
+            loadTodayOperatingPlan(includeContext: presentation != .inline)
         }
         .onChange(of: selectedDate) { _, _ in
-            loadTodayOperatingPlan()
+            loadTodayOperatingPlan(includeContext: presentation != .inline)
+        }
+        .onChange(of: suppliedCoverage) { _, coverage in
+            if let coverage { dataCoverageSummary = coverage }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { note in
             _ = (note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect)?.height ?? 0
@@ -905,7 +995,9 @@ struct VelaCoachView: View {
             // it back so the user's text isn't silently lost or re-submitted later.
             if !showing, let stranded = pendingOutboundText {
                 pendingOutboundText = nil
-                if inputText.isEmpty {
+                if presentation == .inline {
+                    onRestoreDraft?(stranded)
+                } else if inputText.isEmpty {
                     inputText = stranded
                 }
             }
@@ -941,6 +1033,7 @@ struct VelaCoachView: View {
         }
         .onDisappear {
             dictation.stop()
+            if presentation == .quickCover { onRestoreDraft?(inputText) }
         }
         .alert("听写不可用", isPresented: Binding(
             get: { dictation.errorMessage != nil },
@@ -1210,8 +1303,70 @@ struct VelaCoachView: View {
     }
 
     @ViewBuilder
+    private func inlineSuggestionChips(_ suggestions: [String]) -> some View {
+        if !suggestions.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(suggestions.prefix(3), id: \.self) { suggestion in
+                    Button {
+                        VelaHaptic.selection()
+                        sendMessage(suggestion)
+                    } label: {
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Text(suggestion)
+                                .font(VelaTheme.footnote().weight(.medium))
+                                .foregroundStyle(VelaTheme.rhythmInk)
+                                .multilineTextAlignment(.leading)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Spacer(minLength: 0)
+                            Image(systemName: "arrow.up.right")
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(VelaTheme.rhythmCanvasRaised)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                        )
+                    }
+                    .buttonStyle(.cardPress)
+                    .disabled(vm.isStreaming)
+                    .accessibilityIdentifier("coach-inline-question")
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
     private var headerView: some View {
-        if presentation == .quickCover {
+        if presentation == .inline {
+            HStack(spacing: 8) {
+                Image(systemName: "circle.circle")
+                Text("BodySeek")
+                    .font(VelaTheme.subheadline().weight(.semibold))
+                Spacer(minLength: 0)
+                if let onExpand {
+                    Button(action: onExpand) {
+                        Image(systemName: "arrow.up.left.and.arrow.down.right")
+                            .frame(width: 44, height: 44)
+                    }
+                    .accessibilityLabel("展开完整对话")
+                }
+                Button { onClose?() } label: {
+                    Image(systemName: "chevron.down")
+                        .frame(width: 44, height: 44)
+                }
+                .accessibilityLabel("收起对话")
+            }
+            .foregroundStyle(VelaTheme.rhythmInk)
+            .buttonStyle(.plain)
+            .padding(.leading, 16)
+            .accessibilityIdentifier("coach-surface-header")
+        } else if presentation == .quickCover {
             quickCoverHeader
         } else {
             legacyHeader
@@ -1621,6 +1776,7 @@ struct VelaCoachView: View {
                 .foregroundStyle(VelaTheme.rhythmInk)
                 .lineLimit(1...3)
                 .focused($isFocused)
+                .accessibilityIdentifier("coach-full-input")
                 .onSubmit {
                     guard !inputText.trimmingCharacters(in: .whitespaces).isEmpty else { return }
                     sendMessage(inputText)
@@ -1687,6 +1843,7 @@ struct VelaCoachView: View {
 
     private var quickCoverTrailingTitle: String {
         if vm.isStreaming { return "停止" }
+        if dictation.isStarting { return "取消" }
         if dictation.isRecording { return "停止" }
         if !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return "发送" }
         return "说话"
@@ -1694,6 +1851,7 @@ struct VelaCoachView: View {
 
     private var quickCoverTrailingIcon: String {
         if vm.isStreaming || dictation.isRecording { return "stop.fill" }
+        if dictation.isStarting { return "xmark" }
         if !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return "arrow.up" }
         return "waveform"
     }
@@ -1704,9 +1862,8 @@ struct VelaCoachView: View {
             return
         }
         let pending = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
-        if dictation.isRecording {
+        if dictation.isRecording || dictation.isStarting {
             dictation.stop()
-            if !pending.isEmpty { sendMessage(pending) }
             return
         }
         if !pending.isEmpty {
@@ -1766,11 +1923,13 @@ struct VelaCoachView: View {
     }
 
     private func consumePendingRouteIfVisible() {
+        guard isActiveSurface else { return }
         let expectedDestination: VelaAppState.CoachRouteDestination = presentation == .embedded
             ? .embedded
             : .quickCover
-        guard appState.coachRouteDestination == expectedDestination else { return }
-        guard presentation == .quickCover || appState.selectedTab == VelaAppState.coachTabIndex else { return }
+        guard appState.coachRouteDestination != nil,
+              presentation == .inline || appState.coachRouteDestination == expectedDestination else { return }
+        guard presentation != .embedded || appState.selectedTab == VelaAppState.coachTabIndex else { return }
         guard handledRouteRevision != appState.coachRouteRevision else { return }
         handledRouteRevision = appState.coachRouteRevision
 
@@ -1784,7 +1943,9 @@ struct VelaCoachView: View {
                 question,
                 focus: CoachContextFocus.routed(
                     from: appState.coachRouteSurface,
-                    selectedDate: selectedDate
+                    selectedDate: selectedDate,
+                    horizon: appState.visibleTrendHorizon,
+                    entityType: appState.detailAskContext?.title
                 )
             )
             appState.prefilledCoachQuestion = nil
@@ -1866,6 +2027,9 @@ struct VelaCoachView: View {
             return
         }
 
+        // Full journal/report context is fetched for an actual question, not
+        // every time the composer opens over a health page.
+        if presentation == .inline { loadTodayOperatingPlan() }
         vm.submit(
             text: trimmed,
             dashboard: dashboard,
@@ -2077,13 +2241,12 @@ enum LocalCoachGuidanceBuilder {
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             let summary = (headline?.isEmpty == false) ? headline! : "先从各项分数本身开始，不把它们合成一个伪精确的总分。"
             let planLine = operatingPlan?.operatingPlanPayload?.primaryAction.map {
-                "\n今日计划：\($0.title)"
+                "\n\n今日计划：\($0.title)"
             } ?? ""
             return """
             **今天的身体数据**
 
-            恢复 \(dashboard.recovery.formattedScore) · 睡眠 \(dashboard.sleepScore.formattedScore) · 负荷 \(dashboard.strain.formattedScore)
-            压力 \(dashboard.stress.formattedScore) · 能量 \(dashboard.energy.formattedScore)
+            恢复 \(dashboard.recovery.formattedScore) · 睡眠 \(dashboard.sleepScore.formattedScore) · 负荷 \(dashboard.strain.formattedScore) · 压力 \(dashboard.stress.formattedScore) · 能量 \(dashboard.energy.formattedScore)
 
             \(summary)\(planLine)
 

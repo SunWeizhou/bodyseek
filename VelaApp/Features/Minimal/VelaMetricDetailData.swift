@@ -315,7 +315,7 @@ extension VelaMetricDetailView {
         case .activeMinutes:
             return "\(Int(score))m"
         default:
-            return VelaMinimalFormatting.roundedPercentage(score)
+            return "\(Int(score.rounded()))"
         }
     }
 
@@ -352,7 +352,7 @@ extension VelaMetricDetailView {
 
     var navTitle: String {
         switch metric {
-        case .strain:   "耗力"
+        case .strain:   "负荷"
         case .recovery: "恢复"
         case .sleep:    "睡眠"
         case .stress:   "压力"
@@ -434,12 +434,12 @@ extension VelaMetricDetailView {
     var dynamicValueText: String {
         guard hasMetricData else { return "--" }
         switch metric {
+        case .recovery, .sleep, .strain, .stress, .energy:
+            return "\(Int(dynamicScore.rounded()))"
         case .hrv:
             return "\(Int(dynamicScore)) ms"
         case .rhr:
             return "\(Int(dynamicScore)) bpm"
-        case .stress:
-            return "\(Int(dynamicScore))"
         case .weight:
             return String(format: "%.1f kg", dynamicScore)
         case .bodyFat:
@@ -454,8 +454,6 @@ extension VelaMetricDetailView {
             return "\(Int(dynamicScore)) kcal"
         case .activeMinutes:
             return "\(Int(dynamicScore))m"
-        default:
-            return VelaMinimalFormatting.roundedPercentage(dynamicScore)
         }
     }
 

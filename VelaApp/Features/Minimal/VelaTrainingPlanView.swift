@@ -70,7 +70,6 @@ struct VelaPlanView: View {
     @State private var pendingDelete: DailyOperatingPlanAction?
     @State private var showTraining = false
     @State private var lastHandledTrainingRequest = 0
-    @State private var planRevision = 0
     @State private var planError: PlanError?
 
     init(
@@ -106,6 +105,29 @@ struct VelaPlanView: View {
             built.supportingActions[built.supportingActions.count - 1].completedAt = selectedDate
         }
         return built
+        #else
+        return nil
+        #endif
+    }
+
+    /// Screenshot dashboard only: a conservative alternative so the proposal
+    /// card can be reviewed. Shown only when it actually differs. Never written
+    /// to SwiftData.
+    private var previewCandidatePayload: DailyOperatingPlanPayload? {
+        #if DEBUG
+        guard DailySummaryUseCase.isPreviewDashboardEnabled(), plan == nil,
+              let current = previewDisplayPayload else { return nil }
+        let candidate = DailyOperatingPlanBuilder.build(
+            bodyState: dashboard.bodyState,
+            decision: TrainingDecisionFallback.conservative(targetSessionTitle: "轻松活动"),
+            brief: dashboard.personalHealthBrief,
+            language: AppLanguage.stored
+        )
+        guard candidate.actionOutline != current.actionOutline
+                || candidate.decision != current.decision else {
+            return nil
+        }
+        return candidate
         #else
         return nil
         #endif
@@ -186,34 +208,23 @@ struct VelaPlanView: View {
                         .accessibilityIdentifier("plan-save-error")
                     }
                     planHeader
-                    if let suggestion = candidatePayload ?? previewDisplayPayload {
-                        candidateCard(suggestion)
+                    if let current = payload,
+                       let suggestion = candidatePayload ?? previewCandidatePayload,
+                       !PlanProposalDiff.rows(current: current, candidate: suggestion).allSatisfy({ $0.change == .same }) {
+                        candidateCard(suggestion, current: current)
                     }
                     actionSection
-                    DisclosureGroup {
-                        rhythmSummary
-                    } label: {
-                        Text("今天的节奏")
-                            .font(VelaTheme.subheadline().weight(.semibold))
-                            .foregroundStyle(VelaTheme.rhythmInk)
-                    }
-                    .tint(VelaTheme.rhythmInkSecondary)
-                    .padding(.top, 120)
                     trainingPortal
                 }
                 .padding(.horizontal, VelaTheme.pagePadding)
                 .padding(.top, 72)
                 .padding(.bottom, VelaTheme.bottomContentClearance)
-                .id(planRevision)
             }
             .scrollIndicators(.hidden)
         }
         .background(VelaTheme.rhythmCanvas)
         .toolbar(.hidden, for: .navigationBar)
         .task(id: dayIdentifier) {
-            if let onRefresh {
-                await onRefresh()
-            }
             loadOrCreatePlan()
             openRequestedTrainingIfNeeded()
         }
@@ -264,12 +275,18 @@ struct VelaPlanView: View {
         let total = actions.count
         let completed = completedCount
         return VStack(alignment: .leading, spacing: 8) {
-            Text(dateSubtitle.replacingOccurrences(of: "今天 · ", with: ""))
-                .font(VelaTheme.caption1())
-                .foregroundStyle(VelaTheme.rhythmInkSecondary)
+            HStack(spacing: 6) {
+                Text(dateSubtitle.replacingOccurrences(of: "今天 · ", with: ""))
+                if let decision = payload?.decision, total > 0 {
+                    Text("·")
+                    Text("训练\(decision.todayDecisionTitle)")
+                }
+            }
+            .font(VelaTheme.caption1())
+            .foregroundStyle(VelaTheme.rhythmInkSecondary)
             HStack(alignment: .firstTextBaseline) {
-                Text(total == 0 ? "今天由你决定" : "今天 \(total) 项")
-                    .font(.system(.title, design: .default, weight: .semibold))
+                Text(planTitle(total: total, completed: completed))
+                    .font(VelaTheme.statement())
                     .foregroundStyle(VelaTheme.rhythmInk)
                 Spacer(minLength: 8)
                 if total > 0 {
@@ -282,74 +299,34 @@ struct VelaPlanView: View {
             }
             if total > 0 {
                 BodySeekPlanProgressRail(completed: completed, total: total, tint: VelaTheme.rhythmInk)
-            } else {
+                    .animation(VelaTheme.dataAnimation(reduceMotion: reduceMotion), value: completed)
+            }
+            if let summary = payload?.summary.trimmingCharacters(in: .whitespacesAndNewlines), !summary.isEmpty {
+                Text(summary)
+                    .font(VelaTheme.subheadline())
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 2)
+            } else if total == 0 {
                 Text("添加一项真正有帮助的行动")
                     .font(VelaTheme.footnote())
                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
             }
         }
+        .accessibilityIdentifier("plan-header")
     }
 
-    private var rhythmSummary: some View {
-        let completion = planViewState.completion
-        let total = completion.total
-        let progress = completion.progress
-        let completed = completion.completed
-        let decisionTitle = payload?.decision.todayDecisionTitle
-        return VStack(alignment: .leading, spacing: 14) {
-            VStack(alignment: .leading, spacing: 4) {
-                if total == 0 {
-                    Text("今天由你决定")
-                        .font(.system(.title2, design: .default, weight: .semibold))
-                        .tracking(-0.35)
-                        .foregroundStyle(VelaTheme.rhythmInk)
-                    Text("添加一项真正有帮助的行动")
-                        .font(.footnote)
-                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                } else {
-                    if let decisionTitle {
-                        Text(decisionTitle)
-                            .font(.system(.caption, design: .default, weight: .semibold))
-                            .foregroundStyle(VelaTheme.rhythmDeep)
-                    }
-                    Text(primaryRhythmTitle)
-                        .font(.system(.title2, design: .default, weight: .semibold))
-                        .tracking(-0.35)
-                        .foregroundStyle(VelaTheme.rhythmInk)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text(completed == total ? "今天的安排已完成" : "已完成 \(completed)/\(total)")
-                        .font(.footnote)
-                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                        .accessibilityLabel("已完成 \(completed) 项，共 \(total) 项")
-                }
-            }
-
-            BodySeekPlanProgressRail(
-                completed: completed,
-                total: total,
-                tint: VelaTheme.rhythmDeep
-            )
-            .animation(VelaTheme.dataAnimation(reduceMotion: reduceMotion), value: progress)
+    private func planTitle(total: Int, completed: Int) -> String {
+        if total == 0 { return "今天由你决定" }
+        if completed == total { return "今天的安排已完成" }
+        if let next = actions.first(where: { $0.completedAt == nil }) {
+            return next.title
         }
-        .padding(VelaTheme.cardPadding)
-        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
-        }
+        return "今天的安排"
     }
 
     private var actionSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            if actions.count < 3 {
-                HStack {
-                    Spacer()
-                    Button("添加", action: presentAddEditor)
-                        .font(VelaTheme.subheadline().weight(.semibold))
-                        .foregroundStyle(VelaTheme.rhythmInk)
-                }
-            }
-
             if actions.isEmpty {
                 Button(action: presentAddEditor) {
                     HStack(spacing: 12) {
@@ -385,6 +362,29 @@ struct VelaPlanView: View {
                                 .padding(.leading, 66)
                         }
                     }
+                    if actions.count < 3 {
+                        Divider()
+                            .overlay(VelaTheme.rhythmMist)
+                            .padding(.leading, 66)
+                        Button(action: presentAddEditor) {
+                            HStack(spacing: 14) {
+                                Image(systemName: "plus")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                                    .frame(width: 38, height: 38)
+                                    .overlay(Circle().strokeBorder(VelaTheme.rhythmMist, style: StrokeStyle(lineWidth: 1.2, dash: [3, 3])))
+                                Text("添加一项（最多 3 项）")
+                                    .font(VelaTheme.subheadline())
+                                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                                Spacer()
+                            }
+                            .frame(minHeight: 56)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("添加一项行动")
+                        .accessibilityIdentifier("plan-add-action")
+                    }
                 }
                 .padding(.horizontal, 14)
                 .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
@@ -396,19 +396,44 @@ struct VelaPlanView: View {
         }
     }
 
-    private func candidateCard(_ candidate: DailyOperatingPlanPayload) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("BodySeek 建议 · 待你确认")
-                .font(VelaTheme.caption1().weight(.semibold))
-                .foregroundStyle(VelaTheme.rhythmInkSecondary)
+    private func candidateCard(_ candidate: DailyOperatingPlanPayload, current: DailyOperatingPlanPayload) -> some View {
+        let rows = PlanProposalDiff.rows(current: current, candidate: candidate)
+        return VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 6) {
+                Circle().fill(VelaTheme.deviationInk).frame(width: 7, height: 7)
+                Text("BodySeek 建议 · 待你确认")
+                    .font(VelaTheme.caption1().weight(.semibold))
+                    .foregroundStyle(VelaTheme.deviationInk)
+            }
 
-            Text(candidateSentence(candidate))
-                .font(VelaTheme.title2().weight(.semibold))
-                .foregroundStyle(VelaTheme.rhythmInk)
-                .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(candidateSentence(candidate, current: current))
+                    .font(VelaTheme.headline())
+                    .foregroundStyle(VelaTheme.rhythmInk)
+                    .fixedSize(horizontal: false, vertical: true)
+                if !candidate.summary.isEmpty, candidate.summary != current.summary {
+                    Text(candidate.summary)
+                        .font(VelaTheme.footnote())
+                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(rows) { row in
+                    proposalRow(row)
+                    if row.id != rows.last?.id {
+                        Divider().overlay(VelaTheme.rhythmMist)
+                    }
+                }
+            }
+            .padding(.horizontal, 12)
+            .background(VelaTheme.rhythmCanvas, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("plan-proposal-diff")
 
             HStack(spacing: 10) {
-                Button("改成减量版") {
+                Button("采用建议") {
                     accept(candidate)
                 }
                 .font(VelaTheme.subheadline().weight(.semibold))
@@ -430,13 +455,52 @@ struct VelaPlanView: View {
                 )
                 .buttonStyle(.plain)
             }
+            Text("确认前，当前计划和你的完成记录都不会改变。")
+                .font(VelaTheme.caption2())
+                .foregroundStyle(VelaTheme.rhythmInkSecondary)
         }
         .padding(VelaTheme.cardPadding)
-        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
+        .background(VelaTheme.deviationWash, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
-                .stroke(VelaTheme.rhythmInk, lineWidth: 1.2)
+                .stroke(VelaTheme.deviationInk.opacity(0.35), lineWidth: 1)
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("plan-proposal-card")
+    }
+
+    private func proposalRow(_ row: PlanProposalDiff.Row) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(row.change.label)
+                .font(VelaTheme.caption2().weight(.semibold))
+                .foregroundStyle(row.change == .same ? VelaTheme.rhythmInkSecondary : VelaTheme.deviationInk)
+                .frame(width: 30, alignment: .leading)
+            VStack(alignment: .leading, spacing: 2) {
+                switch row.change {
+                case .same:
+                    Text(row.proposed ?? "")
+                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                case .added:
+                    Text(row.proposed ?? "")
+                        .foregroundStyle(VelaTheme.rhythmInk)
+                case .removed:
+                    Text(row.current ?? "")
+                        .strikethrough(true, color: VelaTheme.rhythmInkSecondary)
+                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                case .changed:
+                    Text(row.current ?? "")
+                        .strikethrough(true, color: VelaTheme.rhythmInkSecondary)
+                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                    Text(row.proposed ?? "")
+                        .foregroundStyle(VelaTheme.rhythmInk)
+                }
+            }
+            .font(VelaTheme.subheadline())
+            .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 10)
+        .accessibilityElement(children: .combine)
     }
 
     private var trainingPortal: some View {
@@ -473,10 +537,6 @@ struct VelaPlanView: View {
         .accessibilityHint("打开训练专项")
     }
 
-    private var primaryRhythmTitle: String {
-        payload?.primaryAction?.title ?? "今天的节奏"
-    }
-
     private var dateSubtitle: String {
         let formatter = DateFormatter()
         formatter.locale = AppLanguage.stored.isChinese
@@ -491,11 +551,11 @@ struct VelaPlanView: View {
         "请结合我今天的身体状态和当前每日计划，分析这些安排是否合适；先说明最值得关注的一点，再回答我的追问。"
     }
 
-    private func candidateSentence(_ candidate: DailyOperatingPlanPayload) -> String {
-        guard let title = candidate.primaryAction?.title else {
-            return "身体状态有了变化，我建议把今天留得更轻一些。"
+    private func candidateSentence(_ candidate: DailyOperatingPlanPayload, current: DailyOperatingPlanPayload) -> String {
+        if candidate.decision != current.decision {
+            return "身体状态有变化，建议把今天的训练从「\(current.decision.todayDecisionTitle)」改为「\(candidate.decision.todayDecisionTitle)」。"
         }
-        return "身体状态有了变化，我建议把今天的重点调整为“\(title)”。"
+        return "身体状态有变化，建议这样调整今天的安排。"
     }
 
     private func loadOrCreatePlan() {
@@ -517,7 +577,6 @@ struct VelaPlanView: View {
                 )
             }
             planError = nil
-            planRevision += 1
         } catch {
             if DailySummaryUseCase.isPreviewDashboardEnabled() {
                 planError = nil
@@ -534,7 +593,6 @@ struct VelaPlanView: View {
         let updated = DailyOperatingPlanEditor.applying(mutation, to: payload)
         try DailyOperatingPlanEditor.persist(updated, to: plan, modelContext: modelContext)
         planError = nil
-        planRevision += 1
         appState.markLocalDataChanged()
     }
 
@@ -596,6 +654,10 @@ struct VelaPlanView: View {
     }
 
     private func accept(_ candidate: DailyOperatingPlanPayload) {
+        if plan == nil, previewCandidatePayload != nil {
+            VelaHaptic.selection()
+            return
+        }
         guard let decision = currentDecision else {
             planError = .unavailable("今天的训练决定仍在读取，请稍后重试。")
             return
@@ -607,7 +669,6 @@ struct VelaPlanView: View {
                 brief: dashboard.personalHealthBrief,
                 modelContext: modelContext
             )
-            planRevision += 1
             planError = nil
             appState.markLocalDataChanged()
             VelaHaptic.success()
@@ -625,7 +686,6 @@ struct VelaPlanView: View {
                 bodyStateHash: dashboard.bodyState.hash,
                 modelContext: modelContext
             )
-            planRevision += 1
             planError = nil
             appState.markLocalDataChanged()
             VelaHaptic.selection()
@@ -639,6 +699,64 @@ struct VelaPlanView: View {
         guard request > lastHandledTrainingRequest else { return }
         lastHandledTrainingRequest = request
         showTraining = true
+    }
+}
+
+/// Action-by-action comparison between the canonical plan and a Plan
+/// Proposal, matched by domain because a plan holds at most one action per
+/// domain. Display only; accepting still goes through the coordinator.
+enum PlanProposalDiff {
+    enum Change: Equatable {
+        case same, changed, added, removed
+
+        var label: String {
+            switch self {
+            case .same: return "不变"
+            case .changed: return "改为"
+            case .added: return "新增"
+            case .removed: return "移除"
+            }
+        }
+    }
+
+    struct Row: Identifiable, Equatable {
+        let id: String
+        let current: String?
+        let proposed: String?
+        let change: Change
+    }
+
+    static func rows(current: DailyOperatingPlanPayload, candidate: DailyOperatingPlanPayload) -> [Row] {
+        let currentByDomain = Dictionary(current.allActions.map { ($0.domain, $0) }, uniquingKeysWith: { first, _ in first })
+        var rows: [Row] = []
+        let currentBoundary = boundaryText(current)
+        let proposedBoundary = boundaryText(candidate)
+        if currentBoundary != proposedBoundary {
+            rows.append(Row(id: "training-boundary", current: currentBoundary, proposed: proposedBoundary, change: .changed))
+        }
+        rows += candidate.allActions.map { proposed in
+            guard let existing = currentByDomain[proposed.domain] else {
+                return Row(id: proposed.domain.rawValue, current: nil, proposed: proposed.title, change: .added)
+            }
+            let same = existing.title == proposed.title && existing.detail == proposed.detail
+            return Row(
+                id: proposed.domain.rawValue,
+                current: existing.title,
+                proposed: proposed.title,
+                change: same ? .same : .changed
+            )
+        }
+        let proposedDomains = Set(candidate.allActions.map(\.domain))
+        for existing in current.allActions where !proposedDomains.contains(existing.domain) {
+            rows.append(Row(id: existing.domain.rawValue, current: existing.title, proposed: nil, change: .removed))
+        }
+        return rows
+    }
+
+    /// The training boundary the plan carries: decision, volume and RPE cap.
+    static func boundaryText(_ payload: DailyOperatingPlanPayload) -> String {
+        let volume = Int((payload.volumeMultiplier * 100).rounded())
+        return "训练\(payload.decision.todayDecisionTitle) · 训练量 \(volume)% · RPE ≤ \(payload.intensityCap)"
     }
 }
 

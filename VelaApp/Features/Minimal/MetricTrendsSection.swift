@@ -117,7 +117,7 @@ enum CoreMetricTrendMapper {
 
     private static func title(for metric: VelaMetricDetailView.MetricType) -> String {
         switch metric {
-        case .strain: "耗力"
+        case .strain: "负荷"
         case .recovery: "恢复"
         case .sleep: "睡眠"
         case .stress: "压力"
@@ -158,9 +158,7 @@ enum CoreMetricTrendMapper {
         value: Double
     ) -> String {
         switch metric {
-        case .strain, .recovery, .sleep, .energy:
-            return VelaMinimalFormatting.roundedPercentage(value)
-        case .stress:
+        case .strain, .recovery, .sleep, .energy, .stress:
             return "\(Int(value.rounded()))"
         case .hrv:
             return "\(Int(value.rounded())) ms"

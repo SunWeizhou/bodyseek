@@ -199,6 +199,7 @@
 		0B25D0040000000000000004 /* JournalComposeSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1040000000000000004 /* JournalComposeSheet.swift */; };
 		0B25D0050000000000000005 /* JournalCorrelationSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1050000000000000005 /* JournalCorrelationSection.swift */; };
 		0B25D0060000000000000006 /* TodayHeroCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1060000000000000006 /* TodayHeroCard.swift */; };
+		0B25D0FA0000000000000001 /* BodySeekInstrument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1FA0000000000000001 /* BodySeekInstrument.swift */; };
 		0B25D0070000000000000007 /* TodaySignalGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1070000000000000007 /* TodaySignalGrid.swift */; };
 
 		0B25D0090000000000000009 /* TodayNutritionStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1090000000000000009 /* TodayNutritionStrip.swift */; };
@@ -482,6 +483,7 @@
 		0B25D1040000000000000004 /* JournalComposeSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/JournalComposeSheet.swift; sourceTree = "<group>"; };
 		0B25D1050000000000000005 /* JournalCorrelationSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/JournalCorrelationSection.swift; sourceTree = "<group>"; };
 		0B25D1060000000000000006 /* TodayHeroCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/TodayHeroCard.swift; sourceTree = "<group>"; };
+		0B25D1FA0000000000000001 /* BodySeekInstrument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/BodySeekInstrument.swift; sourceTree = "<group>"; };
 		0B25D1070000000000000007 /* TodaySignalGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/TodaySignalGrid.swift; sourceTree = "<group>"; };
 
 		0B25D1090000000000000009 /* TodayNutritionStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/TodayNutritionStrip.swift; sourceTree = "<group>"; };
@@ -666,6 +668,7 @@
 				0B25D1040000000000000004 /* JournalComposeSheet.swift */,
 				0B25D1050000000000000005 /* JournalCorrelationSection.swift */,
 				0B25D1060000000000000006 /* TodayHeroCard.swift */,
+				0B25D1FA0000000000000001 /* BodySeekInstrument.swift */,
 				0B25D1070000000000000007 /* TodaySignalGrid.swift */,
 
 				0B25D1090000000000000009 /* TodayNutritionStrip.swift */,
@@ -1183,6 +1186,7 @@
 				0B25D0040000000000000004 /* JournalComposeSheet.swift in Sources */,
 				0B25D0050000000000000005 /* JournalCorrelationSection.swift in Sources */,
 				0B25D0060000000000000006 /* TodayHeroCard.swift in Sources */,
+				0B25D0FA0000000000000001 /* BodySeekInstrument.swift in Sources */,
 				0B25D0070000000000000007 /* TodaySignalGrid.swift in Sources */,
 
 				0B25D0090000000000000009 /* TodayNutritionStrip.swift in Sources */,

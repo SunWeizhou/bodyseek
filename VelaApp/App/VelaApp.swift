@@ -93,6 +93,7 @@ final class VelaAppState: ObservableObject {
     /// Set while a metric detail is on screen so the shell keeps the ask bar
     /// and drops the 今日 / 趋势 / 计划 header.
     @Published var detailAskContext: DetailAskContext?
+    @Published var visibleTrendHorizon: HealthTrendHorizon = .thirtyDays
     @Published var prefilledCoachQuestion: String? = nil
     @Published var homeNavigationStackId = UUID()
     

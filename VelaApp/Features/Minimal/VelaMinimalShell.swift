@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import UIKit
+import Observation
 
 enum VelaNavigationVisibility {
     static func shouldShowBottomBar(keyboardVisible: Bool) -> Bool {
@@ -74,8 +75,8 @@ struct VelaShell: View {
     @State private var showSidePanel = false
     @State private var showCoverage = false
     @State private var showMemory = false
-    @State private var askDraft = ""
-    @StateObject private var dictation = CoachDictationController()
+    @State private var showInlineConversation = false
+    @State private var composerDraft = BodySeekComposerDraft()
     @State private var mountedLegacyTabs: Set<VelaTab> = [.today]
     @State private var lastPresentedAppSheet: VelaAppState.AppSheet?
     @StateObject private var todayLegacyRuntimeHolder: TodayLegacyRuntimeHolder
@@ -165,7 +166,7 @@ struct VelaShell: View {
         .onReceive(appState.$showCoachHub) { show in
             if show {
                 showPlusSheet = false
-                showCoach = true
+                showInlineConversation = true
                 appState.showCoachHub = false
             }
         }
@@ -180,14 +181,10 @@ struct VelaShell: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
-            withAnimation(VelaTheme.interfaceAnimation(reduceMotion: reduceMotion)) {
-                keyboardVisible = true
-            }
+            keyboardVisible = true
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
-            withAnimation(VelaTheme.interfaceAnimation(reduceMotion: reduceMotion)) {
-                keyboardVisible = false
-            }
+            keyboardVisible = false
         }
         .onChange(of: scenePhase) { _, phase in
             services.coachChat.handleAppActiveChange(isActive: phase == .active)
@@ -231,10 +228,7 @@ struct VelaShell: View {
                 presentation: .quickCover,
                 selectedDate: todayStore.state.selectedDay,
                 dashboard: dashboardVM.dashboard,
-                onRefresh: {
-                    await todayStore.send(.refresh(force: false))
-                    await dashboardVM.refresh(modelContext: modelContext)
-                },
+                onRestoreDraft: { composerDraft.text = $0 },
                 vm: services.coachChat
             )
         }
@@ -506,6 +500,42 @@ struct VelaShell: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .overlay(alignment: .bottom) {
+            if showInlineConversation {
+                GeometryReader { geometry in
+                    VStack(spacing: 0) {
+                        Spacer(minLength: 0)
+                        VelaCoachView(
+                            presentation: .inline,
+                            selectedDate: todayStore.state.selectedDay,
+                            dashboard: dashboardVM.dashboard,
+                            onClose: { showInlineConversation = false },
+                            onExpand: {
+                                services.coachChat.draft = composerDraft.text
+                                composerDraft.text = ""
+                                showInlineConversation = false
+                                showCoach = true
+                            },
+                            onRestoreDraft: { composerDraft.text = $0 },
+                            coverage: todayStore.state.coverage,
+                            inlineSuggestions: askSuggestions,
+                            vm: services.coachChat
+                        )
+                        .frame(height: min(420, max(140, geometry.size.height * 0.72)))
+                        .background(VelaTheme.rhythmCanvas)
+                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                                .stroke(VelaTheme.hairline, lineWidth: 1)
+                        }
+                        .shadow(color: .black.opacity(0.10), radius: 18, y: -4)
+                        .accessibilityIdentifier("inline-coach-panel")
+                    }
+                    .padding(.horizontal, VelaTheme.pagePadding)
+                    .padding(.bottom, 4)
+                }
+            }
+        }
         .safeAreaInset(edge: .top, spacing: 0) {
             if appState.detailAskContext == nil {
                 segmentedHeader
@@ -539,22 +569,20 @@ struct VelaShell: View {
             )
         }
         .onChange(of: appState.selectedTab) { previous, selectedTab in
+            if previous != VelaTab.coach.rawValue && selectedTab != VelaTab.coach.rawValue {
+                showInlineConversation = false
+            }
             openCoachTabIfNeeded(selectedTab, previous: previous)
             mountedLegacyTabs = VelaLegacySurfaceMountPolicy.including(
                 selectedTab: appState.selectedTab,
                 in: mountedLegacyTabs
             )
         }
-        .onChange(of: dictation.transcript) { _, transcript in
-            if dictation.isRecording {
-                askDraft = transcript
-            }
-        }
     }
 
     private func openCoachTabIfNeeded(_ selectedTab: Int, previous: Int) {
         guard selectedTab == VelaTab.coach.rawValue else { return }
-        showCoach = true
+        showInlineConversation = true
         let fallback = previous == VelaTab.coach.rawValue ? VelaTab.today.rawValue : previous
         if appState.selectedTab != fallback {
             appState.selectedTab = fallback
@@ -622,12 +650,70 @@ struct VelaShell: View {
         .accessibilityIdentifier("tab-\(tab.rawValue)")
     }
 
-    private var askContextTitle: String {
-        switch appState.selectedTab {
-        case VelaTab.trends.rawValue: return "带上趋势"
-        case VelaTab.plan.rawValue: return "带上今日计划"
-        default: return "带上今日数据"
+    private var askContext: BodySeekAskContext {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_Hans_CN")
+        formatter.setLocalizedDateFormatFromTemplate("MMMdEEE")
+        let day = formatter.string(from: todayStore.state.selectedDay)
+        if let detail = appState.detailAskContext {
+            return BodySeekAskContext(chip: "\(detail.title)详情", items: [
+                "\(day)的\(detail.title)读数、依据与数据覆盖",
+                "\(detail.title)的个人基线与近期变化",
+                "今天的五项状态，用于联系其他信号"
+            ])
         }
+        switch appState.selectedTab {
+        case VelaTab.trends.rawValue:
+            let horizon = appState.visibleTrendHorizon
+            return BodySeekAskContext(chip: "\(horizon.title)趋势", items: [
+                "时间窗口：\(horizon.detailedTitle)（截至\(day)）",
+                "五项分数在这个窗口的趋势结果与有效天数",
+                "当前个人基线与偏离"
+            ])
+        case VelaTab.plan.rawValue:
+            return BodySeekAskContext(chip: "今日计划", items: [
+                "\(day)计划里的每一项、顺序与完成情况",
+                "今天的五项状态与训练决定",
+                "改动计划前会先给出候选，确认后才生效"
+            ])
+        default:
+            return BodySeekAskContext(chip: "今日数据", items: [
+                "日期：\(day)",
+                "五项分数、个人基线与偏离",
+                "今日计划与完成情况",
+                "数据覆盖与新鲜度"
+            ])
+        }
+    }
+
+    private var askSuggestions: [String] {
+        let dashboard = todayStore.state.dashboard
+        var deviations: [String: String] = [:]
+        for finding in dashboard.personalHealthBrief?.notableChanges ?? [] {
+            guard finding.isNotable, let id = finding.metric.todayScoreRingID else { continue }
+            deviations[id] = BaselineDeviationCopy.label(for: finding) ?? ""
+        }
+        let readings = ScoreInstrumentReading.make(
+            cardValues: [
+                "recovery": dashboard.recovery.formattedScore,
+                "sleep": dashboard.sleepScore.formattedScore,
+                "strain": dashboard.strain.formattedScore,
+                "stress": dashboard.stress.formattedScore,
+                "energy": dashboard.energy.formattedScore
+            ],
+            deviations: deviations,
+            findings: dashboard.healthTrends
+        )
+        let nextAction = todayStore.state.operatingPlanPayload?.allActions
+            .first(where: { $0.completedAt == nil })?.title
+        return BodySeekAskSuggestions.make(
+            surface: askSurface,
+            horizonTitle: appState.visibleTrendHorizon.title,
+            readings: readings,
+            nextActionTitle: nextAction,
+            hasPendingProposal: todayStore.state.pendingPlan != nil,
+            detailTitle: appState.detailAskContext?.title
+        )
     }
 
     private var askPlaceholder: String {
@@ -641,6 +727,7 @@ struct VelaShell: View {
     }
 
     private var askSurface: CoachScreenSurface {
+        if appState.detailAskContext != nil { return .metricDetail }
         switch appState.selectedTab {
         case VelaTab.trends.rawValue: return .trends
         case VelaTab.plan.rawValue: return .plan
@@ -649,77 +736,20 @@ struct VelaShell: View {
     }
 
     private var askBar: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            TextField(askPlaceholder, text: $askDraft, axis: .vertical)
-                .font(VelaTheme.callout())
-                .foregroundStyle(VelaTheme.rhythmInk)
-                .lineLimit(1...3)
-                .onSubmit(sendAskDraft)
-            HStack(spacing: 8) {
-                Button { showPlusSheet = true } label: {
-                    Image(systemName: "plus")
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(VelaTheme.rhythmInk)
-                        .frame(width: 44, height: 36)
-                        .background(Capsule().fill(VelaTheme.rhythmCanvas))
-                }
-                .accessibilityLabel("记录")
-
-                Text(appState.detailAskContext?.contextTitle ?? askContextTitle)
-                    .font(VelaTheme.caption1())
-                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                    .padding(.horizontal, 10)
-                    .frame(height: 36)
-                    .background(Capsule().fill(VelaTheme.rhythmCanvas))
-
-                Spacer(minLength: 8)
-
-                Button(action: toggleSpeech) {
-                    HStack(spacing: 6) {
-                        Image(systemName: dictation.isRecording ? "stop.fill" : "waveform")
-                        Text(dictation.isRecording ? "停止" : "说话")
-                    }
-                    .font(VelaTheme.subheadline().weight(.semibold))
-                    .foregroundStyle(VelaTheme.rhythmDeepOn)
-                    .padding(.horizontal, 14)
-                    .frame(height: 36)
-                    .background(Capsule().fill(VelaTheme.rhythmDeep))
-                }
-                .accessibilityLabel(dictation.isRecording ? "停止听写" : "说话")
-                .accessibilityIdentifier("bodyseek-speak")
-            }
-        }
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: VelaTheme.radiusInput, style: .continuous)
-                .fill(VelaTheme.surfaceFloating)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: VelaTheme.radiusInput, style: .continuous)
-                .stroke(VelaTheme.hairline, lineWidth: 1)
+        BodySeekAskComposer(
+            placeholder: askPlaceholder,
+            context: askContext,
+            isExpanded: $showInlineConversation,
+            draftState: composerDraft,
+            vm: services.coachChat,
+            onAdd: { showPlusSheet = true },
+            onSend: sendAskDraft
         )
     }
 
-    private func toggleSpeech() {
-        if dictation.isRecording {
-            dictation.stop()
-            sendAskDraft()
-            return
-        }
-        let pending = askDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !pending.isEmpty {
-            sendAskDraft()
-            return
-        }
-        dictation.begin(existingText: "")
-    }
-
-    private func sendAskDraft() {
-        let question = askDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-        askDraft = ""
-        dictation.transcript = ""
+    private func sendAskDraft(_ question: String) {
         appState.routeToQuickCoach(
-            question: question.isEmpty ? nil : question,
+            question: question,
             surface: askSurface
         )
     }
@@ -957,5 +987,279 @@ enum VelaLegacySurfaceMountPolicy {
             return mountedTabs
         }
         return mountedTabs.union([selected])
+    }
+}
+
+/// Keystrokes and speech partials invalidate this small composer, rather than
+/// rebuilding the shell and every mounted health page on each character.
+@Observable @MainActor
+private final class BodySeekComposerDraft {
+    var text = ""
+}
+
+/// What the next question carries, stated before anything is sent.
+struct BodySeekAskContext: Equatable {
+    let chip: String
+    let items: [String]
+}
+
+private struct BodySeekAskComposer: View {
+    let placeholder: String
+    let context: BodySeekAskContext
+    @Binding var isExpanded: Bool
+    @Bindable var draftState: BodySeekComposerDraft
+    @ObservedObject var vm: CoachChatVM
+    let onAdd: () -> Void
+    let onSend: (String) -> Void
+
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var lastDictationApplied: String?
+    @State private var showContext = false
+    @StateObject private var dictation = CoachDictationController()
+    @FocusState private var isFocused: Bool
+
+    private var draft: String {
+        get { draftState.text }
+        nonmutating set { draftState.text = newValue }
+    }
+
+    private var canSend: Bool { !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+
+    /// One quiet line while idle; two lines once there is something to send,
+    /// to stop, or to dictate into.
+    private var isCompact: Bool {
+        !isFocused && draft.isEmpty && !dictation.isRecording && !dictation.isStarting && !vm.isStreaming
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .center, spacing: 6) {
+                if isCompact { addButton }
+                // The field keeps one position in the tree so focus survives
+                // the compact → expanded switch.
+                TextField(placeholder, text: $draftState.text, axis: .vertical)
+                    .font(VelaTheme.callout())
+                    .foregroundStyle(VelaTheme.rhythmInk)
+                    .lineLimit(isCompact ? 1...1 : 1...5)
+                    .frame(minHeight: isCompact ? 40 : 28)
+                    .padding(.horizontal, isCompact ? 2 : 4)
+                    .focused($isFocused)
+                    .submitLabel(.send)
+                    .onSubmit(send)
+                    .accessibilityIdentifier("bodyseek-ask-input")
+                if isCompact {
+                    contextChip
+                    if !isExpanded, !vm.messages.isEmpty { resumeButton }
+                    micButton
+                }
+            }
+
+            if !isCompact {
+                HStack(spacing: 6) {
+                    addButton
+                    contextChip
+                    Spacer(minLength: 0)
+                    micButton
+                    trailingAction
+                }
+            }
+
+            if dictation.isRecording {
+                Label("正在听写 · 停止后可编辑，再点发送", systemImage: "waveform")
+                    .font(VelaTheme.caption2())
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                    .padding(.leading, 4)
+            }
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 8)
+        .padding(.vertical, isCompact ? 6 : 10)
+        .background(VelaTheme.surfaceFloating, in: RoundedRectangle(cornerRadius: VelaTheme.radiusInput, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: VelaTheme.radiusInput, style: .continuous)
+                .stroke(VelaTheme.hairline, lineWidth: 1)
+        }
+        .animation(VelaTheme.interfaceAnimation(reduceMotion: reduceMotion), value: isCompact)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("bodyseek-ask-composer")
+        .sheet(isPresented: $showContext) {
+            BodySeekAskContextSheet(context: context)
+                .presentationDetents([.medium])
+                .velaSheetSurface()
+        }
+        .onChange(of: isFocused) { _, focused in
+            if focused { isExpanded = true }
+        }
+        .onChange(of: isExpanded) { _, expanded in
+            if !expanded { isFocused = false; dictation.stop() }
+        }
+        .onChange(of: dictation.transcript) { _, transcript in
+            if lastDictationApplied == nil || draft == lastDictationApplied {
+                draft = transcript
+                lastDictationApplied = transcript
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background || (phase != .active && dictation.isRecording) { dictation.stop() }
+        }
+        .onDisappear { dictation.stop() }
+        .alert("听写不可用", isPresented: Binding(
+            get: { dictation.errorMessage != nil },
+            set: { if !$0 { dictation.errorMessage = nil } }
+        )) {
+            Button("好", role: .cancel) { dictation.errorMessage = nil }
+        } message: {
+            Text(dictation.errorMessage ?? "")
+        }
+    }
+
+    private func send() {
+        let question = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !question.isEmpty, !vm.isStreaming else { return }
+        dictation.stop()
+        draft = ""
+        lastDictationApplied = nil
+        isFocused = false
+        isExpanded = true
+        onSend(question)
+    }
+
+    private var addButton: some View {
+        Button(action: onAdd) {
+            Image(systemName: "plus")
+                .font(.system(size: 17, weight: .medium))
+                .foregroundStyle(VelaTheme.rhythmInk)
+                .frame(width: 40, height: 40)
+                .background(VelaTheme.rhythmCanvas, in: Circle())
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel("记录")
+    }
+
+    private var contextChip: some View {
+        Button { showContext = true } label: {
+            HStack(spacing: 3) {
+                Text(context.chip)
+                    .lineLimit(1)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 8, weight: .bold))
+            }
+            .font(VelaTheme.caption1().weight(.medium))
+            .foregroundStyle(VelaTheme.rhythmInkSecondary)
+            .padding(.horizontal, 10)
+            .frame(height: 30)
+            .background(VelaTheme.rhythmCanvas, in: Capsule())
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
+            .fixedSize()
+        }
+        .accessibilityLabel("本次提问带上：\(context.chip)")
+        .accessibilityHint("查看这次提问会使用哪些数据")
+        .accessibilityIdentifier("bodyseek-context")
+    }
+
+    private var resumeButton: some View {
+        Button { isExpanded = true } label: {
+            Image(systemName: "bubble.left.and.bubble.right")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(VelaTheme.rhythmInk)
+                .frame(width: 40, height: 44)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel("继续对话")
+    }
+
+    private var micButton: some View {
+        Button {
+            if dictation.isRecording || dictation.isStarting {
+                dictation.stop()
+            } else {
+                lastDictationApplied = draft
+                dictation.begin(existingText: draft)
+            }
+        } label: {
+            Group {
+                if dictation.isStarting { ProgressView().controlSize(.small) }
+                else { Image(systemName: dictation.isRecording ? "stop.fill" : "mic") }
+            }
+            .font(.system(size: 17, weight: .medium))
+            .foregroundStyle(dictation.isRecording ? VelaTheme.rhythmDeepOn : VelaTheme.rhythmInk)
+            .frame(width: 40, height: 40)
+            .background(dictation.isRecording ? VelaTheme.rhythmDeep : VelaTheme.rhythmCanvas, in: Circle())
+            .frame(width: 44, height: 44)
+            .contentShape(Rectangle())
+        }
+        .accessibilityLabel(dictation.isRecording ? "停止听写" : dictation.isStarting ? "取消听写" : "说话")
+        .accessibilityIdentifier("bodyseek-speak")
+    }
+
+    @ViewBuilder
+    private var trailingAction: some View {
+        if vm.isStreaming {
+            Button { vm.cancelActiveResponse() } label: {
+                Image(systemName: "stop.fill")
+                    .font(.system(size: 15, weight: .semibold))
+                    .frame(width: 40, height: 40)
+                    .foregroundStyle(VelaTheme.rhythmDeepOn)
+                    .background(VelaTheme.rhythmDeep, in: Circle())
+                    .frame(width: 44, height: 44)
+            }
+            .accessibilityLabel("停止回复")
+        } else if canSend {
+            Button(action: send) {
+                Image(systemName: "arrow.up")
+                    .font(.system(size: 17, weight: .semibold))
+                    .frame(width: 40, height: 40)
+                    .foregroundStyle(VelaTheme.rhythmDeepOn)
+                    .background(VelaTheme.rhythmDeep, in: Circle())
+                    .frame(width: 44, height: 44)
+            }
+            .accessibilityLabel("发送")
+            .accessibilityIdentifier("bodyseek-send")
+        } else if !isExpanded, !vm.messages.isEmpty {
+            resumeButton
+        }
+    }
+}
+
+private struct BodySeekAskContextSheet: View {
+    let context: BodySeekAskContext
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack {
+                Text("本次提问的上下文")
+                    .font(VelaTheme.headline())
+                    .foregroundStyle(VelaTheme.rhythmInk)
+                Spacer()
+                Button("关闭") { dismiss() }
+                    .font(VelaTheme.subheadline().weight(.semibold))
+                    .foregroundStyle(VelaTheme.rhythmInk)
+                    .frame(minHeight: 44)
+            }
+            VStack(alignment: .leading, spacing: 12) {
+                ForEach(context.items, id: \.self) { item in
+                    HStack(alignment: .firstTextBaseline, spacing: 10) {
+                        Image(systemName: "checkmark")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(VelaTheme.rhythmInk)
+                        Text(item)
+                            .font(VelaTheme.subheadline())
+                            .foregroundStyle(VelaTheme.rhythmInk)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+            Text("分数在本机计算。联网 AI 需要你先授权，只接收裁剪后的结构化摘要，不上传原始 Apple 健康样本。")
+                .font(VelaTheme.footnote())
+                .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(24)
+        .accessibilityIdentifier("bodyseek-context-sheet")
     }
 }

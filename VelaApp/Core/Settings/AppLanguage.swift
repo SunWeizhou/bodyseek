@@ -460,7 +460,7 @@ func localizedSignalTitle(_ title: String) -> String {
     case "sleep": return "睡眠得分"
     case "hrv vs baseline": return "HRV 变异率"
     case "resting hr": return "静息心率"
-    case "training load": return "今日耗力负荷"
+    case "training load": return "今日负荷"
     case "local fatigue": return "局部肌群疲劳"
     default: return title
     }

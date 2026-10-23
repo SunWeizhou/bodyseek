@@ -23,3 +23,118 @@
 2. **Sentry 接入**：在你网络环境下加 SPM 依赖 + 填 DSN（我提供完整 diff 与启用说明）
 3. **H1 剩余 481 处**：真机过一遍大字号 AX 设置为设计评审依据
 4. **发布链路**：fastlane 配置（需 Apple 账号）
+
+## 2026-10-22：趋势概览图可读性
+
+本节独立记录本次 UI 变更，不更新上面的历史审计结论。
+
+- 起点：`236f236becce0035cd7c6bf958a58dda4940a14a`，开始时工作树干净；本地分支 `codex/ui/readable-trend-charts`，以下为未提交变更。
+- 范围：`VelaTrendsView.swift`、`TrendsOneMetricChart.swift`、`TrendsStoreTests.swift`、`VelaSmokeUITests.swift`。评分、Store 数据合同、HealthKit 读取、数据库和算法版本未改变。
+- 结果：五项指标各自使用整行图表；标题/当前值与曲线分层；保留黑白主题，增加日期和统一的 0–100 刻度。仅连接原有连续非空段，保留孤立点、真实零值和空档；个人范围只显示已有基线。密集序列减少圆点，最新观察点保持可见。记录不足时展示明确的天数进度，图例按实际数据出现。
+- 实现：概览由 SwiftUI Canvas 绘制，详情的 Swift Charts 路径保持原样。固定五项概览使用 `VStack`，时间选择器支持大字体横向滚动；图内坐标标签限制最大显示字号，卡片数值与 VoiceOver 摘要仍跟随完整字体设置。
+
+### 本地验证
+
+环境：Xcode 27.0（27A266a），iPhone 17 / iOS 26.5 模拟器，简体中文。仓库固定工具链仍为 26.5.0，本次不代表该版本 CI 或真机验收。
+
+```sh
+xcodebuild -project Vela.xcodeproj -scheme Vela -configuration Debug \
+  -destination 'platform=iOS Simulator,id=80FFA19E-69E6-499F-B246-F071A2D369BF' \
+  -parallel-testing-enabled NO -derivedDataPath build/UIOnboardingDerivedData \
+  -resultBundlePath build/trend-chart-review/TrendsFinal.xcresult \
+  -only-testing:VelaTests/TrendsStoreTests \
+  -only-testing:VelaUITests/VelaSmokeUITests/testTrendsScoreContentAndMetricRouting \
+  -only-testing:VelaUITests/VelaSmokeUITests/testTrendsChartLayoutsAndHorizons \
+  -testLanguage zh -testRegion CN CODE_SIGNING_ALLOWED=NO test
+```
+
+- 最终退出码 0：4 项 App 测试和 2 项 UI 测试通过，0 失败。包含缺失分段/来源传递、稀疏/零/全缺失原生渲染、四个时间窗口切换、五项卡片可滚动到达、恢复详情跳转、明暗模式及 Accessibility XXXL 截图。
+- `git diff --check` 退出码 0。基线通用模拟器构建也为 0；没有进行真机安装、发布或远端 CI。
+- 原生证据：`build/trend-chart-review/TrendsFinal.xcresult`；导出清单 `build/trend-chart-review/final-attachments/manifest.json`，共 9 张截图，均为界面预览或固定合成输入，不是用户真实健康记录。浅色/深色/大字体及 320pt 图表样例已人工查看。
+- 复核入口：`build/trend-chart-review/before-light.png`、`after-light.png`、`trends-dark.png`、`trends-accessibility-chart.png`，以及三个 `trends-chart-*-320pt.png`。
+- 被测源码差异保存在 `build/trend-chart-review/source.diff`；构建、截图、结果包均位于已忽略的 `build/`，未加入版本控制。
+
+### 调试边界与剩余限制
+
+初轮新增 UI 测试将卡片误按 Button 类型查询而失败（退出码 65），已改用现有页面的稳定标识。随后两次滚动实验暴露持续布局，均人工中止（退出码 75）；采样保存在 `/tmp/bodyseek-trends-*-scroll-sample.txt`。最终采用 Canvas 概览与非惰性固定卡片布局，滚动流程和最终定向回归均通过；未分别证明单独一个修改足以解决该系统上的布局循环。
+
+超大字体截图仍能看到全局 Shell 的导航文字、图标与提问栏已有截断；本次没有修改共享 Shell。图表坐标与卡片正文已分别核对。加载失败分支未做运行时故障注入；本次也不验证真实 HealthKit 授权、完整评分正确性或全部机型。
+
+## 2026-10-22：主页面复用、页内对话与听写修复
+
+本节记录后续交互工作，不将定向回归扩写为上表的全量测试结论。
+
+- 起点仍为 `236f236becce0035cd7c6bf958a58dda4940a14a` / `codex/ui/readable-trend-charts`，接续上一节尚未提交的趋势图及证据改动；保留工作树，未提交或推送。
+- 真机基线：通过 iPhone 镜像操作，旧版点击「说话」两次均退出应用。`build/interaction-review/voice-before.ips` 对应 `Vela-2026-10-22-212945.ips`：系统 Speech 授权回调在后台队列执行，进入隐式 MainActor 隔离闭包后触发 `_dispatch_assert_queue_fail` / `_swift_task_checkIsolatedSwift`。原有麦克风及 Speech 权限描述已存在。
+- 加载复现：重复 `.appear` 的 reader 调用次数为 3，新增用例期待 1；原版明确发送按钮、语音入口回归也失败。结果包 `build/interaction-review/Before.xcresult`。
+
+### 最终行为
+
+- TodayStore 在同一选定日期、成功加载后的 15 分钟内复用已发布状态，页面返回不再触发缓存读取及 live load。显式刷新、日期变化和已有数据失效流程保留；不伪造健康数据更新时间。
+- 输入草稿由独立可观察对象管理，逐字输入不再使整个健康页面随之重算。移除键盘通知的全局动画、进入计划/完整对话时的额外 dashboard 刷新及计划页面的强制 identity 重建。
+- 全局提问栏在当前主页面展开对话，复用同一 Coach VM、历史、授权与工具确认流程；完整工作区成为可选展开。草稿跨收起、展开及取消联网同意保留。麦克风、发送、停止回复分开；停止听写只保留可编辑文字，不自动发送。
+- Speech 授权、音频 tap 与识别回调通过非隔离桥接，再将结果送回 MainActor；启动支持取消及 generation 检查。使用本机 Speech 识别，并检查输入及格式；异常可见，不清空草稿。
+- 今日建议独立为卡片，连接现有「判断依据」入口及页内对话。去除首页/计划中的大块人为留白。趋势继续使用上一节的五项独立图表；对话上下文携带当前可见趋势窗口与指标。评分、持久化 schema 和 HealthKit 输入含义未改变。
+
+### 本地构建与定向回归
+
+环境仍为 Xcode 27.0（27A266a），iPhone 17 / iOS 26.5 模拟器、中文；仓库固定版本仍为 26.5.0。下面两条命令均退出 0，共 **30 项不同检查通过、0 失败**：24 项 App 测试及 6 项 UI 测试，非全量套件或远端 CI。
+
+```sh
+xcodebuild -project Vela.xcodeproj -scheme Vela -configuration Debug \
+  -destination 'platform=iOS Simulator,id=80FFA19E-69E6-499F-B246-F071A2D369BF' \
+  -parallel-testing-enabled NO -derivedDataPath build/UIOnboardingDerivedData \
+  -resultBundlePath build/interaction-review/Validated.xcresult \
+  -only-testing:VelaTests/TodayStoreTests \
+  -only-testing:VelaTests/TodayViewStateTests \
+  -only-testing:VelaTests/TrendsStoreTests \
+  -only-testing:VelaTests/StabilizationTests \
+  -only-testing:VelaUITests/VelaSmokeUITests/testAskBarOffersExplicitSendAndStaysOnCurrentPage \
+  -only-testing:VelaUITests/VelaSmokeUITests/testDraftSurvivesExpandedChatAndCancelledConsent \
+  -only-testing:VelaUITests/VelaSmokeUITests/testSpeechPermissionCallbackDoesNotTerminateApp \
+  -only-testing:VelaUITests/VelaSmokeUITests/testPrimaryPageStateAndInlineConversationSnapshots \
+  -only-testing:VelaUITests/VelaSmokeUITests/testTrendsScoreContentAndMetricRouting \
+  -only-testing:VelaUITests/VelaSmokeUITests/testTrendsChartLayoutsAndHorizons \
+  -testLanguage zh -testRegion CN CODE_SIGNING_ALLOWED=NO test
+
+xcodebuild -project Vela.xcodeproj -scheme Vela -configuration Debug \
+  -destination 'platform=iOS Simulator,id=80FFA19E-69E6-499F-B246-F071A2D369BF' \
+  -parallel-testing-enabled NO -derivedDataPath build/UIOnboardingDerivedData \
+  -resultBundlePath build/interaction-review/BoundaryChecks.xcresult \
+  -only-testing:VelaTests/CoachInteractionBoundaryTests \
+  -testLanguage zh -testRegion CN CODE_SIGNING_ALLOWED=NO test
+```
+
+第一条实际执行 21 项 App + 6 项 UI。`StabilizationTests.swift` 不在工程 target 中，其过滤器没有运行任何用例，不能计入通过数；新增的三个回调/取消/上下文测试已移到工程注册的 `TodayStoreTests.swift` 中，以 `CoachInteractionBoundaryTests` 单独执行，第二条实际通过 3 项。
+
+覆盖重复 appearance、过期及强制刷新、后台 Speech 授权回调、取消启动、上下文窗口、三主页面往返、建议依据、输入/发送、页内回复与继续对话、完整页草稿交接、取消联网同意，以及趋势窗口/缺失/零值/明暗与大字体。联网回复使用 DEBUG 离线边界；同意流程测试只取消，不批准或上传健康信息。调试中曾修正 UI 查询标识传播、按钮实际命中区，以及仅发送 no-op adapter 而未打开依据 sheet 的入口问题。
+
+原生截图与导出清单：`build/interaction-review/validated-attachments/manifest.json`，可读副本包括 `interaction-today-light.png`、`interaction-advice-evidence.png`、`interaction-plan-light.png`、`interaction-inline-draft-light.png`、`interaction-inline-answer-light.png`、`interaction-inline-resumed-light.png` 和 `interaction-consent-cancelled-draft.png`。这些是模拟器预览/固定样例，不是用户真实健康数据。已查看主要布局及键盘状态。
+
+### 授权后的覆盖安装与真机操作
+
+用户明确选择「覆盖安装并继续验证」，保留现有数据，不卸载。以下构建、签名、安装、启动均退出 0：
+
+```sh
+xcodebuild -project Vela.xcodeproj -scheme Vela -configuration Debug \
+  -destination 'generic/platform=iOS' -derivedDataPath build/DeviceDeployDerivedData build
+codesign --verify --deep --strict build/DeviceDeployDerivedData/Build/Products/Debug-iphoneos/Vela.app
+xcrun devicectl device install app --device 00008140-00164DE022C3801C \
+  build/DeviceDeployDerivedData/Build/Products/Debug-iphoneos/Vela.app \
+  --json-output build/interaction-review/device-install.json
+xcrun devicectl device process launch --device 00008140-00164DE022C3801C \
+  com.sunweizhou.Vela4 --json-output build/interaction-review/device-launch.json
+```
+
+设备为 iPhone 16 Pro / iOS 27.0.1，bundle `com.sunweizhou.Vela4`。本地包版本 4.0.0 (1)；以安装回执、新版实际 UI 和源码/二进制哈希共同标识，不能仅依赖版本号。`device-build-receipt.json` 保存构建哈希；`source.diff` SHA-256 为 `085e4bbe5d05c49d56fc49b71448f6a850ecd73f37a434650f5ed026824f146c`。安装回执的新 bundle 路径为 `40499019-65AF-4733-9F49-478B5D65EC11/Vela.app`，启动 PID 78553，未传测试样例或禁用联网参数。
+
+2026-10-22 22:24–22:26（Asia/Shanghai）通过 computer use 实际检查：
+
+- 首页新建议卡片及五项指标正常；「查看依据」打开真实判断依据页并可关闭。
+- 趋势呈现独立日期/坐标/空档图；今日、趋势、计划多次往返，已显示内容及首页数据时间没有重置为加载画面。
+- 计划仍显示既有三项全部完成（3/3）。安装前后 `Vela.store`、WAL、SHM 均存在（主 store 14,041,088 → 14,106,624 bytes，应用继续正常写入）；这是容器文件与可见记录核对，不是全部数据库记录的逐项审计。
+- 输入非敏感单字符草稿直接展开当前页对话，发送箭头出现；收起后草稿保留，再打开后可清空。未将真实健康信息或该草稿发送给 AI 服务。
+- 点击麦克风没有重现退出，进入「正在听写」，可停止并回到空输入状态。macOS iPhone 镜像弹出「无法从 Mac 使用 iPhone 麦克风。」系统限制提示；未扩展权限，不能据此声称实际收音/转写通过。需要用户在 iPhone 本机完成一句话听写验收。
+- 结束时回到今日页，测试草稿已清空，录音已停止；读取的最新 Vela crash 仍是修复前 `Vela-2026-10-22-212945.ips`。安装、启动、文件元数据和 crash 列表回执均保存于本地忽略目录 `build/interaction-review/`。
+
+`git diff --check` 通过。未完成物理设备 Instruments/FPS 测量（xctrace 当时将设备列为 offline）、真实 AI 网络问答或所有页面/机型的无障碍验收，因此不宣称已消除全部卡顿、语音端到端完成或医疗判断有效。
