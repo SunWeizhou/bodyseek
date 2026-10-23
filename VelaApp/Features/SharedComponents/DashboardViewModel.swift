@@ -203,7 +203,7 @@ final class DashboardViewModel: ObservableObject {
     /// 供今日计划文案引用（C2：个人反应规律接入 Daily Operating Plan）。
     @MainActor
     private func confirmedObservationSummaries(modelContext: ModelContext) throws -> [String] {
-        let records = try modelContext.fetch(FetchDescriptor<MemoryEventRecord>())
+        let records = try MemoryLedger(modelContext: modelContext).fetchAcceptedObservations()
         return records
             .filter { $0.memoryTypeRaw == "observation" && $0.status == MemoryProposalStatus.accepted.rawValue }
             .compactMap { record -> String? in
@@ -225,7 +225,7 @@ final class DashboardViewModel: ObservableObject {
         guard var state = todayCommandState else { return }
         let records: [DailyDecisionFeedbackRecord]
         do {
-            records = try modelContext.fetch(FetchDescriptor<DailyDecisionFeedbackRecord>())
+            records = try DailyDecisionFeedbackRepository(modelContext: modelContext).fetchAll()
         } catch {
             recordSecondaryDataLoadFailure(error)
             return
@@ -601,26 +601,16 @@ final class DashboardViewModel: ObservableObject {
         let trainingStartLimit = calendar.startOfDay(for: calendar.date(byAdding: .day, value: -trainingLookbackDays, to: startOfDayRef) ?? startOfDayRef)
         let endLimit = calendar.date(byAdding: .day, value: 1, to: startOfDayRef) ?? startOfDayRef
 
-        let artifactsDesc = FetchDescriptor<CoachArtifactRecord>(
-            predicate: #Predicate<CoachArtifactRecord> { $0.createdAt >= trainingStartLimit && $0.createdAt <= endLimit },
-            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
-        )
-        let coachArtifacts = try modelContext.fetch(artifactsDesc)
+        let coachArtifacts = try CoachArtifactRepository(modelContext: modelContext)
+            .fetchArtifacts(from: trainingStartLimit, through: endLimit)
 
         // 活跃计划必须用 isActive 谓词直取，不能从「最近更新 10 条」里猜；
         // 否则较早更新的活跃计划会让今日决策/手表推送/提案生成全部漏计划。
-        let activePlan = try modelContext.fetch(FetchDescriptor<TrainingPlanRecord>(
-            predicate: #Predicate<TrainingPlanRecord> { $0.isActive },
-            sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
-        )).first
-        let trainingPreference = try modelContext.fetch(FetchDescriptor<OnboardingState>())
-            .first?.trainingPreference
+        let activePlan = try TrainingPlanRepository(modelContext: modelContext).fetchActivePlans().first
+        let trainingPreference = try OnboardingRepository(modelContext: modelContext).fetchLatest()?.trainingPreference
 
-        let strengthDesc = FetchDescriptor<StrengthWorkoutRecord>(
-            predicate: #Predicate<StrengthWorkoutRecord> { $0.startedAt >= trainingStartLimit && $0.startedAt <= endLimit },
-            sortBy: [SortDescriptor(\.startedAt, order: .reverse)]
-        )
-        let strengthWorkouts = try modelContext.fetch(strengthDesc)
+        let history = WorkoutHistoryRepository(modelContext: modelContext)
+        let strengthWorkouts = try history.fetchStrengthWorkouts(from: trainingStartLimit, through: endLimit)
 
         // 训练事件窗口覆盖完整活跃计划；TrainingScheduleResolver 依赖历史完成事件，
         // 不能被 30 天训练窗口截断。
@@ -628,51 +618,31 @@ final class DashboardViewModel: ObservableObject {
             trainingStartLimit,
             activePlan?.startDate ?? trainingStartLimit
         )
-        let eventsDesc = FetchDescriptor<WorkoutEventRecord>(
-            predicate: #Predicate<WorkoutEventRecord> { $0.startedAt >= eventStartLimit && $0.startedAt <= endLimit },
-            sortBy: [SortDescriptor(\.startedAt, order: .reverse)]
-        )
-        let workoutEvents = try modelContext.fetch(eventsDesc)
+        let workoutEvents = try history.fetchWorkoutEvents(from: eventStartLimit, through: endLimit)
 
-        let responsesDesc = FetchDescriptor<TrainingResponseRecord>(
-            predicate: #Predicate<TrainingResponseRecord> { $0.date >= evidenceStartLimit && $0.date <= endLimit },
-            sortBy: [SortDescriptor(\.date, order: .reverse)]
-        )
-        let trainingResponses = try modelContext.fetch(responsesDesc)
+        let trainingResponses = try TrainingResponseRepository(modelContext: modelContext)
+            .fetchResponses(from: evidenceStartLimit, through: endLimit)
 
-        let foodDesc = FetchDescriptor<FoodLogRecord>(
-            predicate: #Predicate<FoodLogRecord> { $0.createdAt >= evidenceStartLimit && $0.createdAt <= endLimit },
-            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+        let foodLogs = try FoodLogRepository(modelContext: modelContext).fetchLogs(
+            from: evidenceStartLimit,
+            through: endLimit
         )
-        let foodLogs = try modelContext.fetch(foodDesc)
+        let journalEntries = try SwiftDataJournalRepository(modelContext: modelContext).fetchEntries(
+            from: evidenceStartLimit,
+            through: endLimit
+        )
 
-        let journalDesc = FetchDescriptor<JournalEntryRecord>(
-            predicate: #Predicate<JournalEntryRecord> { $0.createdAt >= evidenceStartLimit && $0.createdAt <= endLimit },
-            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
-        )
-        let journalEntries = try modelContext.fetch(journalDesc)
-
-        let summaryDesc = FetchDescriptor<DailyHealthSummaryRecord>(
-            predicate: #Predicate<DailyHealthSummaryRecord> { $0.date >= healthHistoryStartLimit && $0.date <= endLimit },
-            sortBy: [SortDescriptor(\.date, order: .reverse)]
-        )
-        let dailySummaries = try modelContext.fetch(summaryDesc)
-        let decisionFeedback = try modelContext.fetch(FetchDescriptor<DailyDecisionFeedbackRecord>())
+        let dailySummaries = try SwiftDataDailyHealthSummaryRepository(modelContext: modelContext)
+            .fetchRecords(from: healthHistoryStartLimit, through: endLimit, newestFirst: true)
+        let decisionFeedback = try DailyDecisionFeedbackRepository(modelContext: modelContext).fetchAll()
 
         let dayIdentifier = DailyHealthSummaryRecord.dayIdentifier(for: refDate, calendar: calendar)
-        var opPlansDesc = FetchDescriptor<DailyOperatingPlanRecord>(
-            predicate: #Predicate<DailyOperatingPlanRecord> { $0.dayIdentifier == dayIdentifier },
-            sortBy: [SortDescriptor(\.generatedAt, order: .reverse)]
-        )
-        opPlansDesc.fetchLimit = 1
-        let operatingPlans = try modelContext.fetch(opPlansDesc)
+        let operatingPlans = (try DailyOperatingPlanRepository(modelContext: modelContext)
+            .fetchLatest(dayIdentifier: dayIdentifier))
+            .map { [$0] } ?? []
 
         let persistedPlan = operatingPlans.first
-        let adaptationsDesc = FetchDescriptor<TrainingPlanAdaptationRecord>(
-            predicate: #Predicate<TrainingPlanAdaptationRecord> { $0.status == "proposed" },
-            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
-        )
-        let proposedAdaptations = try modelContext.fetch(adaptationsDesc)
+        let proposedAdaptations = try TrainingPlanAdaptationRepository(modelContext: modelContext).fetchProposed()
         let pendingPlanAdaptation: TrainingPlanAdaptationRecord?
         if let activePlan {
             let upcomingDayIDs = Set(activePlan.days.filter { !$0.isCompleted }.map(\.id))
@@ -683,11 +653,8 @@ final class DashboardViewModel: ObservableObject {
             pendingPlanAdaptation = nil
         }
 
-        let aiInsightDesc = FetchDescriptor<AIReportRecord>(
-            predicate: #Predicate<AIReportRecord> { $0.type == "daily_ai_insight" },
-            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
-        )
-        let aiInsights = try modelContext.fetch(aiInsightDesc)
+        let aiInsights = try SwiftDataAIReportRepository(modelContext: modelContext)
+            .fetch(type: "daily_ai_insight")
         let decodedTodayAIInsight: DailyAIInsight?
         if let record = aiInsights.first(where: { calendar.isDateInToday($0.createdAt) }),
            let data = record.serializedContextSnapshot.data(using: .utf8) {
@@ -965,7 +932,7 @@ enum SecondaryDataAssembler {
                 carbs: carbs,
                 fat: fat
             ),
-            history: dailySummaries,
+            history: experienceHistory(dailySummaries: dailySummaries, dashboard: dashboard, refDate: refDate),
             baselineFormation: PersonalBaselineFormation.visualRegressionValue(
                 fallback: PersonalBaselineEngine.formationProgress(
                     from: snapshots,
@@ -999,5 +966,34 @@ enum SecondaryDataAssembler {
             todayCommandState: todayCommandState,
             scheduledDay: scheduledDay
         )
+    }
+
+    /// Preview screenshots have no SwiftData history. Reuse the same synthetic
+    /// snapshots the trend charts already draw, and never write them back.
+    private static func experienceHistory(
+        dailySummaries: [DailyHealthSummaryDTO],
+        dashboard: DashboardSummary,
+        refDate: Date
+    ) -> [DailyHealthSummaryDTO] {
+        if !dailySummaries.isEmpty { return dailySummaries }
+        #if DEBUG
+        guard dashboard.source == .preview else { return dailySummaries }
+        return PreviewDataFactory.makeTrendSnapshots(endingAt: refDate).map { snapshot in
+            DailyHealthSummaryDTO(
+                dayIdentifier: DailyHealthSummaryRecord.dayIdentifier(for: snapshot.date),
+                date: snapshot.date,
+                updatedAt: snapshot.createdAt,
+                recoveryScore: snapshot.recoveryScore,
+                sleepScore: snapshot.sleepScore,
+                strainScore: snapshot.strainScore,
+                stressIndex: snapshot.stressIndex,
+                currentEnergy: snapshot.currentEnergy,
+                morningEnergy: snapshot.morningEnergy,
+                energyBank: snapshot.energyBank
+            )
+        }
+        #else
+        return dailySummaries
+        #endif
     }
 }

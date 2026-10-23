@@ -94,13 +94,33 @@ def main():
         print("WARN (graphic palette <3:1, informational):")
         print("\n".join(warnings))
 
+    # Rule 1b: Personal Baseline Deviation ink sits next to labels, so it
+    # must meet body-text AA on the canvas in both appearances.
+    deviation = next(
+        ((light, dark) for name, light, dark in parse_adaptive_pairs(source) if name == "deviationInk"),
+        None,
+    )
+    if deviation is None:
+        print("FAIL: deviationInk token missing", file=sys.stderr)
+        return 1
+    for mode, value, canvas_hex in (
+        ("light", deviation[0], light_canvas),
+        ("dark", deviation[1], dark_canvas),
+    ):
+        ratio = contrast(value, canvas_hex)
+        print(f"deviationInk {mode} {value} on {canvas_hex} = {ratio:.2f}:1")
+        if ratio < TEXT_MIN:
+            failures.append(
+                f"  deviationInk {value} on {canvas_hex} = {ratio:.2f}:1 (< {TEXT_MIN})"
+            )
+
     if failures:
         print("FAIL (textColor WCAG AA >=4.5:1):")
         print("\n".join(failures))
         print("文字色请在浅色模式下加深，如 #0C7A44 / #8A5F14 / #B0405C。")
         return 1
 
-    print(f"contrast OK: textColor(for:) all >= {TEXT_MIN}:1")
+    print(f"contrast OK: textColor(for:) and deviationInk all >= {TEXT_MIN}:1")
     return 0
 
 

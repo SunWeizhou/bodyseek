@@ -74,14 +74,14 @@ struct AIModelSettingsView: View {
                     Text("餐食照片仅在你确认分析后发送给 Kimi。自动任务还需要在“联网 AI 授权”中单独开启。")
                 } icon: {
                     Image(systemName: "photo.badge.checkmark.fill")
-                        .foregroundStyle(VelaTheme.energyColor)
+                        .foregroundStyle(VelaTheme.rhythmInk)
                 }
 
                 Label {
                     Text("API 密钥保存在系统钥匙串；模型选择保存在本机设置。Vela 不会把密钥写入聊天记录。")
                 } icon: {
                     Image(systemName: "key.fill")
-                        .foregroundStyle(VelaTheme.recoveryColor)
+                        .foregroundStyle(VelaTheme.rhythmInk)
                 }
             }
             .font(.footnote)
@@ -222,8 +222,10 @@ struct AIModelSettingsView: View {
 }
 
 struct DataSourceSettingsView: View {
+    let dashboard: DashboardSummary
+    var onRefresh: (() async -> Void)?
+
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var dashboardVM: DashboardViewModel
     @State private var isSyncing = false
     @State private var lastSync: Date?
     @State private var authErrorMessage: String?
@@ -307,7 +309,9 @@ struct DataSourceSettingsView: View {
                 Button {
                     Task {
                         isSyncing = true
-                        await dashboardVM.refresh(modelContext: modelContext)
+                        if let onRefresh {
+                            await onRefresh()
+                        }
                         lastSync = Date()
                         isSyncing = false
                     }
@@ -398,7 +402,7 @@ struct DataSourceSettingsView: View {
  
     private var appleHealthStatus: String {
         if isSyncing { return "同步中" }
-        switch dashboardVM.dashboard.source {
+        switch dashboard.source {
         case .healthKit: return "已同步"
         case .cache: return "已读取缓存"
         case .empty: return "待同步"
@@ -407,7 +411,7 @@ struct DataSourceSettingsView: View {
     }
  
     private var appleHealthDetail: String {
-        switch dashboardVM.dashboard.source {
+        switch dashboard.source {
         case .healthKit:
             return lastSync.map { "最近同步：\($0.formatted(date: .omitted, time: .shortened))" }
                 ?? "已读取 Apple 健康 data"

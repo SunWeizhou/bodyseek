@@ -1,6 +1,7 @@
 import SwiftData
 import SwiftUI
 import Charts
+import BodySeekDomain
 
 enum VelaMinimalFormatting {
     static func roundedPercentage(_ value: Double) -> String {
@@ -108,16 +109,15 @@ extension View {
 
 struct VelaMetricDetailView: View {
     let metric: MetricType
-    var selectedDate: Date? = nil
-    var dashboardSnapshot: DashboardSummary? = nil
+    var selectedDate: Date
+    var dashboardSnapshot: DashboardSummary
     var isPresentedInSheet: Bool = false
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var cs
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject var dashboardVM: DashboardViewModel
     @ObservedObject var appState = VelaAppState.shared
-    @State var dailyRecords: [DailyHealthSummaryRecord] = []
+    @State var historyDays: [PersistedDailyHistoryDay] = []
     @AppStorage(SleepTargetSettings.hoursKey) var sleepTargetHours = SleepTargetSettings.defaultHours
     @AppStorage("agent_bedtime_hour") var targetBedtimeHour = 22
     @AppStorage("agent_bedtime_minute") var targetBedtimeMinute = 0
@@ -127,15 +127,15 @@ struct VelaMetricDetailView: View {
     @State private var dailyRecordsLoadError: String?
     
     // Default to 7 days (.week) for immediate momentum and responsive trend viewing
-    @State var selectedRange: DetailTimeRange = .week
+    @State var selectedRange: DetailTimeRange = .month
     @State var rawSelectedDate: Date? = nil
 
     var effectiveDate: Date {
-        selectedDate ?? dashboardVM.selectedDate
+        selectedDate
     }
 
     var dashboard: DashboardSummary {
-        dashboardSnapshot ?? dashboardVM.dashboard
+        dashboardSnapshot
     }
 
     enum MetricType: String, CaseIterable, Identifiable {
@@ -147,9 +147,8 @@ struct VelaMetricDetailView: View {
     var body: some View {
         let isSleep = (metric == .sleep)
         
-        ZStack {
-            VelaTheme.rhythmCanvas.ignoresSafeArea()
-
+        VStack(spacing: 0) {
+            detailHeader
             ScrollView {
                 VStack(spacing: 16) {
                     if metric.isScoredHealthDomain {
@@ -159,42 +158,23 @@ struct VelaMetricDetailView: View {
                     }
                 }
                 .padding(.horizontal, VelaTheme.pagePadding)
-                .padding(.bottom, 56)
+                .padding(.bottom, 24)
             }
             .scrollIndicators(.hidden)
-        }
-        .navigationTitle(navTitle)
-        .accessibilityIdentifier("metric-detail-\(metric.rawValue)")
-        .velaRhythmDetailChrome()
-        .toolbar {
             if isPresentedInSheet {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button(action: dismiss.callAsFunction) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(VelaTheme.rhythmDeep)
-                            .frame(width: 32, height: 32)
-                            .background(Circle().fill(VelaTheme.rhythmCanvasRaised))
-                            .overlay(Circle().stroke(VelaTheme.rhythmMist, lineWidth: 0.75))
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("关闭")
-                    .accessibilityIdentifier("metric-detail-close")
-                }
+                detailAskBar
             }
-
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                ShareLink(item: metricShareText) {
-                    Image(systemName: "square.and.arrow.up")
-                }
-                .accessibilityLabel("分享\(navTitle)")
-
-                Button {
-                    showMetricInfo = true
-                } label: {
-                    Image(systemName: "info.circle")
-                }
-                .accessibilityLabel("关于\(navTitle)")
+        }
+        .padding(.bottom, isPresentedInSheet ? 0 : 96)
+        .background(VelaTheme.rhythmCanvas.ignoresSafeArea())
+        .navigationTitle(navTitle)
+        .navigationBarBackButtonHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
+        .accessibilityIdentifier("metric-detail-\(metric.rawValue)")
+        .onAppear { appState.detailAskContext = makeDetailAskContext() }
+        .onDisappear {
+            if appState.detailAskContext?.title == navTitle {
+                appState.detailAskContext = nil
             }
         }
         .alert("关于\(navTitle)", isPresented: $showMetricInfo) {
@@ -209,17 +189,114 @@ struct VelaMetricDetailView: View {
         .onAppear {
             loadDailyRecords()
         }
-        .onChange(of: dashboardVM.selectedDate) {
-            if selectedDate == nil {
-                loadDailyRecords()
-            }
-        }
         .onChange(of: appState.localDataRevision) {
             loadDailyRecords()
         }
     }
 
+    private var detailHeader: some View {
+        HStack(spacing: 8) {
+            Button(action: dismiss.callAsFunction) {
+                Image(systemName: isPresentedInSheet ? "xmark" : "chevron.left")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(VelaTheme.rhythmInk)
+                    .frame(width: 44, height: 44)
+                    .background(Circle().fill(VelaTheme.surfaceFloating))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(isPresentedInSheet ? "关闭" : "返回")
+            .accessibilityIdentifier("metric-detail-close")
+
+            Spacer(minLength: 8)
+            Text(navTitle)
+                .font(VelaTheme.headline().weight(.semibold))
+                .foregroundStyle(VelaTheme.rhythmInk)
+            Spacer(minLength: 8)
+
+            Menu {
+                ShareLink(item: metricShareText) {
+                    Label("分享", systemImage: "square.and.arrow.up")
+                }
+                Button {
+                    showMetricInfo = true
+                } label: {
+                    Label("关于\(navTitle)", systemImage: "info.circle")
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(VelaTheme.rhythmInk)
+                    .frame(width: 44, height: 44)
+                    .background(Circle().fill(VelaTheme.surfaceFloating))
+            }
+            .accessibilityLabel("更多")
+        }
+        .padding(.horizontal, VelaTheme.pagePadding)
+        .padding(.vertical, 6)
+    }
+
+    private var detailAskBar: some View {
+        let context = makeDetailAskContext()
+        return Button {
+            appState.routeToQuickCoach(question: nil, surface: .metricDetail)
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "bubble.left")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(VelaTheme.rhythmInk)
+                    .frame(width: 40, height: 40)
+                    .background(VelaTheme.rhythmCanvas, in: Circle())
+                Text(context.askPlaceholder)
+                    .font(VelaTheme.callout())
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                Spacer(minLength: 6)
+                Text("\(navTitle)详情")
+                    .font(VelaTheme.caption1().weight(.medium))
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                    .padding(.horizontal, 10)
+                    .frame(height: 30)
+                    .background(VelaTheme.rhythmCanvas, in: Capsule())
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(VelaTheme.surfaceFloating, in: RoundedRectangle(cornerRadius: VelaTheme.radiusInput, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: VelaTheme.radiusInput, style: .continuous)
+                    .stroke(VelaTheme.hairline, lineWidth: 1)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(context.askPlaceholder)
+        .accessibilityHint("带上\(navTitle)详情，打开对话")
+        .accessibilityIdentifier("metric-detail-ask")
+        .padding(.horizontal, VelaTheme.pagePadding)
+        .padding(.top, 8)
+        .padding(.bottom, 8)
+        .background(VelaTheme.rhythmCanvas)
+    }
+
+    private func makeDetailAskContext() -> VelaAppState.DetailAskContext {
+        VelaAppState.DetailAskContext(
+            title: navTitle,
+            askPlaceholder: "问问\(navTitle)…",
+            contextTitle: "带上\(navTitle)详情"
+        )
+    }
+
     private func loadDailyRecords() {
+        #if DEBUG
+        if DailySummaryUseCase.isPreviewDashboardEnabled() {
+            historyDays = PreviewDataFactory.makeTrendSnapshots(endingAt: effectiveDate).map {
+                PersistedDailyHistoryDay(
+                    snapshot: $0,
+                    configVersion: DailySummaryUseCase.debugDemoConfigVersion
+                )
+            }
+            dailyRecordsLoadError = nil
+            return
+        }
+        #endif
         let calendar = Calendar.current
         let endDate = calendar.startOfDay(for: effectiveDate)
         let end = calendar.date(byAdding: .day, value: 1, to: endDate) ?? endDate
@@ -228,17 +305,13 @@ struct VelaMetricDetailView: View {
             value: -(HealthTrendHorizon.threeYears.windowDays + 7),
             to: end
         ) ?? end
-        
-        let descriptor = FetchDescriptor<DailyHealthSummaryRecord>(
-            predicate: #Predicate<DailyHealthSummaryRecord> { $0.date >= start && $0.date <= end },
-            sortBy: [SortDescriptor(\.date, order: .forward)]
-        )
         do {
-            dailyRecords = try modelContext.fetch(descriptor)
+            historyDays = try HealthSnapshotRepository(modelContext: modelContext)
+                .fetchHistory(from: start, until: end)
             dailyRecordsLoadError = nil
         } catch {
             // Never keep another date's points on screen after a failed fetch.
-            dailyRecords = []
+            historyDays = []
             dailyRecordsLoadError = L10n.t(
                 "The history could not be read. No trend is shown until a retry succeeds.",
                 "历史记录暂时无法读取。重试成功前不会展示趋势。"
@@ -274,7 +347,7 @@ struct VelaMetricDetailView: View {
             metricSubtitle: metricSubtitle,
             baselineValue: chartBaselineValue,
             targetRange: chartTargetRange,
-            isSimulated: dailyRecords.contains {
+            isSimulated: historyDays.contains {
                 $0.configVersion == DailySummaryUseCase.debugDemoConfigVersion
             }
         )
@@ -315,6 +388,59 @@ struct VelaMetricDetailView: View {
 
     @ViewBuilder
     private func coreMetricContent(isSleep: Bool) -> some View {
+        if metric == .recovery {
+            recoveryDetailV2
+        } else {
+            legacyCoreMetricContent(isSleep: isSleep)
+        }
+    }
+
+    private var recoveryDetailV2: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            metricHistoryErrorCard
+            RecoveryDetailV2View(
+                model: RecoveryDetailV2Builder.make(
+                    dashboard: dashboard,
+                    snapshots: historyDays.map(\.snapshot),
+                    range: selectedRange,
+                    endingAt: effectiveDate,
+                    baselineBand: recoveryUsualBand(
+                        snapshots: historyDays.map(\.snapshot),
+                        endingAt: effectiveDate
+                    ),
+                    isSimulated: dashboard.source == .preview || historyDays.contains {
+                        $0.configVersion == DailySummaryUseCase.debugDemoConfigVersion
+                    }
+                ),
+                selectedRange: $selectedRange,
+                onAskCoach: openMetricCoach
+            )
+        }
+    }
+
+    private func recoveryUsualBand(
+        snapshots: [DailyHealthSnapshot],
+        endingAt: Date
+    ) -> ClosedRange<Double>? {
+        let samples = snapshots.compactMap { snapshot -> BaselineSample? in
+            guard let value = snapshot.recoveryScore else { return nil }
+            return BaselineSample(date: snapshot.date, value: value)
+        }
+        guard let estimate = BaselineEstimator.estimate(
+            samples: samples,
+            asOf: endingAt,
+            windowDays: max(selectedRange.days, 7),
+            minimumSamples: (selectedRange.trendHorizon ?? .sevenDays).requiredSampleCount,
+            calendar: .current
+        ), let scale = estimate.robustScale, scale > 0 else {
+            return nil
+        }
+        let half = scale * BaselineEstimator.stableZ
+        return (estimate.median - half)...(estimate.median + half)
+    }
+
+    @ViewBuilder
+    private func legacyCoreMetricContent(isSleep: Bool) -> some View {
         // 1. 主值 + 数据质量
         CoreMetricDetailHero(
             metric: metric,
@@ -535,7 +661,7 @@ struct VelaMetricDetailView: View {
                 // Subtitle/Target Text below the ring
                 if metric == .strain {
                     let range = dashboard.strain.recommendedRange
-                    Text("目标耗力: \(range.lowerBound) - \(range.upperBound)%")
+                    Text("目标负荷：\(range.lowerBound)–\(range.upperBound)")
                         .font(VelaTheme.caption1())
                         .fontWeight(.semibold)
                         .foregroundStyle(isSleep ? VelaTheme.mistGray : VelaTheme.fg2)
@@ -1034,18 +1160,18 @@ enum LongTermTrendMath {
 }
 
 /// 三年健康轨迹：月均值曲线（点按标数值/拖动查看）+ 今年 vs 去年同期。
-/// 数据源 = 回填后的 DailyHealthSummaryRecord 原始字段。
+/// 原始字段来自日快照，取值与三年长线基准共用 `LongTermBaselineMetric`。
 struct LongTermHealthTrendView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var cs
 
-    @State private var metric = LongTermMetric.restingHeartRate
+    @State private var metric = LongTermBaselineMetric.restingHeartRate
     @State private var monthlySeries: [(date: Date, value: Double)] = []
     @State private var points: [CGPoint] = []
     @State private var values: [Double] = []
     @State private var dates: [Date] = []
     @State private var comparison: (thisYear: Double?, lastYear: Double?) = (nil, nil)
-    @State private var cachedRecords: [DailyHealthSummaryRecord] = []
+    @State private var cachedSnapshots: [DailyHealthSnapshot] = []
     @State private var loadError: String?
 
     var body: some View {
@@ -1098,13 +1224,20 @@ struct LongTermHealthTrendView: View {
         .navigationTitle("长期趋势")
         .velaRhythmDetailChrome()
         .task { await load() }
-        .onChange(of: metric) { _, _ in rebuild(from: cachedRecords) }
+        .onChange(of: metric) { _, newMetric in
+            let rebuilt = Self.series(from: cachedSnapshots, metric: newMetric)
+            monthlySeries = rebuilt.monthly
+            values = rebuilt.values
+            dates = rebuilt.dates
+            points = rebuilt.points
+            comparison = rebuilt.comparison
+        }
     }
 
     private var metricPicker: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                ForEach(LongTermMetric.allCases) { item in
+                ForEach(LongTermBaselineMetric.allCases) { item in
                     Button {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
                             metric = item
@@ -1241,19 +1374,23 @@ struct LongTermHealthTrendView: View {
         if metric == .steps {
             return value >= 1000 ? String(format: "%.1fk", value / 1000) : "\(Int(value.rounded()))"
         }
-        return value.formatted(.number.precision(.fractionLength(metric == .sleep ? 1 : 0)))
+        return value.formatted(.number.precision(.fractionLength(metric == .sleepHours ? 1 : 0)))
     }
 
     private func load() async {
         do {
-            let all = try modelContext.fetch(
-                FetchDescriptor<DailyHealthSummaryRecord>(
-                    sortBy: [SortDescriptor(\.date, order: .forward)]
-                )
-            )
-            cachedRecords = all
+            let snapshots = try HealthSnapshotRepository(modelContext: modelContext).fetchAllSnapshots()
+            cachedSnapshots = snapshots
             loadError = nil
-            rebuild(from: all)
+            let metric = self.metric
+            let rebuilt = await Task.detached {
+                Self.series(from: snapshots, metric: metric)
+            }.value
+            monthlySeries = rebuilt.monthly
+            values = rebuilt.values
+            dates = rebuilt.dates
+            points = rebuilt.points
+            comparison = rebuilt.comparison
         } catch {
             loadError = AppLanguage.stored.isChinese
                 ? "长期健康记录暂时无法读取，已保留上次结果。"
@@ -1261,20 +1398,27 @@ struct LongTermHealthTrendView: View {
         }
     }
 
-    private func rebuild(from records: [DailyHealthSummaryRecord]) {
+    nonisolated private static func series(
+        from snapshots: [DailyHealthSnapshot],
+        metric: LongTermBaselineMetric
+    ) -> (
+        monthly: [(date: Date, value: Double)],
+        values: [Double],
+        dates: [Date],
+        points: [CGPoint],
+        comparison: (thisYear: Double?, lastYear: Double?)
+    ) {
         let calendar = Calendar.current
         let cutoff = calendar.date(byAdding: .year, value: -3, to: Date()) ?? Date()
-        let pairs = records
+        let pairs = snapshots
             .filter { $0.date >= cutoff }
-            .compactMap { record -> (date: Date, value: Double)? in
-                guard let value = metric.value(from: record), value > 0 else { return nil }
-                return (record.date, value)
+            .compactMap { snapshot -> (date: Date, value: Double)? in
+                guard let value = snapshot.longTermBaselinePoint.value(for: metric), value > 0 else { return nil }
+                return (snapshot.date, value)
             }
         let monthly = LongTermTrendMath.monthlyAverages(values: pairs, calendar: calendar)
-        monthlySeries = monthly
-        values = monthly.map(\.value)
-        dates = monthly.map(\.date)
-
+        let values = monthly.map(\.value)
+        let dates = monthly.map(\.date)
         let minV = values.min() ?? 0
         let maxV = values.max() ?? 1
         let diff = maxV - minV
@@ -1285,68 +1429,12 @@ struct LongTermHealthTrendView: View {
             let y = 0.9 - (normalized * 0.78)
             built.append(CGPoint(x: x, y: y))
         }
-        points = built
-        comparison = LongTermTrendMath.samePeriodComparison(values: pairs, calendar: calendar)
-    }
-}
-
-enum LongTermMetric: String, CaseIterable, Identifiable {
-    case restingHeartRate
-    case hrv
-    case sleep
-    case weight
-    case bodyFat
-    case steps
-    case activeCalories
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .restingHeartRate: return "静息心率"
-        case .hrv: return "HRV"
-        case .sleep: return "睡眠时长"
-        case .weight: return "体重"
-        case .bodyFat: return "体脂率"
-        case .steps: return "步数"
-        case .activeCalories: return "活动能量"
-        }
-    }
-
-    var unit: String {
-        switch self {
-        case .restingHeartRate: return "bpm"
-        case .hrv: return "ms"
-        case .sleep: return "小时"
-        case .weight: return "kg"
-        case .bodyFat: return "%"
-        case .steps: return "步"
-        case .activeCalories: return "kcal"
-        }
-    }
-
-    /// 数值变大是否代表变好（用于同比色）。
-    var improvementIsPositive: Bool {
-        switch self {
-        case .restingHeartRate: return false
-        case .hrv: return true
-        case .sleep: return true
-        case .weight: return false
-        case .bodyFat: return false
-        case .steps: return true
-        case .activeCalories: return true
-        }
-    }
-
-    func value(from record: DailyHealthSummaryRecord) -> Double? {
-        switch self {
-        case .restingHeartRate: return record.restingHeartRate
-        case .hrv: return record.hrvAverage
-        case .sleep: return record.sleepHours
-        case .weight: return record.bodyWeight
-        case .bodyFat: return record.bodyFatPercent
-        case .steps: return record.steps
-        case .activeCalories: return record.activeCalories
-        }
+        return (
+            monthly,
+            values,
+            dates,
+            built,
+            LongTermTrendMath.samePeriodComparison(values: pairs, calendar: calendar)
+        )
     }
 }

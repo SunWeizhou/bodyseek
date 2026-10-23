@@ -84,7 +84,7 @@ struct TodayExperienceAction: Codable, Hashable, Identifiable {
     var evidence: String? = nil
 }
 
-struct TodayExperienceModel: Codable, Hashable {
+struct TodayExperienceModel: Codable, Hashable, Sendable {
     var generatedAt: Date
     var hero: TodayExperienceHero
     var signalCards: [TodayExperienceSignalCard]
@@ -267,7 +267,7 @@ struct TodayExperienceModel: Codable, Hashable {
     }
 
     private static func scoreTitle(_ dashboard: DashboardSummary) -> String {
-        dashboard.recovery.hasData ? "恢复 \(Int(dashboard.recovery.score.rounded()))" : "恢复 --"
+        "恢复 \(dashboard.recovery.formattedScore)"
     }
 
     private static func decisionTitle(
@@ -326,8 +326,8 @@ struct TodayExperienceModel: Codable, Hashable {
         if let brief = brief, !brief.subheadline.isEmpty {
             return brief.subheadline
         }
-        let sleep = dashboard.sleepScore.hasData ? "\(Int(dashboard.sleepScore.score.rounded()))" : "--"
-        let strain = dashboard.strain.hasData ? "\(Int(dashboard.strain.score.rounded()))" : "--"
+        let sleep = dashboard.sleepScore.formattedScore
+        let strain = dashboard.strain.formattedScore
         let limiter = bodyState.drivers.first.map(displayDriverTitle) ?? "未发现主要限制"
         return "\(displayDecisionSummary(decision)) 睡眠 \(sleep)，负荷 \(strain)，主要证据：\(limiter)。"
     }
@@ -378,7 +378,7 @@ struct TodayExperienceModel: Codable, Hashable {
                 }
             }
 
-        var values = Array(previousValues.suffix(6))
+        var values = Array(previousValues.suffix(13))
         if current.hasData {
             values.append(current.score)
         }
@@ -460,7 +460,7 @@ struct TodayExperienceModel: Codable, Hashable {
             chips.append("HRV \(Int(hrv.rounded()))ms")
         }
         if dashboard.sleepScore.hasData {
-            chips.append("睡眠 \(Int(dashboard.sleepScore.score.rounded()))")
+            chips.append("睡眠 \(dashboard.sleepScore.formattedScore)")
         }
         return Array(chips.prefix(4))
     }
@@ -553,16 +553,16 @@ struct TodayExperienceModel: Codable, Hashable {
     ) -> String {
         var parts: [String] = []
         if dashboard.recovery.hasData {
-            parts.append("恢复 \(Int(dashboard.recovery.score.rounded()))")
+            parts.append("恢复 \(dashboard.recovery.formattedScore)")
         }
         if dashboard.sleepScore.hasData {
-            parts.append("睡眠 \(Int(dashboard.sleepScore.score.rounded()))")
+            parts.append("睡眠 \(dashboard.sleepScore.formattedScore)")
         }
         if decision.decision == .rest || decision.decision == .reduce,
            dashboard.stress.hasData {
-            parts.append("压力 \(Int(dashboard.stress.score.rounded()))")
+            parts.append("压力 \(dashboard.stress.formattedScore)")
         } else if dashboard.strain.hasData {
-            parts.append("负荷 \(Int(dashboard.strain.score.rounded()))")
+            parts.append("负荷 \(dashboard.strain.formattedScore)")
         }
         if let driver = bodyState.drivers.first {
             parts.append(displayDriverTitle(driver))
@@ -707,9 +707,9 @@ struct TrainingSurfaceSummaryModel: Codable, Hashable {
             headline: headline(for: decision),
             guidance: guidance,
             targetRangeText: dashboard.strain.hasData ? "\(range.lowerBound)-\(range.upperBound)" : "--",
-            recoveryValue: dashboard.recovery.hasData ? "\(Int(dashboard.recovery.score.rounded()))" : "--",
-            sleepValue: dashboard.sleepScore.hasData ? "\(Int(dashboard.sleepScore.score.rounded()))" : "--",
-            strainValue: dashboard.strain.hasData ? "\(Int(dashboard.strain.score.rounded()))" : "--",
+            recoveryValue: dashboard.recovery.formattedScore,
+            sleepValue: dashboard.sleepScore.formattedScore,
+            strainValue: dashboard.strain.formattedScore,
             confidenceLabel: dashboard.source == .empty ? "数据不足" : todayExperience.hero.confidenceLabel,
             primaryActionTitle: primaryActionTitle(for: decision),
             sessionTitle: sessionTitle,

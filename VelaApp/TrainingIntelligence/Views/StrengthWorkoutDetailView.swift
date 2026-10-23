@@ -6,13 +6,14 @@ import os.log
 
 private let logger = Logger(subsystem: "com.sunweizhou.Vela", category: "Workout")
 struct StrengthWorkoutDetailView: View {
+    let workout: StrengthWorkoutRecord
+    var onRefresh: (() async -> Void)?
+
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var dashboardVM: DashboardViewModel
-
-    @Query(sort: \StrengthWorkoutRecord.startedAt, order: .reverse) private var allWorkouts: [StrengthWorkoutRecord]
-    let workout: StrengthWorkoutRecord
+    @ObservedObject private var appState = VelaAppState.shared
+    @State private var allWorkouts: [StrengthWorkoutRecord] = []
 
     @State private var selectedSet: StrengthSetDetail?
     @State private var showDeleteConfirmation = false
@@ -52,6 +53,10 @@ struct StrengthWorkoutDetailView: View {
         .navigationTitle("力量训练详情")
         .navigationBarTitleDisplayMode(.inline)
         .velaRhythmDetailChrome()
+        .task { loadWorkoutHistory() }
+        .onChange(of: appState.localDataRevision) { _, _ in
+            loadWorkoutHistory()
+        }
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 12) {
@@ -82,7 +87,11 @@ struct StrengthWorkoutDetailView: View {
                 .presentationBackground(VelaTheme.systemGroupedBackground)
         }
         .sheet(isPresented: $showEditSheet) {
-            StrengthWorkoutLogSheetView(editingWorkout: workout)
+            StrengthWorkoutLogSheetView(
+                editingWorkout: workout,
+                trainingDecisionKind: nil,
+                onRefresh: onRefresh
+            )
         }
         .confirmationDialog("确定要删除这条健身记录吗？", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
             Button("删除记录", role: .destructive) {
@@ -94,6 +103,11 @@ struct StrengthWorkoutDetailView: View {
         }
     }
 
+    private func loadWorkoutHistory() {
+        allWorkouts = (try? WorkoutHistoryRepository(modelContext: modelContext)
+            .fetchStrengthWorkoutsSortedByStart(newestFirst: true)) ?? []
+    }
+
     private func deleteWorkout() {
         do {
             // P3-8 修复：黑名单插入由 deleteStrengthWorkout 统一处理（查重 + 计划日回滚），
@@ -102,8 +116,8 @@ struct StrengthWorkoutDetailView: View {
             
             VelaAppState.shared.markLocalDataChanged()
             
-            Task {
-                await dashboardVM.refresh(modelContext: modelContext)
+            if let onRefresh {
+                Task { await onRefresh() }
             }
             dismiss()
         } catch {
@@ -285,8 +299,8 @@ struct StrengthWorkoutDetailView: View {
 
     private func progressionStatusColor(_ status: StrengthProgressionStatus) -> Color {
         switch status {
-        case .ready: VelaTheme.recoveryColor
-        case .hold: VelaTheme.energyColor
+        case .ready: VelaTheme.rhythmInk
+        case .hold: VelaTheme.rhythmInk
         case .collecting: VelaTheme.muted
         }
     }
@@ -444,9 +458,9 @@ struct StrengthWorkoutDetailView: View {
         switch kind {
         case .working: VelaTheme.accent
         case .warmup: VelaTheme.systemOrange
-        case .drop: VelaTheme.sleepColor
-        case .backoff: VelaTheme.recoveryColor
-        case .failure: VelaTheme.strainColor
+        case .drop: VelaTheme.rhythmInk
+        case .backoff: VelaTheme.rhythmInk
+        case .failure: VelaTheme.rhythmInk
         }
     }
 

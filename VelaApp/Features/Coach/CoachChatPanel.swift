@@ -45,16 +45,10 @@ struct JournalCorrelationTool: AgentTool {
             let modelContext = executionContext.modelContext
             // 行为-结果配对用三年窗口：回填后旧手记也能对上次日体征。
             let threeYearsAgo = Date().addingTimeInterval(-1095 * 24 * 3600)
-            let journalDescriptor = FetchDescriptor<JournalEntryRecord>(
-                predicate: #Predicate<JournalEntryRecord> { $0.createdAt >= threeYearsAgo },
-                sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
-            )
-            let journalEntries = (try? modelContext.fetch(journalDescriptor)) ?? []
-            let healthDescriptor = FetchDescriptor<DailyHealthSummaryRecord>(
-                predicate: #Predicate<DailyHealthSummaryRecord> { $0.date >= threeYearsAgo },
-                sortBy: [SortDescriptor(\.date, order: .reverse)]
-            )
-            let healthRecords = (try? modelContext.fetch(healthDescriptor)) ?? []
+            let journalEntries = (try? SwiftDataJournalRepository(modelContext: modelContext)
+                .fetchEntries(onOrAfter: threeYearsAgo)) ?? []
+            let healthRecords = (try? SwiftDataDailyHealthSummaryRepository(modelContext: modelContext)
+                .fetchRecords(onOrAfter: threeYearsAgo)) ?? []
             let healthSnapshots = healthRecords.map { $0.toSnapshot() }
 
             // Run the correlation engine

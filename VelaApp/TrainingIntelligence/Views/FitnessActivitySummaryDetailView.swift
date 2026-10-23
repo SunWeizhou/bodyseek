@@ -2,7 +2,8 @@ import SwiftUI
 import SwiftData
 
 struct FitnessActivitySummaryDetailView: View {
-    @EnvironmentObject private var dashboardVM: DashboardViewModel
+    let selectedDate: Date
+
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     // P3-11 修复：此前无谓词 @Query 全量加载全表；改为按浏览日 35 天窗口拉取。
@@ -11,8 +12,8 @@ struct FitnessActivitySummaryDetailView: View {
 
     private var recentRecords: [DailyHealthSummaryRecord] {
         let calendar = Calendar.current
-        let end = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: dashboardVM.selectedDate))
-            ?? dashboardVM.selectedDate
+        let end = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: selectedDate))
+            ?? selectedDate
         let start = calendar.date(byAdding: .day, value: -30, to: end) ?? end
         return records.filter { $0.date >= start && $0.date < end }
     }
@@ -43,8 +44,8 @@ struct FitnessActivitySummaryDetailView: View {
 
     private var recentWorkoutEvents: [WorkoutEventRecord] {
         let calendar = Calendar.current
-        let end = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: dashboardVM.selectedDate))
-            ?? dashboardVM.selectedDate
+        let end = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: selectedDate))
+            ?? selectedDate
         let start = calendar.date(byAdding: .day, value: -30, to: end) ?? end
         return workoutEvents.filter { $0.startedAt >= start && $0.startedAt < end }
     }
@@ -93,21 +94,17 @@ struct FitnessActivitySummaryDetailView: View {
         .navigationTitle("活动摘要")
         .navigationBarTitleDisplayMode(.inline)
         .velaRhythmDetailChrome()
-        .task(id: dashboardVM.selectedDate) {
+        .task(id: selectedDate) {
             let calendar = Calendar.current
-            let end = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: dashboardVM.selectedDate))
-                ?? dashboardVM.selectedDate
+            let end = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: selectedDate))
+                ?? selectedDate
             let start = calendar.date(byAdding: .day, value: -35, to: end) ?? end
-            let recordsDescriptor = FetchDescriptor<DailyHealthSummaryRecord>(
-                predicate: #Predicate<DailyHealthSummaryRecord> { $0.date >= start && $0.date < end },
-                sortBy: [SortDescriptor(\.date, order: .forward)]
-            )
-            records = (try? modelContext.fetch(recordsDescriptor)) ?? []
-            let eventsDescriptor = FetchDescriptor<WorkoutEventRecord>(
-                predicate: #Predicate<WorkoutEventRecord> { $0.startedAt >= start && $0.startedAt < end },
-                sortBy: [SortDescriptor(\.startedAt, order: .forward)]
-            )
-            workoutEvents = (try? modelContext.fetch(eventsDescriptor)) ?? []
+            records = (try? SwiftDataDailyHealthSummaryRepository(modelContext: modelContext)
+                .fetch(in: DateRangeQuery(start: start, end: end))) ?? []
+            workoutEvents = (try? WorkoutHistoryRepository(modelContext: modelContext).fetchWorkoutEvents(
+                from: start,
+                until: end
+            )) ?? []
         }
     }
 
@@ -155,9 +152,9 @@ struct FitnessActivitySummaryDetailView: View {
     private var activityStats: some View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 2), spacing: 12) {
             activityStat(title: "活跃天数", value: "\(activeDays) 天", icon: "calendar", color: VelaTheme.accent)
-            activityStat(title: "训练次数", value: "\(workoutCount) 次", icon: "figure.run", color: VelaTheme.strainColor)
+            activityStat(title: "训练次数", value: "\(workoutCount) 次", icon: "figure.run", color: VelaTheme.rhythmInk)
             activityStat(title: "活动消耗", value: "\(activeCalories) kcal", icon: "flame.fill", color: VelaTheme.systemOrange)
-            activityStat(title: "平均耗力", value: averageStrain.map { String(format: "%.0f", $0) } ?? "--", icon: "bolt.heart.fill", color: VelaTheme.recoveryColor)
+            activityStat(title: "平均耗力", value: averageStrain.map { String(format: "%.0f", $0) } ?? "--", icon: "bolt.heart.fill", color: VelaTheme.rhythmInk)
         }
     }
 

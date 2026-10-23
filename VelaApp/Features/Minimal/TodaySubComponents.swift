@@ -62,14 +62,37 @@ struct TodayHeroSparkline: View {
                 let pt = point(i, v)
                 if i == 0 { path.move(to: pt) } else { path.addLine(to: pt) }
             }
+
+            // Subtle area gradient beneath the line
+            var fillPath = path
+            fillPath.addLine(to: CGPoint(x: CGFloat(values.count - 1) * stepX, y: size.height))
+            fillPath.addLine(to: CGPoint(x: 0, y: size.height))
+            fillPath.closeSubpath()
+            context.fill(
+                fillPath,
+                with: .linearGradient(
+                    Gradient(colors: [color.opacity(0.18), color.opacity(0.01)]),
+                    startPoint: CGPoint(x: 0, y: 0),
+                    endPoint: CGPoint(x: 0, y: size.height)
+                )
+            )
+
             context.stroke(
                 path,
                 with: .color(color),
-                style: StrokeStyle(lineWidth: 2.2, lineCap: .round, lineJoin: .round)
+                style: StrokeStyle(lineWidth: 2.0, lineCap: .round, lineJoin: .round)
             )
             if let last = values.last {
                 let pt = point(values.count - 1, last)
-                context.fill(Path(ellipseIn: CGRect(x: pt.x - 3, y: pt.y - 3, width: 6, height: 6)), with: .color(color))
+                // Endpoint glow
+                context.fill(
+                    Path(ellipseIn: CGRect(x: pt.x - 4, y: pt.y - 4, width: 8, height: 8)),
+                    with: .color(color.opacity(0.35))
+                )
+                context.fill(
+                    Path(ellipseIn: CGRect(x: pt.x - 2.5, y: pt.y - 2.5, width: 5, height: 5)),
+                    with: .color(color)
+                )
             }
         }
         .accessibilityHidden(true)
@@ -194,6 +217,7 @@ struct TodayVitalsGrid: View {
 
 struct TodayVitalCard: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.colorScheme) private var colorScheme
 
     let card: TodayVitalCardModel
 
@@ -208,10 +232,10 @@ struct TodayVitalCard: View {
 
     private var accentColor: Color {
         switch card.kind {
-        case .hrv:   return VelaTheme.recoveryColor
+        case .hrv:   return VelaTheme.rhythmInk
         case .rhr:   return VelaTheme.rhythmDeep
         case .spo2:  return VelaTheme.accent
-        case .sleep: return VelaTheme.sleepColor
+        case .sleep: return VelaTheme.rhythmInk
         }
     }
 
@@ -267,7 +291,7 @@ struct TodayVitalCard: View {
                 }
             }
         }
-        .padding(12)
+        .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -275,7 +299,17 @@ struct TodayVitalCard: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                .stroke(
+                    LinearGradient(
+                        colors: [
+                            colorScheme == .dark ? Color.white.opacity(0.12) : VelaTheme.rhythmMist.opacity(0.85),
+                            colorScheme == .dark ? Color.white.opacity(0.03) : VelaTheme.rhythmMist.opacity(0.40)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    ),
+                    lineWidth: 0.75
+                )
         )
         .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }

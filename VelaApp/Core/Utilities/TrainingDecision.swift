@@ -10,10 +10,10 @@ enum DailyTrainingDecisionType: String, Codable, Hashable, Sendable {
     /// Short Plan headline. Completion progress is not this decision.
     var todayDecisionTitle: String {
         switch self {
-        case .keep: return "保持"
+        case .keep: return "按计划"
         case .reduce: return "减量"
-        case .swap: return "替换"
-        case .rest: return "恢复"
+        case .swap: return "换部位"
+        case .rest: return "恢复日"
         }
     }
 }
@@ -43,6 +43,18 @@ enum TrainingDecisionFallback {
             source: "TrainingDecisionFallback",
             safetyNotice: "一般健康与训练建议，不构成医疗诊断。"
         )
+    }
+}
+
+enum PlanTrainingDecisionResolver {
+    /// Dashboard assembly is the only place that calculates a training decision.
+    /// While that result is still loading, the plan page can show the decision
+    /// already stored with today's operating plan.
+    static func resolve(
+        published: DailyTrainingDecision?,
+        persisted: DailyTrainingDecision?
+    ) -> DailyTrainingDecision? {
+        published ?? persisted
     }
 }
 

@@ -16,10 +16,12 @@ enum VelaOnboardingStep: Int, CaseIterable {
 }
 
 struct VelaOnboardingView: View {
+    let dashboard: DashboardSummary
+    var onRefresh: (() async -> Void)?
+
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @EnvironmentObject private var dashboardVM: DashboardViewModel
     @AppStorage("vela_onboarding_completed") private var onboardingCompleted = false
     @State private var authError: String? = nil
     @State private var showingErrorAlert = false
@@ -37,7 +39,13 @@ struct VelaOnboardingView: View {
     @Query(sort: \OnboardingState.updatedAt, order: .reverse)
     private var onboardingStates: [OnboardingState]
 
-    init(initialStep: VelaOnboardingStep = .bodyState) {
+    init(
+        initialStep: VelaOnboardingStep = .bodyState,
+        dashboard: DashboardSummary = .empty(),
+        onRefresh: (() async -> Void)? = nil
+    ) {
+        self.dashboard = dashboard
+        self.onRefresh = onRefresh
         _currentStep = State(initialValue: initialStep)
     }
 
@@ -125,8 +133,8 @@ struct VelaOnboardingView: View {
                     .fixedSize(horizontal: false, vertical: true)
 
                 Text(L10n.t(
-                    "Five independent scores place Apple Health signals against your personal baseline.",
-                    "五项独立分数，把 Apple 健康信号放回你的个人基线中。"
+                    "Five separate scores place Apple Health signals against your personal baseline.",
+                    "五项分开的分数，把 Apple 健康信号放回你的个人基线中。"
                 ))
                 .font(.system(.body, design: .default, weight: .regular))
                 .foregroundStyle(VelaTheme.rhythmInkSecondary)
@@ -477,7 +485,9 @@ struct VelaOnboardingView: View {
         // 建档资料落盘 wiki：Coach 页健康档案不再显示空模板。
         WikiProfileMaterializer.materializeIfNeeded(modelContext: modelContext)
         Task {
-            await dashboardVM.refresh(modelContext: modelContext, force: true)
+            if let onRefresh {
+                await onRefresh()
+            }
         }
     }
 
@@ -511,10 +521,10 @@ struct VelaOnboardingView: View {
             language: "zh-Hans"
         )
         state.initialBodySnapshot = InitialBodySnapshot(
-            sleepScore: dashboardVM.dashboard.sleepScore.hasData ? dashboardVM.dashboard.sleepScore.score : nil,
-            recoveryScore: dashboardVM.dashboard.recovery.hasData ? dashboardVM.dashboard.recovery.score : nil,
-            strainScore: dashboardVM.dashboard.strain.hasData ? dashboardVM.dashboard.strain.score : nil,
-            dataConfidence: dataConfidence(from: dashboardVM.dashboard.recovery.confidence),
+            sleepScore: dashboard.sleepScore.hasData ? dashboard.sleepScore.score : nil,
+            recoveryScore: dashboard.recovery.hasData ? dashboard.recovery.score : nil,
+            strainScore: dashboard.strain.hasData ? dashboard.strain.score : nil,
+            dataConfidence: dataConfidence(from: dashboard.recovery.confidence),
             missingData: missingSignals.map(\.name)
         )
         state.missingData = missingSignals.map(\.name)

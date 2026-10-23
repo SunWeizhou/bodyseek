@@ -144,6 +144,7 @@ struct JournalCorrelationEngine {
             var pValue: Double
         }
         var candidates: [Candidate] = []
+        var evaluatedTests = 0
 
         // Outcome key paths or mappings
         let outcomes = [
@@ -185,9 +186,10 @@ struct JournalCorrelationEngine {
 
                     // Compute Point-Biserial Correlation (which is standard Pearson correlation between binary and continuous)
                     let r = pearsonCorrelation(tagSeries, outcomeSeries)
-                    
+                    let nEff = effectiveSampleSize(outcomeSeries)
+                    let pValue = correlationPValue(r: r, sampleSize: nEff)
+                    evaluatedTests += 1
                     guard abs(r) >= 0.25 else { continue }
-                    let pValue = correlationPValue(r: r, sampleSize: n)
                     candidates.append(Candidate(
                         habit: tag,
                         outcome: outcome.0,
@@ -206,7 +208,7 @@ struct JournalCorrelationEngine {
         // comparison. This prevents a large tag library from manufacturing a
         // seemingly meaningful result by chance.
         let sortedCandidates = candidates.sorted { $0.pValue < $1.pValue }
-        let testCount = sortedCandidates.count
+        let testCount = max(evaluatedTests, sortedCandidates.count)
         var acceptedPValue = -1.0
         for (index, candidate) in sortedCandidates.enumerated() {
             let threshold = 0.05 * Double(index + 1) / Double(max(testCount, 1))
@@ -335,6 +337,24 @@ struct JournalCorrelationEngine {
     private func averageOf(_ values: [Double]) -> Double {
         guard !values.isEmpty else { return 0 }
         return values.reduce(0, +) / Double(values.count)
+    }
+
+    private func effectiveSampleSize(_ series: [Double]) -> Int {
+        guard series.count > 2 else { return series.count }
+        let centered = series
+        let mean = centered.reduce(0, +) / Double(centered.count)
+        var lag0 = 0.0
+        var lag1 = 0.0
+        for index in centered.indices {
+            let delta = centered[index] - mean
+            lag0 += delta * delta
+            if index > centered.startIndex {
+                lag1 += delta * (centered[centered.index(before: index)] - mean)
+            }
+        }
+        let rho = lag0 > 0 ? min(0.8, max(0, lag1 / lag0)) : 0
+        let nEff = Double(series.count) * (1 - rho) / (1 + rho)
+        return max(8, Int(nEff.rounded()))
     }
 
     private func correlationPValue(r: Double, sampleSize: Int) -> Double {

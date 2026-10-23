@@ -381,7 +381,7 @@ enum StrengthWorkoutSessionPrefill {
 struct ExercisePickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \ExerciseDefinitionRecord.name) private var customDefinitions: [ExerciseDefinitionRecord]
+    @State private var customDefinitions: [ExerciseDefinitionRecord] = []
     @State private var query = ""
     @State private var saveError: String?
     let onSelect: (ExerciseDefinitionRecord) -> Void
@@ -436,6 +436,7 @@ struct ExercisePickerSheet: View {
         }
         .task {
             try? ExerciseLibraryService.seedDefaultsIfNeeded(modelContext: modelContext)
+            customDefinitions = (try? ExerciseDefinitionRepository(modelContext: modelContext).fetchAllSortedByName()) ?? []
         }
         .alert("无法保存动作", isPresented: Binding(
             get: { saveError != nil },
@@ -527,7 +528,7 @@ struct StrengthWorkoutSummarySheet: View {
                     VStack(alignment: .leading, spacing: 5) {
                         Label("训练已保存", systemImage: "checkmark.circle.fill")
                             .font(.system(.footnote, design: .rounded, weight: .bold))
-                            .foregroundStyle(VelaTheme.recoveryColor)
+                            .foregroundStyle(VelaTheme.rhythmInk)
                         Text(workout?.title ?? "力量训练")
                             .font(.system(.title2, design: .default, weight: .bold))
                         Text("基于本次已完成的训练组生成")

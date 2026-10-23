@@ -129,25 +129,43 @@ final class ScoringEngineTests: XCTestCase {
     }
 
     func testPersonalBaselineRequiresSevenValidSamplesPerMetric() {
-        let date = Date()
-        let sixSnapshots = (0..<6).map { offset -> DailyHealthSnapshot in
-            var snapshot = DailyHealthSnapshot(date: date.addingTimeInterval(Double(-offset) * 86_400))
-            snapshot.hrvAverage = 50
-            snapshot.restingHeartRate = 60
-            return snapshot
-        }
-        let sevenSnapshots = (0..<7).map { offset -> DailyHealthSnapshot in
-            var snapshot = DailyHealthSnapshot(date: date.addingTimeInterval(Double(-offset) * 86_400))
-            snapshot.hrvAverage = 50
-            snapshot.restingHeartRate = 60
-            return snapshot
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let calculatedAt = Date(timeIntervalSince1970: 1_780_000_000)
+        func snapshots(count: Int) -> [DailyHealthSnapshot] {
+            (1...count).map { offset in
+                var snapshot = DailyHealthSnapshot(
+                    date: calendar.date(byAdding: .day, value: -offset, to: calculatedAt)!
+                )
+                snapshot.hrvAverage = 50
+                snapshot.restingHeartRate = 60
+                return snapshot
+            }
         }
 
-        let insufficient = PersonalBaselineEngine.computeBaselines(from: sixSnapshots)
+        let insufficient = PersonalBaselineEngine.computeBaselines(
+            from: snapshots(count: 6),
+            calculatedAt: calculatedAt,
+            calendar: calendar
+        )
         XCTAssertNil(insufficient.hrvBaselineMean)
         XCTAssertNil(insufficient.rhrBaselineMean)
 
-        let ready = PersonalBaselineEngine.computeBaselines(from: sevenSnapshots)
+        var today = DailyHealthSnapshot(date: calculatedAt)
+        today.hrvAverage = 99
+        today.restingHeartRate = 99
+        let todayDoesNotCount = PersonalBaselineEngine.computeBaselines(
+            from: snapshots(count: 6) + [today],
+            calculatedAt: calculatedAt,
+            calendar: calendar
+        )
+        XCTAssertNil(todayDoesNotCount.hrvBaselineMean, "今天不能拿来凑满基线样本")
+
+        let ready = PersonalBaselineEngine.computeBaselines(
+            from: snapshots(count: 7),
+            calculatedAt: calculatedAt,
+            calendar: calendar
+        )
         XCTAssertEqual(ready.hrvBaselineMean, 50)
         XCTAssertEqual(ready.rhrBaselineMean, 60)
     }
@@ -680,7 +698,7 @@ final class ScoringEngineTests: XCTestCase {
         let withinWindow = computation.compute(for: today, history: history(offsets: [1, 2, 3, 4, 13])).sleep
         XCTAssertNil(outsideWindow.components["consistency"])
         XCTAssertTrue(outsideWindow.missingInputs.contains("recentBedtimesHistory"))
-        XCTAssertEqual(outsideWindow.value ?? -1, 79, accuracy: 0.000_001)
+        XCTAssertEqual(outsideWindow.value ?? -1, 70, accuracy: 0.000_001)
         XCTAssertEqual(outsideWindow.confidence, .low)
         XCTAssertEqual(withinWindow.components["consistency"], 30)
         XCTAssertEqual(withinWindow.value ?? -1, 100, accuracy: 0.000_001)
@@ -802,10 +820,10 @@ final class ScoringEngineTests: XCTestCase {
         XCTAssertEqual(evidence.strain.value ?? -1, 63.67, accuracy: 0.01)
         // 2026-08-13 有意重定标：HRV 因子单位修复（log 域 SD）使生理压力正确反映
         // HRV 高于基线的低压力（见 testStressEngineHRVFactorRespondsToRealisticHRVDecline）
-        XCTAssertEqual(evidence.physiologicalStress.value ?? -1, 21.08, accuracy: 0.01)
+        XCTAssertEqual(evidence.physiologicalStress.value ?? -1, 26.50245571207583, accuracy: 0.01)
         // 2026-08-13 有意重定标：ATL/CTL/TSB 改用 TRIMP 域 todayLoad
         // （见 testEnergyBankTrainingLoadUsesTRIMPScaleTodayLoad）
-        XCTAssertEqual(evidence.energy.value ?? -1, 47.91, accuracy: 0.01)
+        XCTAssertEqual(evidence.energy.value ?? -1, 46.555299948395124, accuracy: 0.01)
         XCTAssertEqual(evidence.sleep.algorithmVersion, ScoringAlgorithmVersions.sleep)
         XCTAssertEqual(evidence.recovery.algorithmVersion, ScoringAlgorithmVersions.recovery)
         XCTAssertEqual(evidence.strain.algorithmVersion, ScoringAlgorithmVersions.strain)
@@ -1374,7 +1392,7 @@ final class ScoringEngineTests: XCTestCase {
         XCTAssertEqual(model.nutrition.calorieProgress, 0.676, accuracy: 0.001)
     }
 
-    func testTodayExperienceModelIncludesSevenDaySignalTrends() {
+    func testTodayExperienceModelIncludesFourteenSignalValues() {
         let calendar = Calendar(identifier: .gregorian)
         let now = Date(timeIntervalSince1970: 1_780_000_000)
         var dashboard = DashboardSummary.preview(date: now)
@@ -1389,7 +1407,7 @@ final class ScoringEngineTests: XCTestCase {
             generatedAt: now
         ))
         let decision = TrainingDecisionKernel().decide(input: TrainingDecisionInput(bodyState: bodyState))
-        let history = (1...8).map { offset in
+        let history = (1...20).map { offset in
             let date = calendar.date(byAdding: .day, value: -offset, to: now)!
             return DailyHealthSummaryDTO(
                 dayIdentifier: "trend-\(offset)",
@@ -1413,8 +1431,9 @@ final class ScoringEngineTests: XCTestCase {
             history: history
         )
 
-        XCTAssertEqual(model.signalCards.first(where: { $0.id == "recovery" })?.trend.count, 7)
-        XCTAssertEqual(model.signalCards.first(where: { $0.id == "recovery" })?.trend.last, 82)
+        XCTAssertEqual(model.signalCards.first(where: { $0.id == "recovery" })?.trend.count, 14)
+        XCTAssertEqual(model.signalCards.first(where: { $0.id == "recovery" })?.trend,
+                       (1...13).reversed().map { Double(60 + $0) } + [82])
         XCTAssertEqual(model.signalCards.first(where: { $0.id == "sleep" })?.trend.last, 86)
         XCTAssertEqual(model.signalCards.first(where: { $0.id == "strain" })?.trend.last, 44)
         XCTAssertEqual(model.signalCards.first(where: { $0.id == "stress" })?.trend.last, 32)
@@ -1868,6 +1887,7 @@ final class ScoringEngineTests: XCTestCase {
 
         XCTAssertFalse(missingMetric.hasData)
         XCTAssertEqual(missingMetric.formattedScore, "--")
+        XCTAssertNil(missingMetric.roundedScore)
         XCTAssertEqual(missingMetric.dataCoverage, .unavailable)
         XCTAssertEqual(missingMetric.domain, .recovery)
         XCTAssertEqual(missingMetric.direction, .higherIsBetter)
@@ -1894,6 +1914,7 @@ final class ScoringEngineTests: XCTestCase {
 
         XCTAssertTrue(completeMetric.hasData)
         XCTAssertEqual(completeMetric.formattedScore, "82")
+        XCTAssertEqual(completeMetric.roundedScore, 82)
         XCTAssertEqual(completeMetric.dataCoverage, .complete)
         XCTAssertEqual(completeMetric.score, 82.4)
     }
@@ -2113,6 +2134,7 @@ final class ScoringEngineTests: XCTestCase {
         XCTAssertTrue(impact.strainSourceText.contains("未填写"))
     }
 
+    @MainActor
     func testOutboundRevokeClosesBackgroundNetworkAIChannel() {
         // 「撤销全部联网数据授权」必须同时关闭后台自动化的独立 consent 体系，
         // 否则晚间 Wiki 同步/晨间简报仍会向网络 AI 发送完整健康事实集。

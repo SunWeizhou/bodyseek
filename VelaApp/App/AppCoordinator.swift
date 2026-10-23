@@ -27,9 +27,13 @@ struct AppCoordinator: View {
         ZStack {
             if forceTrustCenter {
                 NavigationStack {
-                    TrustCenterView()
+                    TrustCenterView(
+                        dashboard: dashboardVM.dashboard,
+                        onRefresh: {
+                            await dashboardVM.refresh(modelContext: modelContext, force: true)
+                        }
+                    )
                 }
-                .environmentObject(dashboardVM)
                 .environmentObject(services)
                 .environment(\.locale, Locale(identifier: language.localeIdentifier))
             } else if onboardingCompleted && !forceOnboarding {
@@ -39,8 +43,13 @@ struct AppCoordinator: View {
                     .environment(\.locale, Locale(identifier: language.localeIdentifier))
                     .id(language.rawValue)
             } else {
-                VelaOnboardingView(initialStep: forcedOnboardingStep ?? .bodyState)
-                    .environmentObject(dashboardVM)
+                VelaOnboardingView(
+                    initialStep: forcedOnboardingStep ?? .bodyState,
+                    dashboard: dashboardVM.dashboard,
+                    onRefresh: {
+                        await dashboardVM.refresh(modelContext: modelContext, force: true)
+                    }
+                )
                     .environment(\.locale, Locale(identifier: language.localeIdentifier))
             }
 
@@ -103,7 +112,7 @@ struct AppCoordinator: View {
     private var storeWarningBanner: some View {
         HStack(spacing: 10) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(VelaTheme.energyColor)
+                .foregroundStyle(VelaTheme.warn)
             Text(appState.isReadOnlySafetyMode
                  ? (language.isChinese
                     ? "数据库无法打开，原文件已备份并进入只读安全模式。"

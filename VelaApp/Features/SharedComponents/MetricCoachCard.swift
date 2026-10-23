@@ -76,7 +76,7 @@ struct MetricCoachCard: View {
                     if let errorMessage = errorMessage {
                         Text(errorMessage)
                             .font(.footnote)
-                            .foregroundStyle(VelaTheme.stressColor)
+                            .foregroundStyle(VelaTheme.rhythmInk)
                             .padding(.vertical, 4)
                     } else if hasFinished {
                         MetricCoachAdviceView(advice: MetricCoachAdviceFormatter.parse(streamText))
@@ -239,6 +239,15 @@ struct MetricCoachCard: View {
                 
                 isStreaming = false
                 hasFinished = true
+            } catch let error as LLMProviderError where error == .responseTruncated {
+                let notice = error.userFacingMessage(isChinese: AppLanguage.stored.isChinese)
+                if streamText.isEmpty {
+                    errorMessage = notice
+                } else {
+                    streamText += "\n\n（\(notice)）"
+                    hasFinished = true
+                }
+                isStreaming = false
             } catch {
                 errorMessage = AppLanguage.stored.isChinese
                     ? "分析失败：\(error.localizedDescription)"

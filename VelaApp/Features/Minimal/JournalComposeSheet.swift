@@ -513,7 +513,7 @@ struct AlcoholLoggerView: View {
                         HStack(alignment: .firstTextBaseline) {
                             Text(String(format: "%.1f", customDrinks))
                                 .font(.system(.largeTitle, design: .rounded, weight: .bold))
-                                .foregroundStyle(VelaTheme.stressColor)
+                                .foregroundStyle(VelaTheme.rhythmInk)
                             Text("标准杯")
                                 .font(.system(.body, design: .default, weight: .bold))
                                 .foregroundStyle(VelaTheme.meta)

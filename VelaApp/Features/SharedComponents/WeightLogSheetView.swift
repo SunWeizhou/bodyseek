@@ -20,14 +20,14 @@ struct WeightLogSheetView: View {
                         if let errorMsg = errorMsg {
                             HStack {
                                 Image(systemName: "exclamationmark.octagon.fill")
-                                    .foregroundStyle(VelaTheme.stressColor)
+                                    .foregroundStyle(VelaTheme.rhythmInk)
                                 Text(errorMsg)
                                     .font(.caption)
                                     .foregroundStyle(VelaTheme.fg)
                             }
                             .padding()
                             .frame(maxWidth: .infinity)
-                            .background(VelaTheme.stressColor.opacity(0.12))
+                            .background(VelaTheme.rhythmInk.opacity(0.12))
                             .cornerRadius(10)
                         }
 
@@ -154,10 +154,7 @@ struct WeightLogSheetView: View {
         // Try to update daily summary record if exists
         let calendar = Calendar.current
         let dayId = DailyHealthSummaryRecord.dayIdentifier(for: date, calendar: calendar)
-        let summaryDescriptor = FetchDescriptor<DailyHealthSummaryRecord>(
-            predicate: #Predicate { $0.dayIdentifier == dayId }
-        )
-        if let summaries = try? modelContext.fetch(summaryDescriptor), let first = summaries.first {
+        if let first = try? SwiftDataDailyHealthSummaryRepository(modelContext: modelContext).fetchRecord(dayIdentifier: dayId) {
             first.bodyWeight = weightVal
             if let fatVal = bodyFatValue {
                 first.bodyFatPercent = fatVal

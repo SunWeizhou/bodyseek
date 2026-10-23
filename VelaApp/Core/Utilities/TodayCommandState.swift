@@ -336,13 +336,13 @@ enum TodayCommandBuilder {
         signals.append(TodayHealthSignal(
             id: "recovery",
             title: "Recovery",
-            value: dashboard.recovery.hasData ? "\(Int(dashboard.recovery.score.rounded()))" : "--",
+            value: dashboard.recovery.formattedScore,
             interpretation: dashboard.recovery.reasons.first ?? "恢复数据仍在建立基线。"
         ))
         signals.append(TodayHealthSignal(
             id: "sleep",
             title: "Sleep",
-            value: dashboard.sleepScore.hasData ? "\(Int(dashboard.sleepScore.score.rounded()))" : "--",
+            value: dashboard.sleepScore.formattedScore,
             interpretation: dashboard.sleepScore.reasons.first ?? "睡眠数据不足。"
         ))
         let hrvValue = dashboard.recoveryMetrics.hrvMilliseconds.map { "\(Int($0.rounded())) ms" } ?? "--"
@@ -362,7 +362,7 @@ enum TodayCommandBuilder {
         signals.append(TodayHealthSignal(
             id: "strain",
             title: "Training load",
-            value: dashboard.strain.hasData ? "\(Int(dashboard.strain.score.rounded()))" : "--",
+            value: dashboard.strain.formattedScore,
             interpretation: dashboard.strain.reasons.first ?? "负荷数据不足。"
         ))
         if let summary = recentStrengthSummary, !summary.muscleGroupSets.isEmpty {

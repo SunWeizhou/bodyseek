@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct DailyDecisionFeedbackValues {
+struct DailyDecisionFeedbackValues: Sendable {
     var adoptionStatus: String
     var accuracyRating: String
     var actualAction: String
@@ -232,6 +232,7 @@ struct VelaRhythmHorizonHero: View {
     let model: TodayExperienceModel
     let state: TodayCommandState
     let selectedDate: Date
+    let dashboardSnapshot: DashboardSummary
     let isToday: Bool
     let restingHeartRate: Double?
     let maxHeartRate: Double?
@@ -422,9 +423,9 @@ struct VelaRhythmHorizonHero: View {
                 }()
                 let color: Color = {
                     switch card.id {
-                    case "recovery": return VelaTheme.recoveryColor
-                    case "sleep":    return VelaTheme.sleepColor
-                    case "strain":   return VelaTheme.strainColor
+                    case "recovery": return VelaTheme.rhythmInk
+                    case "sleep":    return VelaTheme.rhythmInk
+                    case "strain":   return VelaTheme.rhythmInk
                     default:         return VelaTheme.accent
                     }
                 }()
@@ -443,7 +444,7 @@ struct VelaRhythmHorizonHero: View {
                             VelaMetricDetailView(
                                 metric: metricType,
                                 selectedDate: selectedDate,
-                                dashboardSnapshot: nil,
+                                dashboardSnapshot: dashboardSnapshot,
                                 isPresentedInSheet: false
                             )
                         } label: {

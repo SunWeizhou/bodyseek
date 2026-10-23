@@ -2,16 +2,23 @@ import SwiftUI
 import SwiftData
 
 struct VelaJournalView: View {
+    let selectedDate: Date
+    var onSelectDate: (Date) -> Void
+
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var dashboardVM: DashboardViewModel
     @ObservedObject private var appState = VelaAppState.shared
-    @Query(sort: \PersonalExperimentRecord.createdAt, order: .reverse) private var personalExperiments: [PersonalExperimentRecord]
-    @Query(sort: \ExperimentCheckInRecord.date, order: .reverse) private var experimentCheckIns: [ExperimentCheckInRecord]
-    @Query(sort: \DailyHealthSummaryRecord.date, order: .reverse) private var experimentHealthSummaries: [DailyHealthSummaryRecord]
+    @State private var personalExperiments: [PersonalExperimentRecord] = []
+    @State private var experimentCheckIns: [ExperimentCheckInRecord] = []
+    @State private var experimentHealthSummaries: [DailyHealthSummaryRecord] = []
+
+    init(selectedDate: Date, onSelectDate: @escaping (Date) -> Void = { _ in }) {
+        self.selectedDate = selectedDate
+        self.onSelectDate = onSelectDate
+    }
 
     private static let lookbackDays = 42
     private var lookbackStart: Date {
-        Calendar.current.date(byAdding: .day, value: -Self.lookbackDays, to: dashboardVM.selectedDate) ?? dashboardVM.selectedDate
+        Calendar.current.date(byAdding: .day, value: -Self.lookbackDays, to: selectedDate) ?? selectedDate
     }
 
     @State private var entries: [JournalEntryRecord] = []
@@ -60,7 +67,7 @@ struct VelaJournalView: View {
                 
                 // 3. Category daytime title
                 VStack(alignment: .leading, spacing: 12) {
-                    Text(dateSectionTitle(for: dashboardVM.selectedDate))
+                    Text(dateSectionTitle(for: selectedDate))
                         .font(.system(.callout, design: .default, weight: .bold))
                         .foregroundStyle(VelaTheme.fg)
                         .padding(.top, 4)
@@ -158,7 +165,7 @@ struct VelaJournalView: View {
         .onAppear {
             loadRealJournalData()
         }
-        .onChange(of: dashboardVM.selectedDate) { _, _ in
+        .onChange(of: selectedDate) { _, _ in
             loadRealJournalData()
         }
         .onChange(of: entries) { _, _ in
@@ -257,7 +264,7 @@ struct VelaJournalView: View {
 
     private var selectedDayEntries: [JournalEntryRecord] {
         let calendar = Calendar.current
-        let targetDay = calendar.startOfDay(for: dashboardVM.selectedDate)
+        let targetDay = calendar.startOfDay(for: selectedDate)
         return entries.filter { calendar.isDate($0.createdAt, inSameDayAs: targetDay) }
             .sorted(by: { $0.createdAt > $1.createdAt })
     }
@@ -309,23 +316,28 @@ struct VelaJournalView: View {
 
     private func fetchEntries() {
         let calendar = Calendar.current
-        let refDate = dashboardVM.selectedDate
+        let refDate = selectedDate
         let startOfDayRef = calendar.startOfDay(for: refDate)
         
         let startLimit = calendar.startOfDay(for: calendar.date(byAdding: .day, value: -Self.lookbackDays, to: startOfDayRef) ?? startOfDayRef)
         let endLimit = calendar.date(byAdding: .day, value: 1, to: startOfDayRef) ?? startOfDayRef
         
-        let journalDesc = FetchDescriptor<JournalEntryRecord>(
-            predicate: #Predicate<JournalEntryRecord> { $0.createdAt >= startLimit && $0.createdAt <= endLimit },
-            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
-        )
-        self.entries = (try? modelContext.fetch(journalDesc)) ?? []
+        self.entries = (try? SwiftDataJournalRepository(modelContext: modelContext).fetchEntries(
+            from: startLimit,
+            through: endLimit
+        )) ?? []
+        personalExperiments = (try? PersonalExperimentRepository(modelContext: modelContext)
+            .fetchAllSortedByCreatedAt()) ?? []
+        experimentCheckIns = (try? ExperimentCheckInRepository(modelContext: modelContext)
+            .fetchAllSortedByDate()) ?? []
+        experimentHealthSummaries = (try? SwiftDataDailyHealthSummaryRepository(modelContext: modelContext)
+            .fetchAllSortedByDate(newestFirst: true)) ?? []
     }
 
     private func loadRealJournalData() {
         fetchEntries()
         let calendar = Calendar.current
-        let targetDay = calendar.startOfDay(for: dashboardVM.selectedDate)
+        let targetDay = calendar.startOfDay(for: selectedDate)
         
         let dayEntries = entries.filter { entry in
             calendar.isDate(entry.createdAt, inSameDayAs: targetDay)
@@ -403,7 +415,7 @@ struct VelaJournalView: View {
                 Text("手记")
                     .font(.system(.title2, design: .default, weight: .bold))
                     .foregroundStyle(VelaTheme.fg)
-                Text(headerDateString(for: dashboardVM.selectedDate))
+                Text(headerDateString(for: selectedDate))
                     .font(.system(.caption, design: .default))
                     .foregroundStyle(VelaTheme.muted)
             }
@@ -464,7 +476,7 @@ struct VelaJournalView: View {
     }
 
     private var journalAnalysisQuestion: String {
-        "请结合我在 \(dateSectionTitle(for: dashboardVM.selectedDate)) 的手记、标签和健康数据，分析可能影响恢复、睡眠和训练状态的模式，并给出下一步建议。"
+        "请结合我在 \(dateSectionTitle(for: selectedDate)) 的手记、标签和健康数据，分析可能影响恢复、睡眠和训练状态的模式，并给出下一步建议。"
     }
 
     private var behaviorQuickNoteCard: some View {
@@ -503,7 +515,7 @@ struct VelaJournalView: View {
 
     private var weeklyChecksStrip: some View {
         let calendar = Calendar.current
-        let selected = dashboardVM.selectedDate
+        let selected = selectedDate
         let weekday = calendar.component(.weekday, from: selected)
         let daysToSubtract = weekday - 1
         let sunday = calendar.date(byAdding: .day, value: -daysToSubtract, to: calendar.startOfDay(for: selected)) ?? selected
@@ -527,7 +539,7 @@ struct VelaJournalView: View {
                 }
                 
                 Button {
-                    dashboardVM.selectDate(date)
+                    onSelectDate(date)
                 } label: {
                     VStack(spacing: 8) {
                         Text(weekdays[idx])
@@ -694,7 +706,7 @@ struct VelaJournalView: View {
     private func saveQuickEntry(tags: [String], note: String, value: Double? = nil, unit: String? = nil) {
         let calendar = Calendar.current
         let now = Date()
-        let selected = dashboardVM.selectedDate
+        let selected = selectedDate
         
         var components = calendar.dateComponents([.year, .month, .day], from: selected)
         let timeComponents = calendar.dateComponents([.hour, .minute, .second], from: now)
@@ -710,10 +722,8 @@ struct VelaJournalView: View {
         let isHabitOrMood = tags.contains(where: { habitTags.contains($0) })
         
         if isHabitOrMood {
-            let descriptor = FetchDescriptor<JournalEntryRecord>(
-                predicate: #Predicate<JournalEntryRecord> { $0.createdAt >= targetStart && $0.createdAt < targetEnd }
-            )
-            if let existingRecords = try? modelContext.fetch(descriptor) {
+            if let existingRecords = try? SwiftDataJournalRepository(modelContext: modelContext)
+                .fetchEntries(from: targetStart, until: targetEnd) {
                 if let matched = existingRecords.first(where: { rec in
                     rec.tags.contains(where: { tags.contains($0) })
                 }) {
@@ -801,7 +811,7 @@ struct VelaJournalView: View {
 
     private func copyPreviousDayEntries() {
         let calendar = Calendar.current
-        let selectedStart = calendar.startOfDay(for: dashboardVM.selectedDate)
+        let selectedStart = calendar.startOfDay(for: selectedDate)
         guard let previousStart = calendar.date(byAdding: .day, value: -1, to: selectedStart),
               let previousEnd = calendar.date(byAdding: .day, value: 1, to: previousStart),
               let selectedEnd = calendar.date(byAdding: .day, value: 1, to: selectedStart) else {
@@ -846,7 +856,7 @@ struct VelaJournalView: View {
     private func selectedDayWithCurrentTime() -> Date {
         let calendar = Calendar.current
         let now = Date()
-        let selected = dashboardVM.selectedDate
+        let selected = selectedDate
         var components = calendar.dateComponents([.year, .month, .day], from: selected)
         let timeComponents = calendar.dateComponents([.hour, .minute, .second], from: now)
         components.hour = timeComponents.hour

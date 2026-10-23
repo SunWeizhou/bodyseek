@@ -12,11 +12,7 @@ final class CoachSessionStore: ObservableObject {
     init() {}
 
     func loadSessions(modelContext: ModelContext, isStreaming: Bool, isAwaitingForegroundRetry: Bool, messagesHandler: ([CoachChatVM.ChatMsg]) -> Void) {
-        let descriptor = FetchDescriptor<CoachSessionRecord>(
-            predicate: #Predicate { !$0.isArchived },
-            sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
-        )
-        let list = (try? modelContext.fetch(descriptor)) ?? []
+        let list = (try? CoachSessionRepository(modelContext: modelContext).fetchUnarchived()) ?? []
         self.sessions = list
         
         if list.isEmpty {

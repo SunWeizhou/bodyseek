@@ -2,8 +2,10 @@ import SwiftUI
 import SwiftData
 
 struct AccountSettingsView: View {
+    let dashboard: DashboardSummary
+    var onRefresh: (() async -> Void)?
+
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var dashboardVM: DashboardViewModel
     @AppStorage("vela_user_age") private var userAge = 0
     @AppStorage("vela_user_weight") private var userWeight = 0.0
     @AppStorage("vela_user_height") private var userHeight = 0.0
@@ -15,6 +17,14 @@ struct AccountSettingsView: View {
     @State private var maxHeartRateDraft = ""
     @State private var validationMessage: String?
 
+    init(
+        dashboard: DashboardSummary,
+        onRefresh: (() async -> Void)? = nil
+    ) {
+        self.dashboard = dashboard
+        self.onRefresh = onRefresh
+    }
+
     private var storedAge: Int? {
         Int(ageDraft).flatMap { (10...100).contains($0) ? $0 : nil }
     }
@@ -24,8 +34,7 @@ struct AccountSettingsView: View {
     }
 
     private var hasHealthProfileData: Bool {
-        let dashboard = dashboardVM.dashboard
-        return dashboard.extendedMetrics.age != nil
+        dashboard.extendedMetrics.age != nil
             || dashboard.bodyMetrics.weightKilograms != nil
             || dashboard.extendedMetrics.heightCm != nil
             || dashboard.extendedMetrics.biologicalSex != nil
@@ -56,7 +65,7 @@ struct AccountSettingsView: View {
                     Text("岁")
                     profileSourceBadge(
                         manual: UserProfileSettings.age() != nil,
-                        automatic: dashboardVM.dashboard.extendedMetrics.age != nil
+                        automatic: dashboard.extendedMetrics.age != nil
                             ? "Apple 健康"
                             : (WikiFileService.getAgeFromWiki() != nil ? "档案" : nil)
                     )
@@ -68,7 +77,7 @@ struct AccountSettingsView: View {
                     Text("kg")
                     profileSourceBadge(
                         manual: UserProfileSettings.weightKilograms() != nil,
-                        automatic: dashboardVM.dashboard.bodyMetrics.weightKilograms != nil ? "Apple 健康" : nil
+                        automatic: dashboard.bodyMetrics.weightKilograms != nil ? "Apple 健康" : nil
                     )
                 }
                 HStack {
@@ -78,7 +87,7 @@ struct AccountSettingsView: View {
                     Text("cm")
                     profileSourceBadge(
                         manual: UserProfileSettings.heightCentimeters() != nil,
-                        automatic: dashboardVM.dashboard.extendedMetrics.heightCm != nil ? "Apple 健康" : nil
+                        automatic: dashboard.extendedMetrics.heightCm != nil ? "Apple 健康" : nil
                     )
                 }
                 HStack {
@@ -101,7 +110,7 @@ struct AccountSettingsView: View {
                     }
                     profileSourceBadge(
                         manual: !biologicalSex.isEmpty,
-                        automatic: biologicalSex.isEmpty && dashboardVM.dashboard.extendedMetrics.biologicalSex != nil ? "Apple 健康" : nil
+                        automatic: biologicalSex.isEmpty && dashboard.extendedMetrics.biologicalSex != nil ? "Apple 健康" : nil
                     )
                 }
 
@@ -132,7 +141,7 @@ struct AccountSettingsView: View {
         .onAppear {
             populateProfileDrafts()
         }
-        .onChange(of: dashboardVM.dashboard) {
+        .onChange(of: dashboard) {
             populateProfileDrafts()
         }
         .alert("无法应用身体模型", isPresented: Binding(
@@ -146,7 +155,7 @@ struct AccountSettingsView: View {
     }
 
     private func populateProfileDrafts() {
-        let healthProfile = dashboardVM.dashboard
+        let healthProfile = dashboard
         // 与 Coach 的年龄解析同源：手动 → Apple 健康 → wiki 档案。
         ageDraft = (10...100).contains(userAge)
             ? String(userAge)
@@ -208,7 +217,9 @@ struct AccountSettingsView: View {
         WikiProfileMaterializer.refreshPhysiologicalProfile(modelContext: modelContext)
         WikiSyncManager.sync(modelContext: modelContext)
         Task {
-            await dashboardVM.refresh(modelContext: modelContext, force: true)
+            if let onRefresh {
+                await onRefresh()
+            }
         }
     }
 }
@@ -235,8 +246,7 @@ struct ParsedItem: Identifiable, Equatable {
 struct UserWikiArchiveView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \UserWikiDocumentRecord.updatedAt, order: .reverse)
-    private var wikiDocs: [UserWikiDocumentRecord]
+    @State private var wikiDocs: [UserWikiDocumentRecord] = []
     
     @State private var selectedDoc: UserWikiDocumentRecord?
     @State private var showEditor = false
@@ -265,9 +275,6 @@ struct UserWikiArchiveView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 40)
-                    .onAppear {
-                        WikiSyncManager.sync(modelContext: modelContext)
-                    }
                 } else {
                     ForEach(wikiDocs.filter { $0.filename != "baselines.md" }) { doc in
                         Button {
@@ -319,7 +326,7 @@ struct UserWikiArchiveView: View {
         .navigationTitle("健康档案")
         .velaRhythmDetailChrome()
         .task {
-            WikiSyncManager.sync(modelContext: modelContext)
+            loadDocuments()
         }
         .sheet(isPresented: $showEditor) {
             NavigationStack {
@@ -575,6 +582,11 @@ struct UserWikiArchiveView: View {
         }
         
         _ = try? WikiFileService.updateSection(filename: doc.filename, content: finalContent, mode: .replace)
+        loadDocuments()
+    }
+
+    private func loadDocuments() {
         WikiSyncManager.sync(modelContext: modelContext)
+        wikiDocs = (try? UserWikiDocumentRepository(modelContext: modelContext).fetchAllSortedByUpdatedAt()) ?? []
     }
 }

@@ -216,6 +216,7 @@ final class ContextBuilderTests: XCTestCase {
         XCTAssertNotNil(healthOnlySnapshot.recovery.score.value)
     }
 
+    @MainActor
     func testPostWorkoutFactAdapterAppliesCategoryConsentAndFeatureGate() {
         let now = Date()
         let snapshot = AIContextBuilder().buildFacts(

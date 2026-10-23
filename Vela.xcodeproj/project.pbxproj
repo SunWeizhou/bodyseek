@@ -49,6 +49,8 @@
 		0B1000210000000000000021 /* JournalDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001210000000000000021 /* JournalDraft.swift */; };
 		0B1000220000000000000022 /* PersistenceModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001220000000000000022 /* PersistenceModels.swift */; };
 		0B1000230000000000000023 /* DateRangeQuery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001240000000000000024 /* DateRangeQuery.swift */; };
+		C6D100010000000000000001 /* HealthPresentationCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6D110010000000000000001 /* HealthPresentationCopy.swift */; };
+		C6D100020000000000000002 /* HealthPresentationCopyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6D110020000000000000002 /* HealthPresentationCopyTests.swift */; };
 		0B1000240000000000000024 /* SleepSampleNormalizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001250000000000000025 /* SleepSampleNormalizer.swift */; };
 		0B1000250000000000000025 /* PreviewHealthDataProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001260000000000000026 /* PreviewHealthDataProvider.swift */; };
 		0B1000260000000000000026 /* HealthQueryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001270000000000000027 /* HealthQueryService.swift */; };
@@ -57,6 +59,11 @@
 		0B1000290000000000000029 /* HealthDataRefreshService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001300000000000000030 /* HealthDataRefreshService.swift */; };
 		0B1000300000000000000030 /* HealthCachePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001310000000000000031 /* HealthCachePolicy.swift */; };
 		0B1000310000000000000031 /* DailyHealthSummaryRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001320000000000000032 /* DailyHealthSummaryRepository.swift */; };
+		C5A5000D000000000000000D /* TrainingPlanRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A5100D000000000000000D /* TrainingPlanRepository.swift */; };
+		C5A5000E000000000000000E /* WorkoutHistoryRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A5100E000000000000000E /* WorkoutHistoryRepository.swift */; };
+		C5A5000F000000000000000F /* DailyOperatingPlanRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A5100F000000000000000F /* DailyOperatingPlanRepository.swift */; };
+		C5A500110000000000000011 /* DailyDecisionFeedbackRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A510110000000000000011 /* DailyDecisionFeedbackRepository.swift */; };
+		C5A500120000000000000012 /* ProfileRecordRepositories.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A510120000000000000012 /* ProfileRecordRepositories.swift */; };
 		0B1000320000000000000032 /* JournalRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001330000000000000033 /* JournalRepository.swift */; };
 		0B1000330000000000000033 /* AIReportRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001340000000000000034 /* AIReportRepository.swift */; };
 		0B1000340000000000000034 /* VelaModelContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001350000000000000035 /* VelaModelContainer.swift */; };
@@ -80,9 +87,12 @@
 		C5A500020000000000000002 /* TrendsStoreAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A510020000000000000002 /* TrendsStoreAction.swift */; };
 		C5A500030000000000000003 /* TrendsViewState.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A510030000000000000003 /* TrendsViewState.swift */; };
 		C5A500040000000000000004 /* TrendsOneMetricChart.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A510040000000000000004 /* TrendsOneMetricChart.swift */; };
+		C5A5000C000000000000000C /* PersistedTrendsWindowLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A5100C000000000000000C /* PersistedTrendsWindowLoader.swift */; };
 		C5A500060000000000000006 /* TrendsStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A530010000000000000001 /* TrendsStoreTests.swift */; };
 		C5A500070000000000000007 /* RecoveryReplaySensitivityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A530020000000000000002 /* RecoveryReplaySensitivityTests.swift */; };
 		C5A500080000000000000008 /* StrainReplaySensitivityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A530030000000000000003 /* StrainReplaySensitivityTests.swift */; };
+		C5A500090000000000000009 /* StressReplaySensitivityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A530040000000000000004 /* StressReplaySensitivityTests.swift */; };
+		C5A5000A000000000000000A /* EnergyReplaySensitivityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A530050000000000000005 /* EnergyReplaySensitivityTests.swift */; };
 		0B9900020000000000000002 /* PersonalHealthBrief.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B9900010000000000000001 /* PersonalHealthBrief.swift */; };
 		0B9900040000000000000004 /* HealthTrendEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B9900030000000000000003 /* HealthTrendEngine.swift */; };
 		0B9900060000000000000006 /* VelaTrendsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B9900050000000000000005 /* VelaTrendsView.swift */; };
@@ -161,7 +171,6 @@
 		0B2000010000000000000001 /* VelaMinimalComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B2001010000000000000001 /* VelaMinimalComponents.swift */; };
 		0B2000020000000000000002 /* VelaMinimalShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B2001020000000000000002 /* VelaMinimalShell.swift */; };
 		0B2000030000000000000003 /* VelaMinimalTodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B2001030000000000000003 /* VelaMinimalTodayView.swift */; };
-		0B2000040000000000000004 /* VelaMinimalVitalsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B2001040000000000000004 /* VelaMinimalVitalsView.swift */; };
 		0B2000050000000000000005 /* VelaMinimalFitnessView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B2001050000000000000005 /* VelaMinimalFitnessView.swift */; };
 		0B2000080000000000000008 /* TodayTrainingPlanAdaptationCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B2001080000000000000008 /* TodayTrainingPlanAdaptationCard.swift */; };
 		0B2000060000000000000006 /* VelaMinimalJournalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B2001060000000000000006 /* VelaMinimalJournalView.swift */; };
@@ -172,6 +181,9 @@
 
 		0B25D0420000000000000042 /* BodyModelViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1420000000000000042 /* BodyModelViews.swift */; };
 		0B25D0380000000000000038 /* VelaMetricDetailWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1380000000000000038 /* VelaMetricDetailWidgets.swift */; };
+		R2D200020000000000000002 /* RecoveryDetailV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = R2D200010000000000000001 /* RecoveryDetailV2.swift */; };
+		R2D200060000000000000006 /* RecoveryDetailV2Editorial.swift in Sources */ = {isa = PBXBuildFile; fileRef = R2D200050000000000000005 /* RecoveryDetailV2Editorial.swift */; };
+		R2D200040000000000000004 /* RecoveryDetailV2Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = R2D200030000000000000003 /* RecoveryDetailV2Tests.swift */; };
 		0B25D0390000000000000039 /* VelaMetricDetailData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1390000000000000039 /* VelaMetricDetailData.swift */; };
 		0B25D0300000000000000030 /* VelaMetricDetailLandscapes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1300000000000000030 /* VelaMetricDetailLandscapes.swift */; };
 		0B25D0310000000000000031 /* SleepClockWheelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1310000000000000031 /* SleepClockWheelView.swift */; };
@@ -187,6 +199,7 @@
 		0B25D0040000000000000004 /* JournalComposeSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1040000000000000004 /* JournalComposeSheet.swift */; };
 		0B25D0050000000000000005 /* JournalCorrelationSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1050000000000000005 /* JournalCorrelationSection.swift */; };
 		0B25D0060000000000000006 /* TodayHeroCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1060000000000000006 /* TodayHeroCard.swift */; };
+		0B25D0FA0000000000000001 /* BodySeekInstrument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1FA0000000000000001 /* BodySeekInstrument.swift */; };
 		0B25D0070000000000000007 /* TodaySignalGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1070000000000000007 /* TodaySignalGrid.swift */; };
 
 		0B25D0090000000000000009 /* TodayNutritionStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1090000000000000009 /* TodayNutritionStrip.swift */; };
@@ -310,6 +323,8 @@
 		0B1001220000000000000022 /* PersistenceModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence/SwiftDataModels/PersistenceModels.swift; sourceTree = "<group>"; };
 		0B1001230000000000000023 /* Vela.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App/Vela.entitlements; sourceTree = "<group>"; };
 		0B1001240000000000000024 /* DateRangeQuery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/Utilities/DateRangeQuery.swift; sourceTree = "<group>"; };
+		C6D110010000000000000001 /* HealthPresentationCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/Utilities/HealthPresentationCopy.swift; sourceTree = "<group>"; };
+		C6D110020000000000000002 /* HealthPresentationCopyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthPresentationCopyTests.swift; sourceTree = "<group>"; };
 		0B1001250000000000000025 /* SleepSampleNormalizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Health/Mapping/SleepSampleNormalizer.swift; sourceTree = "<group>"; };
 		0B1001260000000000000026 /* PreviewHealthDataProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Health/Services/PreviewHealthDataProvider.swift; sourceTree = "<group>"; };
 		0B1001270000000000000027 /* HealthQueryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Health/Queries/HealthQueryService.swift; sourceTree = "<group>"; };
@@ -318,6 +333,11 @@
 		0B1001300000000000000030 /* HealthDataRefreshService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Health/Services/HealthDataRefreshService.swift; sourceTree = "<group>"; };
 		0B1001310000000000000031 /* HealthCachePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence/Repositories/HealthCachePolicy.swift; sourceTree = "<group>"; };
 		0B1001320000000000000032 /* DailyHealthSummaryRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence/Repositories/DailyHealthSummaryRepository.swift; sourceTree = "<group>"; };
+		C5A5100D000000000000000D /* TrainingPlanRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence/Repositories/TrainingPlanRepository.swift; sourceTree = "<group>"; };
+		C5A5100E000000000000000E /* WorkoutHistoryRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence/Repositories/WorkoutHistoryRepository.swift; sourceTree = "<group>"; };
+		C5A5100F000000000000000F /* DailyOperatingPlanRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence/Repositories/DailyOperatingPlanRepository.swift; sourceTree = "<group>"; };
+		C5A510110000000000000011 /* DailyDecisionFeedbackRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence/Repositories/DailyDecisionFeedbackRepository.swift; sourceTree = "<group>"; };
+		C5A510120000000000000012 /* ProfileRecordRepositories.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence/Repositories/ProfileRecordRepositories.swift; sourceTree = "<group>"; };
 		0B1001330000000000000033 /* JournalRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence/Repositories/JournalRepository.swift; sourceTree = "<group>"; };
 		0B1001340000000000000034 /* AIReportRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence/Repositories/AIReportRepository.swift; sourceTree = "<group>"; };
 		0B1001350000000000000035 /* VelaModelContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence/SwiftDataModels/VelaModelContainer.swift; sourceTree = "<group>"; };
@@ -349,9 +369,12 @@
 		C5A510020000000000000002 /* TrendsStoreAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrendsStoreAction.swift; sourceTree = "<group>"; };
 		C5A510030000000000000003 /* TrendsViewState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrendsViewState.swift; sourceTree = "<group>"; };
 		C5A510040000000000000004 /* TrendsOneMetricChart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrendsOneMetricChart.swift; sourceTree = "<group>"; };
+		C5A5100C000000000000000C /* PersistedTrendsWindowLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistedTrendsWindowLoader.swift; sourceTree = "<group>"; };
 		C5A530010000000000000001 /* TrendsStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrendsStoreTests.swift; sourceTree = "<group>"; };
 		C5A530020000000000000002 /* RecoveryReplaySensitivityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryReplaySensitivityTests.swift; sourceTree = "<group>"; };
 		C5A530030000000000000003 /* StrainReplaySensitivityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StrainReplaySensitivityTests.swift; sourceTree = "<group>"; };
+		C5A530040000000000000004 /* StressReplaySensitivityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StressReplaySensitivityTests.swift; sourceTree = "<group>"; };
+		C5A530050000000000000005 /* EnergyReplaySensitivityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnergyReplaySensitivityTests.swift; sourceTree = "<group>"; };
 		0B9900010000000000000001 /* PersonalHealthBrief.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/Utilities/PersonalHealthBrief.swift; sourceTree = "<group>"; };
 		0B9900030000000000000003 /* HealthTrendEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scoring/HealthTrendEngine.swift; sourceTree = "<group>"; };
 		0B9900050000000000000005 /* VelaTrendsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Trends/VelaTrendsView.swift; sourceTree = "<group>"; };
@@ -431,7 +454,6 @@
 		0B2001010000000000000001 /* VelaMinimalComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/VelaMinimalComponents.swift; sourceTree = "<group>"; };
 		0B2001020000000000000002 /* VelaMinimalShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/VelaMinimalShell.swift; sourceTree = "<group>"; };
 		0B2001030000000000000003 /* VelaMinimalTodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/VelaMinimalTodayView.swift; sourceTree = "<group>"; };
-		0B2001040000000000000004 /* VelaMinimalVitalsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/VelaMinimalVitalsView.swift; sourceTree = "<group>"; };
 		0B2001050000000000000005 /* VelaMinimalFitnessView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/VelaMinimalFitnessView.swift; sourceTree = "<group>"; };
 		0B2001080000000000000008 /* TodayTrainingPlanAdaptationCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/TodayTrainingPlanAdaptationCard.swift; sourceTree = "<group>"; };
 		0B2001060000000000000006 /* VelaMinimalJournalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/VelaMinimalJournalView.swift; sourceTree = "<group>"; };
@@ -443,6 +465,9 @@
 
 		0B25D1420000000000000042 /* BodyModelViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/BodyModelViews.swift; sourceTree = "<group>"; };
 		0B25D1380000000000000038 /* VelaMetricDetailWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/VelaMetricDetailWidgets.swift; sourceTree = "<group>"; };
+		R2D200010000000000000001 /* RecoveryDetailV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/RecoveryDetailV2.swift; sourceTree = "<group>"; };
+		R2D200050000000000000005 /* RecoveryDetailV2Editorial.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/RecoveryDetailV2Editorial.swift; sourceTree = "<group>"; };
+		R2D200030000000000000003 /* RecoveryDetailV2Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryDetailV2Tests.swift; sourceTree = "<group>"; };
 		0B25D1390000000000000039 /* VelaMetricDetailData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/VelaMetricDetailData.swift; sourceTree = "<group>"; };
 		0B25D1300000000000000030 /* VelaMetricDetailLandscapes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/VelaMetricDetailLandscapes.swift; sourceTree = "<group>"; };
 		0B25D1310000000000000031 /* SleepClockWheelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/SleepClockWheelView.swift; sourceTree = "<group>"; };
@@ -458,6 +483,7 @@
 		0B25D1040000000000000004 /* JournalComposeSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/JournalComposeSheet.swift; sourceTree = "<group>"; };
 		0B25D1050000000000000005 /* JournalCorrelationSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/JournalCorrelationSection.swift; sourceTree = "<group>"; };
 		0B25D1060000000000000006 /* TodayHeroCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/TodayHeroCard.swift; sourceTree = "<group>"; };
+		0B25D1FA0000000000000001 /* BodySeekInstrument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/BodySeekInstrument.swift; sourceTree = "<group>"; };
 		0B25D1070000000000000007 /* TodaySignalGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/TodaySignalGrid.swift; sourceTree = "<group>"; };
 
 		0B25D1090000000000000009 /* TodayNutritionStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/TodayNutritionStrip.swift; sourceTree = "<group>"; };
@@ -584,6 +610,7 @@
 				0B1001040000000000000004 /* VelaAppMetadata.swift */,
 				0B1001050000000000000005 /* AppDocumentation.swift */,
 				0B1001240000000000000024 /* DateRangeQuery.swift */,
+				C6D110010000000000000001 /* HealthPresentationCopy.swift */,
 				0B1001430000000000000043 /* DashboardSummary.swift */,
 				0B9900010000000000000001 /* PersonalHealthBrief.swift */,
 				0B9900030000000000000003 /* HealthTrendEngine.swift */,
@@ -613,7 +640,6 @@
 				0B2001010000000000000001 /* VelaMinimalComponents.swift */,
 				0B2001020000000000000002 /* VelaMinimalShell.swift */,
 				0B2001030000000000000003 /* VelaMinimalTodayView.swift */,
-				0B2001040000000000000004 /* VelaMinimalVitalsView.swift */,
 				0B2001050000000000000005 /* VelaMinimalFitnessView.swift */,
 				0B2001080000000000000008 /* TodayTrainingPlanAdaptationCard.swift */,
 				0B25D1250000000000000025 /* VelaTrainingPlanView.swift */,
@@ -625,6 +651,8 @@
 
 				0B25D1420000000000000042 /* BodyModelViews.swift */,
 				0B25D1380000000000000038 /* VelaMetricDetailWidgets.swift */,
+				R2D200010000000000000001 /* RecoveryDetailV2.swift */,
+				R2D200050000000000000005 /* RecoveryDetailV2Editorial.swift */,
 				0B25D1390000000000000039 /* VelaMetricDetailData.swift */,
 				0B25D1300000000000000030 /* VelaMetricDetailLandscapes.swift */,
 				0B25D1310000000000000031 /* SleepClockWheelView.swift */,
@@ -640,6 +668,7 @@
 				0B25D1040000000000000004 /* JournalComposeSheet.swift */,
 				0B25D1050000000000000005 /* JournalCorrelationSection.swift */,
 				0B25D1060000000000000006 /* TodayHeroCard.swift */,
+				0B25D1FA0000000000000001 /* BodySeekInstrument.swift */,
 				0B25D1070000000000000007 /* TodaySignalGrid.swift */,
 
 				0B25D1090000000000000009 /* TodayNutritionStrip.swift */,
@@ -713,6 +742,11 @@
 				3C47F96BE1FC2D34782EF610 /* VelaSchemaV3Frozen.swift */,
 				0B1001310000000000000031 /* HealthCachePolicy.swift */,
 				0B1001320000000000000032 /* DailyHealthSummaryRepository.swift */,
+				C5A5100D000000000000000D /* TrainingPlanRepository.swift */,
+				C5A5100E000000000000000E /* WorkoutHistoryRepository.swift */,
+				C5A5100F000000000000000F /* DailyOperatingPlanRepository.swift */,
+				C5A510110000000000000011 /* DailyDecisionFeedbackRepository.swift */,
+				C5A510120000000000000012 /* ProfileRecordRepositories.swift */,
 				0B1001330000000000000033 /* JournalRepository.swift */,
 				0B1001340000000000000034 /* AIReportRepository.swift */,
 				0B1001740000000000000074 /* HealthSnapshotRepository.swift */,
@@ -791,8 +825,12 @@
 				FC2F3B94AA064B1E83F71978 /* MemoryLedgerTests.swift */,
 				4746CA84311E3C6D12654200 /* WorkoutAggregationTests.swift */,
 				C5A530010000000000000001 /* TrendsStoreTests.swift */,
+				R2D200030000000000000003 /* RecoveryDetailV2Tests.swift */,
+				C6D110020000000000000002 /* HealthPresentationCopyTests.swift */,
 				C5A530020000000000000002 /* RecoveryReplaySensitivityTests.swift */,
 				C5A530030000000000000003 /* StrainReplaySensitivityTests.swift */,
+				C5A530040000000000000004 /* StressReplaySensitivityTests.swift */,
+				C5A530050000000000000005 /* EnergyReplaySensitivityTests.swift */,
 			);
 			path = VelaAppTests;
 			sourceTree = "<group>";
@@ -870,6 +908,7 @@
 				C5A510020000000000000002 /* TrendsStoreAction.swift */,
 				C5A510030000000000000003 /* TrendsViewState.swift */,
 				C5A510040000000000000004 /* TrendsOneMetricChart.swift */,
+				C5A5100C000000000000000C /* PersistedTrendsWindowLoader.swift */,
 			);
 			name = Trends;
 			path = Features/Trends;
@@ -1083,6 +1122,7 @@
 				0B1000040000000000000004 /* VelaAppMetadata.swift in Sources */,
 				0B1000050000000000000005 /* AppDocumentation.swift in Sources */,
 				0B1000230000000000000023 /* DateRangeQuery.swift in Sources */,
+				C6D100010000000000000001 /* HealthPresentationCopy.swift in Sources */,
 				0B1000420000000000000042 /* DashboardSummary.swift in Sources */,
 				0B9900020000000000000002 /* PersonalHealthBrief.swift in Sources */,
 				0B9900040000000000000004 /* HealthTrendEngine.swift in Sources */,
@@ -1099,6 +1139,7 @@
 				C5A500020000000000000002 /* TrendsStoreAction.swift in Sources */,
 				C5A500030000000000000003 /* TrendsViewState.swift in Sources */,
 				C5A500040000000000000004 /* TrendsOneMetricChart.swift in Sources */,
+				C5A5000C000000000000000C /* PersistedTrendsWindowLoader.swift in Sources */,
 				0B1000430000000000000043 /* DailySummaryUseCase.swift in Sources */,
 				0B1001A600000000000000A6 /* PreviewDataFactory.swift in Sources */,
 				0B1001B100000000000000B1 /* VelaError.swift in Sources */,
@@ -1117,7 +1158,6 @@
 				0B2000010000000000000001 /* VelaMinimalComponents.swift in Sources */,
 				0B2000020000000000000002 /* VelaMinimalShell.swift in Sources */,
 				0B2000030000000000000003 /* VelaMinimalTodayView.swift in Sources */,
-				0B2000040000000000000004 /* VelaMinimalVitalsView.swift in Sources */,
 				0B2000050000000000000005 /* VelaMinimalFitnessView.swift in Sources */,
 				0B2000080000000000000008 /* TodayTrainingPlanAdaptationCard.swift in Sources */,
 				0B25D0250000000000000025 /* VelaTrainingPlanView.swift in Sources */,
@@ -1129,6 +1169,8 @@
 
 				0B25D0420000000000000042 /* BodyModelViews.swift in Sources */,
 				0B25D0380000000000000038 /* VelaMetricDetailWidgets.swift in Sources */,
+				R2D200020000000000000002 /* RecoveryDetailV2.swift in Sources */,
+				R2D200060000000000000006 /* RecoveryDetailV2Editorial.swift in Sources */,
 				0B25D0390000000000000039 /* VelaMetricDetailData.swift in Sources */,
 				0B25D0300000000000000030 /* VelaMetricDetailLandscapes.swift in Sources */,
 				0B25D0310000000000000031 /* SleepClockWheelView.swift in Sources */,
@@ -1144,6 +1186,7 @@
 				0B25D0040000000000000004 /* JournalComposeSheet.swift in Sources */,
 				0B25D0050000000000000005 /* JournalCorrelationSection.swift in Sources */,
 				0B25D0060000000000000006 /* TodayHeroCard.swift in Sources */,
+				0B25D0FA0000000000000001 /* BodySeekInstrument.swift in Sources */,
 				0B25D0070000000000000007 /* TodaySignalGrid.swift in Sources */,
 
 				0B25D0090000000000000009 /* TodayNutritionStrip.swift in Sources */,
@@ -1217,6 +1260,11 @@
 				3848C89DE6723E0A72CB5D58 /* VelaSchemaV3Frozen.swift in Sources */,
 				0B1000300000000000000030 /* HealthCachePolicy.swift in Sources */,
 				0B1000310000000000000031 /* DailyHealthSummaryRepository.swift in Sources */,
+				C5A5000D000000000000000D /* TrainingPlanRepository.swift in Sources */,
+				C5A5000E000000000000000E /* WorkoutHistoryRepository.swift in Sources */,
+				C5A5000F000000000000000F /* DailyOperatingPlanRepository.swift in Sources */,
+				C5A500110000000000000011 /* DailyDecisionFeedbackRepository.swift in Sources */,
+				C5A500120000000000000012 /* ProfileRecordRepositories.swift in Sources */,
 				0B1000320000000000000032 /* JournalRepository.swift in Sources */,
 				0B1000330000000000000033 /* AIReportRepository.swift in Sources */,
 				0B1000740000000000000074 /* HealthSnapshotRepository.swift in Sources */,
@@ -1296,8 +1344,12 @@
 				B886D213B1A540FD7EE4A215 /* WorkoutAggregationTests.swift in Sources */,
 				C00300040000000000000004 /* TodayStoreTests.swift in Sources */,
 				C5A500060000000000000006 /* TrendsStoreTests.swift in Sources */,
+				R2D200040000000000000004 /* RecoveryDetailV2Tests.swift in Sources */,
+				C6D100020000000000000002 /* HealthPresentationCopyTests.swift in Sources */,
 				C5A500070000000000000007 /* RecoveryReplaySensitivityTests.swift in Sources */,
 				C5A500080000000000000008 /* StrainReplaySensitivityTests.swift in Sources */,
+				C5A500090000000000000009 /* StressReplaySensitivityTests.swift in Sources */,
+				C5A5000A000000000000000A /* EnergyReplaySensitivityTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

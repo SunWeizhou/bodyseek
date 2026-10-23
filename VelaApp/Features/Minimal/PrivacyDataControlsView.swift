@@ -378,7 +378,7 @@ struct PrivacyDataControlsView: View {
                 if !statusMessage.isEmpty {
                     Text(statusMessage)
                         .font(.footnote)
-                        .foregroundStyle(isError ? VelaTheme.strainColor : VelaTheme.recoveryColor)
+                        .foregroundStyle(isError ? VelaTheme.rhythmInk : VelaTheme.rhythmInk)
                 }
             }
         }
@@ -501,8 +501,8 @@ struct ExportDataSettingsView: View {
     }
     
     private func exportHealthData(modelContext: ModelContext) -> Data? {
-        let summariesDesc = FetchDescriptor<DailyHealthSummaryRecord>(sortBy: [SortDescriptor(\.date, order: .forward)])
-        let summaries = (try? modelContext.fetch(summariesDesc)) ?? []
+        let summaries = (try? SwiftDataDailyHealthSummaryRepository(modelContext: modelContext)
+            .fetchAllSortedByDate()) ?? []
         let exportSummaries: [[String: Any]] = summaries.map { record in
             var dict: [String: Any] = [
                 "date": record.date.formatted(.iso8601),
@@ -535,8 +535,7 @@ struct ExportDataSettingsView: View {
             return dict
         }
 
-        let workoutsDesc = FetchDescriptor<StrengthWorkoutRecord>(sortBy: [SortDescriptor(\.startedAt, order: .forward)])
-        let workouts = (try? modelContext.fetch(workoutsDesc)) ?? []
+        let workouts = (try? WorkoutHistoryRepository(modelContext: modelContext).fetchStrengthWorkoutsSortedByStart()) ?? []
         let exportWorkouts: [[String: Any]] = workouts.map { record in
             var dict: [String: Any] = [
                 "id": record.id.uuidString,
@@ -557,8 +556,7 @@ struct ExportDataSettingsView: View {
             return dict
         }
 
-        let journalsDesc = FetchDescriptor<JournalEntryRecord>(sortBy: [SortDescriptor(\.createdAt, order: .forward)])
-        let journals = (try? modelContext.fetch(journalsDesc)) ?? []
+        let journals = (try? SwiftDataJournalRepository(modelContext: modelContext).fetchAllSortedByCreatedAt()) ?? []
         let exportJournals: [[String: Any]] = journals.map { record in
             var dict: [String: Any] = [
                 "createdAt": record.createdAt.formatted(.iso8601),
@@ -570,8 +568,8 @@ struct ExportDataSettingsView: View {
             return dict
         }
 
-        let foodLogsDesc = FetchDescriptor<FoodLogRecord>(sortBy: [SortDescriptor(\.createdAt, order: .forward)])
-        let foodLogs = (try? modelContext.fetch(foodLogsDesc)) ?? []
+        let foodLogs = (try? FoodLogRepository(modelContext: modelContext)
+            .fetchAllSortedByCreatedAt(newestFirst: false)) ?? []
         let exportFoodLogs: [[String: Any]] = foodLogs.map { record in
             var dict: [String: Any] = [
                 "id": record.id.uuidString,
@@ -598,8 +596,8 @@ struct ExportDataSettingsView: View {
             return dict
         }
 
-        let biomarkersDesc = FetchDescriptor<BiomarkerRecord>(sortBy: [SortDescriptor(\.date, order: .forward)])
-        let biomarkers = (try? modelContext.fetch(biomarkersDesc)) ?? []
+        let biomarkers = (try? BiomarkerRepository(modelContext: modelContext)
+            .fetchAllSortedByDate(newestFirst: false)) ?? []
         let exportBiomarkers: [[String: Any]] = biomarkers.map { record in
             var dict: [String: Any] = [
                 "id": record.id.uuidString,

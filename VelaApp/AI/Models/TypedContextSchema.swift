@@ -1,4 +1,5 @@
 import Foundation
+import BodySeekDomain
 
 // MARK: - Network outbound consent
 
@@ -78,6 +79,7 @@ struct AgentOutboundConsentPolicy: Equatable, Sendable {
 
     /// Resolve the policy once at an outbound boundary.  All automated
     /// schedulers should capture this value before building their payload.
+    @MainActor
     static var current: AgentOutboundConsentPolicy {
         AgentOutboundConsentPolicy(
             backgroundNetworkAIConsent: AutoAgentConfig.shared.backgroundNetworkAIConsent,
@@ -124,13 +126,7 @@ extension CoachOutboundDataPolicy {
 
 // MARK: - Typed Metric Value
 
-public enum DataFreshness: String, Codable, Hashable, CaseIterable, Sendable {
-    case live
-    case today
-    case recent
-    case stale
-    case missing
-}
+public typealias DataFreshness = BodySeekDomain.DataFreshness
 
 public enum DataConfidence: String, Codable, Hashable, CaseIterable, Sendable {
     case high

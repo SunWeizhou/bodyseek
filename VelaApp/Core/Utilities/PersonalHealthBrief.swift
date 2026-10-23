@@ -30,7 +30,7 @@ public enum HealthTrendHorizon: String, Codable, Hashable, CaseIterable, Sendabl
 
     public var requiredSampleCount: Int {
         switch self {
-        case .sevenDays: return 4
+        case .sevenDays: return 5
         case .thirtyDays: return 14
         case .sixMonths: return 60
         case .threeYears: return 60
@@ -115,7 +115,7 @@ public enum CoreHealthMetric: String, Codable, Hashable, CaseIterable, Sendable,
         case .sleepDuration: return "睡眠时长"
         case .sleepScore: return "睡眠得分"
         case .recovery: return "恢复得分"
-        case .strain: return "耗力负荷"
+        case .strain: return "负荷"
         case .stress: return "压力指数"
         case .energy: return "能量储备"
         case .respiratoryRate: return "呼吸率"
@@ -134,7 +134,7 @@ public enum CoreHealthMetric: String, Codable, Hashable, CaseIterable, Sendable,
         case .sleepDuration: return "睡眠时长"
         case .sleepScore: return "睡眠"
         case .recovery: return "恢复"
-        case .strain: return "耗力"
+        case .strain: return "负荷"
         case .stress: return "压力"
         case .energy: return "能量"
         case .respiratoryRate: return "呼吸率"
@@ -152,10 +152,10 @@ public enum CoreHealthMetric: String, Codable, Hashable, CaseIterable, Sendable,
         case .restingHeartRate: return "bpm"
         case .sleepDuration: return "h"
         case .sleepScore: return "分"
-        case .recovery: return "%"
+        case .recovery: return ""
         case .strain: return ""
         case .stress: return ""
-        case .energy: return "%"
+        case .energy: return ""
         case .respiratoryRate: return "次/分"
         case .oxygenSaturation: return "%"
         case .bodyWeight: return "kg"

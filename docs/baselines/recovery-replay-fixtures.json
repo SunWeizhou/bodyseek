@@ -26,5 +26,5 @@
     "formattedScore": "--",
     "requiredMissingInputs": ["hrvToday", "restingHeartRateToday"]
   },
-  "packageParity": "blocked: RecoveryScoreEngine and RecoveryScoreInput remain VelaApp-only"
+  "packageParity": "RecoveryScoreEngine and BaselineStatistics live in BodySeekDomain. The app RecoveryScoreEngine is a MetricResult adapter. BodySeekDomain.DailyHealthComputation still leaves the recovery slot unavailable until production scoring moves."
 }

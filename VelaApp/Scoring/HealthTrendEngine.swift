@@ -1,4 +1,5 @@
 import Foundation
+import BodySeekDomain
 
 /// Pure value input for `HealthTrendEngine`.
 ///
@@ -295,7 +296,7 @@ struct HealthTrendEngine: Sendable {
         let currentValue = currentValue(for: metric, dashboard: dashboard)
         let formattedCurrent = formatValue(currentValue, metric: metric)
 
-        // 7-day Horizon (requires >= 4 samples)
+        // 7-day Horizon (requires >= 5 prior days; today is not one of them)
         let finding7d = computeHorizonFinding(
             metric: metric,
             horizon: .sevenDays,
@@ -341,20 +342,32 @@ struct HealthTrendEngine: Sendable {
            let pMedian = ltBaseline.threeYearMedian,
            let cur = currentValue {
             let deviation = pMedian > 0 ? (cur - pMedian) / pMedian * 100 : 0
+            let longTermSamples = (horizonWindows[.threeYears] ?? []).compactMap { snap -> BaselineSample? in
+                guard let value = value(for: metric, snapshot: snap) else { return nil }
+                return BaselineSample(date: snap.date, value: value)
+            }
+            let longTermScale = BaselineEstimator.estimate(
+                samples: longTermSamples,
+                asOf: today,
+                windowDays: HealthTrendHorizon.threeYears.windowDays,
+                minimumSamples: 5,
+                calendar: calendar
+            )?.robustScale
+            let todayZ = BaselineEstimator.zScore(value: cur, median: pMedian, robustScale: longTermScale)
             let direction: HealthTrendDirection = {
-                if abs(deviation) < 3.5 { return .stable }
+                if abs(todayZ) < BaselineEstimator.stableZ { return .stable }
                 switch metric.polarity {
                 case .higherIsBetter:
-                    return deviation > 0 ? .improving : .declining
+                    return todayZ > 0 ? .improving : .declining
                 case .lowerIsBetter:
-                    return deviation > 0 ? .declining : .improving
+                    return todayZ > 0 ? .declining : .improving
                 case .contextual:
-                    return deviation > 0 ? .elevated : .suppressed
+                    return todayZ > 0 ? .elevated : .suppressed
                 }
             }()
 
             let percentile = calculatePercentilePosition(value: cur, baseline: ltBaseline)
-            let devSummary = abs(deviation) < 3.5 ? "与三年基线基本持平" : (deviation > 0 ? String(format: "较三年基线偏高 %.1f%%", deviation) : String(format: "较三年基线偏低 %.1f%%", abs(deviation)))
+            let devSummary = abs(todayZ) < BaselineEstimator.stableZ ? "与三年基线基本持平" : (deviation > 0 ? String(format: "较三年基线偏高 %.1f%%", deviation) : String(format: "较三年基线偏低 %.1f%%", abs(deviation)))
             let trendSummary = generate3YSummary(
                 metric: metric,
                 cur: cur,
@@ -363,12 +376,12 @@ struct HealthTrendEngine: Sendable {
                 trendLabel: ltBaseline.trendLabel
             )
             let summary = "\(devSummary)，\(trendSummary)"
-            let isNotable = abs(deviation) >= 12.0
+            let isNotable = abs(todayZ) >= BaselineEstimator.notableZ
 
             let valueDirection: TrendValueDirection
-            if abs(deviation) < 3.5 {
+            if abs(todayZ) < BaselineEstimator.stableZ {
                 valueDirection = .stable
-            } else if deviation > 0 {
+            } else if todayZ > 0 {
                 valueDirection = .rising
             } else {
                 valueDirection = .falling
@@ -474,48 +487,41 @@ struct HealthTrendEngine: Sendable {
         today: Date,
         calendar: Calendar
     ) -> HealthTrendFinding {
-        // `windowSnapshots` arrives pre-filtered for this horizon and keeps the
-        // sorted order of the source snapshot array, so no re-filter or sort is
-        // needed here.
-        let windowValuesWithDate: [(date: Date, value: Double)] = windowSnapshots.compactMap { snap in
-            guard let val = value(for: metric, snapshot: snap) else { return nil }
-            return (date: snap.date, value: val)
-        }
-
-        let sampleCount = windowValuesWithDate.count
-        guard sampleCount >= horizon.requiredSampleCount else {
+        // Today is not part of the baseline or the recent-trend window.
+        let priorSamples = BaselineEstimator.samples(
+            from: windowSnapshots.compactMap { snap -> BaselineSample? in
+                guard let val = value(for: metric, snapshot: snap) else { return nil }
+                return BaselineSample(date: snap.date, value: val)
+            },
+            asOf: today,
+            windowDays: days,
+            calendar: calendar
+        )
+        let sampleCount = priorSamples.count
+        guard let estimate = BaselineEstimator.estimate(
+            samples: priorSamples,
+            asOf: today,
+            windowDays: days,
+            minimumSamples: horizon.requiredSampleCount,
+            calendar: calendar
+        ) else {
             return HealthTrendFinding.unavailable(metric: metric, horizon: horizon, sampleCount: sampleCount)
         }
+        let baselineMedian = estimate.median
 
         // Span & recency verification for multi-month / multi-year horizons
-        if horizon == .sixMonths {
-            guard let earliest = windowValuesWithDate.first?.date,
-                  let latest = windowValuesWithDate.last?.date else {
-                return HealthTrendFinding.unavailable(metric: metric, horizon: horizon, sampleCount: sampleCount)
-            }
-            let spanDays = abs(calendar.dateComponents([.day], from: calendar.startOfDay(for: earliest), to: calendar.startOfDay(for: latest)).day ?? 0)
-            let daysFromToday = abs(calendar.dateComponents([.day], from: calendar.startOfDay(for: latest), to: calendar.startOfDay(for: today)).day ?? 0)
-            guard spanDays >= 90, daysFromToday <= 14 else {
-                return HealthTrendFinding.unavailable(metric: metric, horizon: horizon, sampleCount: sampleCount)
-            }
-        } else if horizon == .threeYears {
-            guard let earliest = windowValuesWithDate.first?.date,
-                  let latest = windowValuesWithDate.last?.date else {
-                return HealthTrendFinding.unavailable(metric: metric, horizon: horizon, sampleCount: sampleCount)
-            }
-            let spanDays = abs(calendar.dateComponents([.day], from: calendar.startOfDay(for: earliest), to: calendar.startOfDay(for: latest)).day ?? 0)
-            let daysFromToday = abs(calendar.dateComponents([.day], from: calendar.startOfDay(for: latest), to: calendar.startOfDay(for: today)).day ?? 0)
-            guard spanDays >= 365, daysFromToday <= 30 else {
+        if horizon == .sixMonths || horizon == .threeYears {
+            let spanDays = abs(calendar.dateComponents([.day], from: calendar.startOfDay(for: estimate.earliest), to: calendar.startOfDay(for: estimate.latest)).day ?? 0)
+            let daysFromToday = abs(calendar.dateComponents([.day], from: calendar.startOfDay(for: estimate.latest), to: calendar.startOfDay(for: today)).day ?? 0)
+            let minimumSpan = horizon == .sixMonths ? 90 : 365
+            let maximumStaleness = horizon == .sixMonths ? 14 : 30
+            guard spanDays >= minimumSpan, daysFromToday <= maximumStaleness else {
                 return HealthTrendFinding.unavailable(metric: metric, horizon: horizon, sampleCount: sampleCount)
             }
         }
 
-        let rawValues = windowValuesWithDate.map(\.value)
-        guard let baselineMedian = median(of: rawValues) else {
-            return HealthTrendFinding.unavailable(metric: metric, horizon: horizon, sampleCount: sampleCount)
-        }
-
-        // Temporal Trend: Half-window median comparison
+        // Recent trend uses only the prior window. Today's deviation is separate.
+        let rawValues = estimate.values
         let halfCount = sampleCount / 2
         let firstHalfValues = Array(rawValues.prefix(halfCount))
         let secondHalfValues = Array(rawValues.suffix(sampleCount - halfCount))
@@ -524,21 +530,26 @@ struct HealthTrendEngine: Sendable {
             return HealthTrendFinding.unavailable(metric: metric, horizon: horizon, sampleCount: sampleCount)
         }
 
-        let m1 = median(of: firstHalfValues) ?? baselineMedian
-        let m2 = median(of: secondHalfValues) ?? baselineMedian
+        let m1 = ScoringMath.median(firstHalfValues) ?? baselineMedian
+        let m2 = ScoringMath.median(secondHalfValues) ?? baselineMedian
         let trendDelta = m2 - m1
         let trendDeltaPercent = m1 > 0 ? (trendDelta / m1) * 100 : 0
+        let trendZ = BaselineEstimator.zScore(
+            value: m2,
+            median: m1,
+            robustScale: estimate.robustScale
+        )
+        let todayZ = currentValue.map {
+            BaselineEstimator.zScore(value: $0, median: baselineMedian, robustScale: estimate.robustScale)
+        }
 
-        // Current Baseline Deviation
         let curDev: Double? = currentValue.map { $0 - baselineMedian }
         let curDevPercent: Double? = currentValue.flatMap { baselineMedian > 0 ? (($0 - baselineMedian) / baselineMedian) * 100 : 0 }
 
-        // Decouple value direction (numerical) from assessment (health meaning)
-        let trendThresholdPercent: Double = 3.5
         let valueDirection: TrendValueDirection
-        if abs(trendDeltaPercent) < trendThresholdPercent {
+        if abs(trendZ) < BaselineEstimator.stableZ {
             valueDirection = .stable
-        } else if trendDeltaPercent > 0 {
+        } else if trendZ > 0 {
             valueDirection = .rising
         } else {
             valueDirection = .falling
@@ -546,10 +557,10 @@ struct HealthTrendEngine: Sendable {
 
         let assessment: TrendAssessment
         let direction: HealthTrendDirection
-        if abs(trendDeltaPercent) < trendThresholdPercent {
+        if abs(trendZ) < BaselineEstimator.stableZ {
             assessment = .neutral
             direction = .stable
-        } else if trendDeltaPercent > 0 {
+        } else if trendZ > 0 {
             switch metric.polarity {
             case .higherIsBetter:
                 assessment = .favorable
@@ -575,35 +586,39 @@ struct HealthTrendEngine: Sendable {
             }
         }
 
-        // Deviation Summary
+        let todayMoved = abs(todayZ ?? 0) >= BaselineEstimator.stableZ
+        let trendMoved = abs(trendZ) >= BaselineEstimator.stableZ
+
         let devSummary: String
-        if let devPct = curDevPercent {
-            if abs(devPct) < 3.5 {
-                devSummary = "较基线基本持平"
-            } else if devPct > 0 {
-                devSummary = String(format: "较基线偏高 %.1f%%", devPct)
+        if curDevPercent != nil {
+            if !todayMoved {
+                devSummary = "较个人波动基本持平"
+            } else if (todayZ ?? 0) > 0 {
+                devSummary = String(format: "较基线偏高 %.1f%%", curDevPercent ?? 0)
             } else {
-                devSummary = String(format: "较基线偏低 %.1f%%", abs(devPct))
+                devSummary = String(format: "较基线偏低 %.1f%%", abs(curDevPercent ?? 0))
             }
         } else {
             devSummary = "基线中位数 \(formatValue(baselineMedian, metric: metric))"
         }
 
-        // Temporal Trend Summary
         let temporalSummary: String
-        if abs(trendDeltaPercent) < trendThresholdPercent {
+        if !trendMoved {
             temporalSummary = "\(horizon.detailedTitle)整体平稳"
-        } else if trendDeltaPercent > 0 {
+        } else if trendZ > 0 {
             temporalSummary = String(format: "\(horizon.detailedTitle)中位数上升 +%.1f%%", trendDeltaPercent)
         } else {
             temporalSummary = String(format: "\(horizon.detailedTitle)中位数下降 -%.1f%%", abs(trendDeltaPercent))
         }
 
-        let isNotable = (curDevPercent.map { abs($0) >= 12.0 } ?? false) || abs(trendDeltaPercent) >= 10.0
+        let isNotable = abs(todayZ ?? 0) >= BaselineEstimator.notableZ
+            || abs(trendZ) >= BaselineEstimator.notableZ
 
         let summaryText: String
-        if let devPct = curDevPercent, abs(devPct) >= 5.0 {
+        if todayMoved && trendMoved {
             summaryText = "\(devSummary)，\(temporalSummary)"
+        } else if todayMoved {
+            summaryText = devSummary
         } else {
             summaryText = temporalSummary
         }
@@ -905,17 +920,6 @@ struct HealthTrendEngine: Sendable {
         }
     }
 
-    private func median(of values: [Double]) -> Double? {
-        guard !values.isEmpty else { return nil }
-        let sorted = values.sorted()
-        let count = sorted.count
-        if count % 2 == 1 {
-            return sorted[count / 2]
-        } else {
-            return (sorted[count / 2 - 1] + sorted[count / 2]) / 2.0
-        }
-    }
-
     private func longTermMetric(for metric: CoreHealthMetric) -> LongTermBaselineMetric? {
         switch metric {
         case .hrv: return .hrv
@@ -946,7 +950,9 @@ struct HealthTrendEngine: Sendable {
         percentile: Double,
         trendLabel: String?
     ) -> String {
-        let pText = "处于三年历史 P\(Int(percentile * 100))"
+        let pText = percentile >= 0.95
+            ? "高于三年历史 P90，不是精确的第 95 百分位"
+            : "处于三年历史 P\(Int(percentile * 100))"
         if let trend = trendLabel, !trend.isEmpty {
             return "\(trend)，\(pText)"
         }

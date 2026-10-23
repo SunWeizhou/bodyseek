@@ -23,6 +23,12 @@ final class VelaAppState: ObservableObject {
         case quickCover
     }
 
+    struct DetailAskContext: Equatable {
+        var title: String
+        var askPlaceholder: String
+        var contextTitle: String
+    }
+
     enum DeferredQuickAction: Equatable {
         case coach(String?)
         case foodScanner(String)
@@ -84,6 +90,10 @@ final class VelaAppState: ObservableObject {
     /// into `presentedSheet` immediately so only one app sheet can be active.
     @Published var showSettings = false
     @Published var presentedSheet: AppSheet?
+    /// Set while a metric detail is on screen so the shell keeps the ask bar
+    /// and drops the 今日 / 趋势 / 计划 header.
+    @Published var detailAskContext: DetailAskContext?
+    @Published var visibleTrendHorizon: HealthTrendHorizon = .thirtyDays
     @Published var prefilledCoachQuestion: String? = nil
     @Published var homeNavigationStackId = UUID()
     
@@ -106,7 +116,9 @@ final class VelaAppState: ObservableObject {
     init(arguments: [String] = ProcessInfo.processInfo.arguments) {
         #if DEBUG
         selectedTab = Self.initialTab(from: arguments)
-        if arguments.contains("-velaOpenRecoveryDetail") {
+        if arguments.contains("-velaOpenCoach") {
+            showCoachHub = true
+        } else if arguments.contains("-velaOpenRecoveryDetail") {
             presentedSheet = .recoveryDetail
         } else if arguments.contains("-velaOpenSleepDetail") {
             presentedSheet = .sleepDetail

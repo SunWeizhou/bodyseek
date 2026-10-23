@@ -511,9 +511,9 @@ final class DataCoverageAndEvidenceTests: XCTestCase {
             let comp = DailyHealthComputation(calendar: calendar, now: baseDay.addingTimeInterval(12 * 3600))
             let evidence = comp.compute(for: snapshot, history: sparseHistory)
             let metrics: [MetricComparisonDTO] = [
-                MetricComparisonDTO(domain: "Strain", oldValue: 50.0, newValue: evidence.strain.value, oldQuality: "compacted", newQuality: evidence.strain.confidence.rawValue, missingInputs: evidence.strain.missingInputs, version: evidence.strain.algorithmVersion, keyReason: "日历断续天衰减EWMA而非压缩时间轴")
+                MetricComparisonDTO(domain: "Strain", oldValue: 50.0, newValue: evidence.strain.value, oldQuality: "compacted", newQuality: evidence.strain.confidence.rawValue, missingInputs: evidence.strain.missingInputs, version: evidence.strain.algorithmVersion, keyReason: "缺失日不计入 EWMA，已知零负荷才是休息日")
             ]
-            reports.append(ScenarioReportDTO(scenario: "discontinuousGaps", description: "非连续日历历史（中间存在多天未佩戴或休息）", downstreamImpact: "EWMA正确随真实时间流逝衰减，不足7天停用状态", metrics: metrics))
+            reports.append(ScenarioReportDTO(scenario: "discontinuousGaps", description: "非连续日历历史（中间存在多天未佩戴）", downstreamImpact: "缺失日被跳过而不是记成 0 负荷，不足 7 个有效观测时停用负荷状态", metrics: metrics))
         }
 
         // 7. Future Data Rejection

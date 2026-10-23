@@ -194,8 +194,7 @@ final class HealthKitSyncEngine {
         // 三年长线基准点（预拉取全量点集，在日循环中按各历史日 strict cutoff 过滤）：
         // 保证历史评分仅使用截至当天的已知数据，消除前视偏差（Lookahead bias），
         // 且两条评分路径的 Layer 3 修正语义一致。
-        let allBaselinePoints = ((try? modelContext.fetch(FetchDescriptor<DailyHealthSummaryRecord>())) ?? [])
-            .map(\.longTermBaselinePoint)
+        let allBaselinePoints = (try? HealthSnapshotRepository(modelContext: modelContext, calendar: calendar).fetchAllBaselinePoints()) ?? []
 
         // Pass 2: Calculate scores day-by-day, pulling correct rolling raw baselines
         for dayStart in plan.scoreRecomputeDays {
@@ -328,9 +327,9 @@ final class HealthKitSyncEngine {
     private func syncTrainingIntelligenceInsights(endingAt endDate: Date) throws {
         let snapshots = try HealthSnapshotRepository(modelContext: modelContext, calendar: calendar)
             .fetchSnapshots(days: 60, endingAt: endDate)
-        let strengthWorkouts = try modelContext.fetch(FetchDescriptor<StrengthWorkoutRecord>())
-        let foodLogs = try modelContext.fetch(FetchDescriptor<FoodLogRecord>())
-        let journalEntries = try modelContext.fetch(FetchDescriptor<JournalEntryRecord>())
+        let strengthWorkouts = try WorkoutHistoryRepository(modelContext: modelContext).fetchStrengthWorkouts()
+        let foodLogs = try FoodLogRepository(modelContext: modelContext).fetchAll()
+        let journalEntries = try SwiftDataJournalRepository(modelContext: modelContext).fetchAll()
         let service = TrainingResponseInsightService()
         _ = try service.captureTrainingResponses(
             modelContext: modelContext,
@@ -338,7 +337,7 @@ final class HealthKitSyncEngine {
             workouts: strengthWorkouts,
             calendar: calendar
         )
-        let responses = try modelContext.fetch(FetchDescriptor<TrainingResponseRecord>())
+        let responses = try TrainingResponseRepository(modelContext: modelContext).fetchAll()
         _ = try service.persistWeeklyBodyReportIfNeeded(
             modelContext: modelContext,
             snapshots: snapshots,
@@ -462,10 +461,8 @@ final class DailySnapshotBuilder {
         var snapshot = DailyHealthSnapshot(date: dayStart)
         if let modelContext {
             let dayIdentifier = DailyHealthSummaryRecord.dayIdentifier(for: dayStart, calendar: calendar)
-            let descriptor = FetchDescriptor<DailyHealthSummaryRecord>(
-                predicate: #Predicate<DailyHealthSummaryRecord> { $0.dayIdentifier == dayIdentifier }
-            )
-            if let existing = (try? modelContext.fetch(descriptor))?.first {
+            if let existing = try? SwiftDataDailyHealthSummaryRepository(modelContext: modelContext)
+                .fetchRecord(dayIdentifier: dayIdentifier) {
                 snapshot = existing.toSnapshot()
             }
         }
@@ -532,7 +529,7 @@ final class DailySnapshotBuilder {
             // Consolidate workouts using WorkoutAggregationService
             let aggregated: [WorkoutSummary]
             if let modelContext = modelContext {
-                let deletedRecords = (try? modelContext.fetch(FetchDescriptor<DeletedWorkoutRecord>())) ?? []
+                let deletedRecords = (try? DeletedWorkoutRepository(modelContext: modelContext).fetchAll()) ?? []
                 let blacklistedIDs = Set(deletedRecords.map(\.id))
                 let filteredWorkouts = strain.workouts.filter { !blacklistedIDs.contains($0.id.uuidString) }
 
@@ -889,14 +886,14 @@ struct HistoricalBackfillService {
             in: DateRangeQuery(start: chunk.start, end: chunk.end)
         )
 
-        let hrvValues = (try? await hrv) ?? [:]
-        let rhrValues = (try? await rhr) ?? [:]
-        let sleepValues = (try? await sleep) ?? [:]
-        let stepValues = (try? await steps) ?? [:]
-        let energyValues = (try? await energy) ?? [:]
-        let weightValues = (try? await weight) ?? [:]
-        let bodyFatValues = (try? await bodyFat) ?? [:]
-        let workoutSummaries = (try? await workouts) ?? []
+        let hrvValues = try await hrv
+        let rhrValues = try await rhr
+        let sleepValues = try await sleep
+        let stepValues = try await steps
+        let energyValues = try await energy
+        let weightValues = try await weight
+        let bodyFatValues = try await bodyFat
+        let workoutSummaries = try await workouts
 
         // 训练按日历日聚合（与 aggregateDay 语义一致）
         var countsByDay: [Date: Int] = [:]
@@ -910,7 +907,7 @@ struct HistoricalBackfillService {
         }
 
         // 已存在的日（create-only）
-        let all = (try? modelContext.fetch(FetchDescriptor<DailyHealthSummaryRecord>())) ?? []
+        let all = try SwiftDataDailyHealthSummaryRepository(modelContext: modelContext).fetchAll()
         var existing = Set<String>()
         for record in all {
             let day = calendar.startOfDay(for: record.date)
@@ -988,12 +985,13 @@ final class HistoricalBackfillCoordinator: ObservableObject {
     }
 
     func start(queryService: any HealthQueryService, modelContext: ModelContext, calendar: Calendar = .current) {
-        guard !isRunning else { return }
+        guard !isRunning, !HistoricalScoreBackfillCoordinator.shared.isRunning else { return }
         isRunning = true
         lastError = nil
         refreshState(calendar: calendar)
         task = Task { [weak self] in
             guard let self else { return }
+            defer { VelaAppState.shared.markLocalDataChanged() }
             do {
                 let service = HistoricalBackfillService(
                     queryService: queryService,
@@ -1006,7 +1004,6 @@ final class HistoricalBackfillCoordinator: ObservableObject {
                     self.refreshState(calendar: calendar)
                     if result.isComplete { break }
                 }
-                VelaAppState.shared.markLocalDataChanged()
             } catch is CancellationError {
                 // 用户取消：游标已保存，下次从断点继续。
             } catch {
@@ -1018,6 +1015,175 @@ final class HistoricalBackfillCoordinator: ObservableObject {
 
     func cancel() {
         task?.cancel()
-        isRunning = false
     }
+}
+
+/// Presentation and repair share the same distinction: raw evidence is not a score.
+enum HistoricalScoreBackfillPolicy {
+    static func hasScore(_ snapshot: DailyHealthSnapshot) -> Bool {
+        [snapshot.recoveryScore, snapshot.sleepScore, snapshot.strainScore, snapshot.stressIndex,
+         snapshot.currentEnergy, snapshot.morningEnergy, snapshot.energyBank].contains { $0 != nil }
+    }
+
+    static func hasRawEvidence(_ snapshot: DailyHealthSnapshot) -> Bool {
+        [snapshot.hrvAverage, snapshot.restingHeartRate, snapshot.sleepHours, snapshot.steps,
+         snapshot.activeCalories, snapshot.bodyWeight, snapshot.bodyFatPercent,
+         snapshot.oxygenSaturation, snapshot.respiratoryRate, snapshot.wristTemperature,
+         snapshot.workoutDuration, snapshot.dailyLoad].contains { $0 != nil }
+            || snapshot.workoutCount != nil || !snapshot.workouts.isEmpty
+    }
+}
+
+struct HistoricalCoverageSummary: Equatable {
+    var rawDays: Int
+    var rawDaysWithoutScores: Int
+    var emptyDays: Int
+
+    init(snapshots: [DailyHealthSnapshot], calendar: Calendar = .current) {
+        let days = snapshots.sorted { $0.createdAt < $1.createdAt }.reduce(into: [Date: DailyHealthSnapshot]()) {
+            $0[calendar.startOfDay(for: $1.date)] = $1
+        }.values
+        rawDays = days.filter(HistoricalScoreBackfillPolicy.hasRawEvidence).count
+        rawDaysWithoutScores = days.filter {
+            HistoricalScoreBackfillPolicy.hasRawEvidence($0) && !HistoricalScoreBackfillPolicy.hasScore($0)
+        }.count
+        emptyDays = days.filter { !HistoricalScoreBackfillPolicy.hasRawEvidence($0) && !HistoricalScoreBackfillPolicy.hasScore($0) }.count
+    }
+}
+
+private enum HistoricalScoreRepairError: LocalizedError {
+    case concurrentUpdate
+    var errorDescription: String? { "历史记录在补算期间发生了更新，本轮已暂停。请重试以使用最新记录。" }
+}
+
+struct HistoricalScoreBackfillProgress: Equatable {
+    var completed = 0
+    var total = 0
+    var scored = 0
+    var insufficient = 0
+}
+
+/// Computes only raw-only, never-evaluated, completed days. Existing scored or
+/// evaluated days (including partial scores and unavailable evidence) are untouched.
+@MainActor
+struct HistoricalScoreBackfillService {
+    let modelContext: ModelContext
+    var calendar: Calendar = .current
+
+    func repair(
+        days: Int = 1095,
+        endingAt date: Date = Date(),
+        profile: DailyHealthComputationProfile = .current(),
+        onProgress: (HistoricalScoreBackfillProgress) -> Void = { _ in }
+    ) async throws -> HistoricalScoreBackfillProgress {
+        let today = calendar.startOfDay(for: date)
+        let start = calendar.date(byAdding: .day, value: -max(1, days), to: today) ?? today
+        let repository = SwiftDataDailyHealthSummaryRepository(modelContext: modelContext)
+        let records = try repository.fetch(in: DateRangeQuery(start: start, end: today))
+        let targets = records.filter {
+            !HistoricalScoreBackfillPolicy.hasScore($0.toSnapshot())
+                && $0.decodedScoreEvidence() == nil && $0.scoreEvidenceData == nil
+                && HistoricalScoreBackfillPolicy.hasRawEvidence($0.toSnapshot())
+        }.sorted { $0.date < $1.date }
+        let warmup = calendar.date(byAdding: .day, value: -42, to: start) ?? start
+        var history = try repository.fetch(in: DateRangeQuery(start: warmup, end: today)).map { $0.toSnapshot() }
+        let points = try HealthSnapshotRepository(modelContext: modelContext, calendar: calendar).fetchAllBaselinePoints()
+        var progress = HistoricalScoreBackfillProgress(total: targets.count)
+        onProgress(progress)
+        for record in targets {
+            try Task.checkCancellation()
+            await Task.yield()
+            try Task.checkCancellation()
+            let snapshot = record.toSnapshot()
+            let dayStart = calendar.startOfDay(for: snapshot.date)
+            let cutoff = (calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart).addingTimeInterval(-1)
+            let historyStart = calendar.date(byAdding: .day, value: -42, to: dayStart) ?? dayStart
+            let preceding = history.filter { $0.date >= historyStart && $0.date < dayStart }
+            let report = LongTermBaselineEngine.compute(points: points.filter { $0.date <= cutoff }, today: cutoff, calendar: calendar)
+            let metrics = DailyHealthComputation(calendar: calendar, now: cutoff, profile: profile)
+                .compute(for: snapshot, history: preceding, longTermBaselines: report)
+            let scored = try persistIfUnchanged(snapshot: snapshot, updatedAt: record.updatedAt, scored: metrics.applying(to: snapshot), evidence: DailyScoreEvidenceEnvelope(evidence: metrics, persistedAt: date))
+            // Later historical days must see the newly saved preceding scores/loads,
+            // just as the foreground pipeline's chronological pass does.
+            history.removeAll { calendar.isDate($0.date, inSameDayAs: scored.date) }
+            history.append(scored)
+            progress.completed += 1
+            if HistoricalScoreBackfillPolicy.hasScore(scored) { progress.scored += 1 }
+            else { progress.insufficient += 1 }
+            onProgress(progress)
+        }
+        return progress
+    }
+    private func persistIfUnchanged(snapshot: DailyHealthSnapshot, updatedAt: Date, scored: DailyHealthSnapshot, evidence: DailyScoreEvidenceEnvelope) throws -> DailyHealthSnapshot {
+        try PersistenceWriteGate.shared.withSerializedWrite(operation: "historical.fillMissingScores") {
+            let context = ModelContext(modelContext.container)
+            context.autosaveEnabled = false
+            let id = DailyHealthSummaryRecord.dayIdentifier(for: snapshot.date, calendar: calendar)
+            guard let record = try SwiftDataDailyHealthSummaryRepository(modelContext: context).fetchRecord(dayIdentifier: id),
+                  record.updatedAt == updatedAt,
+                  !HistoricalScoreBackfillPolicy.hasScore(record.toSnapshot()), record.scoreEvidenceData == nil else {
+                throw HistoricalScoreRepairError.concurrentUpdate
+            }
+            record.sleepScore = scored.sleepScore
+            record.recoveryScore = scored.recoveryScore
+            record.strainScore = scored.strainScore
+            record.stressIndex = scored.stressIndex
+            record.currentEnergy = scored.currentEnergy
+            record.morningEnergy = scored.morningEnergy
+            record.energyBank = scored.energyBank
+            record.dailyLoad = record.dailyLoad ?? scored.dailyLoad
+            record.workoutLoad = record.workoutLoad ?? scored.workoutLoad
+            record.activityLoad = record.activityLoad ?? scored.activityLoad
+            record.trainingLoadRatio = record.trainingLoadRatio ?? scored.trainingLoadRatio
+            record.atl = record.atl ?? scored.atl
+            record.ctl = record.ctl ?? scored.ctl
+            record.tsb = record.tsb ?? scored.tsb
+            record.acwr = record.acwr ?? scored.acwr
+            try record.apply(scoreEvidence: evidence, observations: snapshot)
+            do { try context.save() }
+            catch { context.rollback(); throw error }
+            return record.toSnapshot()
+        }
+    }
+
+}
+
+@MainActor
+final class HistoricalScoreBackfillCoordinator: ObservableObject {
+    static let shared = HistoricalScoreBackfillCoordinator()
+    @Published private(set) var progress = HistoricalScoreBackfillProgress()
+    @Published private(set) var isRunning = false
+    @Published private(set) var lastError: String?
+    @Published private(set) var didFinish = false
+    private var task: Task<Void, Never>?
+
+    func start(modelContext: ModelContext) {
+        guard !isRunning, !HistoricalBackfillCoordinator.shared.isRunning else { return }
+        isRunning = true
+        didFinish = false
+        lastError = nil
+        let context = ModelContext(modelContext.container)
+        context.autosaveEnabled = false
+        task = Task { [weak self] in
+            guard let self else { return }
+            defer {
+                self.isRunning = false
+                self.task = nil
+                VelaAppState.shared.markLocalDataChanged()
+            }
+            do {
+                self.progress = try await HistoricalScoreBackfillService(modelContext: context).repair(onProgress: {
+                    self.progress = $0
+                })
+                self.didFinish = true
+            } catch is CancellationError {
+                context.rollback()
+            } catch {
+                context.rollback()
+                self.lastError = error.localizedDescription
+            }
+        }
+    }
+
+    func cancel() { task?.cancel() }
 }

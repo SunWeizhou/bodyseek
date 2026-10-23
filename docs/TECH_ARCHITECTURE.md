@@ -1,11 +1,11 @@
 # Vela Technical Architecture Specification
 
 > Status: Canonical
-> Last verified: 2026-10-06
+> Last verified: 2026-10-15
 > Scope: Vela 当前工程的技术架构、模块分层、数据流管道、持久化模型与状态管理规范
 > Does not define: 业务需求与产品优先级（见 [docs/PRD.md](PRD.md)）、领域术语定义（见 [../CONTEXT.md](../CONTEXT.md)）
 
-> 现行源码（2026-10-06）：`DailyHealthComputation` 定义于 `VelaApp/Scoring/ScoreEngineFactory.swift`。生产睡眠分经 `DomainSleepScoreAdapter` 调用 `BodySeekDomain.SleepScoreEngine`。恢复、负荷、压力、能量仍由 Vela App target 内的引擎计算。`BodySeekDomain` 不能当成五项都已迁移的证明。Today 由 `VelaMinimalShell` 持有 `TodayStore`。趋势按所选时间窗取数。页面/共享文件地图见 [UI 工作流](collaboration/UI_WORKFLOW.md)。下文算法表是概要，旧 v1 评分文档与 Energy 模型卡仍待对齐，不据此宣称公式已经重新验证。
+> 现行源码（2026-10-15）：App 的 `DailyHealthComputation`（`VelaApp/Scoring/ScoreEngineFactory.swift`）只映射快照与长线上下文，五项装配在 `BodySeekDomain.DailyHealthComputation`。App 内同名引擎文件只做结果映射。Today 由 `VelaMinimalShell` 持有 `TodayStore`；Trends 由 Shell 注入选中日与仪表盘快照。更细的模块化现状见 [bodyseek-modularization-map.md](architecture/bodyseek-modularization-map.md)。页面/共享文件地图见 [UI 工作流](collaboration/UI_WORKFLOW.md)。下文算法表是概要，旧 v1 评分文档与 Energy 模型卡仍待对齐，不据此宣称公式已经重新验证。
 
 ---
 
@@ -15,7 +15,11 @@
 - **对外产品名**: BodySeek（工程代码、Bundle ID 与数据库身份保持 Vela）
 - **UI 风格**: Apple Native Design System + Rhythm 视觉 Tokens（`VelaTheme`）
 - **数据流**: 单向数据流（Unidirectional Data Flow），本地确定性计算优先，AI 作为解释与提案增强
-- **运行时 AI 连接**: iOS 端直连 DeepSeek API (`api.deepseek.com`，Keychain 存储 Key)，可选 Kimi Vision 识别食物照片；`VelaBackend` (Vapor 4) 仅作为保留的实验服务，当前未启用。
+- **交互状态复用（2026-10-22）**：Today 首次读取成功后，15 分钟内返回页面复用已发布状态；显式刷新、换日、失败重试和本地数据变更仍走既有读取路径，不改变评分或数据新鲜度时间戳。Plan/Coach 打开时不再附带刷新整套仪表盘。底部草稿由独立 Observation 状态持有，输入与听写局部更新；Coach 默认页内面板，完整会话为主动展开。
+- **数据呈现与失败恢复（2026-10-23）**：基线 prior-day count 与含当天 chart count 分别标注；详情范围仅在对应 finding 可用时显示。AgentLoop 对文本化工具协议最多纠正一次，仅执行正式工具调用；旧协议回复在呈现及上下文装配边界隔离，不改写原会话。HistoricalScoreBackfillService 复用 DailyHealthComputation 的历史日 cutoff，以串行写门禁、独立 ModelContext 和旧记录版本检查，只填从未评分日的计算字段，不覆盖原始汇总或已有分数。
+
+- **语音回调边界**：Speech 授权、识别结果与音频 tap 的系统回调在非 MainActor 边界定义；只把可传输结果投递到 MainActor。录音启动可取消，返回过期结果不重启录音；听写限本机识别，结果停留在草稿。
+- **运行时 AI 连接**: iOS 端直连 DeepSeek API (`api.deepseek.com`，Keychain 存储 Key)，可选 Kimi Vision 识别食物照片。`VelaBackend` 的测试在 CI 的 `backend` job 里运行；它仍不是线上服务。工具链版本在仓库根目录的 `.xcode-version`。
 
 ---
 
@@ -153,7 +157,7 @@ VelaApp
 └── Features/Settings/
     ├── DataCoverageView.swift        # 数据覆盖与权限
     ├── TrustCenterView.swift         # 数据与 AI 信任设置
-    └── BiologyView.swift             # 生理设置
+    └── BiologyView.swift             # 血检记录、化验解析；生物年龄页面已从导航移除
 ```
 
 ---

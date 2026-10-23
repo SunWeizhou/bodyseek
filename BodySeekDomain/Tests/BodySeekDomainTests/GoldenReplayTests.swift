@@ -10,10 +10,8 @@ final class GoldenReplayTests: XCTestCase {
     }
 
     func testSleepGoldenFixtureMatchesVelaOracle() {
-        // This is a complete mirror of the PR0 Vela golden fixture, including
-        // its 14 historical snapshots. The package currently consumes only
-        // the sleep fields; retaining every field here prevents a partial
-        // fixture from being mistaken for a complete parity replay.
+        // This is the PR0 Vela golden fixture. The domain facade now assembles
+        // all five scores; the expected values are the production oracle.
         let day = calendar.date(from: DateComponents(year: 2026, month: 7, day: 31))!
         let asOf = day.addingTimeInterval(12 * 3_600)
         let history = (1...14).map { offset -> DailyHealthSnapshot in
@@ -73,11 +71,10 @@ final class GoldenReplayTests: XCTestCase {
         XCTAssertEqual(result.sleep.components["duration"] ?? -1, 50, accuracy: 0.0001)
         XCTAssertEqual(result.sleep.components["interruption"] ?? -1, 4.2, accuracy: 0.0001)
         XCTAssertEqual(result.sleep.confidence, MetricConfidence.low)
-        XCTAssertTrue(result.recovery.value == nil)
-        XCTAssertTrue(result.strain.value == nil)
-        XCTAssertTrue(result.physiologicalStress.value == nil)
-        XCTAssertTrue(result.energy.value == nil)
-        XCTAssertFalse(result.allMetrics.contains { $0.value != nil && $0.domain != ScoredHealthDomain.sleep })
+        XCTAssertEqual(result.recovery.value ?? -1, 68.70, accuracy: 0.01)
+        XCTAssertEqual(result.strain.value ?? -1, 63.67, accuracy: 0.01)
+        XCTAssertEqual(result.physiologicalStress.value ?? -1, 26.50245571207583, accuracy: 0.01)
+        XCTAssertEqual(result.energy.value ?? -1, 46.555299948395124, accuracy: 0.01)
         XCTAssertEqual(result.recovery.algorithmVersion, ScoringAlgorithmVersions.recovery)
         XCTAssertEqual(result.strain.algorithmVersion, ScoringAlgorithmVersions.strain)
         XCTAssertEqual(result.physiologicalStress.algorithmVersion, ScoringAlgorithmVersions.physiologicalStress)

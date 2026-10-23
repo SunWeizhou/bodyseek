@@ -310,10 +310,7 @@ final class TodayLegacyRuntime {
     func loadDailyDecisionFeedback(for date: Date) -> DailyDecisionFeedbackRecord? {
         guard let modelContext else { return nil }
         let dayIdentifier = DailyHealthSummaryRecord.dayIdentifier(for: date)
-        let descriptor = FetchDescriptor<DailyDecisionFeedbackRecord>(
-            predicate: #Predicate { $0.dayIdentifier == dayIdentifier }
-        )
-        return try? modelContext.fetch(descriptor).first
+        return (try? DailyDecisionFeedbackRepository(modelContext: modelContext).fetchRecord(dayIdentifier: dayIdentifier)) ?? nil
     }
 
     func feedbackSheetAdapter(for date: Date) -> TodayFeedbackSheetAdapter? {
@@ -343,19 +340,14 @@ final class TodayLegacyRuntime {
     /// compatibility boundary. Today never renders SwiftData plan objects.
     func planProjections(for date: Date) -> (TodayPlanProjection?, TodayPendingPlanProjection?) {
         guard let modelContext else { return (nil, nil) }
-        let active = (try? modelContext.fetch(
-            FetchDescriptor<TrainingPlanRecord>(predicate: #Predicate { $0.isActive })
-        ))?.first
+        let active = (try? TrainingPlanRepository(modelContext: modelContext).fetchActivePlans())?.first
         guard let active else { return (nil, nil) }
         let activeProjection = TodayPlanProjection(
             title: active.title,
             detail: active.goalDescription.isEmpty ? nil : active.goalDescription
         )
-        let pending = (try? modelContext.fetch(
-            FetchDescriptor<TrainingPlanAdaptationRecord>()
-        ))?.filter { $0.planId == active.id && $0.status == "proposed" }
-            .sorted { $0.createdAt > $1.createdAt }
-            .first
+        let pending = (try? TrainingPlanAdaptationRepository(modelContext: modelContext)
+            .fetchProposed(planId: active.id))?.first
         let pendingProjection = pending.map {
             TodayPendingPlanProjection(
                 id: $0.id,
@@ -484,10 +476,8 @@ final class TodayLegacyRuntime {
     private func operatingPlan(for date: Date) throws -> DailyOperatingPlanRecord {
         guard let modelContext else { throw RuntimeError.unavailable }
         let dayIdentifier = DailyHealthSummaryRecord.dayIdentifier(for: date)
-        let descriptor = FetchDescriptor<DailyOperatingPlanRecord>(
-            predicate: #Predicate { $0.dayIdentifier == dayIdentifier }
-        )
-        guard let plan = try modelContext.fetch(descriptor).first else {
+        guard let plan = try DailyOperatingPlanRepository(modelContext: modelContext)
+            .fetchLatest(dayIdentifier: dayIdentifier) else {
             throw RuntimeError.unavailable
         }
         return plan
@@ -994,7 +984,7 @@ extension VelaTodayView {
         case .keep: return VelaTheme.success
         case .reduce: return VelaTheme.systemOrange
         case .swap: return VelaTheme.indigo
-        case .recover: return VelaTheme.sleepColor
+        case .recover: return VelaTheme.rhythmInk
         }
     }
 
@@ -1096,10 +1086,6 @@ extension VelaTodayView {
         feedbackSheetAdapter = todayLegacyRuntime.feedbackSheetAdapter(
             for: todayStore.state.selectedDay
         )
-    }
-
-    func refreshDashboard(force: Bool = false) async {
-        await todayLegacyRuntime.refreshDashboard(dashboardVM, force: force)
     }
 
     func loadDataCoverageSummary() async {

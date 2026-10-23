@@ -2,15 +2,13 @@ import SwiftUI
 import SwiftData
 
 struct BodyModelEditView: View {
+    var onRefresh: (() async -> Void)?
+
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var dashboardVM: DashboardViewModel
     
     @Query(sort: \OnboardingState.updatedAt, order: .reverse)
     private var onboardingStates: [OnboardingState]
-
-    @Query(sort: \TrainingResponseRecord.date, order: .reverse)
-    private var trainingResponses: [TrainingResponseRecord]
     
     private var onboarding: OnboardingState? { onboardingStates.first }
     
@@ -133,6 +131,8 @@ struct BodyModelEditView: View {
     }
     
     private func loadOnboardingState() {
+        let trainingResponses = (try? TrainingResponseRepository(modelContext: modelContext)
+            .fetchAllSortedByDate()) ?? []
         guard let state = onboarding else { return }
         primaryGoal = state.goalProfile.primaryGoal
         experienceLevel = state.goalProfile.experienceLevel
@@ -196,7 +196,9 @@ struct BodyModelEditView: View {
             try modelContext.save()
             VelaAppState.shared.markLocalDataChanged()
             Task {
-                await dashboardVM.refresh(modelContext: modelContext, force: true)
+                if let onRefresh {
+                    await onRefresh()
+                }
             }
             return true
         } catch {
@@ -276,8 +278,11 @@ struct BaselineRangeIndicator: View {
 }
 
 struct BodyModelDetailView: View {
+    let selectedDate: Date
+    let dashboard: DashboardSummary
+    var onRefresh: (() async -> Void)?
+
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var dashboardVM: DashboardViewModel
     
     @Query(sort: \OnboardingState.updatedAt, order: .reverse)
     private var onboardingStates: [OnboardingState]
@@ -287,7 +292,6 @@ struct BodyModelDetailView: View {
     @State private var trainingResponses: [TrainingResponseRecord] = []
     
     private var onboarding: OnboardingState? { onboardingStates.first }
-    private var dashboard: DashboardSummary { dashboardVM.dashboard }
     private var hasCompletedProfile: Bool { onboarding?.isCompleted == true }
     private var staticGoalText: String {
         hasCompletedProfile ? displayGoal(onboarding?.goalProfile.primaryGoal ?? "unknown") : "尚未设置"
@@ -362,11 +366,8 @@ struct BodyModelDetailView: View {
         .background(VelaTheme.rhythmCanvas)
         .navigationTitle("身体模型")
         .velaRhythmDetailChrome()
-        .onAppear {
-            loadModelData()
-        }
-        .onChange(of: dashboardVM.selectedDate) {
-            loadModelData()
+        .task(id: selectedDate) {
+            await loadModelData()
         }
     }
     
@@ -400,7 +401,7 @@ struct BodyModelDetailView: View {
                     .font(.system(.footnote, design: .default, weight: .bold))
                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
                 Spacer()
-                NavigationLink(destination: BodyModelEditView()) {
+                NavigationLink(destination: BodyModelEditView(onRefresh: onRefresh)) {
                     HStack(spacing: 4) {
                         Image(systemName: "slider.horizontal.3")
                         Text("修改设定")
@@ -513,41 +514,37 @@ struct BodyModelDetailView: View {
         JournalCorrelationSection(bodyModelState: bodyModelState, insights: insights)
     }
     
-    private func loadModelData() {
+    private func loadModelData() async {
         memoizedBodyModelState = nil
-        // 三年窗口：身体模型与行为-结果配对用回填历史立即拟合，
-        // 不再被 35/100/50/30 天的窗口截断在学习期。
-        self.dailySummaries = (try? modelContext.fetch(
-            FetchDescriptor<DailyHealthSummaryRecord>(sortBy: [SortDescriptor(\.date, order: .reverse)])
-        )) ?? []
- 
-        self.journalEntries = (try? modelContext.fetch(
-            FetchDescriptor<JournalEntryRecord>(sortBy: [SortDescriptor(\.createdAt, order: .reverse)])
-        )) ?? []
- 
-        self.strengthWorkouts = (try? modelContext.fetch(
-            FetchDescriptor<StrengthWorkoutRecord>(sortBy: [SortDescriptor(\.startedAt, order: .reverse)])
-        )) ?? []
- 
-        self.trainingResponses = (try? modelContext.fetch(
-            FetchDescriptor<TrainingResponseRecord>(sortBy: [SortDescriptor(\.date, order: .reverse)])
-        )) ?? []
- 
+        // Fetches stay on the model context. The three-year aggregate does not.
+        self.dailySummaries = (try? SwiftDataDailyHealthSummaryRepository(modelContext: modelContext)
+            .fetchAllSortedByDate(newestFirst: true)) ?? []
+
+        self.journalEntries = (try? SwiftDataJournalRepository(modelContext: modelContext)
+            .fetchAllSortedByCreatedAt(newestFirst: true)) ?? []
+        self.strengthWorkouts = (try? WorkoutHistoryRepository(modelContext: modelContext)
+            .fetchStrengthWorkoutsSortedByStart(newestFirst: true)) ?? []
+
+        self.trainingResponses = (try? TrainingResponseRepository(modelContext: modelContext)
+            .fetchAllSortedByDate()) ?? []
+
         let repo = HealthSnapshotRepository(modelContext: modelContext)
         if let snaps = try? repo.fetchSnapshots(days: 1100, endingAt: dashboard.date) {
             self.healthSnapshots = snaps
-            let engine = JournalCorrelationEngine()
-            // 手记行为配对 + 三年生理行为配对（训练日/高活动日/短睡眠夜），
-            // Impact Matrix 回填后立即有内容，不再只依赖手记。
             let journalsThroughDate = self.journalEntries.filter { $0.createdAt <= dashboard.date }
-            let journalInsights = engine.calculateInsights(journalEntries: journalsThroughDate, snapshots: snaps)
+            let engine = JournalCorrelationEngine()
+            let journalInsights = engine.calculateInsights(
+                journalEntries: journalsThroughDate,
+                snapshots: snaps
+            )
             let physiologicalInsights = engine.physiologicalInsights(snapshots: snaps)
             self.insights = journalInsights + physiologicalInsights
         }
-        self.longTermReport = LongTermBaselineEngine.compute(
-            points: self.dailySummaries.map(\.longTermBaselinePoint),
-            today: dashboard.date
-        )
+        let points = self.dailySummaries.map(\.longTermBaselinePoint)
+        let today = dashboard.date
+        self.longTermReport = await Task.detached {
+            LongTermBaselineEngine.compute(points: points, today: today)
+        }.value
     }
     
     private func confidenceColor(_ conf: MetricConfidence) -> Color {

@@ -57,7 +57,7 @@ struct SleepClockWheelView: View {
             Circle()
                 .trim(from: 0.0, to: sleepDurationFraction)
                 .stroke(
-                    LinearGradient(colors: [VelaTheme.sleepColor, VelaTheme.sleepClockWakePill], startPoint: .top, endPoint: .bottom),
+                    LinearGradient(colors: [VelaTheme.rhythmInk, VelaTheme.sleepClockWakePill], startPoint: .top, endPoint: .bottom),
                     style: StrokeStyle(lineWidth: 7.5, lineCap: .round)
                 )
                 .frame(width: 140, height: 140)
@@ -67,8 +67,8 @@ struct SleepClockWheelView: View {
             VStack(spacing: 16) {
                 Image(systemName: "moon.fill")
                     .font(.system(size: 11))
-                    .foregroundStyle(VelaTheme.sleepColor)
-                    .shadow(color: VelaTheme.sleepColor.opacity(0.6), radius: 3)
+                    .foregroundStyle(VelaTheme.rhythmInk)
+                    .shadow(color: VelaTheme.rhythmInk.opacity(0.6), radius: 3)
                 
                 Image(systemName: "sun.max.fill")
                     .font(.system(size: 12))
@@ -77,7 +77,7 @@ struct SleepClockWheelView: View {
             .offset(y: -4)
 
             // Bedtime Indicator Icon overlay (bed)
-            dialIndicatorPill(icon: "bed.double.fill", color: VelaTheme.sleepColor)
+            dialIndicatorPill(icon: "bed.double.fill", color: VelaTheme.rhythmInk)
                 .offset(x: 70 * cos((bedtimeAngle - 90.0) * .pi / 180), y: 70 * sin((bedtimeAngle - 90.0) * .pi / 180))
             
             // Wake Indicator Icon overlay (clock)

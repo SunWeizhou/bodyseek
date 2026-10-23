@@ -53,10 +53,8 @@ final class EveningWikiSyncAgent: ObservableObject {
                 for: Date(),
                 calendar: Calendar.current
             )
-            let todayDescriptor = FetchDescriptor<DailyHealthSummaryRecord>(
-                predicate: #Predicate<DailyHealthSummaryRecord> { $0.dayIdentifier == todayIdentifier }
-            )
-            if let todayRecord = (try? modelContext.fetch(todayDescriptor))?.first {
+            if let todayRecord = try? SwiftDataDailyHealthSummaryRepository(modelContext: modelContext)
+                .fetchRecord(dayIdentifier: todayIdentifier) {
                 let healthDayBoundary = Calendar.current.date(bySettingHour: 4, minute: 0, second: 0, of: Date()) ?? Date()
                 if todayRecord.updatedAt < healthDayBoundary {
                     logger.info("Today's snapshot predates the 04:00 health-day boundary. Skipping evening wiki sync.")
@@ -83,7 +81,7 @@ final class EveningWikiSyncAgent: ObservableObject {
             outputSummary: ""
         )
         modelContext.insert(runRecord)
-        try? modelContext.save()
+        modelContext.saveOrRecordFailure("modelContext.save")
 
         do {
             let contextAsOf = Date()
@@ -103,7 +101,7 @@ final class EveningWikiSyncAgent: ObservableObject {
                let thresholdKey = try? keychain.read(account: apiKeyAccount),
                !thresholdKey.isEmpty {
                 do {
-                    let feedbackRecords = (try? modelContext.fetch(FetchDescriptor<DailyDecisionFeedbackRecord>())) ?? []
+                    let feedbackRecords = (try? DailyDecisionFeedbackRepository(modelContext: modelContext).fetchAll()) ?? []
                     let feedbackText = ThresholdProposalGenerator.feedbackSummary(records: feedbackRecords)
                     let payload = try await ThresholdProposalGenerator.generate(
                         apiKey: thresholdKey,
@@ -205,21 +203,16 @@ final class EveningWikiSyncAgent: ObservableObject {
             let parsed = AgentActionParser.parse(response.content)
             var proposalFiles: [String] = []
             let ledger = MemoryLedger(modelContext: modelContext)
-            for action in parsed.actions where action.type == .updateWiki {
-                let memType = WikiFileRole.memoryTypeFor(filename: action.target)
-                let record = try? ledger.createProposal(
-                    targetFile: action.target,
-                    memoryType: memType,
-                    content: action.content,
-                    evidence: "Evening wiki sync auto-detected pattern from daily data.",
-                    confidence: 0.6,
-                    source: "evening_wiki_sync",
-                    linkedAgentRunId: runRecord.id.uuidString
-                )
-                if record != nil {
-                    proposalFiles.append(action.target)
-                    logger.info("Memory proposal created: \(action.target)")
-                }
+            let created = ledger.createWikiProposals(
+                from: parsed.actions,
+                evidence: "Evening wiki sync auto-detected pattern from daily data.",
+                confidence: 0.6,
+                source: "evening_wiki_sync",
+                linkedAgentRunId: runRecord.id.uuidString
+            )
+            for proposal in created {
+                proposalFiles.append(proposal.file)
+                logger.info("Memory proposal created: \(proposal.file)")
             }
 
             // Save daily summary report
@@ -258,7 +251,7 @@ final class EveningWikiSyncAgent: ObservableObject {
                 toolCallsInfo.append(["action": "personal_response_scan", "created": "\(personalRulesCreated)"])
             }
             runRecord.toolCallsJSON = (try? String(data: JSONEncoder().encode(toolCallsInfo), encoding: .utf8)) ?? "[]"
-            try? modelContext.save()
+            modelContext.saveOrRecordFailure("modelContext.save")
 
             // Reschedule tomorrow's background refresh
             scheduleBackgroundRefresh()
@@ -267,7 +260,7 @@ final class EveningWikiSyncAgent: ObservableObject {
             runRecord.endedAt = Date()
             runRecord.status = AgentRunStatus.failed.rawValue
             runRecord.errorMessage = error.localizedDescription
-            try? modelContext.save()
+            modelContext.saveOrRecordFailure("modelContext.save")
         }
     }
 
@@ -286,11 +279,8 @@ final class EveningWikiSyncAgent: ObservableObject {
         let snapshots = (try? HealthSnapshotRepository(modelContext: modelContext).fetchSnapshots(days: 60)) ?? []
         guard !snapshots.isEmpty else { return 0 }
 
-        let existingDescriptor = FetchDescriptor<MemoryEventRecord>(
-            predicate: #Predicate { $0.source == "personal_response_model" },
-            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
-        )
-        let existingRules = (try? modelContext.fetch(existingDescriptor)) ?? []
+        let existingRules = (try? MemoryLedger(modelContext: modelContext)
+            .fetchNewest(source: "personal_response_model")) ?? []
         let created = (try? PersonalResponseInsightService().scanAndPropose(
             modelContext: modelContext,
             snapshots: snapshots,
@@ -305,20 +295,14 @@ final class EveningWikiSyncAgent: ObservableObject {
     }
 
     private func alreadyRanToday(modelContext: ModelContext) -> Bool {
-        let runDescriptor = FetchDescriptor<AgentRunRecord>(
-            predicate: #Predicate { $0.agentName == "evening_wiki_sync" && $0.status == "success" },
-            sortBy: [SortDescriptor(\.startedAt, order: .reverse)]
-        )
-        if let latestRun = try? modelContext.fetch(runDescriptor).first,
+        if let latestRun = (try? AgentRunRepository(modelContext: modelContext)
+            .fetchSuccessful(agentName: "evening_wiki_sync"))?.first,
            Calendar.current.isDateInToday(latestRun.startedAt) {
             return true
         }
 
-        let descriptor = FetchDescriptor<AIReportRecord>(
-            predicate: #Predicate { $0.type == "daily_sync" },
-            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
-        )
-        guard let reports = try? modelContext.fetch(descriptor), let latest = reports.first else {
+        guard let latest = try? SwiftDataAIReportRepository(modelContext: modelContext)
+            .recent(type: "daily_sync", limit: 1).first else {
             return false
         }
         return Calendar.current.isDateInToday(latest.createdAt)

@@ -38,9 +38,7 @@ struct VelaMetricScoreRing: View {
             ZStack {
                 Circle()
                     .stroke(
-                        score == nil
-                            ? VelaTheme.rhythmMist
-                            : effectiveColor.opacity(0.14),
+                        VelaTheme.scoreTrack,
                         style: StrokeStyle(
                             lineWidth: ringWidth,
                             lineCap: .round,
@@ -65,10 +63,7 @@ struct VelaMetricScoreRing: View {
                     Circle()
                         .trim(from: 0, to: max(0.006, animatedProgress))
                         .stroke(
-                            AngularGradient(
-                                colors: [effectiveColor.opacity(0.58), effectiveColor],
-                                center: .center
-                            ),
+                            effectiveColor,
                             style: StrokeStyle(lineWidth: ringWidth, lineCap: .round)
                         )
                         .rotationEffect(.degrees(-90))
@@ -110,7 +105,7 @@ struct VelaMetricScoreRing: View {
     }
 
     private var ringWidth: CGFloat {
-        max(5, (size * 0.065).rounded())
+        max(6, (size * 0.082).rounded())
     }
 
     /// Semantic text styles keep score numerals responsive to Dynamic Type.
@@ -118,12 +113,12 @@ struct VelaMetricScoreRing: View {
     /// minimum scale factor preventing the value from colliding with its arc.
     private var valueFont: Font {
         if size <= VelaTheme.ringSm + 10 {
-            return .system(.footnote, design: .default, weight: .semibold)
+            return .system(.footnote, design: .default, weight: .medium)
         }
         if size <= VelaTheme.ringMd + 6 {
-            return .system(.title3, design: .default, weight: .semibold)
+            return .system(.title3, design: .default, weight: .medium)
         }
-        return .system(.title, design: .default, weight: .semibold)
+        return .system(.largeTitle, design: .default, weight: .medium)
     }
 
     private var effectiveColor: Color {
@@ -244,8 +239,8 @@ enum VelaStageKind: String {
     var color: Color {
         switch self {
         case .awake: VelaTheme.warn
-        case .core: VelaTheme.sleepColor.opacity(0.70)
-        case .deep: VelaTheme.sleepColor
+        case .core: VelaTheme.rhythmInk.opacity(0.70)
+        case .deep: VelaTheme.rhythmInk
         case .rem: Color(uiColor: .systemCyan)
         }
     }
@@ -480,6 +475,9 @@ struct DateAwareSparkline: View {
     let color: Color
     var height: CGFloat = 36
     var width: CGFloat = 80
+    /// Personal usual range already estimated for this series. Nothing is drawn when it is absent.
+    var band: ClosedRange<Double>? = nil
+    var marksLatestPoint: Bool = false
 
     var body: some View {
         let nonNilPoints = points.filter { $0.value != nil }
@@ -501,18 +499,20 @@ struct DateAwareSparkline: View {
                 .frame(width: width, height: height)
         } else {
             let values = nonNilPoints.compactMap(\.value)
-            let minVal = values.min() ?? 0
-            let maxVal = values.max() ?? 100
+            let bandBounds = [band?.lowerBound, band?.upperBound].compactMap { $0 }.filter(\.isFinite)
+            let minVal = min(values.min() ?? 0, bandBounds.min() ?? values.min() ?? 0)
+            let maxVal = max(values.max() ?? 100, bandBounds.max() ?? values.max() ?? 100)
             let range = max(maxVal - minVal, 1.0)
 
-            let firstDate = points.first?.date ?? Date()
-            let lastDate = points.last?.date ?? Date()
+            let ordered = points.sorted { $0.date < $1.date }
+            let firstDate = ordered.first?.date ?? Date()
+            let lastDate = ordered.last?.date ?? firstDate
             let totalSpan = max(lastDate.timeIntervalSince(firstDate), 1.0)
 
             let segments: [[TrendsChartPoint]] = {
                 var segs: [[TrendsChartPoint]] = []
                 var cur: [TrendsChartPoint] = []
-                for pt in points {
+                for pt in ordered {
                     if pt.value != nil {
                         cur.append(pt)
                     } else if !cur.isEmpty {
@@ -525,6 +525,14 @@ struct DateAwareSparkline: View {
             }()
 
             ZStack {
+                if let band, band.lowerBound.isFinite, band.upperBound.isFinite, band.upperBound > band.lowerBound {
+                    let top = height - (CGFloat((band.upperBound - minVal) / range) * (height - 8) + 4)
+                    let bottom = height - (CGFloat((band.lowerBound - minVal) / range) * (height - 8) + 4)
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(VelaTheme.rangeBand)
+                        .frame(width: width, height: max(2, abs(bottom - top)))
+                        .position(x: width / 2, y: (top + bottom) / 2)
+                }
                 ForEach(Array(segments.enumerated()), id: \.offset) { _, seg in
                     if seg.count == 1, let pt = seg.first, let v = pt.value {
                         let x = CGFloat(pt.date.timeIntervalSince(firstDate) / totalSpan) * width
@@ -535,39 +543,6 @@ struct DateAwareSparkline: View {
                             .frame(width: 5, height: 5)
                             .position(x: max(3, min(width - 3, x)), y: y)
                     } else if seg.count > 1 {
-                        // Shaded area under this segment
-                        Path { path in
-                            guard let firstPt = seg.first, let firstV = firstPt.value else { return }
-                            let firstX = CGFloat(firstPt.date.timeIntervalSince(firstDate) / totalSpan) * width
-                            let firstNorm = (firstV - minVal) / range
-                            let firstY = height - (CGFloat(firstNorm) * (height - 8) + 4)
-
-                            path.move(to: CGPoint(x: firstX, y: height))
-                            path.addLine(to: CGPoint(x: firstX, y: firstY))
-
-                            for pt in seg.dropFirst() {
-                                guard let v = pt.value else { continue }
-                                let x = CGFloat(pt.date.timeIntervalSince(firstDate) / totalSpan) * width
-                                let norm = (v - minVal) / range
-                                let y = height - (CGFloat(norm) * (height - 8) + 4)
-                                path.addLine(to: CGPoint(x: x, y: y))
-                            }
-
-                            if let lastPt = seg.last {
-                                let lastX = CGFloat(lastPt.date.timeIntervalSince(firstDate) / totalSpan) * width
-                                path.addLine(to: CGPoint(x: lastX, y: height))
-                            }
-                            path.closeSubpath()
-                        }
-                        .fill(
-                            LinearGradient(
-                                colors: [color.opacity(0.14), color.opacity(0.0)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-
-                        // Line
                         Path { path in
                             for (idx, pt) in seg.enumerated() {
                                 guard let v = pt.value else { continue }
@@ -582,6 +557,18 @@ struct DateAwareSparkline: View {
                             }
                         }
                         .stroke(color, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+                        if marksLatestPoint,
+                           let pt = seg.last,
+                           let v = pt.value,
+                           pt.date == segments.last?.last?.date {
+                            let x = CGFloat(pt.date.timeIntervalSince(firstDate) / totalSpan) * width
+                            let norm = (v - minVal) / range
+                            let y = height - (CGFloat(norm) * (height - 8) + 4)
+                            Circle()
+                                .strokeBorder(color, lineWidth: 1.25)
+                                .frame(width: 7, height: 7)
+                                .position(x: max(4, min(width - 4, x)), y: y)
+                        }
                     }
                 }
             }
@@ -590,139 +577,3 @@ struct DateAwareSparkline: View {
     }
 }
 
-// MARK: - TripleConcentricScoreRing (Concentric Recovery/Sleep/Strain activity-style rings)
-
-struct TripleConcentricScoreRing: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    let recovery: Double // 0...1
-    let sleep: Double    // 0...1
-    let strain: Double   // 0...1
-    
-    @State private var animRecovery: Double = 0.0
-    @State private var animSleep: Double = 0.0
-    @State private var animStrain: Double = 0.0
-    
-    var body: some View {
-        ZStack {
-            // Blurred depth glow backing
-            RadialGradient(
-                colors: [
-                    VelaTheme.recoveryColor.opacity(0.12),
-                    VelaTheme.sleepColor.opacity(0.08),
-                    Color.clear
-                ],
-                center: .center,
-                startRadius: 0,
-                endRadius: 50
-            )
-            .frame(width: 100, height: 100)
-            .blur(radius: 6)
-
-            // Recovery (Outer)
-            Circle()
-                .stroke(VelaTheme.recoveryColor.opacity(0.12), lineWidth: 8.5)
-                .frame(width: 100, height: 100)
-            Circle()
-                .trim(from: 0, to: max(0.01, animRecovery))
-                .stroke(
-                    VelaTheme.recoveryColor.gradient,
-                    style: StrokeStyle(lineWidth: 8.5, lineCap: .round)
-                )
-                .rotationEffect(.degrees(-90))
-                .frame(width: 100, height: 100)
-                .shadow(color: VelaTheme.recoveryColor.opacity(0.25), radius: 2)
-            
-            // Sleep (Middle)
-            Circle()
-                .stroke(VelaTheme.sleepColor.opacity(0.12), lineWidth: 8.5)
-                .frame(width: 78, height: 78)
-            Circle()
-                .trim(from: 0, to: max(0.01, animSleep))
-                .stroke(
-                    VelaTheme.sleepColor.gradient,
-                    style: StrokeStyle(lineWidth: 8.5, lineCap: .round)
-                )
-                .rotationEffect(.degrees(-90))
-                .frame(width: 78, height: 78)
-                .shadow(color: VelaTheme.sleepColor.opacity(0.25), radius: 2)
-            
-            // Strain (Inner)
-            Circle()
-                .stroke(VelaTheme.strainColor.opacity(0.12), lineWidth: 8.5)
-                .frame(width: 56, height: 56)
-            Circle()
-                .trim(from: 0, to: max(0.01, animStrain))
-                .stroke(
-                    VelaTheme.strainColor.gradient,
-                    style: StrokeStyle(lineWidth: 8.5, lineCap: .round)
-                )
-                .rotationEffect(.degrees(-90))
-                .frame(width: 56, height: 56)
-                .shadow(color: VelaTheme.strainColor.opacity(0.25), radius: 2)
-        }
-        .onAppear {
-            withAnimation(VelaTheme.dataAnimation(reduceMotion: reduceMotion)) {
-                animRecovery = recovery
-                animSleep = sleep
-                animStrain = strain
-            }
-        }
-        .onChange(of: recovery) { _, newRecovery in
-            withAnimation(VelaTheme.dataAnimation(reduceMotion: reduceMotion)) { animRecovery = newRecovery }
-        }
-        .onChange(of: sleep) { _, newSleep in
-            withAnimation(VelaTheme.dataAnimation(reduceMotion: reduceMotion)) { animSleep = newSleep }
-        }
-        .onChange(of: strain) { _, newStrain in
-            withAnimation(VelaTheme.dataAnimation(reduceMotion: reduceMotion)) { animStrain = newStrain }
-        }
-    }
-}
-
-// MARK: - MiniMetricRow (Row showing inline indicator bars for triple rings)
-
-struct MiniMetricRow: View {
-    let icon: String
-    let label: String
-    let value: String
-    let progress: Double // 0...1
-    let color: Color
-    
-    var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.system(.caption2, design: .default, weight: .bold))
-                .foregroundStyle(color)
-                .frame(width: 20, height: 20)
-                .background(Circle().fill(color.opacity(0.12)))
-            
-            VStack(alignment: .leading, spacing: 2) {
-                HStack {
-                    Text(label)
-                        .font(.system(.caption, design: .default, weight: .bold))
-                        .foregroundStyle(VelaTheme.fg)
-                    Spacer()
-                    Text(value)
-                        .font(.system(.caption, design: .default, weight: .semibold))
-                        .foregroundStyle(color)
-                }
-                
-                // Capsule Progress Bar
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        Capsule()
-                            .fill(VelaTheme.borderSoft)
-                            .frame(height: 5)
-                        
-                        Capsule()
-                            .fill(color.gradient)
-                            .frame(width: geo.size.width * CGFloat(progress), height: 5)
-                    }
-                }
-                .frame(height: 5)
-            }
-        }
-        .padding(.vertical, 3)
-    }
-}

@@ -96,11 +96,11 @@ public enum ScoreDataCoverage: String, Codable, Hashable, Sendable {
 
 /// Version identifiers are part of the replay contract, not UI metadata.
 public enum ScoringAlgorithmVersions {
-    public static let sleep = "sleep.v2.2.0"
-    public static let recovery = "recovery.v2.0.0"
-    public static let strain = "strain.v2.1.0"
-    public static let physiologicalStress = "physiologicalStress.v2.0.0"
-    public static let energy = "energy.v2.0.0"
+    public static let sleep = "sleep.v2.3.0"
+    public static let recovery = "recovery.v2.1.0"
+    public static let strain = "strain.v2.2.0"
+    public static let physiologicalStress = "physiologicalStress.v2.2.0"
+    public static let energy = "energy.v2.2.0"
 }
 
 public enum StrainTargetStatus: String, Codable, Hashable, Sendable {
@@ -359,6 +359,24 @@ public enum ScoringMath {
         let squaredDifference = values.reduce(0.0) { $0 + pow($1 - mean, 2) }
         let value = sqrt(squaredDifference / Double(values.count - 1))
         return value > 0 ? value : nil
+    }
+
+    /// Log-domain HRV scale when a personal MAD is unavailable.
+    /// `sd(log X) ≈ sd(X) / mean(X)`, so this is a coefficient of variation,
+    /// not `log(baseline) × 0.12`.
+    public static let hrvLogCoefficientOfVariation = 0.20
+
+    /// Oldest-to-newest EWMA with a short mean warmup. Callers choose lambda;
+    /// strain's 28-day chronic window and energy's 42-day CTL stay different.
+    public static func ewma(_ values: [Double], lambda: Double) -> Double {
+        guard !values.isEmpty else { return 0 }
+        let warmupCount = min(7, values.count)
+        let seed = values.prefix(warmupCount).reduce(0, +) / Double(warmupCount)
+        var result = seed
+        for value in values.dropFirst(warmupCount) {
+            result = value * lambda + result * (1.0 - lambda)
+        }
+        return result
     }
 
     /// Median absolute deviation scaled to a normal-distribution estimate,

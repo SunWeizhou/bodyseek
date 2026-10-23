@@ -118,7 +118,7 @@ enum BackgroundTaskManager {
                     outputSummary: "Background refresh started."
                 )
                 modelContext.insert(bgRun)
-                try? modelContext.save()
+                modelContext.saveOrRecordFailure("modelContext.save")
 
                 // Build DashboardSummary from HealthKit. Gate the expensive 7-day
                 // HealthKit sync behind the last-successful-sync cursor: if data was
@@ -176,7 +176,7 @@ enum BackgroundTaskManager {
                 bgRun.status = AgentRunStatus.success.rawValue
                 bgRun.endedAt = Date()
                 bgRun.outputSummary = "Background refresh completed. HealthKit sync window: 7 days."
-                try? modelContext.save()
+                modelContext.saveOrRecordFailure("modelContext.save")
                 succeeded = true
             } catch {
                 logger.error("Background task failed: \(error.localizedDescription)")
@@ -191,7 +191,7 @@ enum BackgroundTaskManager {
                         outputSummary: "Background refresh failed.",
                         errorMessage: error.localizedDescription
                     ))
-                    try? modelContext.save()
+                    modelContext.saveOrRecordFailure("modelContext.save")
                 }
             }
         }

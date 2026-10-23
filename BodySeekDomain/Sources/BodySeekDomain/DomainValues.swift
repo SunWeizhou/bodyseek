@@ -60,6 +60,7 @@ public struct DailyHealthSnapshot: Identifiable, Codable, Hashable, Sendable {
     public var rhrObservedAt: Date?
     public var spo2ObservedAt: Date?
     public var hrvObservedWindow: DateInterval?
+    public var rhrObservedWindow: DateInterval?
 
     public init(
         id: UUID = UUID(),
@@ -111,11 +112,12 @@ public struct DailyHealthSnapshot: Identifiable, Codable, Hashable, Sendable {
         hrvObservedAt: Date? = nil,
         rhrObservedAt: Date? = nil,
         spo2ObservedAt: Date? = nil,
-        hrvObservedWindow: DateInterval? = nil
+        hrvObservedWindow: DateInterval? = nil,
+        rhrObservedWindow: DateInterval? = nil
     ) {
         self.id = id
         self.date = date
-        self.createdAt = createdAt ?? date
+        self.createdAt = createdAt ?? Date()
         self.sleepScore = sleepScore
         self.recoveryScore = recoveryScore
         self.strainScore = strainScore
@@ -163,6 +165,7 @@ public struct DailyHealthSnapshot: Identifiable, Codable, Hashable, Sendable {
         self.rhrObservedAt = rhrObservedAt
         self.spo2ObservedAt = spo2ObservedAt
         self.hrvObservedWindow = hrvObservedWindow
+        self.rhrObservedWindow = rhrObservedWindow
     }
 }
 

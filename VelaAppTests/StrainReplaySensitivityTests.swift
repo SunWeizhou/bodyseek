@@ -2,11 +2,10 @@ import Foundation
 import XCTest
 @testable import Vela
 
-/// ARCH-08 evidence for Strain while its engine remains app-target only.
-///
-/// These tests deliberately call the existing Vela oracle directly. They are
-/// replay evidence, not a portable BodySeekDomain implementation, and must
-/// not change the Strain formula.
+/// Production strain scores pass through the app adapter into
+/// `BodySeekDomain.StrainScoreEngine`. These assertions stay on the app
+/// type so the mapped `MetricResult` still matches the replay fixture.
+/// The formula itself is not changed here.
 final class StrainReplaySensitivityTests: XCTestCase {
     private let asOf: Date = ISO8601DateFormatter().date(from: "2026-07-31T12:00:00Z")!
 

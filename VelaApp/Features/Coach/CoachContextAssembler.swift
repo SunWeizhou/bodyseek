@@ -139,6 +139,7 @@ struct CoachOutboundDataPolicy: Equatable {
         defaults.set(Self.currentConsentVersion, forKey: Self.consentVersionKey)
     }
 
+    @MainActor
     static func revoke(defaults: UserDefaults = .standard) {
         defaults.removeObject(forKey: consentVersionKey)
         [healthKey, trainingKey, nutritionKey, journalKey, wikiKey, reportsKey, conversationHistoryKey, webSearchKey, filesKey]
@@ -293,10 +294,7 @@ struct CoachContextAssembler {
 
         let activePlan: TrainingPlanRecord?
         if outboundPolicy.training && usesCurrentProfile {
-            let activePlanFetch = FetchDescriptor<TrainingPlanRecord>(
-                predicate: #Predicate { $0.isActive }
-            )
-            activePlan = (try? modelContext.fetch(activePlanFetch))?.first
+            activePlan = (try? TrainingPlanRepository(modelContext: modelContext).fetchActivePlans())?.first
         } else {
             activePlan = nil
         }
@@ -362,7 +360,7 @@ struct CoachContextAssembler {
                 }
             }
             if outboundPolicy.wiki, usesCurrentProfile,
-               let onboarding = (try? modelContext.fetch(FetchDescriptor<OnboardingState>()))?.first {
+               let onboarding = ((try? OnboardingRepository(modelContext: modelContext).fetchLatest()) ?? nil) {
                 let goal = onboarding.goalProfile
                 let training = onboarding.trainingPreference
                 let coaching = onboarding.coachingPreference
@@ -399,7 +397,7 @@ struct CoachContextAssembler {
             let history = outboundPolicy.conversationHistory
                 ? CoachChatVM.historyBeforeCurrentPrompt(from: messages, limit: 6)
                 : []
-            for msg in history {
+            for msg in history where msg.role == .user || !CoachProtocolOutput.isMalformed(msg.content) {
                 result.append(ChatMessage(
                     role: msg.role == .user ? .user : .assistant,
                     content: CoachChatVM.timestampedHistoryContent(for: msg)
@@ -433,10 +431,8 @@ struct CoachContextAssembler {
         // 否则 Coach 相关性会与身体模型页（三年全窗口）出现两套结论。
         let correlationJournalEntries: [JournalEntryRecord]
         if outboundPolicy.journal, outboundPolicy.health {
-            correlationJournalEntries = (try? modelContext.fetch(FetchDescriptor<JournalEntryRecord>(
-                predicate: #Predicate { $0.createdAt <= contextAsOf },
-                sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
-            ))) ?? []
+            correlationJournalEntries = (try? SwiftDataJournalRepository(modelContext: modelContext)
+                .fetchEntries(through: contextAsOf)) ?? []
         } else {
             correlationJournalEntries = []
         }
@@ -471,11 +467,7 @@ struct CoachContextAssembler {
             }
         }
         let biomarkers = outboundPolicy.health
-            ? ((try? modelContext.fetch(
-                FetchDescriptor<BiomarkerRecord>(
-                    sortBy: [SortDescriptor<BiomarkerRecord>(\.date, order: .reverse)]
-                )
-            )) ?? [])
+            ? ((try? BiomarkerRepository(modelContext: modelContext).fetchAllSortedByDate()) ?? [])
             : []
         let biomarkerContext = BiomarkerCoachContextBuilder.render(
             records: biomarkers,
@@ -586,7 +578,7 @@ struct CoachContextAssembler {
         // 训练窗口/风险标记/恢复任务）进入 Coach 上下文——此前唯一消费方是
         // 用户不可见的计划提案表，这个最重的分析引擎等于白算。
         if outboundPolicy.health, outboundPolicy.training {
-            let allFoods = (try? modelContext.fetch(FetchDescriptor<FoodLogRecord>())) ?? []
+            let allFoods = (try? FoodLogRepository(modelContext: modelContext).fetchAll()) ?? []
             let recentFoods = allFoods.filter {
                 $0.createdAt >= contextAsOf.addingTimeInterval(-36 * 3_600) && $0.createdAt <= contextAsOf
             }
@@ -606,7 +598,7 @@ struct CoachContextAssembler {
         // 深度专项批次 6：决策反馈 push 进 Coach 系统提示——
         // 此前模型需自行调用 get_decision_feedback 工具才可见（pull）。
         if outboundPolicy.health {
-            let feedbackRecords = ((try? modelContext.fetch(FetchDescriptor<DailyDecisionFeedbackRecord>())) ?? [])
+            let feedbackRecords = ((try? DailyDecisionFeedbackRepository(modelContext: modelContext).fetchAll()) ?? [])
                 .filter { $0.createdAt <= contextAsOf && $0.updatedAt <= contextAsOf }
             let feedbackText = DecisionFeedbackCalibrator.feedbackSummary(records: feedbackRecords, now: contextAsOf)
             if !feedbackText.contains("暂无") {
@@ -637,7 +629,7 @@ struct CoachContextAssembler {
         let history = outboundPolicy.conversationHistory
             ? CoachChatVM.historyBeforeCurrentPrompt(from: messages, limit: 10)
             : []
-        for msg in history {
+        for msg in history where msg.role == .user || !CoachProtocolOutput.isMalformed(msg.content) {
             result.append(ChatMessage(
                 role: msg.role == .user ? .user : .assistant,
                 content: CoachChatVM.timestampedHistoryContent(for: msg)
@@ -667,14 +659,14 @@ struct CoachContextAssembler {
         usesCurrentProfile: Bool,
         calendar: Calendar
     ) -> BodyModelState {
-        let strengths = ((try? modelContext.fetch(FetchDescriptor<StrengthWorkoutRecord>())) ?? []).filter { $0.startedAt <= asOf }
-        let responses = ((try? modelContext.fetch(FetchDescriptor<TrainingResponseRecord>())) ?? []).filter { $0.nextDayDate <= asOf }
-        let summaries = ((try? modelContext.fetch(FetchDescriptor<DailyHealthSummaryRecord>())) ?? []).filter { $0.date <= asOf }
+        let strengths = ((try? WorkoutHistoryRepository(modelContext: modelContext).fetchStrengthWorkouts()) ?? []).filter { $0.startedAt <= asOf }
+        let responses = ((try? TrainingResponseRepository(modelContext: modelContext).fetchAll()) ?? []).filter { $0.nextDayDate <= asOf }
+        let summaries = ((try? SwiftDataDailyHealthSummaryRepository(modelContext: modelContext).fetchAll()) ?? []).filter { $0.date <= asOf }
         // Coach 看到的身体模型必须与身体模型页同口径：这里补全量手记，
         // 而不是只吃调用方传入的最近 12 条，否则行为配对/成熟度会偏小。
-        let allJournals = (try? modelContext.fetch(FetchDescriptor<JournalEntryRecord>())) ?? []
+        let allJournals = (try? SwiftDataJournalRepository(modelContext: modelContext).fetchAll()) ?? []
         let journalEntries = allJournals.filter { $0.createdAt <= asOf }
-        let onboarding = usesCurrentProfile ? (try? modelContext.fetch(FetchDescriptor<OnboardingState>()))?.first : nil
+        let onboarding = usesCurrentProfile ? ((try? OnboardingRepository(modelContext: modelContext).fetchLatest()) ?? nil) : nil
         let key = [
             "\(calendar.startOfDay(for: asOf).timeIntervalSince1970)-\(calendar.timeZone.identifier)-\(dashboard.bodyState.hash)",
             "\(strengths.count)",

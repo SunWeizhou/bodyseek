@@ -210,22 +210,12 @@ extension VelaMetricDetailView {
         guard let result = currentMetricResult,
               metric.isScoredHealthDomain,
               !result.missingInputs.isEmpty else { return nil }
-        let labels = result.missingInputs.prefix(3).map(displayMissingInput)
-        return "仍缺少：\(labels.joined(separator: "、"))。当前结果已降低证据覆盖度。"
-    }
-
-    private func displayMissingInput(_ input: String) -> String {
-        let normalized = input.lowercased()
-        if normalized.contains("hrv") { return "HRV" }
-        if normalized.contains("rhr") || normalized.contains("resting") { return "静息心率" }
-        if normalized.contains("sleep") || normalized.contains("bedtime") || normalized.contains("wake") { return "完整睡眠" }
-        if normalized.contains("workout") { return "训练记录" }
-        if normalized.contains("step") { return "步数" }
-        if normalized.contains("energy") { return "活动能量" }
-        if normalized.contains("resp") { return "呼吸率" }
-        if normalized.contains("temp") { return "腕温" }
-        if normalized.contains("spo2") || normalized.contains("oxygen") { return "血氧" }
-        return "部分输入"
+        return MissingInputLabel.summary(
+            for: result.missingInputs,
+            emptyValueMessage: nil,
+            hasValue: true,
+            suffix: "当前结果已降低证据覆盖度。"
+        )
     }
 
     var displayDateText: String {
@@ -241,7 +231,7 @@ extension VelaMetricDetailView {
     }
 
     var chartPoints: [ChartPoint] {
-        let snapshots = dailyRecords.map { $0.toSnapshot() }
+        let snapshots = historyDays.map(\.snapshot)
         let calendar = Calendar.current
         let endDate = calendar.startOfDay(for: effectiveDate)
         let end = calendar.date(byAdding: .day, value: 1, to: endDate) ?? endDate
@@ -325,7 +315,7 @@ extension VelaMetricDetailView {
         case .activeMinutes:
             return "\(Int(score))m"
         default:
-            return VelaMinimalFormatting.roundedPercentage(score)
+            return "\(Int(score.rounded()))"
         }
     }
 
@@ -362,7 +352,7 @@ extension VelaMetricDetailView {
 
     var navTitle: String {
         switch metric {
-        case .strain:   "耗力"
+        case .strain:   "负荷"
         case .recovery: "恢复"
         case .sleep:    "睡眠"
         case .stress:   "压力"
@@ -383,11 +373,11 @@ extension VelaMetricDetailView {
         // Core-domain colors provide stable identity across Today, Trends and
         // details. State is expressed separately through labels and markers.
         switch metric {
-        case .strain: return VelaTheme.strainColor
-        case .recovery: return VelaTheme.recoveryColor
-        case .sleep: return VelaTheme.sleepColor
-        case .stress: return VelaTheme.stressColor
-        case .energy: return VelaTheme.energyColor
+        case .strain: return VelaTheme.rhythmInk
+        case .recovery: return VelaTheme.rhythmInk
+        case .sleep: return VelaTheme.rhythmInk
+        case .stress: return VelaTheme.rhythmInk
+        case .energy: return VelaTheme.rhythmInk
         case .hrv, .rhr, .respiratoryRate, .bloodOxygen, .weight, .bodyFat,
              .steps, .activeCalories, .activeMinutes:
             return VelaTheme.brand
@@ -444,12 +434,12 @@ extension VelaMetricDetailView {
     var dynamicValueText: String {
         guard hasMetricData else { return "--" }
         switch metric {
+        case .recovery, .sleep, .strain, .stress, .energy:
+            return "\(Int(dynamicScore.rounded()))"
         case .hrv:
             return "\(Int(dynamicScore)) ms"
         case .rhr:
             return "\(Int(dynamicScore)) bpm"
-        case .stress:
-            return "\(Int(dynamicScore))"
         case .weight:
             return String(format: "%.1f kg", dynamicScore)
         case .bodyFat:
@@ -464,8 +454,6 @@ extension VelaMetricDetailView {
             return "\(Int(dynamicScore)) kcal"
         case .activeMinutes:
             return "\(Int(dynamicScore))m"
-        default:
-            return VelaMinimalFormatting.roundedPercentage(dynamicScore)
         }
     }
 
@@ -675,7 +663,7 @@ extension VelaMetricDetailView {
         case .steps:
             return dashboard.strain.metrics["steps_raw"].map { "\(Int($0)) 步" } ?? "--"
         case .activeCalories:
-            return dashboard.strain.hasData ? "\(Int(dashboard.strain.score.rounded())) / 100" : "--"
+            return dashboard.strain.hasData ? "\(dashboard.strain.formattedScore) / 100" : "--"
         case .activeMinutes:
             return dashboard.strain.metrics["exercise_minutes_raw"].map { "\(Int($0)) 分钟" } ?? "--"
         }
@@ -752,7 +740,7 @@ extension VelaMetricDetailView {
         CoreMetricTrendMapper.seriesList(
             for: metric,
             findings: dashboard.healthTrends,
-            snapshots: dailyRecords.map { $0.toSnapshot() },
+            snapshots: historyDays.map(\.snapshot),
             endingAt: effectiveDate
         )
     }

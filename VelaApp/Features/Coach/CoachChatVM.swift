@@ -21,6 +21,7 @@ struct CoachScreenContext: Codable, Hashable, Sendable {
     var surface: CoachScreenSurface
     var entityType: String? = nil
     var selectedDate: Date? = nil
+    var horizon: HealthTrendHorizon? = nil
 
     func json() -> String {
         let encoder = JSONEncoder()
@@ -59,11 +60,15 @@ struct CoachContextFocus: Hashable, Sendable {
 
     static func routed(
         from surface: CoachScreenSurface,
-        selectedDate: Date? = nil
+        selectedDate: Date? = nil,
+        horizon: HealthTrendHorizon? = nil,
+        entityType: String? = nil
     ) -> CoachContextFocus {
         let screenContext = CoachScreenContext(
             surface: surface,
-            selectedDate: selectedDate
+            entityType: entityType,
+            selectedDate: selectedDate,
+            horizon: surface == .trends ? horizon : nil
         )
 
         switch surface {
@@ -80,8 +85,8 @@ struct CoachContextFocus: Hashable, Sendable {
             return CoachContextFocus(
                 title: L10n.t("Trends", "趋势"),
                 systemContext: L10n.t(
-                    "Explain the selected time-series horizon, distinguish current deviation from temporal trend, and avoid claiming causality without evidence.",
-                    "解释选定时间尺度，区分当前基线偏离与时间趋势；没有证据时不得声称因果。"
+                    "Explain the selected time-series horizon (\(horizon?.rawValue ?? "unspecified")), distinguish current deviation from temporal trend, and avoid claiming causality without evidence.",
+                    "用户正在查看\(horizon?.detailedTitle ?? "未指定时间尺度的")趋势。区分当前基线偏离与时间趋势；没有证据时不得声称因果。"
                 ),
                 screenContext: screenContext
             )
@@ -316,15 +321,15 @@ final class CoachChatVM: ObservableObject {
 
         if let dashboard {
             if dashboard.recovery.hasData {
-                questions.append("为什么我今天的恢复是 \(Int(dashboard.recovery.score.rounded()))？主要受哪些身体信号影响？")
+                questions.append("为什么我今天的恢复是 \(dashboard.recovery.formattedScore)？主要受哪些身体信号影响？")
             }
 
             if dashboard.sleepScore.hasData || dashboard.stress.hasData {
                 let sleep = dashboard.sleepScore.hasData
-                    ? "睡眠 \(Int(dashboard.sleepScore.score.rounded()))"
+                    ? "睡眠 \(dashboard.sleepScore.formattedScore)"
                     : "睡眠数据"
                 let stress = dashboard.stress.hasData
-                    ? "压力 \(Int(dashboard.stress.score.rounded()))"
+                    ? "压力 \(dashboard.stress.formattedScore)"
                     : "压力数据"
                 questions.append("\(sleep) 与\(stress)之间可能有什么联系？")
             }
@@ -445,6 +450,16 @@ final class CoachChatVM: ObservableObject {
     }
 
     func refreshKeyState() {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-velaDisableNetworkAI") {
+            isReady = false
+            return
+        }
+        if ProcessInfo.processInfo.arguments.contains("-velaCoachConsentFixture") {
+            isReady = true
+            return
+        }
+        #endif
         do {
             isReady = !(try keychain.read(account: apiKeyAccount) ?? "").isEmpty
         } catch {
@@ -455,6 +470,15 @@ final class CoachChatVM: ObservableObject {
     // MARK: - Session Delegation
 
     func loadSessions(modelContext: ModelContext) {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-velaCoachProtocolFixture") {
+            messages = [
+                ChatMsg(role: .user, content: "Explain this trend"),
+                ChatMsg(role: .assistant, content: #"<tool_call>{"name":"check_health_data","arguments":{}}</tool_call>"#)
+            ]
+            return
+        }
+        #endif
         sessionStore.loadSessions(
             modelContext: modelContext,
             isStreaming: isStreaming,
@@ -866,20 +890,14 @@ final class CoachChatVM: ObservableObject {
             let isCasualPath = ResponseLengthPolicy.forQuery(userText, lang: AppLanguage.stored) == .casual
             if !isGhostMode && isCasualPath {
                 let ledger = MemoryLedger(modelContext: modelContext)
-                for action in parsed.actions where action.type == .updateWiki {
-                    let memType = WikiFileRole.memoryTypeFor(filename: action.target)
-                    let proposal = try? ledger.createProposal(
-                        targetFile: action.target,
-                        memoryType: memType,
-                        content: action.content,
-                        evidence: "Coach conversation — AI detected pattern worth recording.",
-                        confidence: 0.5,
-                        source: "coach_legacy_parser"
-                    )
-                    if proposal != nil, !wikiFiles.contains(action.target) {
-                        wikiFiles.append(action.target)
-                        wikiUpdateSummaries.append("\(action.target): \(action.content)")
-                    }
+                for proposal in ledger.createWikiProposals(
+                    from: parsed.actions,
+                    evidence: "Coach conversation — AI detected pattern worth recording.",
+                    confidence: 0.5,
+                    source: "coach_legacy_parser"
+                ) where !wikiFiles.contains(proposal.file) {
+                    wikiFiles.append(proposal.file)
+                    wikiUpdateSummaries.append("\(proposal.file): \(proposal.content)")
                 }
             }
 
@@ -930,6 +948,22 @@ final class CoachChatVM: ObservableObject {
             isReady = true
             isAwaitingForegroundRetry = false
         } catch {
+            if let providerError = error as? LLMProviderError, providerError == .responseTruncated {
+                flushPendingStreamDeltas()
+                let partial = streamingContent
+                let notice = providerError.userFacingMessage(isChinese: AppLanguage.stored.isChinese)
+                let content = partial.isEmpty ? notice : partial + "\n\n（\(notice)）"
+                if let idx = messages.firstIndex(where: { $0.id == assistantId }) {
+                    messages[idx] = ChatMsg(
+                        id: assistantId,
+                        role: .assistant,
+                        content: content,
+                        wikiUpdates: messages[idx].wikiUpdates
+                    )
+                }
+                persistThread(modelContext: modelContext)
+                isReady = true
+            } else {
             let isUserCancellation = error is CancellationError
                 || (error as? URLError)?.code == .cancelled
             if isUserCancellation {
@@ -967,6 +1001,7 @@ final class CoachChatVM: ObservableObject {
                 }
             }
             persistThread(modelContext: modelContext)
+            }
         }
 
         resetStreamingContent()

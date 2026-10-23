@@ -1095,3 +1095,122 @@ final class WorkoutHeartRateRecoveryMatcherTests: XCTestCase {
         XCTAssertTrue(WorkoutHeartRateRecoveryMatcher.match(samples: samples, workouts: [workout]).isEmpty)
     }
 }
+
+@MainActor
+final class HistoricalScoreRepairTests: XCTestCase {
+    private var calendar: Calendar {
+        var value = Calendar(identifier: .gregorian)
+        value.timeZone = TimeZone(secondsFromGMT: 0)!
+        return value
+    }
+    private var today: Date { calendar.date(from: DateComponents(year: 2026, month: 10, day: 23))! }
+
+    private func fixture(future: Bool = false, savedScore: Double? = nil) throws -> ModelContainer {
+        let container = try VelaModelContainer.make(inMemory: true)
+        for offset in -15 ... -1 {
+            var snapshot = DailyHealthSnapshot(date: calendar.date(byAdding: .day, value: offset, to: today)!)
+            snapshot.hrvAverage = 48 + Double(offset % 3)
+            snapshot.restingHeartRate = 57
+            snapshot.sleepHours = 7.5
+            snapshot.steps = 0 // a real zero is evidence
+            if offset == -1 { snapshot.recoveryScore = savedScore }
+            container.mainContext.insert(DailyHealthSummaryRecord(snapshot: snapshot, calendar: calendar))
+        }
+        if future {
+            var snapshot = DailyHealthSnapshot(date: calendar.date(byAdding: .day, value: 1, to: today)!)
+            snapshot.hrvAverage = 100_000
+            snapshot.restingHeartRate = 200
+            container.mainContext.insert(DailyHealthSummaryRecord(snapshot: snapshot, calendar: calendar))
+        }
+        try container.mainContext.save()
+        return container
+    }
+
+    private func record(_ container: ModelContainer) throws -> DailyHealthSummaryRecord {
+        let context = ModelContext(container)
+        return try XCTUnwrap(SwiftDataDailyHealthSummaryRepository(modelContext: context).fetchRecord(
+            dayIdentifier: DailyHealthSummaryRecord.dayIdentifier(for: calendar.date(byAdding: .day, value: -1, to: today)!, calendar: calendar)))
+    }
+
+    func testRepairPersistsCanonicalEvidenceWithoutChangingRawDataAndIsIdempotent() async throws {
+        let container = try fixture()
+        let service = HistoricalScoreBackfillService(modelContext: ModelContext(container), calendar: calendar)
+        let result = try await service.repair(days: 1, endingAt: today, profile: DailyHealthComputationProfile(sleepTargetMinutes: 450, maxHeartRate: 190, biologicalSex: nil))
+        XCTAssertEqual(result.completed, 1)
+        let saved = try record(container)
+        XCTAssertNotNil(saved.decodedScoreEvidence())
+        XCTAssertEqual(saved.hrvAverage, 47)
+        XCTAssertEqual(saved.sleepHours, 7.5)
+        XCTAssertEqual(saved.steps, 0)
+        let rerun = try await HistoricalScoreBackfillService(modelContext: ModelContext(container), calendar: calendar).repair(days: 1, endingAt: today, profile: DailyHealthComputationProfile(sleepTargetMinutes: 450, maxHeartRate: 190, biologicalSex: nil))
+        XCTAssertEqual(rerun.total, 0)
+    }
+
+    func testConcurrentScoreUpdateIsNotOverwritten() async throws {
+        let container = try fixture()
+        let service = HistoricalScoreBackfillService(modelContext: ModelContext(container), calendar: calendar)
+        do {
+            _ = try await service.repair(days: 1, endingAt: today, onProgress: { progress in
+                if progress.completed == 0 {
+                    let date = self.calendar.date(byAdding: .day, value: -1, to: self.today)!
+                    let id = DailyHealthSummaryRecord.dayIdentifier(for: date, calendar: self.calendar)
+                    let record = try! SwiftDataDailyHealthSummaryRepository(modelContext: container.mainContext).fetchRecord(dayIdentifier: id)!
+                    record.recoveryScore = 88
+                    try! container.mainContext.save()
+                }
+            })
+            XCTFail("Concurrent update must stop this stale repair")
+        } catch {
+            XCTAssertTrue(error.localizedDescription.contains("更新"))
+        }
+        XCTAssertEqual(try record(container).recoveryScore, 88)
+        XCTAssertNil(try record(container).decodedScoreEvidence())
+    }
+
+    func testRepairPreservesExistingPartialScores() async throws {
+        let container = try fixture(savedScore: 42)
+        let result = try await HistoricalScoreBackfillService(modelContext: ModelContext(container), calendar: calendar).repair(days: 1, endingAt: today, profile: DailyHealthComputationProfile(sleepTargetMinutes: 450, maxHeartRate: 190, biologicalSex: nil))
+        XCTAssertEqual(result.total, 0)
+        XCTAssertEqual(try record(container).recoveryScore, 42)
+        XCTAssertNil(try record(container).decodedScoreEvidence())
+    }
+
+    func testBatchRepairMatchesChronologicalOneDayRepairs() async throws {
+        let batch = try fixture()
+        let sequential = try fixture()
+        let profile = DailyHealthComputationProfile(sleepTargetMinutes: 450, maxHeartRate: 190, biologicalSex: nil)
+        _ = try await HistoricalScoreBackfillService(modelContext: ModelContext(batch), calendar: calendar).repair(days: 7, endingAt: today, profile: profile)
+        for offset in -6...0 {
+            let end = calendar.date(byAdding: .day, value: offset, to: today)!
+            _ = try await HistoricalScoreBackfillService(modelContext: ModelContext(sequential), calendar: calendar).repair(days: 1, endingAt: end, profile: profile)
+        }
+        let first = try XCTUnwrap(record(batch).decodedScoreEvidence())
+        let second = try XCTUnwrap(record(sequential).decodedScoreEvidence())
+        XCTAssertEqual(first.sleep, second.sleep)
+        XCTAssertEqual(first.recovery, second.recovery)
+        XCTAssertEqual(first.strain, second.strain)
+        XCTAssertEqual(first.stress, second.stress)
+        XCTAssertEqual(first.energy, second.energy)
+    }
+
+    func testFutureHealthRecordsCannotChangeHistoricalRepair() async throws {
+        let first = try fixture()
+        let second = try fixture(future: true)
+        for container in [first, second] {
+            _ = try await HistoricalScoreBackfillService(modelContext: ModelContext(container), calendar: calendar).repair(days: 1, endingAt: today, profile: DailyHealthComputationProfile(sleepTargetMinutes: 450, maxHeartRate: 190, biologicalSex: nil))
+        }
+        XCTAssertEqual(try record(first).decodedScoreEvidence(), try record(second).decodedScoreEvidence())
+    }
+
+    func testCoverageDistinguishesZeroRawEvidenceFromEmptyAndScoredDays() {
+        var raw = DailyHealthSnapshot(date: today)
+        raw.steps = 0
+        var scored = DailyHealthSnapshot(date: today.addingTimeInterval(-86400))
+        scored.recoveryScore = 0
+        let empty = DailyHealthSnapshot(date: today.addingTimeInterval(-2 * 86400))
+        let coverage = HistoricalCoverageSummary(snapshots: [raw, scored, empty], calendar: calendar)
+        XCTAssertEqual(coverage.rawDays, 1)
+        XCTAssertEqual(coverage.rawDaysWithoutScores, 1)
+        XCTAssertEqual(coverage.emptyDays, 1)
+    }
+}

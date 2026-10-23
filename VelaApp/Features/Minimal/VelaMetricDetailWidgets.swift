@@ -29,17 +29,9 @@ struct CoreMetricDetailHero: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 17) {
-            HStack(spacing: 8) {
-                BodySeekMetricGlyph(
-                    kind: glyphKind,
-                    size: 24,
-                    tint: color
-                )
-                Text("今日读数 / \(metric.accessibleTitle)")
-                    .font(.system(.caption, design: .monospaced, weight: .medium))
-                    .foregroundStyle(color)
-                    .tracking(1.1)
-            }
+            Text("今天的\(metric.accessibleTitle)")
+                .font(VelaTheme.caption1().weight(.semibold))
+                .foregroundStyle(VelaTheme.rhythmInkSecondary)
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 22) {
                     heroVisual
@@ -91,15 +83,7 @@ struct CoreMetricDetailHero: View {
             .accessibilityHint("打开 Coach 继续追问")
         }
         .padding(18)
-        .background {
-            ZStack(alignment: .topTrailing) {
-                VelaTheme.rhythmCanvasRaised
-                BodySeekArtwork(kind: artworkKind, tint: color)
-                    .frame(width: 180, height: 200)
-                    .opacity(colorSchemeContrast == .increased ? 0 : 0.13)
-                    .allowsHitTesting(false)
-            }
-        }
+        .background(VelaTheme.rhythmCanvasRaised)
         .clipShape(RoundedRectangle(cornerRadius: VelaTheme.radiusFeature, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: VelaTheme.radiusFeature, style: .continuous)
@@ -111,26 +95,6 @@ struct CoreMetricDetailHero: View {
                 )
         }
         .accessibilityIdentifier("metric-detail-hero")
-    }
-
-    private var artworkKind: BodySeekArtworkKind {
-        switch metric {
-        case .sleep: return .sleep
-        case .strain: return .strain
-        case .stress: return .stress
-        case .energy: return .energy
-        default: return .recovery
-        }
-    }
-
-    private var glyphKind: BodySeekMetricGlyphKind {
-        switch metric {
-        case .sleep: return .sleep
-        case .strain, .activeCalories, .activeMinutes, .steps: return .strain
-        case .stress, .hrv, .respiratoryRate: return .stress
-        case .energy, .weight, .bodyFat: return .energy
-        case .recovery, .rhr, .bloodOxygen: return .recovery
-        }
     }
 
     @ViewBuilder
@@ -159,9 +123,9 @@ struct CoreMetricDetailHero: View {
                 HStack(spacing: 10) {
                     Image(systemName: fact.systemImage)
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(color)
+                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
                         .frame(width: 26, height: 26)
-                        .background(color.opacity(0.10), in: Circle())
+                        .background(VelaTheme.rhythmMist.opacity(0.7), in: Circle())
 
                     VStack(alignment: .leading, spacing: 1) {
                         Text(fact.title)
@@ -610,7 +574,7 @@ struct MetricCustomWidgetsSection: View {
                     systemImage: isPositive ? "arrow.up.right" : "arrow.down.right"
                 )
                 .font(VelaTheme.caption2().weight(.semibold))
-                .foregroundStyle(isPositive ? VelaTheme.recoveryColor : VelaTheme.warn)
+                .foregroundStyle(isPositive ? VelaTheme.rhythmInk : VelaTheme.warn)
             }
         }
         .padding(14)
@@ -677,7 +641,7 @@ struct MetricCustomWidgetsSection: View {
                 .foregroundStyle(VelaTheme.muted)
             Text(value.map { "\(positive ? "+" : "−")\(String(format: "%.0f", abs($0)))" } ?? "--")
                 .font(VelaTheme.caption1().weight(.bold).monospacedDigit())
-                .foregroundStyle(positive ? VelaTheme.recoveryColor : VelaTheme.fg)
+                .foregroundStyle(positive ? VelaTheme.rhythmInk : VelaTheme.fg)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
@@ -693,9 +657,9 @@ struct MetricCustomWidgetsSection: View {
         return HStack(spacing: 10) {
             Image(systemName: symbol)
                 .font(VelaTheme.caption1().weight(.semibold))
-                .foregroundStyle(VelaTheme.stressColor)
+                .foregroundStyle(VelaTheme.rhythmInk)
                 .frame(width: 28, height: 28)
-                .background(VelaTheme.stressColor.opacity(0.10), in: Circle())
+                .background(VelaTheme.rhythmInk.opacity(0.10), in: Circle())
             Text(title)
                 .font(VelaTheme.subheadline())
                 .foregroundStyle(VelaTheme.rhythmInk)
@@ -730,7 +694,7 @@ struct MetricCustomWidgetsSection: View {
             SegmentedBatteryBar(
                 percentage: min(1, max(0, (value ?? 0) / 100)),
                 barCount: 20,
-                color: VelaTheme.energyColor
+                color: VelaTheme.rhythmInk
             )
             .opacity(value == nil ? 0.35 : 1)
             Text(value.map { "\(Int($0.rounded()))" } ?? "--")
@@ -789,7 +753,7 @@ public struct VelaLockScreenRectangularView: View {
             HStack(spacing: 4) {
                 Image(systemName: "sparkles")
                     .font(.system(size: 10, weight: .bold))
-                Text("恢复 \(snapshot.recoveryScore.map { "\($0)%" } ?? "—") · \(snapshot.decision)")
+                Text("恢复 \(snapshot.recoveryScore.map { "\($0)" } ?? "—") · \(snapshot.decision)")
                     .font(.system(size: 11, weight: .bold))
                     .lineLimit(1)
             }
@@ -817,7 +781,7 @@ public struct VelaLockScreenInlineView: View {
     public var body: some View {
         HStack(spacing: 3) {
             Image(systemName: "heart.fill")
-            Text("恢复 \(snapshot.recoveryScore.map { "\($0)%" } ?? "—") · \(snapshot.decision)")
+            Text("恢复 \(snapshot.recoveryScore.map { "\($0)" } ?? "—") · \(snapshot.decision)")
         }
     }
 }
@@ -842,7 +806,7 @@ public struct VelaSystemSmallWidgetView: View {
                     HStack(spacing: 2) {
                         Image(systemName: "heart.fill")
                             .font(.system(size: 8))
-                            .foregroundStyle(VelaTheme.stressColor)
+                            .foregroundStyle(VelaTheme.rhythmInk)
                         Text("\(rhr)")
                             .font(.system(size: 10, weight: .bold, design: .rounded))
                             .foregroundStyle(VelaTheme.rhythmInkSecondary)
@@ -897,9 +861,9 @@ public struct VelaSystemSmallWidgetView: View {
 
     private var scoreColor: Color {
         guard let score = snapshot.recoveryScore else { return VelaTheme.muted }
-        if score < 40 { return VelaTheme.stressColor }
+        if score < 40 { return VelaTheme.rhythmInk }
         if score < 70 { return VelaTheme.tagOrange }
-        return VelaTheme.recoveryColor
+        return VelaTheme.rhythmInk
     }
 }
 
@@ -1002,9 +966,9 @@ public struct VelaSystemMediumWidgetView: View {
 
     private var scoreColor: Color {
         guard let score = snapshot.recoveryScore else { return VelaTheme.muted }
-        if score < 40 { return VelaTheme.stressColor }
+        if score < 40 { return VelaTheme.rhythmInk }
         if score < 70 { return VelaTheme.tagOrange }
-        return VelaTheme.recoveryColor
+        return VelaTheme.rhythmInk
     }
 }
 
@@ -1071,8 +1035,8 @@ public struct VelaSystemLargeWidgetView: View {
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                 metricCell("睡眠", snapshot.sleepScore.map { "\($0)" } ?? "—", "moon.fill", VelaTheme.accent)
                 metricCell("负荷", snapshot.strainScore.map { "\($0)" } ?? "—", "flame.fill", VelaTheme.tagOrange)
-                metricCell("压力", snapshot.stressScore.map { "\($0)" } ?? "—", "waveform.path.ecg", VelaTheme.stressColor)
-                metricCell("能量", snapshot.energyScore.map { "\($0)%" } ?? "—", "battery.75percent", VelaTheme.energyColor)
+                metricCell("压力", snapshot.stressScore.map { "\($0)" } ?? "—", "waveform.path.ecg", VelaTheme.rhythmInk)
+                metricCell("能量", snapshot.energyScore.map { "\($0)" } ?? "--", "battery.75percent", VelaTheme.rhythmInk)
             }
 
             Spacer()
@@ -1129,9 +1093,9 @@ public struct VelaSystemLargeWidgetView: View {
 
     private var scoreColor: Color {
         guard let score = snapshot.recoveryScore else { return VelaTheme.muted }
-        if score < 40 { return VelaTheme.stressColor }
+        if score < 40 { return VelaTheme.rhythmInk }
         if score < 70 { return VelaTheme.tagOrange }
-        return VelaTheme.recoveryColor
+        return VelaTheme.rhythmInk
     }
 }
 
@@ -1373,11 +1337,11 @@ struct SleepTimelineCard: View {
                 sleepTimeFact("入睡", value: hasCompleteSleepTimes ? bedtimeText : "--", symbol: "moon.fill")
 
                 HStack(spacing: 4) {
-                    Circle().fill(VelaTheme.sleepColor).frame(width: 6, height: 6)
-                    Rectangle().fill(VelaTheme.sleepColor.opacity(0.22)).frame(height: 2)
+                    Circle().fill(VelaTheme.rhythmInk).frame(width: 6, height: 6)
+                    Rectangle().fill(VelaTheme.rhythmInk.opacity(0.22)).frame(height: 2)
                     Image(systemName: "arrow.right")
                         .font(VelaTheme.caption2().weight(.bold))
-                        .foregroundStyle(VelaTheme.sleepColor)
+                        .foregroundStyle(VelaTheme.rhythmInk)
                 }
                 .accessibilityHidden(true)
 
@@ -1388,7 +1352,7 @@ struct SleepTimelineCard: View {
                 HStack(spacing: 6) {
                     Image(systemName: "bed.double.fill")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(VelaTheme.sleepColor)
+                        .foregroundStyle(VelaTheme.rhythmInk)
                     Text("实际睡眠 \(summary.totalSleepMinutes > 0 ? VelaMinimalFormatting.duration(minutes: summary.totalSleepMinutes) : "--")")
                         .font(VelaTheme.caption1().weight(.semibold).monospacedDigit())
                         .foregroundStyle(VelaTheme.rhythmInk)
@@ -1529,7 +1493,7 @@ struct SleepTimelineCard: View {
                                     let barWidth = max(endX - startX, 3)
 
                                     RoundedRectangle(cornerRadius: 4, style: .continuous)
-                                        .fill(VelaTheme.sleepColor)
+                                        .fill(VelaTheme.rhythmInk)
                                         .frame(width: barWidth, height: h - 4)
                                         .offset(x: startX, y: 2)
                                 }
@@ -1614,7 +1578,7 @@ struct SleepTimelineCard: View {
         } else {
             VStack(spacing: 8) {
                 HStack(spacing: 10) {
-                    Circle().fill(VelaTheme.sleepColor).frame(width: 8, height: 8)
+                    Circle().fill(VelaTheme.rhythmInk).frame(width: 8, height: 8)
                     Text("睡眠时长")
                         .font(VelaTheme.caption1().weight(.semibold))
                         .foregroundStyle(VelaTheme.rhythmInk)
@@ -1666,9 +1630,9 @@ struct SleepTimelineCard: View {
 
     private func sleepStageColor(_ stage: SleepStage) -> Color {
         switch stage {
-        case .awake: return VelaTheme.energyColor
-        case .rem: return VelaTheme.sleepColor.opacity(0.72)
-        case .core: return VelaTheme.sleepColor
+        case .awake: return VelaTheme.rhythmInk
+        case .rem: return VelaTheme.rhythmInk.opacity(0.72)
+        case .core: return VelaTheme.rhythmInk
         case .deep: return VelaTheme.rhythmDeep
         case .asleep, .inBed: return VelaTheme.rhythmInkSecondary
         }

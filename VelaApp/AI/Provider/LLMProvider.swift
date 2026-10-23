@@ -129,6 +129,7 @@ enum LLMProviderError: LocalizedError, Hashable, Sendable {
     case networkUnavailable
     case timedOut
     case invalidResponse
+    case responseTruncated
     case requestFailed(statusCode: Int, message: String)
 
     static func classify(_ error: Error) -> LLMProviderError {
@@ -162,7 +163,7 @@ enum LLMProviderError: LocalizedError, Hashable, Sendable {
         case .requestFailed(let statusCode, _):
             // 按状态码判定（此前靠错误消息子串匹配，文案变化即失效）。
             return [408, 429, 500, 502, 503, 504].contains(statusCode)
-        case .missingAPIKey, .authenticationFailed, .invalidResponse:
+        case .missingAPIKey, .authenticationFailed, .invalidResponse, .responseTruncated:
             return false
         }
     }
@@ -181,7 +182,7 @@ enum LLMProviderError: LocalizedError, Hashable, Sendable {
                 systemImage: "arrow.clockwise",
                 destination: .retry
             )
-        case .invalidResponse:
+        case .invalidResponse, .responseTruncated:
             return LLMErrorRecoveryAction(
                 title: isChinese ? "稍后重试" : "Retry Later",
                 systemImage: "exclamationmark.triangle.fill",
@@ -202,6 +203,8 @@ enum LLMProviderError: LocalizedError, Hashable, Sendable {
             return isChinese ? "Coach 请求超时，未写入空回复。请检查网络后重试。" : "The Coach request timed out and no empty reply was saved. Check the network and retry."
         case .invalidResponse:
             return isChinese ? "AI 服务返回了无法解析的内容，请稍后重试。" : "The AI provider returned an unreadable response. Please retry."
+        case .responseTruncated:
+            return isChinese ? "回复因长度上限被截断，以上内容不完整。" : "The reply was cut off at the length limit and is incomplete."
         case .requestFailed(let statusCode, _):
             // 深度专项批次 2：按状态码区分真实原因，不再一律「服务暂时不可用」。
             if statusCode == 400 {
@@ -237,6 +240,8 @@ enum LLMProviderError: LocalizedError, Hashable, Sendable {
             return "The provider request timed out."
         case .invalidResponse:
             return "The provider returned an invalid response."
+        case .responseTruncated:
+            return "The provider stopped the reply because it reached the length limit."
         case .requestFailed(_, let message):
             return message
         }

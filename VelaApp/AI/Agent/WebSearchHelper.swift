@@ -12,16 +12,50 @@ actor WebSearchHelper {
 
     func search(_ query: String, maxResults: Int = 4) async -> String {
         guard let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-              let url = URL(string: "https://www.bing.com/search?q=\(encoded)&setlang=en") else {
+              let url = URL(string: "https://www.bing.com/search?format=rss&q=\(encoded)") else {
             return ""
         }
         var request = URLRequest(url: url)
         request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko)", forHTTPHeaderField: "User-Agent")
         guard let (data, _) = try? await session.data(for: request),
-              let html = String(data: data, encoding: .utf8) else {
+              let body = String(data: data, encoding: .utf8) else {
             return ""
         }
-        return Self.formatResults(Self.parseResults(from: html, max: maxResults))
+        let feedResults = Self.parseFeed(from: body, max: maxResults)
+        let results = feedResults.isEmpty ? Self.parseResults(from: body, max: maxResults) : feedResults
+        return Self.formatResults(results)
+    }
+
+    static func parseFeed(from xml: String, max: Int) -> [WebSearchResult] {
+        var results: [WebSearchResult] = []
+        guard let regex = try? NSRegularExpression(
+            pattern: #"<item\b[^>]*>(.+?)</item>"#,
+            options: [.dotMatchesLineSeparators, .caseInsensitive]
+        ) else { return [] }
+        let nsRange = NSRange(xml.startIndex..., in: xml)
+        for match in regex.matches(in: xml, options: [], range: nsRange).prefix(max) {
+            guard let blockRange = Range(match.range(at: 1), in: xml) else { continue }
+            let block = String(xml[blockRange])
+            let title = feedValue("title", in: block)
+            let url = feedValue("link", in: block)
+            let snippet = feedValue("description", in: block)
+            if !title.isEmpty {
+                results.append(WebSearchResult(title: title, url: url, snippet: snippet))
+            }
+        }
+        return results
+    }
+
+    private static func feedValue(_ tag: String, in block: String) -> String {
+        guard let regex = try? NSRegularExpression(
+            pattern: "<\(tag)\\b[^>]*>(?:<!\\[CDATA\\[)?(.*?)(?:\\]\\]>)?</\(tag)>",
+            options: [.dotMatchesLineSeparators, .caseInsensitive]
+        ),
+        let match = regex.firstMatch(in: block, range: NSRange(block.startIndex..., in: block)),
+        let range = Range(match.range(at: 1), in: block) else { return "" }
+        return String(block[range])
+            .replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     static func parseResults(from html: String, max: Int) -> [WebSearchResult] {

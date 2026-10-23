@@ -3,12 +3,15 @@ import SwiftData
 import Combine
 
 struct StrengthWorkoutLogSheetView: View {
+    var trainingDecisionKind: String?
+    var onRefresh: (() async -> Void)?
+
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var dashboardVM: DashboardViewModel
-    @Query(sort: \StrengthWorkoutRecord.startedAt, order: .reverse) private var workoutHistory: [StrengthWorkoutRecord]
-    @Query(sort: \WorkoutTemplateRecord.title) private var persistedTemplates: [WorkoutTemplateRecord]
-    @Query private var deletedWorkouts: [DeletedWorkoutRecord]
+    @ObservedObject private var appState = VelaAppState.shared
+    @State private var workoutHistory: [StrengthWorkoutRecord] = []
+    @State private var persistedTemplates: [WorkoutTemplateRecord] = []
+    @State private var deletedWorkouts: [DeletedWorkoutRecord] = []
     
     @State private var title = "力量训练"
     @State private var startedAt = Date()
@@ -39,11 +42,15 @@ struct StrengthWorkoutLogSheetView: View {
     init(
         startingTemplateID: UUID? = nil,
         initialDraft: TrainingSessionDraft? = nil,
-        editingWorkout: StrengthWorkoutRecord? = nil
+        editingWorkout: StrengthWorkoutRecord? = nil,
+        trainingDecisionKind: String? = nil,
+        onRefresh: (() async -> Void)? = nil
     ) {
         self.startingTemplateID = startingTemplateID
         self.initialDraft = initialDraft
         self.editingWorkout = editingWorkout
+        self.trainingDecisionKind = trainingDecisionKind
+        self.onRefresh = onRefresh
     }
 
     private func durationMinutes(at date: Date = Date()) -> Int {
@@ -129,7 +136,13 @@ struct StrengthWorkoutLogSheetView: View {
         }
         .task {
             try? ExerciseLibraryService.seedDefaultsIfNeeded(modelContext: modelContext)
+            loadTemplateLibrary()
+            loadWorkoutHistory()
             loadDraftIfNeeded()
+        }
+        .onChange(of: appState.localDataRevision) { _, _ in
+            loadTemplateLibrary()
+            loadWorkoutHistory()
         }
         .onChange(of: title) { _, _ in scheduleDraftSave() }
         .onChange(of: notes) { _, _ in scheduleDraftSave() }
@@ -269,7 +282,7 @@ struct StrengthWorkoutLogSheetView: View {
                     systemImage: groupKind == .superset ? "link" : "arrow.triangle.2.circlepath"
                 )
                 .font(VelaTheme.caption1().weight(.bold))
-                .foregroundStyle(groupKind == .superset ? VelaTheme.accent : VelaTheme.energyColor)
+                .foregroundStyle(groupKind == .superset ? VelaTheme.accent : VelaTheme.rhythmInk)
             }
 
             HStack {
@@ -487,9 +500,9 @@ struct StrengthWorkoutLogSheetView: View {
         switch kind {
         case .working: VelaTheme.accent
         case .warmup: VelaTheme.warn
-        case .drop: VelaTheme.sleepColor
-        case .backoff: VelaTheme.recoveryColor
-        case .failure: VelaTheme.strainColor
+        case .drop: VelaTheme.rhythmInk
+        case .backoff: VelaTheme.rhythmInk
+        case .failure: VelaTheme.rhythmInk
         }
     }
 
@@ -555,8 +568,8 @@ struct StrengthWorkoutLogSheetView: View {
                 VelaAppState.shared.markLocalDataChanged()
                 completedWorkout = editingWorkout
                 completedSummary = analysis
-                Task {
-                    await dashboardVM.refresh(modelContext: modelContext)
+                if let onRefresh {
+                    Task { await onRefresh() }
                 }
             } catch {
                 saveError = "训练更新失败，请稍后再试。\(error.localizedDescription)"
@@ -578,7 +591,7 @@ struct StrengthWorkoutLogSheetView: View {
                 )
                 // T7 修复：停止写入只写不读的 analyticsJSON。
                 let workoutIdStr = record.id.uuidString
-                let existingArtifacts = try? modelContext.fetch(FetchDescriptor<CoachArtifactRecord>())
+                let existingArtifacts = try? CoachArtifactRepository(modelContext: modelContext).fetchAll()
                 if let existing = existingArtifacts {
                     for art in existing {
                         if art.actionsJSON.contains(workoutIdStr) {
@@ -588,13 +601,9 @@ struct StrengthWorkoutLogSheetView: View {
                 }
                 
                 let planDayIdentifier = DailyHealthSummaryRecord.dayIdentifier(for: record.startedAt)
-                let planDescriptor = FetchDescriptor<DailyOperatingPlanRecord>(
-                    predicate: #Predicate<DailyOperatingPlanRecord> {
-                        $0.dayIdentifier == planDayIdentifier
-                    }
-                )
-                let readinessDecision = (try? modelContext.fetch(planDescriptor))?.first?.primaryActionType
-                    ?? dashboardVM.dashboard.trainingDecision.kind.rawValue
+                let readinessDecision = (try? DailyOperatingPlanRepository(modelContext: modelContext)
+                    .fetchLatest(dayIdentifier: planDayIdentifier))?.primaryActionType
+                    ?? trainingDecisionKind
                 let artifact = CoachArtifact.postWorkoutReview(
                     workout: record,
                     summary: analysis,
@@ -614,8 +623,8 @@ struct StrengthWorkoutLogSheetView: View {
                 VelaAppState.shared.markLocalDataChanged()
                 completedWorkout = record
                 completedSummary = analysis
-                Task {
-                    await dashboardVM.refresh(modelContext: modelContext)
+                if let onRefresh {
+                    Task { await onRefresh() }
                 }
             } catch {
                 saveError = "训练暂时无法保存，请稍后再试。\(error.localizedDescription)"
@@ -667,16 +676,12 @@ struct StrengthWorkoutLogSheetView: View {
         exercises = template.exercises.map { item in
             var definition: ExerciseDefinitionRecord?
             if let defKey = item.exerciseCanonicalKey {
-                let descriptor = FetchDescriptor<ExerciseDefinitionRecord>(
-                    predicate: #Predicate<ExerciseDefinitionRecord> { $0.canonicalKey == defKey }
-                )
-                definition = try? modelContext.fetch(descriptor).first
+                definition = (try? ExerciseDefinitionRepository(modelContext: modelContext)
+                    .fetch(canonicalKey: defKey))?.first
             }
             if definition == nil {
-                let descriptor = FetchDescriptor<ExerciseDefinitionRecord>(
-                    predicate: #Predicate<ExerciseDefinitionRecord> { $0.name == item.name }
-                )
-                definition = try? modelContext.fetch(descriptor).first
+                definition = (try? ExerciseDefinitionRepository(modelContext: modelContext)
+                    .fetch(name: item.name))?.first
             }
             
             let libDef = ExerciseLibraryService.defaultDefinitions().first {
@@ -735,7 +740,8 @@ struct StrengthWorkoutLogSheetView: View {
     private func deleteTemplate(_ template: WorkoutTemplateRecord) {
         modelContext.insert(DeletedWorkoutRecord(id: "template:\(template.title)"))
         modelContext.delete(template)
-        try? modelContext.save()
+        modelContext.saveOrRecordFailure("modelContext.save")
+        loadTemplateLibrary()
     }
 
     private func localizedEquipment(_ value: String) -> String {
@@ -772,7 +778,7 @@ struct StrengthWorkoutLogSheetView: View {
               let index = exercise.wrappedValue.sets.firstIndex(where: { $0.id == set.wrappedValue.id }) else { return }
         
         var restDuration = 90
-        if let plan = try? modelContext.fetch(FetchDescriptor<TrainingPlanRecord>(predicate: #Predicate { $0.isActive })).first {
+        if let plan = try? TrainingPlanRepository(modelContext: modelContext).fetchActivePlans().first {
             // 用本次训练的开始日而非「今天」（跨天补录时取错计划日）。
             let todayWeekday = Calendar.current.component(.weekday, from: startedAt)
             let dayNum = todayWeekday == 1 ? 7 : todayWeekday - 1
@@ -814,13 +820,24 @@ struct StrengthWorkoutLogSheetView: View {
         ))
         do {
             try modelContext.save()
+            loadTemplateLibrary()
             return true
         } catch {
             return false
         }
     }
 
+    private func loadTemplateLibrary() {
+        persistedTemplates = (try? WorkoutTemplateRepository(modelContext: modelContext).fetchAllSortedByTitle()) ?? []
+        deletedWorkouts = (try? DeletedWorkoutRepository(modelContext: modelContext).fetchAll()) ?? []
+    }
+
     // MARK: - Draft Autosave Mechanism
+
+    private func loadWorkoutHistory() {
+        workoutHistory = (try? WorkoutHistoryRepository(modelContext: modelContext)
+            .fetchStrengthWorkoutsSortedByStart(newestFirst: true)) ?? []
+    }
 
     private func loadDraftIfNeeded() {
         if let editingWorkout {
@@ -829,10 +846,9 @@ struct StrengthWorkoutLogSheetView: View {
             self.notes = editingWorkout.notes
             self.exercises = editingWorkout.exercises
             if let eventID = editingWorkout.linkedWorkoutEventId {
-                let descriptor = FetchDescriptor<WorkoutEventRecord>(
-                    predicate: #Predicate<WorkoutEventRecord> { $0.id == eventID }
-                )
-                if let event = (try? modelContext.fetch(descriptor))?.first {
+                if let event = try? WorkoutHistoryRepository(modelContext: modelContext)
+                    .fetchEvents(id: eventID)
+                    .first {
                     self.exertionScore = event.rpe ?? 7.0
                 }
             }
@@ -846,8 +862,7 @@ struct StrengthWorkoutLogSheetView: View {
                 .compactMap(\.rpe)
                 .max() ?? 7
         } else {
-            let descriptor = FetchDescriptor<ActiveWorkoutDraftRecord>()
-            if let draft = (try? modelContext.fetch(descriptor))?.first {
+            if let draft = (try? ActiveWorkoutDraftRepository(modelContext: modelContext).fetchAll())?.first {
                 self.activeDraftID = draft.id
                 self.title = draft.title
                 self.startedAt = draft.startedAt
@@ -868,9 +883,8 @@ struct StrengthWorkoutLogSheetView: View {
 
     private func saveDraft() {
         guard isLoaded && editingWorkout == nil else { return }
-        let descriptor = FetchDescriptor<ActiveWorkoutDraftRecord>()
         let draft: ActiveWorkoutDraftRecord
-        if let existing = (try? modelContext.fetch(descriptor))?.first {
+        if let existing = (try? ActiveWorkoutDraftRepository(modelContext: modelContext).fetchAll())?.first {
             existing.title = title
             existing.startedAt = startedAt
             existing.notes = notes
@@ -888,7 +902,7 @@ struct StrengthWorkoutLogSheetView: View {
             draft = created
         }
         activeDraftID = draft.id
-        try? modelContext.save()
+        modelContext.saveOrRecordFailure("modelContext.save")
         WristSnapshotBridge.shared.publishActiveWorkout(draft)
     }
 
@@ -920,13 +934,12 @@ struct StrengthWorkoutLogSheetView: View {
     }
 
     private func clearDraft() {
-        let descriptor = FetchDescriptor<ActiveWorkoutDraftRecord>()
-        if let drafts = try? modelContext.fetch(descriptor) {
+        if let drafts = try? ActiveWorkoutDraftRepository(modelContext: modelContext).fetchAll() {
             for draft in drafts {
                 modelContext.delete(draft)
             }
         }
-        try? modelContext.save()
+        modelContext.saveOrRecordFailure("modelContext.save")
         activeDraftID = nil
         WristSnapshotBridge.shared.clearActiveWorkout()
     }

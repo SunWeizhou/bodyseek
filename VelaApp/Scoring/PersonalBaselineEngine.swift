@@ -1,4 +1,5 @@
 import Foundation
+import BodySeekDomain
 
 struct PersonalBaselineFormation: Codable, Hashable, Sendable {
     enum Phase: String, Codable, Hashable, Sendable {
@@ -115,60 +116,70 @@ enum PersonalBaselineEngine {
 
     // MARK: - Compute
 
-    /// Compute personalized baselines from the user's own historical snapshots (last 30 days).
+    /// Personal baselines for the previous 30 calendar days.
+    /// Today is excluded. The published center is the robust median and the
+    /// published spread is the MAD scale, the same definition scoring uses.
     static func computeBaselines(
         from snapshots: [DailyHealthSnapshot],
-        calculatedAt: Date = Date()
+        calculatedAt: Date = Date(),
+        calendar: Calendar = .current
     ) -> PersonalBaselines {
-        let sorted = snapshots.sorted { $0.date < $1.date }
-        let recent = Array(sorted.suffix(30))
+        func estimate(_ value: KeyPath<DailyHealthSnapshot, Double?>) -> BaselineEstimate? {
+            let samples = snapshots.compactMap { snapshot -> BaselineSample? in
+                guard let number = snapshot[keyPath: value] else { return nil }
+                return BaselineSample(date: snapshot.date, value: number)
+            }
+            return BaselineEstimator.estimate(
+                samples: samples,
+                asOf: calculatedAt,
+                windowDays: 30,
+                minimumSamples: minimumSamples,
+                calendar: calendar
+            )
+        }
 
-        let hrvValues = recent.compactMap(\.hrvAverage)
-        let rhrValues = recent.compactMap(\.restingHeartRate)
-        let sleepHoursValues = recent.compactMap(\.sleepHours)
-        let sleepEfficiencyValues = recent.compactMap(\.sleepEfficiency)
-        let deepSleepValues = recent.compactMap(\.deepSleepPercent)
-        let remSleepValues = recent.compactMap(\.remSleepPercent)
-        let strainValues = recent.compactMap(\.strainScore)
-        let stepsValues = recent.compactMap(\.steps)
-        let caloriesValues = recent.compactMap(\.activeCalories)
-        let recoveryValues = recent.compactMap(\.recoveryScore)
-        let sleepScoreValues = recent.compactMap(\.sleepScore)
+        let hrv = estimate(\.hrvAverage)
+        let rhr = estimate(\.restingHeartRate)
+        let sleepHours = estimate(\.sleepHours)
+        let sleepEfficiency = estimate(\.sleepEfficiency)
+        let deepSleep = estimate(\.deepSleepPercent)
+        let remSleep = estimate(\.remSleepPercent)
+        let strain = estimate(\.strainScore)
+        let steps = estimate(\.steps)
+        let calories = estimate(\.activeCalories)
+        let recovery = estimate(\.recoveryScore)
+        let sleepScore = estimate(\.sleepScore)
+        let priorDays = Set(
+            snapshots.compactMap { snapshot -> Date? in
+                let day = calendar.startOfDay(for: snapshot.date)
+                guard day < calendar.startOfDay(for: calculatedAt) else { return nil }
+                let start = calendar.date(byAdding: .day, value: -30, to: calendar.startOfDay(for: calculatedAt)) ?? day
+                return day >= start ? day : nil
+            }
+        )
 
         return PersonalBaselines(
-            hrvBaselineMean: recencyMeanIfReady(hrvValues),
-            hrvBaselineSD: standardDeviationIfReady(hrvValues),
-            rhrBaselineMean: recencyMeanIfReady(rhrValues),
-            rhrBaselineSD: standardDeviationIfReady(rhrValues),
-            sleepHoursBaseline: recencyMeanIfReady(sleepHoursValues),
-            sleepEfficiencyBaseline: recencyMeanIfReady(sleepEfficiencyValues),
-            deepSleepPercentBaseline: recencyMeanIfReady(deepSleepValues),
-            remSleepPercentBaseline: recencyMeanIfReady(remSleepValues),
-            strainBaselineMean: recencyMeanIfReady(strainValues),
-            stepsBaseline: recencyMeanIfReady(stepsValues),
-            activeCaloriesBaseline: recencyMeanIfReady(caloriesValues),
+            hrvBaselineMean: hrv?.median,
+            hrvBaselineSD: hrv?.robustScale,
+            rhrBaselineMean: rhr?.median,
+            rhrBaselineSD: rhr?.robustScale,
+            sleepHoursBaseline: sleepHours?.median,
+            sleepEfficiencyBaseline: sleepEfficiency?.median,
+            deepSleepPercentBaseline: deepSleep?.median,
+            remSleepPercentBaseline: remSleep?.median,
+            strainBaselineMean: strain?.median,
+            stepsBaseline: steps?.median,
+            activeCaloriesBaseline: calories?.median,
             calculatedAt: calculatedAt,
-            daysOfData: recent.count,
-            recoveryBaselineMean: recencyMeanIfReady(recoveryValues),
-            recoveryBaselineSD: standardDeviationIfReady(recoveryValues),
-            sleepScoreBaselineMean: recencyMeanIfReady(sleepScoreValues),
-            sleepScoreBaselineSD: standardDeviationIfReady(sleepScoreValues)
+            daysOfData: priorDays.count,
+            recoveryBaselineMean: recovery?.median,
+            recoveryBaselineSD: recovery?.robustScale,
+            sleepScoreBaselineMean: sleepScore?.median,
+            sleepScoreBaselineSD: sleepScore?.robustScale
         )
     }
 
     // MARK: - Thresholds for AI Context
-
-    private static func meanOfIfReady(_ values: [Double]) -> Double? {
-        values.count >= minimumSamples ? meanOf(values) : nil
-    }
-
-    private static func recencyMeanIfReady(_ values: [Double]) -> Double? {
-        values.count >= minimumSamples ? recencyWeightedMean(values) : nil
-    }
-
-    private static func standardDeviationIfReady(_ values: [Double]) -> Double? {
-        values.count >= minimumSamples ? standardDeviationOf(values) : nil
-    }
 
     /// Formats baselines as key-value strings suitable for AI coach context injection.
     static func thresholds(for baselines: PersonalBaselines) -> [String: String] {
@@ -433,41 +444,21 @@ enum PersonalBaselineEngine {
         return weightedSum / totalWeight
     }
 
-    private static func meanOf(_ values: [Double]) -> Double? {
-        guard !values.isEmpty else { return nil }
-        return values.reduce(0, +) / Double(values.count)
-    }
-
-    private static func standardDeviationOf(_ values: [Double]) -> Double? {
-        sampleStandardDeviation(values)
-    }
-
     /// Shared Personal Baseline statistics used by Daily Health Computation and
-    /// individual score implementations. Keeping them here prevents subtly
-    /// different baseline math from leaking across scoring modules.
+    /// individual score implementations. The math lives in `ScoringMath`.
     static func median(_ values: [Double]) -> Double? {
-        guard !values.isEmpty else { return nil }
-        let sorted = values.sorted()
-        let midpoint = sorted.count / 2
-        return sorted.count.isMultiple(of: 2)
-            ? (sorted[midpoint - 1] + sorted[midpoint]) / 2
-            : sorted[midpoint]
+        ScoringMath.median(values)
     }
 
     static func sampleStandardDeviation(_ values: [Double]) -> Double? {
-        guard values.count > 1, let mean = meanOf(values) else { return nil }
-        let squaredDifference = values.reduce(0.0) { $0 + pow($1 - mean, 2) }
-        let value = sqrt(squaredDifference / Double(values.count - 1))
-        return value > 0 ? value : nil
+        ScoringMath.sampleStandardDeviation(values)
     }
 
     static func robustStandardDeviation(
         _ values: [Double],
         around median: Double
     ) -> Double? {
-        guard let mad = self.median(values.map { abs($0 - median) }) else { return nil }
-        let value = 1.4826 * mad
-        return value > 0 ? value : nil
+        ScoringMath.robustStandardDeviation(values, around: median)
     }
 
     static func resolveThresholds() -> PersonalBaselineThresholds {
@@ -590,7 +581,7 @@ struct PersonalBaselineThresholds {
 
 // MARK: - Long-term baseline engine（三年长线基准）
 
-enum LongTermBaselineMetric: String, CaseIterable, Hashable, Sendable {
+enum LongTermBaselineMetric: String, CaseIterable, Hashable, Sendable, Identifiable {
     case restingHeartRate
     case hrv
     case sleepHours
@@ -598,6 +589,8 @@ enum LongTermBaselineMetric: String, CaseIterable, Hashable, Sendable {
     case bodyFatPercent
     case steps
     case activeCalories
+
+    var id: String { rawValue }
 
     var title: String {
         switch self {
@@ -663,7 +656,20 @@ struct LongTermBaselinePoint: Hashable, Sendable {
     }
 }
 
-extension DailyHealthSnapshot {
+protocol LongTermBaselineSample {
+    var date: Date { get }
+    var hrvAverage: Double? { get }
+    var restingHeartRate: Double? { get }
+    var sleepHours: Double? { get }
+    var bodyWeight: Double? { get }
+    var bodyFatPercent: Double? { get }
+    var steps: Double? { get }
+    var activeCalories: Double? { get }
+    var workoutCount: Int? { get }
+    var workoutDuration: Double? { get }
+}
+
+extension LongTermBaselineSample {
     var longTermBaselinePoint: LongTermBaselinePoint {
         LongTermBaselinePoint(
             date: date,
@@ -680,22 +686,8 @@ extension DailyHealthSnapshot {
     }
 }
 
-extension DailyHealthSummaryRecord {
-    var longTermBaselinePoint: LongTermBaselinePoint {
-        LongTermBaselinePoint(
-            date: date,
-            hrvAverage: hrvAverage,
-            restingHeartRate: restingHeartRate,
-            sleepHours: sleepHours,
-            bodyWeight: bodyWeight,
-            bodyFatPercent: bodyFatPercent,
-            steps: steps,
-            activeCalories: activeCalories,
-            workoutCount: workoutCount,
-            workoutDuration: workoutDuration
-        )
-    }
-}
+extension DailyHealthSnapshot: LongTermBaselineSample {}
+extension DailyHealthSummaryRecord: LongTermBaselineSample {}
 
 struct LongTermMetricBaseline: Hashable, Sendable {
     var metric: LongTermBaselineMetric

@@ -1,7 +1,7 @@
 {
   "schema": "bodyseek-strain-replay.v1",
   "target": "VelaApp",
-  "algorithmVersion": "strain.v2.0.0",
+  "algorithmVersion": "strain.v2.2.0",
   "formulaChange": false,
   "calendar": "gregorian",
   "timeZone": "UTC",
@@ -32,5 +32,5 @@
     "formattedScore": "--",
     "requiredMissingInputs": ["workouts", "activeEnergyToday", "exerciseMinutesToday", "stepCount"]
   },
-  "packageParity": "blocked: StrainScoreEngine and StrainScoreInput remain VelaApp-only"
+  "packageParity": "StrainScoreEngine, WorkoutInput, and DailyLoadObservation live in BodySeekDomain. The app StrainScoreEngine is a MetricResult adapter. HeartRateZoneCalculator stays in the app because it reads HeartRateSample. BodySeekDomain.DailyHealthComputation still leaves the strain slot unavailable until production scoring moves."
 }

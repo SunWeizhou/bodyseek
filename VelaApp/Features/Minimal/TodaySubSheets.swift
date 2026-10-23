@@ -241,10 +241,8 @@ private extension String {
 struct CalendarOverviewSheetView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    /// Legacy Calendar queries still use the dashboard model as a downstream
-    /// compatibility bridge (for example, historical score records), but the
-    /// selected day itself is supplied by TodayStore at the composition edge.
-    @EnvironmentObject private var dashboardVM: DashboardViewModel
+    /// Selected day and day-change intent come from TodayStore at the
+    /// composition edge. Historical score rows are loaded from the repository.
     @ObservedObject private var appState = VelaAppState.shared
     let selectedDay: Date
     let onSelectDay: (Date) -> Void
@@ -539,11 +537,8 @@ struct CalendarOverviewSheetView: View {
         guard let endOfMonth = calendar.date(byAdding: .month, value: 1, to: startOfMonth) else { return }
         guard let endLimit = calendar.date(byAdding: .day, value: 7, to: endOfMonth) else { return }
         
-        let descriptor = FetchDescriptor<DailyHealthSummaryRecord>(
-            predicate: #Predicate<DailyHealthSummaryRecord> { $0.date >= startLimit && $0.date <= endLimit },
-            sortBy: [SortDescriptor(\.date, order: .forward)]
-        )
-        if let fetched = try? modelContext.fetch(descriptor) {
+        if let fetched = try? SwiftDataDailyHealthSummaryRepository(modelContext: modelContext)
+            .fetchRecords(from: startLimit, through: endLimit) {
             self.healthRecords = fetched
         }
     }
@@ -626,7 +621,7 @@ struct PostWorkoutCheckInSheet: View {
                 if let saveError {
                     Text(saveError)
                         .font(VelaTheme.caption1())
-                        .foregroundStyle(VelaTheme.stressColor)
+                        .foregroundStyle(VelaTheme.rhythmInk)
                 }
                 saveButton
             }
@@ -802,22 +797,13 @@ struct PostWorkoutCheckInSheet: View {
 
     private func loadExistingState() {
         guard let workoutID else { return }
-        let workoutDescriptor = FetchDescriptor<StrengthWorkoutRecord>(
-            predicate: #Predicate<StrengthWorkoutRecord> { $0.id == workoutID }
-        )
-        workout = try? modelContext.fetch(workoutDescriptor).first
+        workout = try? WorkoutHistoryRepository(modelContext: modelContext).fetchStrengthWorkouts(id: workoutID).first
 
-        let eventDescriptor = FetchDescriptor<WorkoutEventRecord>(
-            predicate: #Predicate<WorkoutEventRecord> {
-                $0.id == workoutID || $0.linkedHealthKitWorkoutId == workoutID || $0.linkedStrengthWorkoutId == workoutID
-            }
-        )
-        workoutEvent = try? modelContext.fetch(eventDescriptor).first
+        workoutEvent = try? WorkoutHistoryRepository(modelContext: modelContext).fetchEvents(relatedTo: workoutID).first
 
-        let responseDescriptor = FetchDescriptor<TrainingResponseRecord>(
-            predicate: #Predicate<TrainingResponseRecord> { $0.workoutId == workoutID }
-        )
-        guard let response = try? modelContext.fetch(responseDescriptor).first else {
+        guard let response = try? TrainingResponseRepository(modelContext: modelContext)
+            .fetchResponses(workoutId: workoutID)
+            .first else {
             if let sessionRPE = workout?.sessionRPE {
                 rpe = sessionRPE
             }
@@ -844,12 +830,10 @@ struct PostWorkoutCheckInSheet: View {
             tags.append("note:\(trimmedNote)")
         }
 
-        let responseDescriptor = FetchDescriptor<TrainingResponseRecord>(
-            predicate: #Predicate<TrainingResponseRecord> { $0.workoutId == workoutID }
-        )
-
         do {
-            if let existing = try modelContext.fetch(responseDescriptor).first {
+            if let existing = try TrainingResponseRepository(modelContext: modelContext)
+                .fetchResponses(workoutId: workoutID)
+                .first {
                 existing.sessionRPE = rpe
                 existing.subjectiveTags = tags
                 if !selectedMuscleGroups.isEmpty {
@@ -899,7 +883,7 @@ struct PostWorkoutCheckInSheet: View {
             // A single optional focus tap is enough to advance the lightweight
             // split. No exercise/set logging is required during the workout.
             if !selectedMuscleGroups.isEmpty,
-               let onboarding = try modelContext.fetch(FetchDescriptor<OnboardingState>()).first {
+               let onboarding = try OnboardingRepository(modelContext: modelContext).fetchLatest() {
                 var preference = onboarding.trainingPreference
                 preference.rotationFocuses = TrainingRotationResolver.focuses(for: preference)
                 preference.nextRotationFocus = TrainingRotationResolver.focus(
@@ -1044,12 +1028,12 @@ struct PostWorkoutImpactSheet: View {
                 Spacer()
                 Text(impact.postPeakHeartRateText)
                     .font(.system(.body, design: .default, weight: .bold))
-                    .foregroundStyle(VelaTheme.strainColor)
+                    .foregroundStyle(VelaTheme.rhythmInk)
             }
 
             PostWorkoutTrendLine(
                 points: impact.postWorkoutHeartRateTrend,
-                color: VelaTheme.strainColor,
+                color: VelaTheme.rhythmInk,
                 valueRange: impact.postWorkoutHeartRateRange
             )
                 .frame(height: 86)
@@ -1170,10 +1154,11 @@ struct PostWorkoutImpactSheet: View {
         }
 
         do {
-            let workouts = try modelContext.fetch(FetchDescriptor<StrengthWorkoutRecord>())
-            let events = try modelContext.fetch(FetchDescriptor<WorkoutEventRecord>())
-            let responses = try modelContext.fetch(FetchDescriptor<TrainingResponseRecord>())
-            let summaries = try modelContext.fetch(FetchDescriptor<DailyHealthSummaryRecord>())
+            let history = WorkoutHistoryRepository(modelContext: modelContext)
+            let workouts = try history.fetchStrengthWorkouts()
+            let events = try history.fetchWorkoutEvents()
+            let responses = try TrainingResponseRepository(modelContext: modelContext).fetchAll()
+            let summaries = try SwiftDataDailyHealthSummaryRepository(modelContext: modelContext).fetchAll()
 
             let workout = workouts.first { $0.id == workoutID }
             let event = events.first {
@@ -1415,16 +1400,23 @@ private struct PostWorkoutTrendLine: View {
 struct WorkoutLogSheetView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var dashboardVM: DashboardViewModel
-    
+
+    /// Shell-owned refresh after a successful write. The sheet does not hold
+    /// DashboardViewModel; TodayStore remains the canonical day reload path.
+    var onSaved: (() async -> Void)?
+
     @State private var selectedSport = "跑步"
     @State private var durationMinutes: Double = 30.0
     @State private var caloriesBurned: Double = 250.0
     @State private var exertionScore: Double = 5.0
     @State private var saveError: String?
-    
+
     let sports = ["跑步", "力量训练", "骑行", "游泳", "瑜伽", "HIIT", "步行"]
-    
+
+    init(onSaved: (() async -> Void)? = nil) {
+        self.onSaved = onSaved
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -1571,8 +1563,8 @@ struct WorkoutLogSheetView: View {
             try WorkoutAggregationService.shared.aggregateDay(date: start, modelContext: modelContext)
             try modelContext.save()
             VelaAppState.shared.markLocalDataChanged()
-            Task {
-                await dashboardVM.refresh(modelContext: modelContext)
+            if let onSaved {
+                Task { await onSaved() }
             }
             return true
         } catch {

@@ -574,7 +574,7 @@ final class VelaEventService {
         )
         
         modelContext.insert(record)
-        try? modelContext.save()
+        modelContext.saveOrRecordFailure("modelContext.save")
         
         // Notify local app state that data changed
         VelaAppState.shared.markLocalDataChanged()
@@ -585,11 +585,7 @@ final class VelaEventService {
         start: Date,
         end: Date
     ) -> [VelaEventRecord] {
-        let descriptor = FetchDescriptor<VelaEventRecord>(
-            predicate: #Predicate<VelaEventRecord> { $0.timestamp >= start && $0.timestamp <= end },
-            sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
-        )
-        return (try? modelContext.fetch(descriptor)) ?? []
+        return (try? VelaEventRepository(modelContext: modelContext).fetch(from: start, through: end)) ?? []
     }
 }
 
@@ -736,12 +732,10 @@ struct DailyDecisionFeedbackService {
         now: Date = Date()
     ) -> ProductQualitySnapshot {
         let cutoff = now.addingTimeInterval(-Double(periodDays) * 86_400)
-        let plans = (try? modelContext.fetch(FetchDescriptor<DailyOperatingPlanRecord>(
-            predicate: #Predicate { $0.generatedAt >= cutoff }
-        ))) ?? []
-        let feedback = (try? modelContext.fetch(FetchDescriptor<DailyDecisionFeedbackRecord>(
-            predicate: #Predicate { $0.updatedAt >= cutoff }
-        ))) ?? []
+        let plans = (try? DailyOperatingPlanRepository(modelContext: modelContext)
+            .fetchPlans(generatedOnOrAfter: cutoff)) ?? []
+        let feedback = (try? DailyDecisionFeedbackRepository(modelContext: modelContext)
+            .fetchUpdated(onOrAfter: cutoff)) ?? []
         let events = VelaEventService.shared.fetchEvents(modelContext: modelContext, start: cutoff, end: now)
         let completed = feedback.filter(\.isCompleted)
         return ProductQualitySnapshot(
@@ -768,11 +762,8 @@ struct DailyDecisionFeedbackService {
         now: Date = Date()
     ) -> DecisionFeedbackCalibration {
         let cutoff = now.addingTimeInterval(-Double(periodDays) * 86_400)
-        let feedback = (try? modelContext.fetch(FetchDescriptor<DailyDecisionFeedbackRecord>(
-            predicate: #Predicate {
-                $0.updatedAt >= cutoff && $0.updatedAt <= now && $0.createdAt <= now
-            }
-        ))) ?? []
+        let feedback = (try? DailyDecisionFeedbackRepository(modelContext: modelContext)
+            .fetchUpdated(from: cutoff, through: now, createdAtOrBefore: now)) ?? []
         let completed = feedback.filter(\.isCompleted)
         guard completed.count >= 3 else {
             return DecisionFeedbackCalibration(completedFeedbackCount: completed.count, volumeAdjustmentMultiplier: 0.0)
@@ -827,10 +818,7 @@ struct DailyDecisionFeedbackService {
         decisionTitle: String,
         now: Date
     ) throws -> DailyDecisionFeedbackRecord {
-        let descriptor = FetchDescriptor<DailyDecisionFeedbackRecord>(
-            predicate: #Predicate { $0.dayIdentifier == dayIdentifier }
-        )
-        if let existing = try modelContext.fetch(descriptor).first {
+        if let existing = try DailyDecisionFeedbackRepository(modelContext: modelContext).fetchRecord(dayIdentifier: dayIdentifier) {
             existing.planGeneratedAt = plan?.generatedAt
             existing.bodyStateHash = bodyStateHash
             existing.decisionType = decisionType
@@ -921,9 +909,7 @@ struct PersonalExperimentService {
         now: Date = Date(),
         calendar: Calendar = .current
     ) throws -> PersonalExperimentRecord {
-        let active = try modelContext.fetch(FetchDescriptor<PersonalExperimentRecord>(
-            predicate: #Predicate { $0.status == "active" }
-        ))
+        let active = try PersonalExperimentRepository(modelContext: modelContext).fetchActive()
         active.forEach { existing in
             existing.status = "cancelled"
             existing.updatedAt = now
@@ -958,10 +944,7 @@ struct PersonalExperimentService {
         let day = calendar.startOfDay(for: date)
         let dayID = DailyHealthSummaryRecord.dayIdentifier(for: day, calendar: calendar)
         let recordID = "\(experiment.id.uuidString):\(dayID)"
-        let descriptor = FetchDescriptor<ExperimentCheckInRecord>(
-            predicate: #Predicate { $0.id == recordID }
-        )
-        if let existing = try modelContext.fetch(descriptor).first {
+        if let existing = try ExperimentCheckInRepository(modelContext: modelContext).fetch(id: recordID).first {
             existing.followedProtocol = followed
             existing.note = note
             existing.updatedAt = date

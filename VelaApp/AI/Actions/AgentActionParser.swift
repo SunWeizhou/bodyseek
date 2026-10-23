@@ -379,7 +379,17 @@ enum ArtifactGeneratorTool {
         )
 
         modelContext.insert(record)
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            PipelineDiagnosticsLogger.log(
+                modelContext: modelContext,
+                stage: "AgentActionParser.persistArtifact",
+                isSuccess: false,
+                summary: "保存 Coach artifact 失败。",
+                error: error
+            )
+        }
         return artifact
     }
 }

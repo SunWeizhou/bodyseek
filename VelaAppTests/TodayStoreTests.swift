@@ -1,4 +1,5 @@
 import XCTest
+import Speech
 @testable import Vela
 
 /// ARCH-00/PR0's deterministic fixture, kept in one Today-focused helper so
@@ -83,6 +84,13 @@ private enum TodayPR0GoldenFixture {
 }
 
 final class TodayStoreTests: XCTestCase {
+    private final class MutableClock: AppClock, @unchecked Sendable {
+        private let lock = NSLock()
+        private var value: Date
+        init(now: Date) { value = now }
+        var now: Date { lock.withLock { value } }
+        func advance(_ seconds: TimeInterval) { lock.withLock { value.addTimeInterval(seconds) } }
+    }
     private var calendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
@@ -282,6 +290,38 @@ final class TodayStoreTests: XCTestCase {
         XCTAssertEqual(store.state.scores.sleep.value, 77.43)
         XCTAssertEqual(store.state.scores.recovery.algorithmVersion, "1.0.0")
         XCTAssertNil(store.state.command, "Store must not rebuild command state in a getter")
+    }
+
+    @MainActor
+    func testReturningToTodayReusesLoadedStateWithoutAnotherRead() async {
+        let reader = RecordingReader()
+        reader.loadSnapshot = snapshot(day: calendar.startOfDay(for: now), score: 81, updatedAt: now)
+        let store = TodayStore(reader: reader, clock: FixedAppClock(now: now), calendar: calendar)
+
+        await store.send(.appear)
+        await store.send(.appear)
+        await store.send(.appear)
+
+        XCTAssertEqual(reader.loadCalls, 1, "Returning to the same tab must not reload a fresh dashboard")
+        XCTAssertEqual(reader.cachedCalls, 1, "Returning must not rebuild the disk-cache projection either")
+        XCTAssertEqual(store.state.scores.recovery.value, 81)
+    }
+
+    @MainActor
+    func testAppearanceCacheExpiresAndForceRefreshStillReadsNewData() async {
+        let reader = RecordingReader()
+        let clock = MutableClock(now: now)
+        reader.loadSnapshot = snapshot(day: calendar.startOfDay(for: now), score: 81, updatedAt: now)
+        let store = TodayStore(reader: reader, clock: clock, calendar: calendar)
+        await store.send(.appear)
+        clock.advance(16 * 60)
+        await store.send(.appear)
+        XCTAssertEqual(reader.loadCalls, 2)
+        reader.loadSnapshot = snapshot(day: calendar.startOfDay(for: now), score: 74, updatedAt: clock.now)
+        await store.send(.refresh(force: true))
+        XCTAssertEqual(reader.loadCalls, 3)
+        XCTAssertEqual(reader.policies.last, .force)
+        XCTAssertEqual(store.state.scores.recovery.value, 74)
     }
 
     @MainActor
@@ -524,8 +564,8 @@ final class TodayViewStateTests: XCTestCase {
             // preserve the engine's explicit consistency-data gap.
             (.sleep, 77.43, ScoringAlgorithmVersions.sleep, .healthKit, ["recentBedtimesHistory"]),
             (.strain, 63.67, ScoringAlgorithmVersions.strain, .healthKit, []),
-            (.stress, 21.08, ScoringAlgorithmVersions.physiologicalStress, .derived, []),
-            (.energy, 47.91, ScoringAlgorithmVersions.energy, .derived, [])
+            (.stress, 26.50245571207583, ScoringAlgorithmVersions.physiologicalStress, .derived, []),
+            (.energy, 46.555299948395124, ScoringAlgorithmVersions.energy, .derived, [])
         ]
         XCTAssertEqual(state.phase, .ready)
         XCTAssertEqual(state.source, .healthKit)
@@ -691,5 +731,86 @@ final class TodayViewStateTests: XCTestCase {
             calendar: calendar
         )
         XCTAssertEqual(state.freshness, .today)
+    }
+}
+
+@MainActor
+final class CoachInteractionBoundaryTests: XCTestCase {
+    func testSpeechAuthorizationAcceptsBackgroundCallbacks() async {
+        let status = await CoachSpeechAuthorization.request { completion in
+            DispatchQueue.global().async { completion(.denied) }
+        }
+        XCTAssertEqual(status, .denied)
+    }
+
+    func testCancelledDictationDoesNotStartRecording() async {
+        let controller = CoachDictationController()
+        controller.begin(existingText: "unsent draft")
+        controller.stop()
+        await Task.yield()
+        XCTAssertFalse(controller.isStarting)
+        XCTAssertFalse(controller.isRecording)
+        XCTAssertEqual(controller.transcript, "unsent draft")
+        XCTAssertNil(controller.errorMessage)
+    }
+
+    func testRoutedCoachContextCarriesVisibleWindowAndMetric() throws {
+        let trends = CoachContextFocus.routed(from: .trends, horizon: .sevenDays)
+        let data = try XCTUnwrap(trends.screenContext.json().data(using: .utf8))
+        let encoded = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(encoded["horizon"] as? String, "7d")
+        let detail = CoachContextFocus.routed(from: .metricDetail, entityType: "睡眠")
+        XCTAssertEqual(detail.screenContext.entityType, "睡眠")
+        XCTAssertNil(detail.screenContext.horizon)
+    }
+}
+
+final class BodySeekInstrumentCopyTests: XCTestCase {
+    func testScoreReadingTreatsPercentAndMissingAsPublished() {
+        let readings = ScoreInstrumentReading.make(
+            cardValues: [
+                "recovery": "62",
+                "sleep": "88%",
+                "strain": "--",
+                "stress": "42",
+                "energy": "47%"
+            ],
+            deviations: ["recovery": "低于平时"],
+            findings: []
+        )
+        XCTAssertEqual(readings.map(\.valueText), ["62", "88", "--", "42", "47%"])
+        XCTAssertEqual(readings[0].isUnusual, true)
+        XCTAssertEqual(readings[0].caption, "低于平时")
+        XCTAssertEqual(readings[1].isUnusual, false)
+        XCTAssertEqual(readings[2].value, nil)
+        XCTAssertEqual(readings[2].caption, "暂无数据")
+    }
+
+    func testAskSuggestionsFollowPublishedDeviationAndPlan() {
+        let recovery = ScoreInstrumentReading(
+            id: "recovery",
+            title: "恢复",
+            value: 62,
+            baseline: 70,
+            isUnusual: true,
+            caption: "低于平时 70"
+        )
+        let today = BodySeekAskSuggestions.make(
+            surface: .home,
+            readings: [recovery],
+            nextActionTitle: "按计划开展训练",
+            hasPendingProposal: true
+        )
+        XCTAssertEqual(today.first, "为什么恢复低于平时？")
+        XCTAssertTrue(today.contains("状态有变化，今天的安排要不要改？"))
+        XCTAssertFalse(today.contains("今天能跑步吗？"))
+
+        let plan = BodySeekAskSuggestions.make(
+            surface: .plan,
+            nextActionTitle: "按计划开展训练",
+            hasPendingProposal: true
+        )
+        XCTAssertEqual(plan.first, "这份调整建议值得采用吗？为什么？")
+        XCTAssertTrue(plan.contains("今天继续「按计划开展训练」还合适吗？"))
     }
 }

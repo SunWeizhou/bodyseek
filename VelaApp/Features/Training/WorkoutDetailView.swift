@@ -8,12 +8,24 @@ import os.log
 
 private let logger = Logger(subsystem: "com.sunweizhou.Vela", category: "Workout")
 struct WorkoutDetailView: View {
+    let workout: WorkoutSummary
+    let dashboard: DashboardSummary
+    var onRefresh: (() async -> Void)?
+
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var dashboardVM: DashboardViewModel
+    @ObservedObject private var appState = VelaAppState.shared
 
-    let workout: WorkoutSummary
+    init(
+        workout: WorkoutSummary,
+        dashboard: DashboardSummary = .empty(),
+        onRefresh: (() async -> Void)? = nil
+    ) {
+        self.workout = workout
+        self.dashboard = dashboard
+        self.onRefresh = onRefresh
+    }
     
     @State private var heartRates: [HeartRateSample] = []
     @State private var routeCoordinates: [CLLocationCoordinate2D] = []
@@ -22,9 +34,8 @@ struct WorkoutDetailView: View {
     @State private var showDeleteConfirmation = false
     @State private var selectedSet: StrengthSetDetail?
     @State private var mutationError: String?
-
-    @Query(sort: \WorkoutEventRecord.startedAt, order: .reverse) private var workoutEvents: [WorkoutEventRecord]
-    @Query(sort: \StrengthWorkoutRecord.startedAt, order: .reverse) private var strengthWorkouts: [StrengthWorkoutRecord]
+    @State private var workoutEvents: [WorkoutEventRecord] = []
+    @State private var strengthWorkouts: [StrengthWorkoutRecord] = []
     
     private let queryService = HealthKitQueryService()
     
@@ -120,6 +131,9 @@ struct WorkoutDetailView: View {
         }
         .task {
             await loadWorkoutDetails()
+        }
+        .onChange(of: appState.localDataRevision) { _, _ in
+            loadLinkedWorkouts()
         }
     }
     
@@ -388,7 +402,7 @@ struct WorkoutDetailView: View {
                     span: MKCoordinateSpan(latitudeDelta: 0.008, longitudeDelta: 0.008)
                 )))) {
                     MapPolyline(coordinates: routeCoordinates)
-                        .stroke(VelaTheme.strainColor, lineWidth: 4.5) // Reddish-orange loop like Apple Watch route!
+                        .stroke(VelaTheme.rhythmInk, lineWidth: 4.5) // Reddish-orange loop like Apple Watch route!
                     
                     if let first = routeCoordinates.first {
                         Annotation(L10n.t("Start", "起点"), coordinate: first) {
@@ -581,12 +595,19 @@ struct WorkoutDetailView: View {
     }
     
     private var dashboardVMForWorkout: DashboardSummary {
-        var base = dashboardVM.dashboard
+        var base = dashboard
         base.workouts = [workout]
         return base
     }
     
+    private func loadLinkedWorkouts() {
+        let history = WorkoutHistoryRepository(modelContext: modelContext)
+        workoutEvents = (try? history.fetchWorkoutEventsSortedByStart()) ?? []
+        strengthWorkouts = (try? history.fetchStrengthWorkoutsSortedByStart(newestFirst: true)) ?? []
+    }
+
     private func loadWorkoutDetails() async {
+        loadLinkedWorkouts()
         isLoading = true
         
         do {
@@ -611,16 +632,13 @@ struct WorkoutDetailView: View {
     private func deleteWorkout() {
         do {
             let workoutID = workout.id
-            let eventDescriptor = FetchDescriptor<WorkoutEventRecord>(
-                predicate: #Predicate<WorkoutEventRecord> { $0.id == workoutID || $0.linkedHealthKitWorkoutId == workoutID }
-            )
-            let events = try modelContext.fetch(eventDescriptor)
+            let events = try WorkoutHistoryRepository(modelContext: modelContext)
+                .fetchEvents(idOrHealthKitWorkoutId: workoutID)
             for event in events {
                 if let strengthId = event.linkedStrengthWorkoutId {
-                    let strDescriptor = FetchDescriptor<StrengthWorkoutRecord>(
-                        predicate: #Predicate<StrengthWorkoutRecord> { $0.id == strengthId }
-                    )
-                    if let strWorkout = try modelContext.fetch(strDescriptor).first {
+                    if let strWorkout = try WorkoutHistoryRepository(modelContext: modelContext)
+                        .fetchStrengthWorkouts(id: strengthId)
+                        .first {
                         // deleteStrengthWorkout 内部统一处理黑名单（查重）与计划日回滚。
                         try WorkoutAggregationService.shared.deleteStrengthWorkout(strWorkout, modelContext: modelContext)
                     } else {
@@ -653,8 +671,8 @@ struct WorkoutDetailView: View {
             
             VelaAppState.shared.markLocalDataChanged()
             
-            Task {
-                await dashboardVM.refresh(modelContext: modelContext)
+            if let onRefresh {
+                Task { await onRefresh() }
             }
             dismiss()
         } catch {

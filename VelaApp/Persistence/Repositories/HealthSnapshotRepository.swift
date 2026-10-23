@@ -1,6 +1,11 @@
 import Foundation
 import SwiftData
 
+struct PersistedDailyHistoryDay: Equatable, Sendable {
+    var snapshot: DailyHealthSnapshot
+    var configVersion: String
+}
+
 /// Repository for querying historical DailyHealthSnapshot data from persisted records.
 /// Complements SwiftDataDailyHealthSummaryRepository with trend-analysis queries.
 final class HealthSnapshotRepository {
@@ -86,6 +91,44 @@ final class HealthSnapshotRepository {
             },
             sortBy: [SortDescriptor(\.bucketStart)]
         ))
+    }
+
+    /// Every signal in `[start, end)`, oldest bucket first. `end` is exclusive.
+    func fetchIntradayBuckets(from start: Date, until end: Date) throws -> [IntradaySignalBucketRecord] {
+        try modelContext.fetch(FetchDescriptor<IntradaySignalBucketRecord>(
+            predicate: #Predicate {
+                $0.bucketStart >= start && $0.bucketStart < end
+            },
+            sortBy: [SortDescriptor(\.bucketStart)]
+        ))
+    }
+
+    /// Every persisted day, decoded through `DailyHealthSummaryRecord.toSnapshot()`.
+    /// Yearly history cannot use the limited recent-window fetch. This avoids a
+    /// date predicate because an anomalous stored date has crashed that path.
+    func fetchAllSnapshots() throws -> [DailyHealthSnapshot] {
+        try modelContext.fetch(FetchDescriptor<DailyHealthSummaryRecord>())
+            .map { $0.toSnapshot() }
+    }
+
+    /// Baseline inputs for every persisted day, without decoding workout payloads.
+    func fetchAllBaselinePoints() throws -> [LongTermBaselinePoint] {
+        try modelContext.fetch(FetchDescriptor<DailyHealthSummaryRecord>())
+            .map(\.longTermBaselinePoint)
+    }
+
+    /// Days inside `[start, end)`. `end` is exclusive, matching the summary
+    /// repository and the metric chart filter. Each day is the canonical snapshot
+    /// plus the stored config version used to recognize demo rows.
+    func fetchHistory(from start: Date, until end: Date) throws -> [PersistedDailyHistoryDay] {
+        try SwiftDataDailyHealthSummaryRepository(modelContext: modelContext)
+            .fetch(in: DateRangeQuery(start: start, end: end))
+            .map {
+                PersistedDailyHistoryDay(
+                    snapshot: $0.toSnapshot(),
+                    configVersion: $0.configVersion
+                )
+            }
     }
 
     /// Fetch snapshots for the last N days (including today).

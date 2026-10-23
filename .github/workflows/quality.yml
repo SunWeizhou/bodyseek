@@ -77,6 +77,10 @@ jobs:
           xcrun simctl list runtimes || true
           echo "============================================="
 
+      - name: Run BodySeekDomain tests
+        shell: bash
+        run: swift test --package-path BodySeekDomain
+
       - name: Schema version guard
         shell: bash
         run: |

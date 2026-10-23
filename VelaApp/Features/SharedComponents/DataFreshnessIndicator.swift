@@ -18,13 +18,9 @@ struct DataFreshnessIndicator: View {
     @ViewBuilder
     private var indicatorIcon: some View {
         switch freshness {
-        case .live:
+        case .live, .today:
             Circle()
-                .fill(VelaTheme.success)
-                .frame(width: 6, height: 6)
-        case .today:
-            Circle()
-                .fill(VelaTheme.accent)
+                .fill(VelaTheme.rhythmInk)
                 .frame(width: 6, height: 6)
         case .recent:
             Circle()
@@ -53,8 +49,7 @@ struct DataFreshnessIndicator: View {
 
     private var textColor: Color {
         switch freshness {
-        case .live: return VelaTheme.success
-        case .today: return VelaTheme.accent
+        case .live, .today: return VelaTheme.rhythmInk
         case .recent: return VelaTheme.fg2
         case .stale: return VelaTheme.warn
         case .missing: return VelaTheme.danger

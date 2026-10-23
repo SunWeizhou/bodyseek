@@ -2,9 +2,20 @@ import SwiftUI
 import SwiftData
 
 struct VelaSettingsView: View {
+    let dashboard: DashboardSummary
+    var onRefresh: (() async -> Void)?
+
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    
+
+    init(
+        dashboard: DashboardSummary,
+        onRefresh: (() async -> Void)? = nil
+    ) {
+        self.dashboard = dashboard
+        self.onRefresh = onRefresh
+    }
+
     // Settings toggles
     @AppStorage("vela_dark_mode") private var darkModeRaw = "system"
     @AppStorage("agent_abnormal_metric_alerts") private var abnormalMetricAlertsOn = true
@@ -31,7 +42,10 @@ struct VelaSettingsView: View {
 
                 settingsGroup(eyebrow: "", title: "我的档案") {
                     VStack(spacing: 0) {
-                        NavigationLink(destination: AccountSettingsView()) {
+                        NavigationLink(destination: AccountSettingsView(
+                            dashboard: dashboard,
+                            onRefresh: onRefresh
+                        )) {
                             settingsRow(icon: "person.crop.circle", title: "基本资料", value: "本机保存")
                         }
                         settingsDivider
@@ -51,7 +65,10 @@ struct VelaSettingsView: View {
 
                 settingsGroup(eyebrow: "", title: "连接与数据") {
                     VStack(spacing: 0) {
-                        NavigationLink(destination: DataSourceSettingsView()) {
+                        NavigationLink(destination: DataSourceSettingsView(
+                            dashboard: dashboard,
+                            onRefresh: onRefresh
+                        )) {
                             settingsRow(icon: "applewatch", title: "数据来源", value: "Apple 健康")
                         }
                         settingsDivider
@@ -59,7 +76,10 @@ struct VelaSettingsView: View {
                             settingsRow(icon: "waveform.path.ecg.rectangle", title: "数据覆盖", value: "证据完整度")
                         }
                         settingsDivider
-                        NavigationLink(destination: TrustCenterView()) {
+                        NavigationLink(destination: TrustCenterView(
+                            dashboard: dashboard,
+                            onRefresh: onRefresh
+                        )) {
                             settingsRow(icon: "checkmark.shield", title: "信任中心", value: "数据与 Agent")
                         }
                         settingsDivider

@@ -9,6 +9,7 @@ struct HistoricalBackfillView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var services: VelaServices
     @ObservedObject private var coordinator = HistoricalBackfillCoordinator.shared
+    @ObservedObject private var scoreCoordinator = HistoricalScoreBackfillCoordinator.shared
 
     var body: some View {
         ScrollView {
@@ -32,7 +33,7 @@ struct HistoricalBackfillView: View {
                 }
                 .padding(.bottom, 2)
 
-                Text("把 Apple 健康里近三年的静息心率、HRV、睡眠、步数、活动能量、体重与训练记录读入 Vela。回填后，长期趋势、今年 vs 去年对比与历年训练量立即可用。原始数据只留在本机。")
+                Text("先将 Apple 健康近三年的原始日汇总保存到本机，再补算尚未评分的历史日。原始汇总回填完成，不代表每一天都有足够证据生成五项评分。")
                     .font(.system(.footnote, design: .default))
                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
                     .lineSpacing(3)
@@ -84,13 +85,36 @@ struct HistoricalBackfillView: View {
                         .background(VelaTheme.rhythmDeep, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                 }
                 .buttonStyle(.cardPress)
-                .disabled(coordinator.progress.isComplete && !coordinator.isRunning)
+                .disabled(scoreCoordinator.isRunning || (coordinator.progress.isComplete && !coordinator.isRunning))
 
                 if coordinator.progress.isComplete {
-                    Text("回填已完成。三年健康轨迹与历年训练量现在都已就绪。")
+                    Text("原始汇总回填完成。你可以继续补算历史评分；证据不足的日期会保留缺失。")
                         .font(.system(.caption2, design: .default))
                         .foregroundStyle(VelaTheme.rhythmDeep)
                         .frame(maxWidth: .infinity)
+                }
+                Divider().padding(.vertical, 8)
+                Text("补算已有历史评分").font(VelaTheme.headline())
+                Text("使用当前个人设置和现有算法，只补算从未评分的历史日，保留已有分数。计算仅使用截至该日的健康记录；不请求联网 AI。")
+                    .font(VelaTheme.footnote()).foregroundStyle(VelaTheme.rhythmInkSecondary)
+                if scoreCoordinator.isRunning || scoreCoordinator.progress.total > 0 {
+                    ProgressView(value: Double(scoreCoordinator.progress.completed), total: Double(max(1, scoreCoordinator.progress.total)))
+                    Text("已检查 \(scoreCoordinator.progress.completed)/\(scoreCoordinator.progress.total) 天 · \(scoreCoordinator.progress.scored) 天生成评分 · \(scoreCoordinator.progress.insufficient) 天证据不足")
+                        .font(VelaTheme.caption1())
+                }
+                if let error = scoreCoordinator.lastError {
+                    Text("补算中断：" + error).font(VelaTheme.footnote()).foregroundStyle(VelaTheme.deviationInk)
+                }
+                Button(scoreCoordinator.isRunning ? "暂停评分补算" : scoreCoordinator.lastError == nil ? "补算缺少的历史评分" : "重试评分补算") {
+                    if scoreCoordinator.isRunning { scoreCoordinator.cancel() }
+                    else { scoreCoordinator.start(modelContext: modelContext) }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(coordinator.isRunning)
+                .accessibilityIdentifier("history-score-repair")
+                if scoreCoordinator.didFinish {
+                    Text(scoreCoordinator.progress.total == 0 ? "没有尚未计算的原始汇总。已有缺失可能来自证据不足或尚未同步。" : "本轮检查完成。已保存结果，原始记录与已有评分保留。")
+                        .font(VelaTheme.caption1()).foregroundStyle(VelaTheme.rhythmInkSecondary)
                 }
             }
             .padding(.horizontal, VelaTheme.pagePadding)

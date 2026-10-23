@@ -6,6 +6,7 @@ import SwiftData
 /// A compact dated context leaves room for the conversation and its next question.
 struct CoachWelcomeWorkspace: View {
     @ObservedObject var vm: CoachChatVM
+    let dashboard: DashboardSummary
     let todayOperatingPlan: DailyOperatingPlanRecord?
     let pendingMemoryProposals: [MemoryEventRecord]
     let agentArtifacts: [AgentArtifactRecord]
@@ -14,10 +15,7 @@ struct CoachWelcomeWorkspace: View {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.colorScheme) private var colorScheme
-    @EnvironmentObject private var dashboardVM: DashboardViewModel
     @ObservedObject private var appState = VelaAppState.shared
-
-    private var dashboard: DashboardSummary { dashboardVM.dashboard }
 
     private var questions: [String] {
         Array(vm.contextualQuickQuestions(
@@ -213,10 +211,9 @@ struct CoachWelcomeWorkspace: View {
 
 struct VelaReportsView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \AIReportRecord.createdAt, order: .reverse)
-    private var reports: [AIReportRecord]
-    @Query(sort: \AgentArtifactRecord.createdAt, order: .reverse)
-    private var artifacts: [AgentArtifactRecord]
+    @ObservedObject private var appState = VelaAppState.shared
+    @State private var reports: [AIReportRecord] = []
+    @State private var artifacts: [AgentArtifactRecord] = []
 
     @AppStorage("agent_morning_brief_alerts") private var morningBriefOn = true
     @AppStorage("agent_bedtime_reminders") private var sleepReviewOn = true
@@ -255,6 +252,10 @@ struct VelaReportsView: View {
             .padding(.bottom, 30)
         }
         .background(VelaTheme.rhythmCanvas)
+        .task { loadReports() }
+        .onChange(of: appState.localDataRevision) { _, _ in
+            loadReports()
+        }
         .navigationTitle("历史报告")
         .velaRhythmDetailChrome()
         .confirmationDialog(
@@ -282,6 +283,11 @@ struct VelaReportsView: View {
         } message: {
             Text(artifactError ?? "未知错误")
         }
+    }
+
+    private func loadReports() {
+        reports = (try? SwiftDataAIReportRepository(modelContext: modelContext).fetchAllSortedByCreatedAt()) ?? []
+        artifacts = (try? AgentArtifactRepository(modelContext: modelContext).fetchAllSortedByCreatedAt()) ?? []
     }
 
     private var morningBriefHero: some View {
@@ -589,8 +595,8 @@ struct AgentArtifactPresentation: Equatable {
 
 struct AgentArtifactLibraryView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \AgentArtifactRecord.createdAt, order: .reverse)
-    private var artifacts: [AgentArtifactRecord]
+    @ObservedObject private var appState = VelaAppState.shared
+    @State private var artifacts: [AgentArtifactRecord] = []
 
     @State private var searchText = ""
     @State private var selectedType = "all"
@@ -655,6 +661,10 @@ struct AgentArtifactLibraryView: View {
         .scrollContentBackground(.hidden)
         .background(VelaTheme.rhythmCanvas)
         .navigationTitle("生成物")
+        .task { loadArtifacts() }
+        .onChange(of: appState.localDataRevision) { _, _ in
+            loadArtifacts()
+        }
         .velaRhythmDetailChrome()
         .searchable(text: $searchText, prompt: "搜索计划、报告或分析")
         .confirmationDialog(
@@ -678,6 +688,10 @@ struct AgentArtifactLibraryView: View {
         } message: {
             Text(errorMessage ?? "未知错误")
         }
+    }
+
+    private func loadArtifacts() {
+        artifacts = (try? AgentArtifactRepository(modelContext: modelContext).fetchAllSortedByCreatedAt()) ?? []
     }
 
     private func deletePendingArtifact() {

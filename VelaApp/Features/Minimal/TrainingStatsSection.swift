@@ -249,6 +249,7 @@ struct TrainingStatsSection: View {
     let summaryWorkDates: [Date]
     let summaryPeakStrainText: String
     let selectedDate: Date
+    let dashboard: DashboardSummary
     let previousMonthActiveTiers: [Int: Int]
     let currentMonthActiveTiers: [Int: Int]
 
@@ -324,7 +325,11 @@ struct TrainingStatsSection: View {
                                 .foregroundStyle(targetComparison.tint)
                         }
                         Spacer()
-                        NavigationLink(destination: VelaMetricDetailView(metric: .strain)) {
+                        NavigationLink(destination: VelaMetricDetailView(
+                            metric: .strain,
+                            selectedDate: selectedDate,
+                            dashboardSnapshot: dashboard
+                        )) {
                             HStack(spacing: 4) {
                                   Text("详情")
                                   Image(systemName: "chevron.right")
@@ -364,7 +369,7 @@ struct TrainingStatsSection: View {
                                 .foregroundStyle(VelaTheme.rhythmInkSecondary)
                         }
                         Spacer()
-                        NavigationLink(destination: FitnessActivitySummaryDetailView()) {
+                        NavigationLink(destination: FitnessActivitySummaryDetailView(selectedDate: selectedDate)) {
                             HStack(spacing: 4) {
                                 Text("分析")
                                 Image(systemName: "chevron.right")
@@ -743,6 +748,8 @@ struct RecentWorkoutsSection: View {
     let recentWorkouts: [WorkoutSummary]
     var limit: Int? = 12
     var strengthWorkout: (WorkoutSummary) -> StrengthWorkoutRecord?
+    var dashboard: DashboardSummary = .empty()
+    var onRefresh: (() async -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -774,9 +781,9 @@ struct RecentWorkoutsSection: View {
     @ViewBuilder
     private func destination(for workout: WorkoutSummary) -> some View {
         if let strength = strengthWorkout(workout) {
-            StrengthWorkoutDetailView(workout: strength)
+            StrengthWorkoutDetailView(workout: strength, onRefresh: onRefresh)
         } else {
-            WorkoutDetailView(workout: workout)
+            WorkoutDetailView(workout: workout, dashboard: dashboard, onRefresh: onRefresh)
         }
     }
 
@@ -998,7 +1005,7 @@ struct SafeZoneWorkloadChartView: View {
                 }
                 .stroke(
                     LinearGradient(
-                        colors: [VelaTheme.recoveryColor, VelaTheme.strainColor, VelaTheme.rhythmDeep],
+                        colors: [VelaTheme.rhythmInk, VelaTheme.rhythmInk, VelaTheme.rhythmDeep],
                         startPoint: .leading,
                         endPoint: .trailing
                     ),
@@ -1091,7 +1098,7 @@ struct SafeZoneWorkloadChartView: View {
 
 // MARK: - Yearly training aggregate（历年训练量）
 
-/// 按年聚合训练事实（纯函数，测试覆盖）。数据源 = 回填后的每日记录。
+/// 按年聚合训练事实。输入是已经解码的日快照，不读取 SwiftData 行。
 enum YearlyTrainingAggregator {
     struct YearStats: Equatable {
         var year: Int
@@ -1102,26 +1109,18 @@ enum YearlyTrainingAggregator {
     }
 
     static func aggregate(
-        records: [DailyHealthSummaryRecord],
+        snapshots: [DailyHealthSnapshot],
         calendar: Calendar = .current
     ) -> [YearStats] {
         var byYear: [Int: YearStats] = [:]
-        for record in records {
-            let count = record.workoutCount ?? 0
-            let duration = record.workoutDuration ?? 0
-            // 深度专项批次 1：训练日判定去掉 calories——
-            // activeCalories 是全天活动能耗，任何有步行量的休息日此前都被算成训练日。
+        for snapshot in snapshots {
+            let count = snapshot.workoutCount ?? 0
+            let duration = snapshot.workoutDuration ?? 0
+            // 训练日只看训练次数和时长。全天活动能耗不是训练。
             guard count > 0 || duration > 0 else { continue }
-            // 总消耗改为真实训练 kcal：从 workoutsData 解码 WorkoutSummary 求和；
-            // 回填日无 workoutsData 时记 0（不再把全天活动能耗冒充训练消耗）。
-            let workoutEnergy: Double
-            if let workoutsData = record.workoutsData,
-               let workouts = try? JSONDecoder().decode([WorkoutSummary].self, from: workoutsData) {
-                workoutEnergy = workouts.compactMap(\.energyKilocalories).reduce(0, +)
-            } else {
-                workoutEnergy = 0
-            }
-            let year = calendar.component(.year, from: record.date)
+            // 训练消耗来自日快照里已经解码的训练记录。没有训练记录时为 0。
+            let workoutEnergy = snapshot.workouts.compactMap(\.energyKilocalories).reduce(0, +)
+            let year = calendar.component(.year, from: snapshot.date)
             var stats = byYear[year] ?? YearStats(
                 year: year, trainingDays: 0, workoutCount: 0,
                 totalMinutes: 0, totalCalories: 0
@@ -1185,8 +1184,10 @@ struct YearlyTrainingCard: View {
     }
 
     private func load() async {
-        let all = (try? modelContext.fetch(FetchDescriptor<DailyHealthSummaryRecord>())) ?? []
-        stats = YearlyTrainingAggregator.aggregate(records: all)
+        let snapshots = (try? HealthSnapshotRepository(modelContext: modelContext).fetchAllSnapshots()) ?? []
+        stats = await Task.detached {
+            YearlyTrainingAggregator.aggregate(snapshots: snapshots)
+        }.value
     }
 
     private func yearRow(_ year: YearlyTrainingAggregator.YearStats, maxMinutes: Double) -> some View {
@@ -1225,10 +1226,12 @@ struct YearlyTrainingCard: View {
 // MARK: - Recovery / Strain / Stress Trend Card
 
 /// 深入分析页的恢复、负荷、压力 30 天趋势卡。
-/// 三个指标使用同一批 `DailyHealthSummaryRecord`，不重算、不换窗；
+/// 三个指标使用同一批日快照，不重算、不换窗；
 /// 点击任一行进入对应指标详情（那里还有更长窗口与证据分解）。
 struct RecoveryLoadStressTrendsCard: View {
-    let records: [DailyHealthSummaryRecord]
+    let records: [DailyHealthSnapshot]
+    let selectedDate: Date
+    let dashboard: DashboardSummary
 
     private struct TrendSeries: Identifiable {
         let id: String
@@ -1253,7 +1256,11 @@ struct RecoveryLoadStressTrendsCard: View {
 
             VStack(spacing: 0) {
                 ForEach(Array(series.enumerated()), id: \.element.id) { index, item in
-                    NavigationLink(destination: VelaMetricDetailView(metric: item.metric)) {
+                    NavigationLink(destination: VelaMetricDetailView(
+                        metric: item.metric,
+                        selectedDate: selectedDate,
+                        dashboardSnapshot: dashboard
+                    )) {
                         trendRow(item)
                     }
                     .buttonStyle(.plain)
@@ -1278,7 +1285,7 @@ struct RecoveryLoadStressTrendsCard: View {
                 id: "recovery",
                 title: "恢复",
                 metric: .recovery,
-                color: VelaTheme.recoveryColor,
+                color: VelaTheme.rhythmInk,
                 values: metricValues(\.recoveryScore),
                 dates: metricDates(\.recoveryScore)
             ),
@@ -1286,7 +1293,7 @@ struct RecoveryLoadStressTrendsCard: View {
                 id: "strain",
                 title: "负荷",
                 metric: .strain,
-                color: VelaTheme.strainColor,
+                color: VelaTheme.rhythmInk,
                 values: metricValues(\.strainScore),
                 dates: metricDates(\.strainScore)
             ),
@@ -1294,7 +1301,7 @@ struct RecoveryLoadStressTrendsCard: View {
                 id: "stress",
                 title: "压力",
                 metric: .stress,
-                color: VelaTheme.stressColor,
+                color: VelaTheme.rhythmInk,
                 values: metricValues(\.stressIndex),
                 dates: metricDates(\.stressIndex)
             )
@@ -1343,11 +1350,11 @@ struct RecoveryLoadStressTrendsCard: View {
         .accessibilityLabel("\(item.title) 趋势，最新 \(latestText(item.values))，\(item.values.count) 天有记录")
     }
 
-    private func metricValues(_ keyPath: KeyPath<DailyHealthSummaryRecord, Double?>) -> [Double] {
+    private func metricValues(_ keyPath: KeyPath<DailyHealthSnapshot, Double?>) -> [Double] {
         records.compactMap { $0[keyPath: keyPath] }
     }
 
-    private func metricDates(_ keyPath: KeyPath<DailyHealthSummaryRecord, Double?>) -> [Date] {
+    private func metricDates(_ keyPath: KeyPath<DailyHealthSnapshot, Double?>) -> [Date] {
         records.compactMap { record in
             record[keyPath: keyPath] == nil ? nil : record.date
         }
