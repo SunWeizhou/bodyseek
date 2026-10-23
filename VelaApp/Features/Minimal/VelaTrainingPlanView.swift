@@ -369,7 +369,7 @@ struct VelaPlanView: View {
                         Spacer()
                     }
                     .padding(VelaTheme.cardPadding)
-                    .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                    .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
                 }
                 .buttonStyle(.cardPress)
             } else {
@@ -415,10 +415,10 @@ struct VelaPlanView: View {
                     }
                 }
                 .padding(.horizontal, 14)
-                .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+                .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 24, style: .continuous)
-                        .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                    RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+                        .stroke(VelaTheme.hairline, lineWidth: 1)
                 }
             }
         }
@@ -566,10 +566,10 @@ struct VelaPlanView: View {
                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
             }
             .padding(VelaTheme.cardPadding)
-            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+                    .stroke(VelaTheme.hairline, lineWidth: 1)
             }
         }
         .buttonStyle(.cardPress)
@@ -1266,17 +1266,17 @@ struct VelaTrainingRotationView: View {
                     PlanDayRow(day: day, events: events)
                     if index < activePlan.days.count - 1 {
                         Rectangle()
-                            .fill(VelaTheme.rhythmMist)
-                            .frame(height: 0.75)
+                            .fill(VelaTheme.hairline)
+                            .frame(height: 1)
                             .padding(.leading, 59)
                     }
                 }
             }
             .padding(.horizontal, 15)
-            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+                    .stroke(VelaTheme.hairline, lineWidth: 1)
             }
         } else {
             HStack(spacing: 12) {
@@ -1287,7 +1287,7 @@ struct VelaTrainingRotationView: View {
                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
             }
             .padding(16)
-            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
         }
     }
 

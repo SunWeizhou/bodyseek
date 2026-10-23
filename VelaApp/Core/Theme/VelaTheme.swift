@@ -269,45 +269,6 @@ enum VelaTheme {
     static let lightMistFill = adaptive("#D5D0C8", "#3A423E")
     static let lightBlueSoft = adaptive("#EAF3FF", "#1C2938")
 
-    // MARK: - Landscape Illustration Palette
-
-    enum Landscape {
-        // Desert
-        static let desertSky = [adaptive("#D2E7F9", "#1B2836"), adaptive("#F5E6D8", "#2E241E"), adaptive("#FFF6E5", "#3D3025")]
-        static let desertSun = adaptive("#FFDDA1", "#FFDDA1")
-        static let desertDuneFront = [adaptive("#EFECE7", "#3B3832"), adaptive("#E5DFD5", "#2D2A24")]
-        static let desertDuneBack = [adaptive("#E9E3D9", "#35312A"), adaptive("#DFD7C9", "#28241E")]
-        static let joshuaTrunk = adaptive("#4A433A", "#8A8074")
-        static let joshuaFoliage = adaptive("#5E6D59", "#7D9176")
-
-        // Night
-        static let nightSky = [adaptive("#090814", "#090814"), adaptive("#0F0D24", "#0F0D24"), adaptive("#1B173B", "#1B173B")]
-        static let nightMoon = adaptive("#F5F3ED", "#F5F3ED")
-        static let nightMountainFront = [adaptive("#0D0A1E", "#0D0A1E"), adaptive("#05030B", "#05030B")]
-        static let nightMountainBack = [adaptive("#0A0818", "#0A0818"), adaptive("#030206", "#030206")]
-
-        // Coastal
-        static let coastalSky = [adaptive("#E4F0FB", "#162838"), adaptive("#FFF4ED", "#2E221B"), adaptive("#FFF1DB", "#3A2A1A")]
-        static let coastalCliff = [adaptive("#9AB2C5", "#566B7D"), adaptive("#7A92A5", "#415363")]
-        static let coastalWaves = [adaptive("#90D1DB", "#3A7D8A"), adaptive("#5DB8CA", "#296674"), adaptive("#349BB0", "#1C4E5A")]
-
-        // Forest
-        static let forestSky = [adaptive("#E3F3EA", "#13261C"), adaptive("#FFFEE8", "#2D2E18")]
-        static let forestSilhouette = [adaptive("#84B094", "#487056"), adaptive("#5C8C6F", "#325740")]
-
-        // Meadow
-        static let meadowSky = [adaptive("#D6F2FE", "#122A38"), adaptive("#FFF4CE", "#383115")]
-        static let meadowHills = [adaptive("#D6BF74", "#857237"), adaptive("#BFA456", "#6B5823")]
-
-        // MountainLake
-        static let mountainLakeSky = [adaptive("#DDF4FE", "#142636"), adaptive("#ECE8FF", "#25213D")]
-        static let mountainLakePeaks = [adaptive("#87BAC5", "#476F78"), adaptive("#6A9AA5", "#34555D")]
-
-        // CalmSunset
-        static let sunsetSky = [adaptive("#FFE4D5", "#362018"), adaptive("#FFC8B3", "#2E1810")]
-        static let sunsetWaves = [adaptive("#E89B7D", "#8A4C34"), adaptive("#0A84FF", "#2E75C2")]
-    }
-
     // MARK: - Typography
 
     static let fontDisplay: Font.Design = .default

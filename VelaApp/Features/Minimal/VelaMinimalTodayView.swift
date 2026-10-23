@@ -180,7 +180,7 @@ struct VelaTodayView: View {
         }
     }
 
-    // Real scores mapped to 0...1 for BevelScoreRing
+    // Real scores mapped to 0...1 for gauges still used by the Today adapter.
     var strainScore: Double { max(0, min(1.0, dashboard.strain.score / 100.0)) }
     var recoveryScore: Double { max(0, min(1.0, dashboard.recovery.score / 100.0)) }
     var sleepScore: Double { max(0, min(1.0, dashboard.sleepScore.score / 100.0)) }
@@ -257,7 +257,7 @@ struct VelaTodayView: View {
             .background(RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
             .overlay(
                 RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous)
-                    .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                    .stroke(VelaTheme.hairline, lineWidth: 1)
             )
         } else {
             personalResponseInsightView
@@ -292,7 +292,7 @@ struct VelaTodayView: View {
                 .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
                 .overlay {
                     RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
-                        .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                        .stroke(VelaTheme.hairline, lineWidth: 1)
                 }
             }
             .buttonStyle(.cardPress)
@@ -815,7 +815,7 @@ private struct TodayFeedbackProjectionCard: View {
             }
             .padding(14)
             .background(RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous).fill(VelaTheme.cardBg))
-            .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous).stroke(VelaTheme.borderSoft, lineWidth: 0.5))
+            .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).stroke(VelaTheme.hairline, lineWidth: 1))
         }
         .buttonStyle(.plain)
         .disabled(!canOpenSheet)
@@ -1120,7 +1120,7 @@ struct TodayPlanAdaptationProjectionCard: View {
         .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
-                .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                .stroke(VelaTheme.hairline, lineWidth: 1)
         }
     }
 }

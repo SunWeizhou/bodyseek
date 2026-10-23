@@ -448,36 +448,10 @@ private struct MetricCoachAdviceView: View {
 }
 
 struct AppleIntelligenceGlowBorder: ViewModifier {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var isGlowing: Bool
-    @State private var rotation: Double = 0
 
     func body(content: Content) -> some View {
+        let _ = isGlowing
         content
-            .overlay(
-                Group {
-                    if isGlowing {
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(
-                                AngularGradient(
-                                    colors: [.pink, .purple, .cyan, .orange, .pink],
-                                    center: .center,
-                                    angle: .degrees(rotation)
-                                ),
-                                lineWidth: 2.2
-                            )
-                            .shadow(color: .purple.opacity(0.42), radius: 6)
-                            .task(id: reduceMotion) {
-                                rotation = 0
-                                guard !reduceMotion else { return }
-                                withAnimation(.linear(duration: 2.5).repeatForever(autoreverses: false)) {
-                                    rotation = 360
-                                }
-                            }
-                    }
-                }
-            )
-            .scaleEffect(isGlowing && !reduceMotion ? 1.012 : 1.0)
-            .animation(VelaTheme.interfaceAnimation(reduceMotion: reduceMotion), value: isGlowing)
     }
 }

@@ -819,9 +819,17 @@ final class VelaThemeTests: XCTestCase {
         XCTAssertTrue((12...14).contains(VelaTheme.compactCardPadding))
         XCTAssertTrue((22...28).contains(VelaTheme.sectionGap))
         XCTAssertEqual(VelaTheme.radiusCardLarge, 18)
+        XCTAssertEqual(VelaTheme.radiusCard, 18)
+        XCTAssertEqual(VelaTheme.radiusLg, VelaTheme.radiusCard)
         XCTAssertTrue((28...34).contains(VelaTheme.radiusSheet))
         XCTAssertGreaterThanOrEqual(VelaTheme.minimumHitTarget, 44)
         XCTAssertGreaterThanOrEqual(VelaTheme.bottomContentClearance, 104)
+    }
+
+    func testDHairlineStrokeContractUsesSolidCardRadius() {
+        XCTAssertEqual(VelaTheme.radiusInput, 26)
+        XCTAssertEqual(VelaTheme.radiusCardStandard, VelaTheme.radiusCard)
+        XCTAssertEqual(VelaTheme.radiusHero, VelaTheme.radiusCard)
     }
 
     func testEverySharedPresentationStateHasSpecificCopyAndSymbol() {
