@@ -1392,7 +1392,7 @@ final class ScoringEngineTests: XCTestCase {
         XCTAssertEqual(model.nutrition.calorieProgress, 0.676, accuracy: 0.001)
     }
 
-    func testTodayExperienceModelIncludesSevenDaySignalTrends() {
+    func testTodayExperienceModelIncludesFourteenSignalValues() {
         let calendar = Calendar(identifier: .gregorian)
         let now = Date(timeIntervalSince1970: 1_780_000_000)
         var dashboard = DashboardSummary.preview(date: now)
@@ -1407,7 +1407,7 @@ final class ScoringEngineTests: XCTestCase {
             generatedAt: now
         ))
         let decision = TrainingDecisionKernel().decide(input: TrainingDecisionInput(bodyState: bodyState))
-        let history = (1...8).map { offset in
+        let history = (1...20).map { offset in
             let date = calendar.date(byAdding: .day, value: -offset, to: now)!
             return DailyHealthSummaryDTO(
                 dayIdentifier: "trend-\(offset)",
@@ -1431,8 +1431,9 @@ final class ScoringEngineTests: XCTestCase {
             history: history
         )
 
-        XCTAssertEqual(model.signalCards.first(where: { $0.id == "recovery" })?.trend.count, 7)
-        XCTAssertEqual(model.signalCards.first(where: { $0.id == "recovery" })?.trend.last, 82)
+        XCTAssertEqual(model.signalCards.first(where: { $0.id == "recovery" })?.trend.count, 14)
+        XCTAssertEqual(model.signalCards.first(where: { $0.id == "recovery" })?.trend,
+                       (1...13).reversed().map { Double(60 + $0) } + [82])
         XCTAssertEqual(model.signalCards.first(where: { $0.id == "sleep" })?.trend.last, 86)
         XCTAssertEqual(model.signalCards.first(where: { $0.id == "strain" })?.trend.last, 44)
         XCTAssertEqual(model.signalCards.first(where: { $0.id == "stress" })?.trend.last, 32)

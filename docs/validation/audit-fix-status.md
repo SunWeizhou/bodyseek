@@ -219,3 +219,6 @@ codesign --verify --deep --strict build/DeviceDeployDerivedData/Build/Products/D
 
 
 后续 CI run 39928961539 已通过 Xcode 26.5 的完整 App 构建及后端测试，但测试 target 编译发现旧截图 walkthrough 的同步 setUpWithError 在该工具链中是 nonisolated，不能设置 @MainActor 的 outputDirectory。将这段仅用于 opt-in 截图的目录初始化移到其 @MainActor 测试方法开头，保留环境变量缺失时的 XCTSkip；不更改 App 生产代码或跳过标准 smoke 测试。下一轮 CI 验证该兼容修复。
+
+
+同步期间远端 Cursor 提交 `a220e130` 也处理 walkthrough 问题，已正常 merge 保留历史；最终目录仍限定主线程，不需要 nonisolated(unsafe)。本机完整 673 项 App 测试初轮有 1 项旧断言失败：TodayExperienceModel 在既有 `236f236b` 已将趋势从 7 个读数扩为 14 个，测试仍期待 7。核对原提交后将测试更名为 IncludesFourteenSignalValues，使用 20 条历史并断言只保留最近 13 条加当天值，其他四项当天读数断言保留；生产窗口不变。
