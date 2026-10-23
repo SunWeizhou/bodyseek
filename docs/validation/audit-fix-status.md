@@ -216,3 +216,6 @@ codesign --verify --deep --strict build/DeviceDeployDerivedData/Build/Products/D
 - `xcodebuild ... -destination 'platform=iOS Simulator,id=80FFA19E-69E6-499F-B246-F071A2D369BF' -parallel-testing-enabled NO -derivedDataPath build/UIOnboardingDerivedData -resultBundlePath build/branch-consolidation/CoachUI.xcresult -only-testing:VelaUITests/VelaSmokeUITests/testDataRepairLayoutsAndLegacyProtocolRecovery -only-testing:VelaUITests/VelaSmokeUITests/testAskBarOffersExplicitSendAndStaysOnCurrentPage -testLanguage zh -testRegion CN CODE_SIGNING_ALLOWED=NO test`：退出 0，两项通过，覆盖旧协议失败展示与恢复草稿、页内发送及对话恢复。
 
 本轮只归并版本与修复编译阻塞，没有部署真机或触发真实健康数据补算。分支清理不是新的完整设备验收，既有产品验证边界继续适用；最新完整 CI 状态及最终合并身份记录在 PR #11。
+
+
+后续 CI run 39928961539 已通过 Xcode 26.5 的完整 App 构建及后端测试，但测试 target 编译发现旧截图 walkthrough 的同步 setUpWithError 在该工具链中是 nonisolated，不能设置 @MainActor 的 outputDirectory。将这段仅用于 opt-in 截图的目录初始化移到其 @MainActor 测试方法开头，保留环境变量缺失时的 XCTSkip；不更改 App 生产代码或跳过标准 smoke 测试。下一轮 CI 验证该兼容修复。

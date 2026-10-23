@@ -720,16 +720,14 @@ final class BodySeekWalkthroughUITests: XCTestCase {
     private var outputDirectory: URL?
     private var step = 0
 
-    override func setUpWithError() throws {
+    func testDailyWalkthrough() throws {
         continueAfterFailure = true
         guard let path = ProcessInfo.processInfo.environment["BODYSEEK_WALKTHROUGH_DIR"], !path.isEmpty else {
             throw XCTSkip("Set TEST_RUNNER_BODYSEEK_WALKTHROUGH_DIR to record the walkthrough.")
         }
         outputDirectory = URL(fileURLWithPath: path, isDirectory: true)
         try FileManager.default.createDirectory(at: outputDirectory!, withIntermediateDirectories: true)
-    }
 
-    func testDailyWalkthrough() {
         let appearance = ProcessInfo.processInfo.environment["BODYSEEK_WALKTHROUGH_APPEARANCE"] ?? "light"
         let app = XCUIApplication()
         app.launchArguments = [
