@@ -15,6 +15,7 @@ struct WorkoutDetailView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ObservedObject private var appState = VelaAppState.shared
 
     init(
@@ -153,22 +154,32 @@ struct WorkoutDetailView: View {
                 Text(value)
                     .font(.system(.title2, design: .default, weight: .bold))
                     .lineLimit(1)
-                    .minimumScaleFactor(0.6)
+                    // AX keeps a readable floor instead of shrinking into ellipsis.
+                    .minimumScaleFactor(dynamicTypeSize.isAccessibilitySize ? 0.85 : 0.6)
                     .foregroundStyle(VelaTheme.rhythmInk)
                 Text(unit)
                     .font(.system(.caption2, design: .default, weight: .bold))
                     .foregroundStyle(mutedColor)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.85)
             }
             Text(title)
                 .font(.system(.caption2, design: .default, weight: .semibold))
                 .foregroundStyle(mutedColor)
-                .lineLimit(1)
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
         .background(RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous).fill(VelaTheme.rhythmCanvas))
         .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+    }
+
+    /// Three metrics share one row on regular sizes; AX collapses to a single
+    /// column so values keep their full width instead of being ellipsized.
+    private var heroMetricColumns: [GridItem] {
+        let count = dynamicTypeSize.isAccessibilitySize ? 1 : 3
+        return Array(repeating: GridItem(.flexible(), spacing: 10), count: count)
     }
 
     private var hero: some View {
@@ -178,7 +189,7 @@ struct WorkoutDetailView: View {
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(workoutAccentColor)
                     .frame(width: 38, height: 38)
-                    .background(Circle().fill(workoutAccentColor.opacity(0.14)))
+                    .background(Circle().fill(VelaTheme.rhythmMist))
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(workout.activityName)
@@ -191,7 +202,7 @@ struct WorkoutDetailView: View {
                 Spacer()
             }
 
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3), spacing: 10) {
+            LazyVGrid(columns: heroMetricColumns, spacing: 10) {
                 heroMetric("时长", "\(Int((workout.end.timeIntervalSince(workout.start) / 60).rounded()))", "分钟")
                 heroMetric("活动消耗", workout.energyKilocalories.map { "\(Int($0))" } ?? "--", "kcal")
                 if let dist = workout.distanceMeters, dist > 0 {
@@ -211,7 +222,7 @@ struct WorkoutDetailView: View {
                 .font(.system(size: 18, weight: .bold))
                 .foregroundStyle(VelaTheme.rhythmDeep)
                 .frame(width: 38, height: 38)
-                .background(Circle().fill(VelaTheme.rhythmMist.opacity(0.8)))
+                .background(Circle().fill(VelaTheme.rhythmMist))
             VStack(alignment: .leading, spacing: 4) {
                 Text("训练智能摘要")
                     .font(.system(.footnote, design: .default, weight: .bold))

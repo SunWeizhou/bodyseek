@@ -458,6 +458,27 @@ final class VelaSmokeUITests: XCTestCase {
         settingsLarge.terminate()
     }
 
+    /// Wave24 evidence: Trends chrome after the full-repo numeric-radius sweep,
+    /// dark + AccessibilityXXXL. WorkoutDetail hero / Journal Impact Matrix AX
+    /// density is captured by the hosted wave24 snapshot test in `VelaThemeTests`.
+    func testVisualBodyWave24Snapshots() {
+        let dark = launchApp(initialTab: 1, extraArguments: ["-velaDisableNetworkAI", "-vela_dark_mode", "dark"])
+        XCTAssertTrue(dark.descendants(matching: .any)["trends-content"].waitForExistence(timeout: 10))
+        captureTrends("wave24-trends-dark")
+        dark.terminate()
+
+        let large = launchApp(
+            initialTab: 1,
+            extraArguments: [
+                "-velaDisableNetworkAI", "-vela_dark_mode", "dark",
+                "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"
+            ]
+        )
+        XCTAssertTrue(large.descendants(matching: .any)["trends-content"].waitForExistence(timeout: 10))
+        captureTrends("wave24-trends-accessibility")
+        large.terminate()
+    }
+
     private func captureTrends(_ name: String) {
         // Let the asynchronous Store load settle before recording visual evidence.
         Thread.sleep(forTimeInterval: 1)

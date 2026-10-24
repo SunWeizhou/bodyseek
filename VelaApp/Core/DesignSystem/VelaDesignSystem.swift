@@ -333,7 +333,7 @@ struct CoachArtifactCard: View {
                     .frame(width: 32, height: 32)
                     .background(
                         RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous)
-                            .fill(accent.opacity(0.12))
+                            .fill(VelaTheme.rhythmMist)
                     )
 
                 VStack(alignment: .leading, spacing: 3) {
@@ -978,7 +978,7 @@ struct VelaMakeIconTile: View {
             .foregroundStyle(VelaTheme.rhythmInk)
             .frame(width: size, height: size)
             .background(VelaTheme.rhythmMist)
-            .clipShape(RoundedRectangle(cornerRadius: size * 0.25, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous))
             .accessibilityHidden(true)
     }
 }

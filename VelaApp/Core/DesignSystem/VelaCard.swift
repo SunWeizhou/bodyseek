@@ -101,7 +101,7 @@ struct VelaEvidenceRow: View {
                 .font(.system(.footnote, design: .default, weight: .semibold))
                 .foregroundStyle(tint)
                 .frame(width: 32, height: 32)
-                .background(tint.opacity(0.09), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .background(VelaTheme.rhythmMist, in: RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous))
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 3) {
@@ -467,17 +467,21 @@ typealias VelaStatusBadge = VelaStatusBadgeCompat
 
 // MARK: - VelaMetricPill
 
+/// Metric summary pill (shared DS).
+/// D chrome: solid `rhythmMist` capsule + hairline. `tint` is foreground only and
+/// is reserved for status meaning; neutral call sites pass ink.
 struct VelaMetricPill: View {
     let title: String
     let value: String
     var systemImage: String?
-    var tint: Color = VelaTheme.accent
+    var tint: Color = VelaTheme.rhythmInk
 
     var body: some View {
         HStack(spacing: 4) {
             if let img = systemImage {
                 Image(systemName: img)
                     .font(.system(.caption2, design: .default))
+                    .foregroundStyle(tint)
             }
             Text("\(title) ")
                 .font(VelaTheme.caption2())
@@ -488,7 +492,8 @@ struct VelaMetricPill: View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
-        .background(Capsule().fill(tint.opacity(0.12)))
+        .background(Capsule().fill(VelaTheme.rhythmMist))
+        .overlay(Capsule().stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
     }
 }
 
@@ -529,7 +534,8 @@ struct VelaEmptyStateCompat: View {
                 .font(.system(.title2, design: .default, weight: .semibold))
                 .foregroundStyle(tint)
                 .frame(width: 44, height: 44)
-                .background(Circle().fill(tint.opacity(0.12)))
+                .background(Circle().fill(VelaTheme.rhythmMist))
+                .overlay(Circle().stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
             Text(title)
                 .font(VelaTheme.headline())
                 .foregroundStyle(VelaTheme.fg)

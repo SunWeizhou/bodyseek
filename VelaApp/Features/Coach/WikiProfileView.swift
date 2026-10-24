@@ -184,7 +184,7 @@ struct WikiProfileView: View {
                 }
                 .padding(10)
                 .background(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous)
                         .fill(VelaTheme.elevatedBg)
                 )
             }
@@ -729,7 +729,7 @@ struct WikiProfileView: View {
         }
         .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                 .fill(VelaTheme.surface)
         )
     }

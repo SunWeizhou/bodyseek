@@ -40,6 +40,8 @@ struct JournalCorrelationSection: View {
     let bodyModelState: BodyModelState
     let insights: [HabitCorrelationInsight]
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     private var matrixPoints: [ImpactMatrixPoint] {
         ImpactMatrixBuilder.build(insights)
     }
@@ -122,41 +124,88 @@ struct JournalCorrelationSection: View {
                     message: "至少记录 28 天行为与健康结果，并保留足够记录日和对照日后，才会显示关联点。"
                 )
             } else {
-                Chart(matrixPoints) { point in
-                    PointMark(
-                        x: .value("关联强度", point.magnitude),
-                        y: .value("配对样本", point.sampleSize)
-                    )
-                    .symbolSize(72)
-                    .foregroundStyle(point.signedCorrelation >= 0 ? VelaTheme.success : VelaTheme.warn)
-                    .annotation(position: .top, spacing: 4) {
-                        Text(point.habit)
-                            .font(.system(.caption2, design: .default, weight: .semibold))
-                            .foregroundStyle(VelaTheme.fg2)
-                            .lineLimit(1)
-                    }
-                }
-                .chartXScale(domain: 0...1)
-                .chartXAxisLabel("关联强度 |ρ|")
-                .chartYAxisLabel("真实配对 n")
-                .frame(height: 190)
+                impactChart
 
-                HStack(spacing: 14) {
-                    Label("正相关", systemImage: "circle.fill")
-                        .foregroundStyle(VelaTheme.success)
-                    Label("负相关", systemImage: "circle.fill")
-                        .foregroundStyle(VelaTheme.warn)
-                    Spacer()
-                    Text("仅探索性证据")
-                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                }
-                .font(.system(.caption2, design: .default, weight: .semibold))
+                correlationLegend
             }
         }
         .padding(16)
         .background(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
         .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
         .accessibilityElement(children: .contain)
+    }
+
+    /// AccessibilityXXXL drops the per-point habit callouts, which collide with one
+    /// another and with the axis labels at large type, and gives the plot more
+    /// vertical room. Scatter positions, sample sizes and confidence semantics are
+    /// unchanged; VoiceOver still receives the pairing on each mark.
+    @ViewBuilder
+    private var impactChart: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            Chart(matrixPoints) { point in
+                impactPoint(point)
+            }
+            .chartXScale(domain: 0...1)
+            .frame(height: 280)
+
+            Text("横轴：关联强度 |ρ| · 纵轴：真实配对 n")
+                .font(.system(.caption2, design: .default))
+                .foregroundStyle(VelaTheme.muted)
+                .fixedSize(horizontal: false, vertical: true)
+        } else {
+            Chart(matrixPoints) { point in
+                impactPoint(point)
+            }
+            .chartXScale(domain: 0...1)
+            .chartXAxisLabel("关联强度 |ρ|")
+            .chartYAxisLabel("真实配对 n")
+            .frame(height: 190)
+        }
+    }
+
+    private func impactPoint(_ point: ImpactMatrixPoint) -> some ChartContent {
+        PointMark(
+            x: .value("关联强度", point.magnitude),
+            y: .value("配对样本", point.sampleSize)
+        )
+        .symbolSize(72)
+        .foregroundStyle(point.signedCorrelation >= 0 ? VelaTheme.success : VelaTheme.warn)
+        .annotation(position: .top, spacing: 4) {
+            if !dynamicTypeSize.isAccessibilitySize {
+                Text(point.habit)
+                    .font(.system(.caption2, design: .default, weight: .semibold))
+                    .foregroundStyle(VelaTheme.fg2)
+                    .lineLimit(1)
+            }
+        }
+        .accessibilityLabel(Text("\(point.habit) → \(point.outcome)"))
+        .accessibilityValue(Text("关联强度 \(String(format: "%.2f", point.signedCorrelation))，真实配对 \(point.sampleSize)"))
+    }
+
+    private var correlationLegend: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 14) {
+                correlationLegendItems
+                Spacer(minLength: 8)
+                Text("仅探索性证据")
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+            }
+            VStack(alignment: .leading, spacing: 6) {
+                correlationLegendItems
+                Text("仅探索性证据")
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+            }
+        }
+        .font(.system(.caption2, design: .default, weight: .semibold))
+    }
+
+    private var correlationLegendItems: some View {
+        HStack(spacing: 14) {
+            Label("正相关", systemImage: "circle.fill")
+                .foregroundStyle(VelaTheme.success)
+            Label("负相关", systemImage: "circle.fill")
+                .foregroundStyle(VelaTheme.warn)
+        }
     }
 
     private func bodyModelStatsRow(_ state: BodyModelState) -> some View {
@@ -476,11 +525,17 @@ struct ClaimRatingControl: View {
                 } label: {
                     Text(option.label)
                         .font(.system(.caption2, design: .default, weight: rating == option.value ? .bold : .regular))
-                        .foregroundStyle(rating == option.value ? VelaTheme.accent : VelaTheme.muted)
+                        .foregroundStyle(rating == option.value ? VelaTheme.rhythmInk : VelaTheme.muted)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
                         .background(
-                            Capsule().fill(rating == option.value ? VelaTheme.accent.opacity(0.15) : VelaTheme.fillSoft)
+                            Capsule().fill(rating == option.value ? VelaTheme.rhythmMist : VelaTheme.fillSoft)
+                        )
+                        .overlay(
+                            Capsule().stroke(
+                                rating == option.value ? VelaTheme.rhythmInk : Color.clear,
+                                lineWidth: VelaTheme.hairlineWidth
+                            )
                         )
                 }
                 .buttonStyle(.plain)

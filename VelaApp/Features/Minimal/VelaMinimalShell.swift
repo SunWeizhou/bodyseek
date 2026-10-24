@@ -438,10 +438,10 @@ struct VelaShell: View {
                                 }
                         }
                         .background(VelaTheme.rhythmCanvas)
-                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                        .clipShape(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
                         .overlay {
-                            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                                .stroke(VelaTheme.hairline, lineWidth: 1)
+                            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+                                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                         }
                         .accessibilityIdentifier("inline-coach-panel")
                     }

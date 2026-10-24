@@ -106,7 +106,7 @@ struct VelaStateCard: View {
             }
         }
             .frame(width: VelaTheme.circularControlSize, height: VelaTheme.circularControlSize)
-            .background(state.tint.opacity(0.10), in: Circle())
+            .background(VelaTheme.rhythmMist, in: Circle())
             .accessibilityHidden(true)
     }
 }
@@ -276,7 +276,7 @@ struct MessageBubble: View {
                 .foregroundStyle(VelaTheme.rhythmInkSecondary)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
-                .background(VelaTheme.rhythmMist.opacity(0.45), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .background(VelaTheme.rhythmMist, in: RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous))
         } else {
         let sections = CoachResponseLayout.split(content, isStreaming: isStreaming)
         VStack(alignment: .leading, spacing: 10) {
@@ -437,7 +437,7 @@ struct VelaInlineAlertCompat: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: VelaTheme.radiusMd)
-                .fill(tint.opacity(0.08))
+                .fill(VelaTheme.rhythmMist)
         )
         .overlay(
             RoundedRectangle(cornerRadius: VelaTheme.radiusMd)

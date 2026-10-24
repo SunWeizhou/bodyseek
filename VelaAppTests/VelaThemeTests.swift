@@ -158,6 +158,84 @@ final class VelaThemeTests: XCTestCase {
         )
     }
 
+    /// Wave24 evidence: AccessibilityXXXL density fixes for the WorkoutDetail hero
+    /// metric grid and the Journal Impact Matrix, captured dark + AX in a hosted
+    /// 375×667 window. Trends dark/AX is captured by the matching UI snapshot test
+    /// in `VelaSmokeUITests`. Synthetic fixtures only; read-only in-memory container.
+    @MainActor
+    func testVisualBodyWave24Snapshots() async throws {
+        let container = try VelaModelContainer.make(inMemory: true)
+        let date = Date(timeIntervalSince1970: 1_792_800_000)
+        let workout = WorkoutSummary(
+            start: date,
+            end: date.addingTimeInterval(2_700),
+            activityName: "跑步",
+            energyKilocalories: 320,
+            averageHeartRate: 142,
+            distanceMeters: 5_400
+        )
+
+        try await captureHostedNextWave(
+            NavigationStack { WorkoutDetailView(workout: workout) }.modelContainer(container),
+            name: "wave24-workout-detail-hero-dark", style: .dark
+        )
+        try await captureHostedNextWave(
+            NavigationStack { WorkoutDetailView(workout: workout) }.modelContainer(container),
+            name: "wave24-workout-detail-hero-accessibility", style: .dark, accessibility: true
+        )
+
+        let bodyModelState = BodyModelState(
+            generatedAt: date,
+            maturity: BodyModelMaturity(overall: .stable, baselineDays: 28, behaviorPairs: 12, trainingSessions: 9),
+            claims: [],
+            uncertainAreas: [],
+            behaviorSignals: [],
+            trainingPatternSummary: "近 28 天训练 9 次。",
+            coachRules: []
+        )
+        let insights: [HabitCorrelationInsight] = [
+            HabitCorrelationInsight(
+                habit: "咖啡因", outcome: "睡眠", lagDays: 0, correlation: -0.42,
+                sampleSize: 12, confidence: .medium, direction: "negative",
+                explanation: "晚间咖啡因与睡眠分负相关。"
+            ),
+            HabitCorrelationInsight(
+                habit: "酒精", outcome: "HRV", lagDays: 1, correlation: -0.55,
+                sampleSize: 8, confidence: .low, direction: "negative",
+                explanation: "酒精与次日 HRV 负相关。"
+            )
+        ]
+        try await captureHostedNextWave(
+            NavigationStack {
+                ScrollView {
+                    JournalCorrelationSection(bodyModelState: bodyModelState, insights: insights)
+                        .padding()
+                }
+            }.modelContainer(container),
+            name: "wave24-journal-impact-matrix-dark", style: .dark
+        )
+        try await captureHostedNextWave(
+            NavigationStack {
+                ScrollView {
+                    JournalCorrelationSection(bodyModelState: bodyModelState, insights: insights)
+                        .padding()
+                }
+            }.modelContainer(container),
+            name: "wave24-journal-impact-matrix-accessibility", style: .dark, accessibility: true
+        )
+        // The AX legend/caption fall below the 667pt fold; capture the same surface
+        // scrolled so the ViewThatFits legend + axis caption are visually evidenced.
+        try await captureHostedNextWave(
+            NavigationStack {
+                ScrollView {
+                    JournalCorrelationSection(bodyModelState: bodyModelState, insights: insights)
+                        .padding()
+                }
+            }.modelContainer(container),
+            name: "wave24-journal-impact-matrix-accessibility-scrolled", style: .dark, accessibility: true, scrollToBottom: true
+        )
+    }
+
     @MainActor
     private func captureHostedNextWave<Content: View>(
         _ content: Content, name: String, style: UIUserInterfaceStyle, accessibility: Bool = false, scrollToBottom: Bool = false
