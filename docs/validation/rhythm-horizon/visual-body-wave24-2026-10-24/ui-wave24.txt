@@ -1,0 +1,11 @@
+# VelaUITests/VelaSmokeUITests/testVisualBodyWave24Snapshots
+# xcresult: build/wave24-ui.xcresult（最终代码）
+result: Passed
+totalTestCount: 1
+passedTests: 1
+failedTests: 0
+---
+	 Executed 1 test, with 0 failures (0 unexpected) in 12.597 (12.599) seconds
+	 Executed 1 test, with 0 failures (0 unexpected) in 12.597 (12.599) seconds
+	 Executed 1 test, with 0 failures (0 unexpected) in 12.597 (12.601) seconds
+** TEST SUCCEEDED **

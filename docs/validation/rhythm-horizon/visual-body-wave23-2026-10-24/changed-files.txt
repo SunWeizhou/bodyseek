@@ -1,0 +1,43 @@
+ .../Today/TodayLegacyCompatibility.swift           |   9 +-
+ VelaApp/Core/DesignSystem/VelaCard.swift           |   9 +-
+ VelaApp/Core/DesignSystem/VelaDesignSystem.swift   |  16 +--
+ VelaApp/Features/Coach/CoachWelcomeWorkspace.swift |   4 +-
+ VelaApp/Features/Coach/WikiProfileView.swift       |   8 +-
+ VelaApp/Features/Minimal/BodyModelViews.swift      |  14 +--
+ .../Minimal/JournalCorrelationSection.swift        |  36 +++----
+ VelaApp/Features/Minimal/TodaySubSheets.swift      |   2 +-
+ VelaApp/Features/Minimal/VelaJournalView.swift     |   6 +-
+ VelaApp/Features/Minimal/VelaSettingsView.swift    |   8 +-
+ VelaApp/Features/Settings/DataCoverageView.swift   |   2 +-
+ VelaApp/Features/Settings/TrustCenterView.swift    |   6 +-
+ VelaApp/Features/Training/WorkoutDetailView.swift  |  20 ++--
+ VelaApp/Features/Trends/VelaTrendsView.swift       |  30 +++---
+ VelaAppTests/VelaThemeTests.swift                  | 102 ++++++++++++++++++
+ VelaUITests/VelaSmokeUITests.swift                 |  41 ++++++++
+ .../visual-body-wave23-2026-10-24/README.md        | 114 +++++++++++++++++++++
+ .../visual-body-wave23-2026-10-24/base-head.txt    |   1 +
+ .../build-success.txt                              |   8 ++
+ .../changed-files.txt                              |  17 +++
+ .../contrast-after.txt                             |  20 ++++
+ .../design-token-after.txt                         |  41 ++++++++
+ .../design-token-summary.txt                       |  21 ++++
+ .../fixed-font-after.txt                           |  29 ++++++
+ .../hosted-wave23.txt                              |   9 ++
+ .../schema-fingerprint-after.txt                   |   1 +
+ .../ui-regression.txt                              |  10 ++
+ .../visual-body-wave23-2026-10-24/ui-wave23.txt    |  12 +++
+ .../visual-body-wave23-2026-10-24/unit-tests.txt   |  11 ++
+ .../wave23-body-model-dark-scrolled.png            | Bin 0 -> 269691 bytes
+ .../wave23-body-model-dark.png                     | Bin 0 -> 258426 bytes
+ .../wave23-journal-correlation-accessibility.png   | Bin 0 -> 247952 bytes
+ .../wave23-journal-correlation-dark.png            | Bin 0 -> 223370 bytes
+ .../wave23-settings-accessibility.png              | Bin 0 -> 114268 bytes
+ .../wave23-settings-dark-scrolled.png              | Bin 0 -> 131392 bytes
+ .../wave23-settings-dark.png                       | Bin 0 -> 131049 bytes
+ .../wave23-trends-accessibility.png                | Bin 0 -> 125235 bytes
+ .../wave23-trends-dark-scrolled.png                | Bin 0 -> 134860 bytes
+ .../wave23-trends-dark.png                         | Bin 0 -> 133528 bytes
+ .../wave23-workout-detail-accessibility.png        | Bin 0 -> 194759 bytes
+ .../wave23-workout-detail-dark.png                 | Bin 0 -> 225106 bytes
+ .../worktree-status.txt                            |  17 +++
+ 42 files changed, 542 insertions(+), 82 deletions(-)

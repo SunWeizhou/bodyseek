@@ -344,6 +344,224 @@ final class VelaSmokeUITests: XCTestCase {
         captureTrends("interaction-consent-cancelled-draft")
     }
 
+    /// Wave22 evidence: Coach history drawer, quick actions, Journal logger sheets,
+    /// onboarding sample preview, recovery ring and Plan surface on preview data.
+    /// Read-only launches only; production navigation and existing debug seams.
+    func testVisualBodyWave22Snapshots() {
+        let drawer = launchApp(extraArguments: [
+            "-velaOpenCoach", "-velaOpenCoachHistory", "-velaDisableNetworkAI", "-vela_dark_mode", "dark"
+        ])
+        XCTAssertTrue(drawer.staticTexts["历史对话"].waitForExistence(timeout: 10))
+        captureTrends("wave22-coach-history-dark")
+        drawer.terminate()
+
+        let drawerLarge = launchApp(extraArguments: [
+            "-velaOpenCoach", "-velaOpenCoachHistory", "-velaDisableNetworkAI", "-vela_dark_mode", "light",
+            "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"
+        ])
+        XCTAssertTrue(drawerLarge.staticTexts["历史对话"].waitForExistence(timeout: 10))
+        captureTrends("wave22-coach-history-accessibility")
+        drawerLarge.terminate()
+
+        let quick = launchApp(extraArguments: ["-velaDisableNetworkAI", "-vela_dark_mode", "dark"])
+        assertSurface(0, in: quick)
+        quick.buttons["记录"].tap()
+        XCTAssertTrue(quick.buttons["手记"].waitForExistence(timeout: 5))
+        captureTrends("wave22-quick-actions-dark")
+        quick.terminate()
+
+        let large = launchApp(extraArguments: [
+            "-velaDisableNetworkAI", "-vela_dark_mode", "light",
+            "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"
+        ])
+        assertSurface(0, in: large)
+        large.buttons["记录"].tap()
+        XCTAssertTrue(large.buttons["手记"].waitForExistence(timeout: 5))
+        captureTrends("wave22-quick-actions-accessibility")
+        large.terminate()
+
+        let journal = launchApp(extraArguments: ["-velaDisableNetworkAI", "-vela_dark_mode", "dark"])
+        assertSurface(0, in: journal)
+        journal.buttons["记录"].tap()
+        XCTAssertTrue(journal.buttons["手记"].waitForExistence(timeout: 5))
+        journal.buttons["手记"].tap()
+        XCTAssertTrue(journal.staticTexts["习惯与记录"].waitForExistence(timeout: 10))
+        let quickNote = journal.staticTexts["随手记一餐或一个行为"].firstMatch
+        for _ in 0..<5 where !quickNote.isHittable { journal.swipeUp() }
+        XCTAssertTrue(quickNote.isHittable)
+        quickNote.tap()
+        XCTAssertTrue(journal.staticTexts["随手记"].firstMatch.waitForExistence(timeout: 5))
+        captureTrends("wave22-journal-quick-note-dark")
+        journal.terminate()
+
+        let onboarding = launchApp(extraArguments: [
+            "-velaForceOnboarding", "先看见身体，再决定今天。", "-vela_dark_mode", "dark"
+        ])
+        XCTAssertTrue(onboarding.staticTexts["先看见身体，再决定今天。"].waitForExistence(timeout: 10))
+        captureTrends("wave22-onboarding-preview-dark")
+        onboarding.terminate()
+
+        let recovery = launchApp(extraArguments: [
+            "-velaOpenRecoveryDetail", "-velaDisableNetworkAI", "-vela_dark_mode", "dark"
+        ])
+        XCTAssertTrue(recovery.descendants(matching: .any)["metric-detail-recovery"].waitForExistence(timeout: 10))
+        captureTrends("wave22-recovery-detail-dark")
+        recovery.terminate()
+
+        let plan = launchApp(
+            initialTab: 2,
+            extraArguments: ["-velaDisableNetworkAI", "-velaPlanProposalFixture", "-vela_dark_mode", "dark"]
+        )
+        assertSurface(2, in: plan)
+        captureTrends("wave22-plan-dark")
+        plan.terminate()
+    }
+
+    /// Wave23 evidence: Trends chrome (dark SE + AccessibilityXXXL) and the
+    /// Settings shell/list chrome. Journal correlation / BodyModel / WorkoutDetail
+    /// chrome is captured by the hosted wave23 snapshot test in `VelaThemeTests`
+    /// because preview builds expose no workout rows or body-model insight link.
+    func testVisualBodyWave23Snapshots() {
+        let trends = launchApp(initialTab: 1, extraArguments: ["-velaDisableNetworkAI", "-vela_dark_mode", "dark"])
+        XCTAssertTrue(trends.descendants(matching: .any)["trends-content"].waitForExistence(timeout: 10))
+        captureTrends("wave23-trends-dark")
+        trends.swipeUp()
+        captureTrends("wave23-trends-dark-scrolled")
+        trends.terminate()
+
+        let trendsLarge = launchApp(
+            initialTab: 1,
+            extraArguments: [
+                "-velaDisableNetworkAI", "-vela_dark_mode", "dark",
+                "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"
+            ]
+        )
+        XCTAssertTrue(trendsLarge.descendants(matching: .any)["trends-content"].waitForExistence(timeout: 10))
+        captureTrends("wave23-trends-accessibility")
+        trendsLarge.terminate()
+
+        let settings = launchApp(extraArguments: [
+            "-velaOpenSettings", "-velaDisableNetworkAI", "-vela_dark_mode", "dark"
+        ])
+        XCTAssertTrue(settings.descendants(matching: .any)["settings-surface"].waitForExistence(timeout: 10))
+        captureTrends("wave23-settings-dark")
+        settings.swipeUp()
+        captureTrends("wave23-settings-dark-scrolled")
+        settings.terminate()
+
+        let settingsLarge = launchApp(extraArguments: [
+            "-velaOpenSettings", "-velaDisableNetworkAI", "-vela_dark_mode", "dark",
+            "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"
+        ])
+        XCTAssertTrue(settingsLarge.descendants(matching: .any)["settings-surface"].waitForExistence(timeout: 10))
+        captureTrends("wave23-settings-accessibility")
+        settingsLarge.terminate()
+    }
+
+    /// Wave24 evidence: Trends chrome after the full-repo numeric-radius sweep,
+    /// dark + AccessibilityXXXL. WorkoutDetail hero / Journal Impact Matrix AX
+    /// density is captured by the hosted wave24 snapshot test in `VelaThemeTests`.
+    func testVisualBodyWave24Snapshots() {
+        let dark = launchApp(initialTab: 1, extraArguments: ["-velaDisableNetworkAI", "-vela_dark_mode", "dark"])
+        XCTAssertTrue(dark.descendants(matching: .any)["trends-content"].waitForExistence(timeout: 10))
+        captureTrends("wave24-trends-dark")
+        dark.terminate()
+
+        let large = launchApp(
+            initialTab: 1,
+            extraArguments: [
+                "-velaDisableNetworkAI", "-vela_dark_mode", "dark",
+                "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"
+            ]
+        )
+        XCTAssertTrue(large.descendants(matching: .any)["trends-content"].waitForExistence(timeout: 10))
+        captureTrends("wave24-trends-accessibility")
+        large.terminate()
+    }
+
+    /// Wave25 evidence: Today hero (hero score + compact support strip) and
+    /// Trends (compact period summary + heterogeneous metric rows) in dark and
+    /// AccessibilityXXXL. The stable identifiers `today-score-instrument`,
+    /// `today-score-recovery`, `trends-content` and `trends-period-summary`
+    /// are owned by the production views and must survive this visual pass.
+    func testVisualBodyWave25Snapshots() {
+        let todayDark = launchApp(
+            initialTab: 0,
+            extraArguments: ["-velaDisableNetworkAI", "-vela_dark_mode", "dark"]
+        )
+        XCTAssertTrue(
+            todayDark.descendants(matching: .any)["today-score-instrument"].waitForExistence(timeout: 10),
+            "Today hero instrument did not appear in dark mode"
+        )
+        XCTAssertTrue(
+            todayDark.descendants(matching: .any)["today-score-recovery"].waitForExistence(timeout: 10),
+            "Today recovery reading did not appear in dark mode"
+        )
+        captureTrends("wave25-today-hero-dark")
+        todayDark.terminate()
+
+        let todayLarge = launchApp(
+            initialTab: 0,
+            extraArguments: [
+                "-velaDisableNetworkAI", "-vela_dark_mode", "dark",
+                "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"
+            ]
+        )
+        XCTAssertTrue(
+            todayLarge.descendants(matching: .any)["today-score-instrument"].waitForExistence(timeout: 10),
+            "Today hero instrument did not appear at AccessibilityXXXL"
+        )
+        captureTrends("wave25-today-hero-accessibility")
+        todayLarge.terminate()
+
+        let trendsDark = launchApp(
+            initialTab: 1,
+            extraArguments: ["-velaDisableNetworkAI", "-vela_dark_mode", "dark"]
+        )
+        XCTAssertTrue(
+            trendsDark.descendants(matching: .any)["trends-content"].waitForExistence(timeout: 10),
+            "Trends content did not appear in dark mode"
+        )
+        XCTAssertTrue(
+            trendsDark.descendants(matching: .any)["trends-period-summary"].waitForExistence(timeout: 10),
+            "Trends period summary banner did not appear in dark mode"
+        )
+        captureTrends("wave25-trends-hierarchy-dark")
+        trendsDark.swipeUp()
+        XCTAssertTrue(
+            trendsDark.descendants(matching: .any)["trends-content"].waitForExistence(timeout: 5),
+            "Trends content disappeared after scrolling"
+        )
+        captureTrends("wave25-trends-hierarchy-dark-scrolled")
+        trendsDark.terminate()
+
+        let trendsLarge = launchApp(
+            initialTab: 1,
+            extraArguments: [
+                "-velaDisableNetworkAI", "-vela_dark_mode", "dark",
+                "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"
+            ]
+        )
+        XCTAssertTrue(
+            trendsLarge.descendants(matching: .any)["trends-content"].waitForExistence(timeout: 10),
+            "Trends content did not appear at AccessibilityXXXL"
+        )
+        captureTrends("wave25-trends-hierarchy-accessibility")
+        trendsLarge.terminate()
+
+        // Plan tab: light alignment evidence (type scale / card gaps / hairline).
+        // The reference screenshot's training landing page is only reachable by
+        // tapping the 训练 portal, which sits under the floating AskBar; kept out
+        // of this snapshot pass so the test stays deterministic.
+        let planDark = launchApp(initialTab: 2, extraArguments: ["-velaDisableNetworkAI", "-vela_dark_mode", "dark"])
+        XCTAssertTrue(
+            planDark.descendants(matching: .any)["surface-2"].waitForExistence(timeout: 10),
+            "Plan surface did not appear in dark mode"
+        )
+        captureTrends("wave25-plan-dark")
+        planDark.terminate()
+    }
+
     private func captureTrends(_ name: String) {
         // Let the asynchronous Store load settle before recording visual evidence.
         Thread.sleep(forTimeInterval: 1)

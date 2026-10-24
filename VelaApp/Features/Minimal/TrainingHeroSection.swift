@@ -76,18 +76,18 @@ struct TrainingHeroSection: View {
             if let personalInsight, !personalInsight.isEmpty {
                 HStack(spacing: 8) {
                     Image(systemName: "sparkles")
-                        .font(.caption.weight(.semibold))
+                        .font(VelaTheme.caption1().weight(.semibold))
                         .foregroundStyle(VelaTheme.rhythmDeep)
                     Text(personalInsight)
-                        .font(.footnote.weight(.medium))
+                        .font(VelaTheme.footnote().weight(.medium))
                         .foregroundStyle(VelaTheme.rhythmInkSecondary)
                         .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
                 }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 9)
-                .background(VelaTheme.rhythmCanvasRaised.opacity(0.85), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .padding(.horizontal, VelaTheme.compactCardPadding)
+                .padding(.vertical, VelaTheme.space2)
+                .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                         .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                 )
                 .padding(.top, 14)
@@ -96,27 +96,27 @@ struct TrainingHeroSection: View {
             Button(action: onDiscussWithCoach) {
                 HStack(spacing: 10) {
                     Image(systemName: "sparkles")
-                        .font(.caption.weight(.semibold))
+                        .font(VelaTheme.caption1().weight(.semibold))
                         .foregroundStyle(VelaTheme.rhythmDeepOn)
                         .frame(width: 28, height: 28)
                         .background(VelaTheme.rhythmDeep, in: Circle())
 
                     Text("和 Vela 调整训练计划")
-                        .font(.callout.weight(.semibold))
+                        .font(VelaTheme.callout().weight(.semibold))
                         .foregroundStyle(VelaTheme.rhythmInk)
 
                     Spacer(minLength: 8)
 
                     Image(systemName: "arrow.up.right")
-                        .font(.caption.weight(.semibold))
+                        .font(VelaTheme.caption1().weight(.semibold))
                         .foregroundStyle(VelaTheme.rhythmDeep)
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
+                .padding(.horizontal, VelaTheme.space3)
+                .padding(.vertical, VelaTheme.space2)
                 .frame(maxWidth: .infinity, minHeight: VelaTheme.minimumHitTarget, alignment: .leading)
-                .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                         .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                 }
             }
@@ -176,38 +176,42 @@ struct TrainingHeroSection: View {
     /// Decision first: one focus and a few execution boundaries. Supporting
     /// history and evidence stay behind progressive disclosure.
     private var decisionSummaryRow: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: VelaTheme.space3) {
             Group {
                 if dynamicTypeSize.isAccessibilitySize {
                     VStack(alignment: .leading, spacing: 6) {
                         Text(decision == .rest ? "今天" : "下一站")
-                            .font(.callout.weight(.semibold))
+                            .font(VelaTheme.caption1().weight(.semibold))
                             .foregroundStyle(VelaTheme.rhythmInkSecondary)
                         Text(planStateLabel)
-                            .font(.caption.weight(.semibold))
+                            .font(VelaTheme.caption2().weight(.semibold))
                             .foregroundStyle(VelaTheme.rhythmDeep)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
-                            .background(VelaTheme.rhythmDeep.opacity(0.10), in: Capsule())
+                            .background(VelaTheme.rhythmMist, in: Capsule())
+                            .overlay(Capsule().strokeBorder(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
                     }
                 } else {
                     HStack(spacing: 8) {
                         Text(decision == .rest ? "今天" : "下一站")
-                            .font(.callout.weight(.semibold))
+                            .font(VelaTheme.caption1().weight(.semibold))
                             .foregroundStyle(VelaTheme.rhythmInkSecondary)
                         Text(planStateLabel)
-                            .font(.caption.weight(.semibold))
+                            .font(VelaTheme.caption2().weight(.semibold))
                             .foregroundStyle(VelaTheme.rhythmDeep)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
-                            .background(VelaTheme.rhythmDeep.opacity(0.10), in: Capsule())
+                            .background(VelaTheme.rhythmMist, in: Capsule())
+                            .overlay(Capsule().strokeBorder(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
                     }
                 }
             }
             .frame(maxWidth: .infinity, minHeight: dynamicTypeSize.isAccessibilitySize ? VelaTheme.minimumHitTarget : 0, alignment: .leading)
 
             Text(decision == .rest ? "恢复" : (focus?.title ?? "设置训练轮转"))
-                .font(.largeTitle.weight(.semibold))
+                // Keep the landing hero at the same display step as Today's
+                // hero numeral: one thing leads each screen.
+                .font(VelaTheme.largeTitle())
                 .tracking(-1.1)
                 .foregroundStyle(VelaTheme.rhythmInk)
                 .minimumScaleFactor(0.8)
@@ -230,12 +234,13 @@ struct TrainingHeroSection: View {
     private var boundaryPills: some View {
         ForEach(boundaryItems, id: \.self) { item in
             Text(item)
-                .font(.callout.weight(.semibold).monospacedDigit())
+                .font(VelaTheme.callout().weight(.semibold).monospacedDigit())
                 .foregroundStyle(VelaTheme.rhythmInk)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 7)
+                .padding(.horizontal, VelaTheme.space3)
+                .padding(.vertical, VelaTheme.space2)
                 .frame(minHeight: dynamicTypeSize.isAccessibilitySize ? VelaTheme.minimumHitTarget : 0, alignment: .leading)
-                .background(VelaTheme.rhythmCanvasRaised.opacity(0.88), in: Capsule())
+                .background(VelaTheme.rhythmCanvasRaised, in: Capsule())
+                .overlay(Capsule().strokeBorder(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
         }
     }
 
@@ -248,11 +253,11 @@ struct TrainingHeroSection: View {
             } label: {
                 HStack {
                     Text("最近 5 周训练节律")
-                        .font(.callout.weight(.semibold))
-                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                        .font(VelaTheme.callout().weight(.semibold))
+                        .foregroundStyle(VelaTheme.rhythmInk)
                     Spacer()
                     Image(systemName: "chevron.down")
-                        .font(.caption.weight(.semibold))
+                        .font(VelaTheme.caption1().weight(.semibold))
                         .foregroundStyle(VelaTheme.rhythmInkSecondary)
                         .rotationEffect(.degrees(showRhythm ? 180 : 0))
                 }
@@ -280,13 +285,13 @@ struct TrainingHeroSection: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
                     Text("训练规划")
-                        .font(.footnote.weight(.semibold))
+                        .font(VelaTheme.caption1().weight(.semibold))
                         .tracking(0.4)
                         .foregroundStyle(VelaTheme.rhythmInkSecondary)
 
                     if let aiDays = aiFutureDays, !aiDays.isEmpty {
                         Text("Vela 建议")
-                            .font(.caption.weight(.semibold))
+                            .font(VelaTheme.caption2().weight(.semibold))
                             .foregroundStyle(VelaTheme.rhythmDeepOn)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
@@ -302,15 +307,16 @@ struct TrainingHeroSection: View {
                                     .controlSize(.mini)
                             } else {
                                 Image(systemName: aiFutureDays == nil ? "sparkles" : "arrow.clockwise")
-                                    .font(.caption.weight(.semibold))
+                                    .font(VelaTheme.caption2().weight(.semibold))
                             }
                             Text(aiFutureDays == nil ? "Vela 规划" : "重新生成")
-                                .font(.caption.weight(.semibold))
+                                .font(VelaTheme.caption2().weight(.semibold))
                         }
                         .foregroundStyle(VelaTheme.rhythmDeep)
                         .padding(.horizontal, 9)
                         .padding(.vertical, 4)
                         .background(VelaTheme.rhythmCanvasRaised, in: Capsule())
+                        .overlay(Capsule().strokeBorder(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
                     }
                     .buttonStyle(.plain)
                     .disabled(isPlanningWithAI)
@@ -319,14 +325,14 @@ struct TrainingHeroSection: View {
                 }
 
                     if dynamicTypeSize.isAccessibilitySize {
-                        VStack(spacing: 8) {
+                        VStack(spacing: VelaTheme.cardGap) {
                             todayPlanCard()
                             ForEach(Array(cards.prefix(2).enumerated()), id: \.offset) { _, recommendation in
                                 futurePlanCard(recommendation)
                             }
                         }
                     } else {
-                        HStack(spacing: 8) {
+                        HStack(spacing: VelaTheme.cardGap) {
                             todayPlanCard()
                             ForEach(Array(cards.prefix(2).enumerated()), id: \.offset) { _, recommendation in
                                 futurePlanCard(recommendation)
@@ -370,29 +376,30 @@ struct TrainingHeroSection: View {
         return VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 4) {
                 Text("今天")
-                    .font(.footnote.weight(.bold))
+                    .font(VelaTheme.footnote().weight(.bold))
                     .foregroundStyle(VelaTheme.rhythmInk)
                 Text(planStateLabel)
-                    .font(.caption2.weight(.bold))
+                    .font(VelaTheme.caption2().weight(.semibold))
                     .foregroundStyle(VelaTheme.rhythmDeep)
                     .padding(.horizontal, 5)
                     .padding(.vertical, 2)
-                    .background(VelaTheme.rhythmDeep.opacity(0.12), in: Capsule())
+                    .background(VelaTheme.rhythmMist, in: Capsule())
+                    .overlay(Capsule().strokeBorder(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
             }
             Text(groupsText)
-                .font(.headline.weight(.bold))
+                .font(VelaTheme.headline().weight(.bold))
                 .foregroundStyle(isRest ? VelaTheme.rhythmInk : VelaTheme.rhythmDeep)
             Text(primaryNote)
-                .font(.footnote)
+                .font(VelaTheme.footnote())
                 .foregroundStyle(VelaTheme.rhythmInkSecondary)
                 .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(12)
+        .padding(VelaTheme.compactCardPadding)
         .frame(maxWidth: .infinity, minHeight: 92, alignment: .topLeading)
-        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                 .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         }
     }
@@ -412,31 +419,32 @@ struct TrainingHeroSection: View {
         return VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 4) {
                 Text(label)
-                    .font(.footnote.weight(.semibold))
+                    .font(VelaTheme.footnote().weight(.semibold))
                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
                 if recommendation.source == "ai" {
                     Text("AI")
-                        .font(.caption2.weight(.bold))
+                        .font(VelaTheme.caption2().weight(.semibold))
                         .foregroundStyle(VelaTheme.rhythmDeep)
                         .padding(.horizontal, 4)
                         .padding(.vertical, 1.5)
-                        .background(VelaTheme.rhythmDeep.opacity(0.12), in: Capsule())
+                        .background(VelaTheme.rhythmMist, in: Capsule())
+                        .overlay(Capsule().strokeBorder(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
                 }
             }
             Text(groupsText)
-                .font(.headline.weight(.bold))
+                .font(VelaTheme.headline().weight(.bold))
                 .foregroundStyle(isRest ? VelaTheme.rhythmInk : VelaTheme.rhythmDeep)
             Text(isRest ? recommendation.note : shortNote(recommendation.note))
-                .font(.footnote)
+                .font(VelaTheme.footnote())
                 .foregroundStyle(VelaTheme.rhythmInkSecondary)
                 .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(12)
+        .padding(VelaTheme.compactCardPadding)
         .frame(maxWidth: .infinity, minHeight: 92, alignment: .topLeading)
-        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                 .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         }
     }
@@ -457,7 +465,7 @@ struct TrainingHeroSection: View {
                 .background(VelaTheme.rhythmMist, in: Circle())
 
             Text("Apple Watch 记录，结束后自动同步")
-                .font(.footnote.weight(.medium))
+                .font(VelaTheme.footnote().weight(.medium))
                 .foregroundStyle(VelaTheme.rhythmInkSecondary)
         }
         .accessibilityElement(children: .combine)
@@ -476,12 +484,12 @@ struct TrainingHeroSection: View {
                         .fill(VelaTheme.rhythmDeep)
                         .frame(width: 2, height: 13)
                     Text(evidenceLine)
-                        .font(.callout.weight(.medium))
+                        .font(VelaTheme.callout().weight(.medium))
                         .foregroundStyle(VelaTheme.rhythmInkSecondary)
                         .lineLimit(1)
                     Spacer(minLength: 6)
                     Image(systemName: "chevron.right")
-                        .font(.caption2.weight(.semibold))
+                        .font(VelaTheme.caption2().weight(.semibold))
                         .foregroundStyle(VelaTheme.rhythmInkSecondary)
                         .rotationEffect(.degrees(showEvidence ? 90 : 0))
                 }
@@ -501,22 +509,26 @@ struct TrainingHeroSection: View {
                         )) {
                             HStack(alignment: .top, spacing: 8) {
                                 Image(systemName: "waveform.path.ecg")
-                                    .font(.caption.weight(.semibold))
+                                    .font(VelaTheme.caption1().weight(.semibold))
                                     .foregroundStyle(VelaTheme.rhythmDeep)
                                     .padding(.top, 2)
                                 Text(personalInsight)
-                                    .font(.callout.weight(.medium))
+                                    .font(VelaTheme.callout().weight(.medium))
                                     .foregroundStyle(VelaTheme.rhythmInk)
                                     .fixedSize(horizontal: false, vertical: true)
                                 Spacer(minLength: 4)
                                 Image(systemName: "chevron.right")
-                                    .font(.caption2.weight(.bold))
-                                    .foregroundStyle(VelaTheme.rhythmInkSecondary.opacity(0.6))
+                                    .font(VelaTheme.caption2().weight(.semibold))
+                                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
                             }
                             .padding(10)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(VelaTheme.rhythmCanvasRaised.opacity(0.95), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous)
+                                    .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
+                            }
+                            .contentShape(RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous))
                         }
                         .buttonStyle(.plain)
                     }
@@ -524,11 +536,11 @@ struct TrainingHeroSection: View {
                         ForEach(Array(decisionReasons.enumerated()), id: \.offset) { _, reason in
                             HStack(alignment: .top, spacing: 8) {
                                 Circle()
-                                    .fill(VelaTheme.rhythmDeep.opacity(0.6))
+                                    .fill(VelaTheme.rhythmInkSecondary)
                                     .frame(width: 5, height: 5)
                                     .padding(.top, 5)
                                 Text(reason)
-                                    .font(.callout)
+                                    .font(VelaTheme.callout())
                                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
@@ -538,17 +550,22 @@ struct TrainingHeroSection: View {
                         HStack(spacing: 10) {
                             ForEach(evidenceMetrics, id: \.self) { metric in
                                 Text(metric)
-                                    .font(.caption.weight(.semibold).monospacedDigit())
+                                    .font(VelaTheme.caption1().weight(.semibold).monospacedDigit())
                                     .foregroundStyle(VelaTheme.rhythmInk)
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 4)
-                                    .background(VelaTheme.rhythmCanvasRaised.opacity(0.95), in: Capsule())
+                                    .background(VelaTheme.rhythmCanvasRaised, in: Capsule())
+                                    .overlay(Capsule().strokeBorder(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
                             }
                         }
                     }
                 }
                 .padding(12)
-                .background(VelaTheme.rhythmCanvasRaised.opacity(0.7), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+                        .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
+                }
                 .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
             }
         }
@@ -1077,9 +1094,9 @@ struct TrainingMuscleLandscape: View {
                         .foregroundStyle(VelaTheme.rhythmInkSecondary)
                 }
                 .padding(16)
-                .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                         .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                 }
             } else {
@@ -1099,9 +1116,9 @@ struct TrainingMuscleLandscape: View {
                     }
                 }
                 .padding(16)
-                .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+                .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                         .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                 }
             }
@@ -1276,7 +1293,7 @@ private struct MuscleExpandedPanel: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(VelaTheme.rhythmMist.opacity(0.45), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(VelaTheme.rhythmMist.opacity(0.45), in: RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous))
     }
 
     /// 最近 7 天逐日组数迷你柱（真实组数，空天为弱化占位）。
@@ -1453,9 +1470,9 @@ struct TrainingPostWorkoutPrompt: View {
                 .frame(minHeight: 44)
         }
         .padding(14)
-        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                 .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         }
     }
@@ -1498,7 +1515,7 @@ struct TrainingProposalPortal: View {
         .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCardLarge, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: VelaTheme.radiusCardLarge, style: .continuous)
-                .stroke(proposals.isEmpty ? VelaTheme.rhythmMist : VelaTheme.rhythmDeep.opacity(0.35), lineWidth: 0.75)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         }
         .contentShape(RoundedRectangle(cornerRadius: VelaTheme.radiusCardLarge, style: .continuous))
     }
@@ -1591,7 +1608,7 @@ struct TrainingPlanPortal: View {
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 8)
-                .background(VelaTheme.rhythmDeep.opacity(0.10), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .background(VelaTheme.rhythmDeep.opacity(0.10), in: RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous))
                 .padding(.top, 12)
             }
         }
@@ -1884,12 +1901,12 @@ struct TrainingStatusSection: View {
             }
             .padding(11)
             .frame(maxWidth: .infinity, minHeight: 108, alignment: .topLeading)
-            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(color.opacity(0.22), lineWidth: 0.75)
+                RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+                    .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
             }
-            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
         }
         .buttonStyle(.cardPress)
         .accessibilityLabel("\(title) \(value)，\(detail)")
@@ -2042,7 +2059,7 @@ struct TrainingHistoryView: View {
                     }
                     .padding(16)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                    .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
                 } else {
                     RecentWorkoutsSection(
                         recentWorkouts: recentWorkouts,
@@ -2060,7 +2077,7 @@ struct TrainingHistoryView: View {
                         .foregroundStyle(VelaTheme.rhythmDeepOn)
                         .frame(maxWidth: .infinity)
                         .frame(minHeight: VelaTheme.minimumHitTarget)
-                        .background(VelaTheme.rhythmDeep, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .background(VelaTheme.rhythmDeep, in: Capsule())
                 }
                 .buttonStyle(.cardPress)
             }

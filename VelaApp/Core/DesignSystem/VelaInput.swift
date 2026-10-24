@@ -18,7 +18,7 @@ struct SettingsRow: View {
                     .foregroundStyle(VelaTheme.rhythmInk)
                     .frame(width: 30, height: 30)
                     .background(VelaTheme.rhythmMist)
-                    .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous))
                     .accessibilityHidden(true)
 
                 Text(title)
@@ -62,7 +62,7 @@ struct ToggleRow: View {
                 .foregroundStyle(VelaTheme.rhythmInk)
                 .frame(width: 30, height: 30)
                 .background(VelaTheme.rhythmMist)
-                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous))
 
             Text(title)
                 .font(VelaTheme.body())
@@ -132,7 +132,7 @@ struct QuickEntryButton: View {
                     .foregroundStyle(iconFg)
                     .frame(width: 36, height: 36)
                     .background(iconBg)
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous))
 
                 Text(label)
                     .font(VelaTheme.subheadline())

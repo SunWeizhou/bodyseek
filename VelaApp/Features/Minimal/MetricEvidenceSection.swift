@@ -32,9 +32,9 @@ struct MetricEvidenceSection: View {
                     }
                 }
             }
-            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                     .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
             )
         }

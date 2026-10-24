@@ -355,8 +355,8 @@ struct UserWikiArchiveView: View {
                     TextField("标题", text: $editTitle)
                         .font(.system(.callout, design: .default, weight: .bold))
                         .padding(12)
-                        .background(RoundedRectangle(cornerRadius: 10).fill(VelaTheme.secondaryGroupedBackground))
-                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+                        .background(RoundedRectangle(cornerRadius: VelaTheme.radiusSm).fill(VelaTheme.secondaryGroupedBackground))
+                        .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusSm).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
                     
@@ -475,8 +475,8 @@ struct UserWikiArchiveView: View {
                                         .font(.system(.footnote, design: .default))
                                         .frame(height: 120)
                                         .padding(8)
-                                        .background(RoundedRectangle(cornerRadius: 10).fill(VelaTheme.cardBg))
-                                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+                                        .background(RoundedRectangle(cornerRadius: VelaTheme.radiusSm).fill(VelaTheme.cardBg))
+                                        .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusSm).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
                                 }
                                 .padding(.horizontal, 16)
                                 .padding(.top, 8)

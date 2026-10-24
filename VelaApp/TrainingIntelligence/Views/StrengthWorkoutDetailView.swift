@@ -126,15 +126,15 @@ struct StrengthWorkoutDetailView: View {
     }
 
     private var hero: some View {
-        VelaGlassCard(padding: 18, cornerRadius: 24) {
+        VelaGlassCard(padding: 18, cornerRadius: VelaTheme.radiusCard) {
             VStack(alignment: .leading, spacing: 18) {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 7) {
                         Text(workout.title)
-                            .font(.system(.title, design: .rounded, weight: .bold))
+                            .font(VelaTheme.title1().weight(.bold))
                             .foregroundStyle(bodyTextColor)
                         Text(workout.startedAt.formatted(date: .abbreviated, time: .shortened))
-                            .font(.system(.footnote, design: .rounded, weight: .medium))
+                            .font(VelaTheme.footnote().weight(.medium))
                             .foregroundStyle(mutedColor)
                     }
                     Spacer()
@@ -159,20 +159,20 @@ struct StrengthWorkoutDetailView: View {
     }
 
     private var intelligenceStrip: some View {
-        VelaGlassCard(padding: 16, cornerRadius: 20) {
+        VelaGlassCard(padding: 16, cornerRadius: VelaTheme.radiusCard) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Label("训练智能摘要", systemImage: "sparkles")
-                        .font(.system(.subheadline, design: .rounded, weight: .bold))
+                        .font(VelaTheme.subheadline().weight(.bold))
                         .foregroundStyle(bodyTextColor)
                     Spacer()
                     Text("\(completedSets)/\(workout.totalSetCount) 完成")
-                        .font(.system(.caption2, design: .rounded, weight: .bold))
+                        .font(VelaTheme.caption2().weight(.bold))
                         .foregroundStyle(accentColor)
                 }
 
                 Text(analysis.summaryText)
-                    .font(.system(.footnote, design: .rounded))
+                    .font(VelaTheme.footnote())
                     .foregroundStyle(mutedColor)
 
                 if !analysis.personalRecords.isEmpty {
@@ -182,7 +182,7 @@ struct StrengthWorkoutDetailView: View {
                                 Image(systemName: "trophy.fill")
                                     .foregroundStyle(VelaTheme.rhythmInk)
                                 Text(record.summary)
-                                    .font(.system(.caption, design: .rounded, weight: .bold))
+                                    .font(VelaTheme.caption1().weight(.bold))
                                     .foregroundStyle(bodyTextColor)
                                 Spacer()
                             }
@@ -195,15 +195,15 @@ struct StrengthWorkoutDetailView: View {
     }
 
     private var muscleDistribution: some View {
-        VelaGlassCard(padding: 16, cornerRadius: 20) {
+        VelaGlassCard(padding: 16, cornerRadius: VelaTheme.radiusCard) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Text("肌群分布")
-                        .font(.system(.subheadline, design: .rounded, weight: .bold))
+                        .font(VelaTheme.subheadline().weight(.bold))
                         .foregroundStyle(bodyTextColor)
                     Spacer()
                     Text("有效组")
-                        .font(.system(.caption2, design: .rounded, weight: .semibold))
+                        .font(VelaTheme.caption2().weight(.semibold))
                         .foregroundStyle(mutedColor)
                 }
 
@@ -221,7 +221,7 @@ struct StrengthWorkoutDetailView: View {
                                     .foregroundStyle(bodyTextColor)
                                 Spacer()
                                 Text("\(sets) 组")
-                                    .font(.system(.caption, design: .rounded, weight: .bold))
+                                    .font(VelaTheme.caption1().weight(.bold))
                                     .foregroundStyle(mutedColor)
                             }
                             GeometryReader { geo in
@@ -245,7 +245,7 @@ struct StrengthWorkoutDetailView: View {
             current: workout,
             history: allWorkouts.filter { $0.id != workout.id }
         )
-        return VelaGlassCard(padding: 16, cornerRadius: 20) {
+        return VelaGlassCard(padding: 16, cornerRadius: VelaTheme.radiusCard) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Label("渐进超负荷", systemImage: "arrow.up.forward.circle.fill")
@@ -279,7 +279,7 @@ struct StrengthWorkoutDetailView: View {
                             .foregroundStyle(bodyTextColor)
                     }
                     .padding(12)
-                    .background(VelaTheme.fillSoft, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .background(VelaTheme.fillSoft, in: RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous))
                 }
 
                 Text("训练建议仅用于一般健身规划；疼痛、不适或异常疲劳时停止训练并寻求专业意见。")
@@ -312,7 +312,7 @@ struct StrengthWorkoutDetailView: View {
                 .foregroundStyle(bodyTextColor)
 
             ForEach(workout.exercises) { exercise in
-                VelaGlassCard(padding: 16, cornerRadius: 20) {
+                VelaGlassCard(padding: 16, cornerRadius: VelaTheme.radiusCard) {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
@@ -327,7 +327,7 @@ struct StrengthWorkoutDetailView: View {
                             if let e1RM = analysis.estimatedOneRepMaxByExercise[exercise.name] {
                                 VStack(alignment: .trailing, spacing: 3) {
                                     Text("\(Int(e1RM.rounded())) kg")
-                                        .font(.system(.subheadline, design: .rounded, weight: .bold))
+                                        .font(VelaTheme.subheadline().weight(.bold))
                                         .foregroundStyle(accentColor)
                                     Text("e1RM")
                                         .font(.system(.caption2, design: .default, weight: .bold))
@@ -377,7 +377,7 @@ struct StrengthWorkoutDetailView: View {
     @ViewBuilder
     private var notesCard: some View {
         if !workout.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            VelaGlassCard(padding: 16, cornerRadius: 20) {
+            VelaGlassCard(padding: 16, cornerRadius: VelaTheme.radiusCard) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("训练备注")
                         .font(.system(.subheadline, design: .default, weight: .bold))
@@ -394,7 +394,7 @@ struct StrengthWorkoutDetailView: View {
         VStack(alignment: .leading, spacing: 3) {
             HStack(alignment: .firstTextBaseline, spacing: 2) {
                 Text(value)
-                    .font(.system(.title2, design: .rounded, weight: .bold))
+                    .font(VelaTheme.title2().weight(.bold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
                 Text(unit)
@@ -409,14 +409,14 @@ struct StrengthWorkoutDetailView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
+        .background(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
     }
 
     private func setRow(index: Int, set: StrengthSetLog) -> some View {
         HStack(spacing: 12) {
             // 组号 / 热身标记
             Text(set.kind == .working ? "\(index + 1)" : set.kind.shortLabel)
-                .font(.system(.caption2, design: .rounded, weight: .bold))
+                .font(VelaTheme.caption2().weight(.bold))
                 .foregroundStyle(VelaTheme.accentOn)
                 .frame(width: 24, height: 24)
                 .background(Circle().fill(detailSetKindColor(set.kind)))
@@ -424,7 +424,7 @@ struct StrengthWorkoutDetailView: View {
 
             // 重量
             Text("\(set.weightKilograms.formatted(.number.precision(.fractionLength(0...1)))) kg")
-                .font(.system(.footnote, design: .rounded, weight: .semibold))
+                .font(VelaTheme.footnote().weight(.semibold))
                 .foregroundStyle(bodyTextColor)
                 .frame(width: 70, alignment: .center)
 
@@ -432,7 +432,7 @@ struct StrengthWorkoutDetailView: View {
 
             // 次数
             Text("\(set.repetitions) 次")
-                .font(.system(.footnote, design: .rounded, weight: .semibold))
+                .font(VelaTheme.footnote().weight(.semibold))
                 .foregroundStyle(bodyTextColor)
                 .frame(width: 50, alignment: .center)
 
@@ -469,19 +469,19 @@ struct StrengthWorkoutDetailView: View {
     }
 
     private var heroBackground: some View {
-        RoundedRectangle(cornerRadius: 24, style: .continuous)
+        RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
             .fill(VelaTheme.rhythmCanvasRaised)
             .overlay(
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                     .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
             )
     }
 
     private var cardBackground: some View {
-        RoundedRectangle(cornerRadius: 20, style: .continuous)
+        RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
             .fill(VelaTheme.rhythmCanvasRaised)
             .overlay(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                     .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
             )
     }

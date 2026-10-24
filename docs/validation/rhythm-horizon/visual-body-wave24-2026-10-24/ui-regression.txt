@@ -1,0 +1,10 @@
+# UI 回归：#22 wave22 / residual / nextWave sheets / upgrade（4 tests，最终代码）
+# xcresult: build/wave24-regression.xcresult
+result: Passed
+totalTestCount: 4
+passedTests: 4
+failedTests: 0
+---
+	 Executed 4 tests, with 0 failures (0 unexpected) in 194.907 (194.910) seconds
+	 Executed 4 tests, with 0 failures (0 unexpected) in 194.907 (194.911) seconds
+	 Executed 4 tests, with 0 failures (0 unexpected) in 194.907 (194.912) seconds

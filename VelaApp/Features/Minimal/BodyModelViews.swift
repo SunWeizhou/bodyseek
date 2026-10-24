@@ -376,7 +376,7 @@ struct BodyModelDetailView: View {
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(VelaTheme.rhythmDeep)
                 .frame(width: 36, height: 36)
-                .background(RoundedRectangle(cornerRadius: 12).fill(VelaTheme.rhythmMist.opacity(0.72)))
+                .background(RoundedRectangle(cornerRadius: VelaTheme.radiusSm).fill(VelaTheme.rhythmMist))
             VStack(alignment: .leading, spacing: 5) {
                 Text("身体模型校准状态")
                     .font(.system(.callout, design: .default, weight: .bold))
@@ -389,8 +389,8 @@ struct BodyModelDetailView: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
-        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+        .background(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
+        .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
     }
     
     private var staticParametersSection: some View {
@@ -422,8 +422,8 @@ struct BodyModelDetailView: View {
                 Divider().padding(.leading, 16)
                 detailRow(title: "教练指导风格", value: staticCoachStyleText)
             }
-            .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
-            .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+            .background(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
+            .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
         }
     }
     
@@ -504,8 +504,8 @@ struct BodyModelDetailView: View {
                 }
             }
             .padding(16)
-            .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
-            .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+            .background(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
+            .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
         }
     }
     

@@ -18,7 +18,7 @@ struct TodayWeatherBar: View {
                     .font(VelaTheme.subheadline())
                     .foregroundStyle(weatherTemp == "--" ? VelaTheme.rhythmInkSecondary : VelaTheme.rhythmInk)
                 Text(weatherTemp == "--" ? "天气" : weatherTemp)
-                    .font(.system(.footnote, design: .rounded, weight: .semibold))
+                    .font(.system(.footnote, design: .default, weight: .semibold))
                     .foregroundStyle(VelaTheme.rhythmInk)
                     .lineLimit(1)
             }

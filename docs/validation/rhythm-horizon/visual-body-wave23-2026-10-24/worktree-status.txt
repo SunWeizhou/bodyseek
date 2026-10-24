@@ -1,0 +1,17 @@
+ M VelaApp/Compatibility/Today/TodayLegacyCompatibility.swift
+ M VelaApp/Core/DesignSystem/VelaCard.swift
+ M VelaApp/Core/DesignSystem/VelaDesignSystem.swift
+ M VelaApp/Features/Coach/CoachWelcomeWorkspace.swift
+ M VelaApp/Features/Coach/WikiProfileView.swift
+ M VelaApp/Features/Minimal/BodyModelViews.swift
+ M VelaApp/Features/Minimal/JournalCorrelationSection.swift
+ M VelaApp/Features/Minimal/TodaySubSheets.swift
+ M VelaApp/Features/Minimal/VelaJournalView.swift
+ M VelaApp/Features/Minimal/VelaSettingsView.swift
+ M VelaApp/Features/Settings/DataCoverageView.swift
+ M VelaApp/Features/Settings/TrustCenterView.swift
+ M VelaApp/Features/Training/WorkoutDetailView.swift
+ M VelaApp/Features/Trends/VelaTrendsView.swift
+ M VelaAppTests/VelaThemeTests.swift
+ M VelaUITests/VelaSmokeUITests.swift
+?? docs/validation/rhythm-horizon/visual-body-wave23-2026-10-24/

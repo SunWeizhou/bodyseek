@@ -346,7 +346,7 @@ struct VelaTrainingView: View {
                 HStack(spacing: 14) {
                     ZStack {
                         Circle()
-                            .fill(VelaTheme.rhythmDeep.opacity(0.12))
+                            .fill(VelaTheme.rhythmMist)
                             .frame(width: 44, height: 44)
                         Image(systemName: "applewatch")
                             .accessibilityHidden(true)
@@ -366,9 +366,9 @@ struct VelaTrainingView: View {
                     Spacer()
                 }
                 .padding(16)
-                .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                         .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                 )
             } else {
@@ -397,8 +397,8 @@ struct VelaTrainingView: View {
         let durationMinutes = max(1, Int(workout.end.timeIntervalSince(workout.start) / 60))
         return HStack(spacing: 12) {
             ZStack {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(VelaTheme.rhythmDeep.opacity(0.12))
+                RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous)
+                    .fill(VelaTheme.rhythmMist)
                     .frame(width: 40, height: 40)
                 Image(systemName: workoutIcon(for: workout.activityName))
                 .accessibilityHidden(true)
@@ -435,9 +435,9 @@ struct VelaTrainingView: View {
                 .foregroundStyle(VelaTheme.rhythmInkSecondary.opacity(0.5))
         }
         .padding(14)
-        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                 .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         )
     }

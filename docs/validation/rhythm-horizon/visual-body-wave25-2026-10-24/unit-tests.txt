@@ -1,0 +1,7 @@
+# xcodebuild test -only-testing:VelaTests
+# xcresult: build/wave25-unit.xcresult（最终代码）
+# Xcode 27.1 / iPhone 17 Pro simulator (iOS 26.5)
+result: Passed
+passedTests: 679
+failedTests: 0
+notes: 0 failures; includes VelaThemeTests hosted snapshot coverage and persistence/workout/domain suites.

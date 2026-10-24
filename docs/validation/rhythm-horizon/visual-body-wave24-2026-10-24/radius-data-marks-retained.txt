@@ -1,0 +1,15 @@
+# 保留的数据 mark（14 处，非 chrome）
+VelaApp/Core/DesignSystem/VelaChart.swift:284:                        RoundedRectangle(cornerRadius: 3, style: .continuous)
+VelaApp/Core/DesignSystem/VelaChart.swift:314:                RoundedRectangle(cornerRadius: 1)
+VelaApp/Core/DesignSystem/VelaChart.swift:458:                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+VelaApp/Features/Minimal/BodySeekInstrument.swift:154:                    Path(roundedRect: tick, cornerRadius: 1),
+VelaApp/Features/Minimal/TrainingHeroSection.swift:959:            RoundedRectangle(cornerRadius: 2.5)
+VelaApp/Features/Minimal/TrainingHeroSection.swift:979:                RoundedRectangle(cornerRadius: 6, style: .continuous)
+VelaApp/Features/Minimal/TrainingHeroSection.swift:985:                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+VelaApp/Features/Minimal/TrainingHeroSection.swift:989:                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+VelaApp/Features/Minimal/TrainingHeroSection.swift:1291:                    RoundedRectangle(cornerRadius: 3, style: .continuous)
+VelaApp/Features/Minimal/TrainingStatsSection.swift:515:                    RoundedRectangle(cornerRadius: 3.5, style: .continuous)
+VelaApp/Features/Minimal/TrainingStatsSection.swift:577:                                    RoundedRectangle(cornerRadius: 3)
+VelaApp/Features/Minimal/TrainingStatsSection.swift:580:                                    RoundedRectangle(cornerRadius: 3)
+VelaApp/Features/Minimal/TrainingStatsSection.swift:984:                RoundedRectangle(cornerRadius: 4, style: .continuous)
+VelaApp/Features/Trends/VelaTrendsView.swift:454:                    RoundedRectangle(cornerRadius: 2, style: .continuous)

@@ -53,9 +53,9 @@ struct JournalEntryCard: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .background(VelaTheme.rhythmCanvasRaised)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                 .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         )
     }

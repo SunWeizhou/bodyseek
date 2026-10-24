@@ -1,0 +1,12 @@
+# VelaTests（hosted wave24 snapshot 属于此 target）
+# xcresult: build/wave24-unit.xcresult（最终代码，含 review nit 修复后重跑）
+result: Passed
+totalTestCount: 680
+passedTests: 680
+failedTests: 0
+skippedTests: 0
+expectedFailures: 0
+---
+Test case 'VelaThemeTests.testVisualBodyWave24Snapshots()' passed on 'Clone 1 of BodySeek Wave21 Disposable - Vela (58040)' (6.330 seconds)
+--- xcodebuild tail:
+** TEST SUCCEEDED **

@@ -148,11 +148,11 @@ struct CoachThinkingView: View {
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
                 .background(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous)
                         .fill(VelaTheme.rhythmMist.opacity(0.35))
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous)
                         .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                 )
             }
@@ -257,11 +257,11 @@ struct CoachDataCoverageStrip: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
             .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous)
                     .fill(VelaTheme.rhythmCanvasRaised)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous)
                     .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
             )
         }

@@ -1,0 +1,8 @@
+Command:
+  xcodebuild build -project Vela.xcodeproj -scheme Vela -configuration Debug \
+    -destination 'generic/platform=iOS Simulator' \
+    -derivedDataPath build/DerivedData CODE_SIGNING_ALLOWED=NO
+
+** BUILD SUCCEEDED **
+exit: 0
+warning count: 0 (工程已固化 warnings-as-errors)
