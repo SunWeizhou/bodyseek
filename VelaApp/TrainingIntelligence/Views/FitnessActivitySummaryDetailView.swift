@@ -115,22 +115,22 @@ struct FitnessActivitySummaryDetailView: View {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("训练总时长")
-                            .font(.system(.caption, design: .rounded, weight: .bold))
+                            .font(VelaTheme.caption1().weight(.bold))
                             .foregroundStyle(VelaTheme.fg2)
                             .textCase(.uppercase)
                             .tracking(0.5)
                         HStack(alignment: .firstTextBaseline, spacing: 4) {
                             Text("\(workoutMinutes / 60)")
-                                .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                                .font(VelaTheme.largeTitle().weight(.bold))
                                 .foregroundStyle(VelaTheme.fg)
                             Text("小时")
-                                .font(.system(.callout, design: .rounded, weight: .semibold))
+                                .font(VelaTheme.callout().weight(.semibold))
                                 .foregroundStyle(VelaTheme.fg2)
                             Text("\(workoutMinutes % 60)")
-                                .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                                .font(VelaTheme.largeTitle().weight(.bold))
                                 .foregroundStyle(VelaTheme.fg)
                             Text("分钟")
-                                .font(.system(.callout, design: .rounded, weight: .semibold))
+                                .font(VelaTheme.callout().weight(.semibold))
                                 .foregroundStyle(VelaTheme.fg2)
                         }
                     }
@@ -142,7 +142,7 @@ struct FitnessActivitySummaryDetailView: View {
                         .background(Circle().fill(VelaTheme.accent.opacity(0.12)))
                 }
                 Text("Apple 健康训练与日常活动汇总")
-                    .font(.system(.footnote, design: .rounded))
+                    .font(VelaTheme.footnote())
                     .foregroundStyle(VelaTheme.fg2)
             }
         }
@@ -166,17 +166,17 @@ struct FitnessActivitySummaryDetailView: View {
                 .frame(width: 32, height: 32)
                 .background(RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous).fill(color.opacity(0.12)))
             Text(value)
-                .font(.system(.title2, design: .rounded, weight: .bold))
+                .font(VelaTheme.title2().weight(.bold))
                 .foregroundStyle(VelaTheme.fg)
                 .minimumScaleFactor(0.7)
                 .lineLimit(1)
             Text(title)
-                .font(.system(.caption2, design: .rounded, weight: .medium))
+                .font(VelaTheme.caption2().weight(.medium))
                 .foregroundStyle(VelaTheme.fg2)
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .velaNativeCard(radius: 16)
+        .velaNativeCard()
     }
 
     // MARK: - Workout Heart Rate Card
@@ -186,7 +186,7 @@ struct FitnessActivitySummaryDetailView: View {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 5) {
                         Label("训练心率波动", systemImage: "waveform.path.ecg")
-                            .font(.system(.footnote, design: .rounded, weight: .bold))
+                            .font(VelaTheme.footnote().weight(.bold))
                             .foregroundStyle(VelaTheme.fg)
                         Text("来自统一训练记录的平均心率")
                             .font(.system(.caption2, design: .default, weight: .medium))
@@ -195,7 +195,7 @@ struct FitnessActivitySummaryDetailView: View {
                     Spacer()
                     VStack(alignment: .trailing, spacing: 2) {
                         Text(averageWorkoutHeartRate.map { "\(Int($0.rounded()))" } ?? "--")
-                            .font(.system(.title2, design: .rounded, weight: .bold))
+                            .font(VelaTheme.title2().weight(.bold))
                             .foregroundStyle(VelaTheme.fg)
                         Text("bpm 平均")
                             .font(.system(.caption2, design: .default, weight: .bold))
@@ -430,7 +430,7 @@ struct AreaChartCurveView: View {
                     .frame(width: 8, height: 8)
                     .position(x: x, y: y)
                 Text(label)
-                    .font(.system(.caption2, design: .rounded, weight: .semibold))
+                    .font(VelaTheme.caption2().weight(.semibold))
                     .foregroundStyle(VelaTheme.fg)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)

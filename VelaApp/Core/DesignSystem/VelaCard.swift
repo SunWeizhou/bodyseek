@@ -59,10 +59,10 @@ struct VelaMetricCard<Accessory: View>: View {
         }
         .padding(VelaTheme.cardPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(VelaTheme.cardBg, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCardLarge, style: .continuous))
+        .background(VelaTheme.cardBg, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: VelaTheme.radiusCardLarge, style: .continuous)
-                .stroke(domain.color.opacity(0.16), lineWidth: 0.75)
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         )
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(title)，\(value)\(unit.map { " \($0)" } ?? "")。\(subtitle)")
@@ -150,7 +150,7 @@ struct InsightCard: View {
                     .fontWeight(.semibold)
                     .textCase(.uppercase)
                     .kerning(0.04)
-                    .foregroundStyle(VelaTheme.accent)
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
 
                 Text(bodyText)
                     .font(VelaTheme.subheadline())
@@ -165,23 +165,16 @@ struct InsightCard: View {
                     Image(systemName: "chevron.forward")
                         .font(.system(.caption2, design: .default, weight: .semibold))
                 }
-                .foregroundStyle(VelaTheme.accent)
+                .foregroundStyle(VelaTheme.rhythmInk)
             }
-            .padding(18)
+            .padding(VelaTheme.cardPadding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.ultraThinMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous))
+            .background(VelaTheme.cardBg)
+            .clipShape(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous)
-                    .stroke(VelaTheme.borderSoft, lineWidth: 0.5)
+                RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+                    .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
             )
-            .overlay(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(VelaTheme.accent)
-                    .frame(width: 3)
-                    .padding(.leading, 1)
-                    .clipShape(RoundedRectangle(cornerRadius: 2))
-            }
         }
         .buttonStyle(.cardPress)
     }
@@ -216,26 +209,23 @@ struct EmptyStateCard: View {
                 Button(action: action) {
                     Text(label)
                         .font(VelaTheme.subheadline())
-                        .fontWeight(.medium)
-                        .foregroundStyle(VelaTheme.accent)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(VelaTheme.rhythmDeepOn)
                         .padding(.horizontal, 20)
-                        .padding(.vertical, 8)
-                        .background(
-                            Capsule(style: .continuous)
-                                .stroke(VelaTheme.accent, lineWidth: 1)
-                        )
+                        .padding(.vertical, 10)
+                        .background(Capsule(style: .continuous).fill(VelaTheme.rhythmDeep))
                 }
             }
         }
         .padding(32)
         .frame(maxWidth: .infinity)
         .background(
-            RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous)
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                 .fill(VelaTheme.cardBg)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous)
-                .stroke(VelaTheme.border, style: StrokeStyle(lineWidth: 1, dash: [6, 4]))
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         )
     }
 }
@@ -344,7 +334,7 @@ struct VelaGlassCard<Content: View>: View {
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(VelaTheme.borderSoft, lineWidth: 0.5)
+                    .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
             )
     }
 }
@@ -402,24 +392,38 @@ struct VelaMemoryProposalCardCompat: View {
             HStack(spacing: 10) {
                 Button(action: { onAccept?() }) {
                     Label("Confirm", systemImage: "checkmark")
-                        .font(.subheadline.weight(.medium))
+                        .font(VelaTheme.subheadline().weight(.semibold))
+                        .foregroundStyle(VelaTheme.rhythmDeepOn)
+                        .frame(maxWidth: .infinity, minHeight: VelaTheme.minimumHitTarget)
+                        .background(Capsule(style: .continuous).fill(VelaTheme.rhythmDeep))
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(VelaTheme.accent)
+                .buttonStyle(.plain)
                 if onEdit != nil {
                     Button(action: { onEdit?() }) {
                         Label("Edit", systemImage: "pencil")
-                            .font(.subheadline.weight(.medium))
+                            .font(VelaTheme.subheadline().weight(.semibold))
+                            .foregroundStyle(VelaTheme.rhythmInk)
+                            .frame(maxWidth: .infinity, minHeight: VelaTheme.minimumHitTarget)
+                            .background(Capsule(style: .continuous).fill(Color.clear))
+                            .overlay(
+                                Capsule(style: .continuous)
+                                    .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
+                            )
                     }
-                    .buttonStyle(.bordered)
-                    .tint(VelaTheme.accent)
+                    .buttonStyle(.plain)
                 }
                 Button(action: { onReject?() }) {
                     Label("Reject", systemImage: "xmark")
-                        .font(.subheadline.weight(.medium))
+                        .font(VelaTheme.subheadline().weight(.semibold))
+                        .foregroundStyle(VelaTheme.rhythmInk)
+                        .frame(maxWidth: .infinity, minHeight: VelaTheme.minimumHitTarget)
+                        .background(Capsule(style: .continuous).fill(Color.clear))
+                        .overlay(
+                            Capsule(style: .continuous)
+                                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
+                        )
                 }
-                .buttonStyle(.bordered)
-                .tint(VelaTheme.muted)
+                .buttonStyle(.plain)
             }
         }
         .padding(VelaTheme.space4)
@@ -541,23 +545,23 @@ struct VelaEmptyStateCompat: View {
                 Button(action: action) {
                     Text(label)
                         .font(VelaTheme.subheadline())
-                        .fontWeight(.medium)
-                        .foregroundStyle(VelaTheme.accentOn)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(VelaTheme.rhythmDeepOn)
                         .padding(.horizontal, 20)
                         .padding(.vertical, 10)
-                        .background(RoundedRectangle(cornerRadius: 12).fill(VelaTheme.accent))
+                        .background(Capsule(style: .continuous).fill(VelaTheme.rhythmDeep))
                 }
             }
         }
         .padding(24)
         .frame(maxWidth: .infinity)
         .background(
-            RoundedRectangle(cornerRadius: VelaTheme.radiusLg)
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard)
                 .fill(VelaTheme.cardBg)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: VelaTheme.radiusLg)
-                .stroke(VelaTheme.borderSoft, lineWidth: 0.5)
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         )
     }
 }

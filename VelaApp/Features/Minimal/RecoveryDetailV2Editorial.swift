@@ -113,7 +113,7 @@ struct RecoveryDetailV2EditorialView: View {
     private var overviewFacts: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(model.bandText)
-                .font(.system(.headline, design: .rounded, weight: .semibold))
+                .font(VelaTheme.headline().weight(.semibold))
                 .foregroundStyle(recovery)
             if let median = model.baselineMedianText {
                 Label("窗口中位数 \(median)", systemImage: "scope")
@@ -216,9 +216,9 @@ struct RecoveryDetailV2EditorialView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(18)
-        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                 .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         }
     }
@@ -402,7 +402,7 @@ struct RecoveryDetailV2EditorialView: View {
         }
         .frame(maxWidth: .infinity, minHeight: 113, alignment: .topLeading)
         .padding(15)
-        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
         .accessibilityElement(children: .combine)
     }
 
@@ -416,7 +416,7 @@ struct RecoveryDetailV2EditorialView: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(recovery)
                 Text(model.findingText)
-                    .font(.system(.body, design: .rounded, weight: .medium))
+                    .font(VelaTheme.body().weight(.medium))
                     .foregroundStyle(ink)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -474,7 +474,7 @@ struct RecoveryDetailV2EditorialView: View {
             }
             .padding(18)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
             .overlay(alignment: .leading) {
                 Capsule()
                     .fill(recovery.opacity(0.75))
@@ -526,7 +526,7 @@ struct RecoveryDetailV2EditorialView: View {
         .foregroundStyle(ink)
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(VelaTheme.rhythmMist.opacity(0.35), in: RoundedRectangle(cornerRadius: 14))
+        .background(VelaTheme.rhythmMist.opacity(0.35), in: RoundedRectangle(cornerRadius: VelaTheme.radiusSm))
     }
 
     private func eyebrow(_ title: String) -> some View {
@@ -543,7 +543,7 @@ struct RecoveryDetailV2EditorialView: View {
                     .font(.system(.caption, design: .monospaced))
                     .foregroundStyle(recovery)
                 Text(title)
-                    .font(.system(.title3, design: .rounded, weight: .semibold))
+                    .font(VelaTheme.title3())
                     .foregroundStyle(ink)
             }
             Text(subtitle)

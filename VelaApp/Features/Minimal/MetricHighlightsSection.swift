@@ -28,7 +28,7 @@ struct MetricHighlightsSection: View {
                     }
                     
                     Text(leftValue)
-                        .font(.system(.title2, design: .rounded, weight: .bold))
+                        .font(.system(.title2, design: .default, weight: .bold))
                         .monospacedDigit()
                         .foregroundStyle(VelaTheme.rhythmInk)
                         .minimumScaleFactor(0.7)
@@ -61,7 +61,7 @@ struct MetricHighlightsSection: View {
                     }
                     
                     Text(rightValue)
-                        .font(.system(.title2, design: .rounded, weight: .bold))
+                        .font(.system(.title2, design: .default, weight: .bold))
                         .monospacedDigit()
                         .foregroundStyle(VelaTheme.rhythmInk)
                         .minimumScaleFactor(0.7)
@@ -83,9 +83,9 @@ struct MetricHighlightsSection: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                 .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         )
     }
@@ -105,7 +105,7 @@ struct MetricInterpretationSection: View {
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(tint)
                     .frame(width: 36, height: 36)
-                    .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 5) {
                     Text("今日建议")
@@ -131,9 +131,9 @@ struct MetricInterpretationSection: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                 .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         )
         .accessibilityElement(children: .combine)
@@ -182,9 +182,9 @@ struct MetricTrustSection: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                 .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         )
     }
@@ -202,6 +202,6 @@ struct MetricTrustSection: View {
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(VelaTheme.rhythmCanvas)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous))
     }
 }

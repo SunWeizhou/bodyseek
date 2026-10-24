@@ -132,7 +132,7 @@ struct StatusCapsule: View {
                     .foregroundStyle(VelaTheme.fg2)
 
                 Text(value)
-                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                    .font(VelaTheme.subheadline().weight(.semibold))
                     .foregroundStyle(VelaTheme.fg)
             }
             .padding(.horizontal, 14)
@@ -380,28 +380,9 @@ struct TypingIndicator: View {
                     )
             }
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 14)
-        .background(
-            UnevenRoundedRectangle(
-                topLeadingRadius: 4,
-                bottomLeadingRadius: VelaTheme.radiusLg,
-                bottomTrailingRadius: VelaTheme.radiusLg,
-                topTrailingRadius: VelaTheme.radiusLg,
-                style: .continuous
-            )
-            .fill(VelaTheme.rhythmCanvasRaised)
-        )
-        .overlay {
-            UnevenRoundedRectangle(
-                topLeadingRadius: 4,
-                bottomLeadingRadius: VelaTheme.radiusLg,
-                bottomTrailingRadius: VelaTheme.radiusLg,
-                topTrailingRadius: VelaTheme.radiusLg,
-                style: .continuous
-            )
-            .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
-        }
+        // D: an assistant answer is prose, so the waiting state keeps only the
+        // ink dots — no bubble chrome around them.
+        .frame(minHeight: VelaTheme.minimumHitTarget, alignment: .leading)
         .onAppear {
             animate = !reduceMotion
         }

@@ -322,8 +322,7 @@ struct BloodLogSheetView: View {
                             }
                             .padding()
                             .frame(maxWidth: .infinity)
-                            .background(VelaTheme.rhythmInk.opacity(0.12))
-                            .cornerRadius(10)
+                            .background(VelaTheme.rhythmInk.opacity(0.12), in: RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous))
                         }
 
                         // Suggestion chips
@@ -382,7 +381,7 @@ struct BloodLogSheetView: View {
                             .foregroundStyle(VelaTheme.fg)
                             .padding(14)
                             .background(
-                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                                     .fill(VelaTheme.rhythmCanvasRaised)
                             )
                         }
@@ -393,12 +392,11 @@ struct BloodLogSheetView: View {
                             saveBiomarker()
                         } label: {
                             Text(L10n.t("Save Biomarker", "保存指标"))
-                                .font(.system(.body, design: .rounded).bold())
+                                .font(VelaTheme.body().weight(.bold))
                                 .foregroundStyle(VelaTheme.bg)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 14)
-                                .background(VelaTheme.accent)
-                                .cornerRadius(99)
+                                .background(VelaTheme.accent, in: Capsule())
                         }
                     }
                     .padding(VelaTheme.pagePadding)
@@ -555,11 +553,11 @@ struct StyledTextField: View {
             TextField(placeholder, text: $text)
                 .padding(14)
                 .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                         .fill(VelaTheme.rhythmCanvasRaised)
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                         .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                 )
                 .foregroundStyle(VelaTheme.rhythmInk)

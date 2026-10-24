@@ -120,9 +120,9 @@ struct TrustCenterView: View {
                         destination: PrivacyDataControlsView()
                     )
                 }
-                .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                         .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                 }
             }
@@ -151,7 +151,7 @@ struct TrustCenterView: View {
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(tint)
                     .frame(width: 32, height: 32)
-                    .background(tint.opacity(0.11), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                    .background(tint.opacity(0.11), in: RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
@@ -204,9 +204,9 @@ struct TrustCenterView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                 .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         }
     }
@@ -247,7 +247,7 @@ struct TrustCenterView: View {
         Button {
             selectedRun = run
         } label: {
-            VelaGlassCard(padding: 14, cornerRadius: 14) {
+            VelaGlassCard(padding: VelaTheme.compactCardPadding, cornerRadius: VelaTheme.radiusCard) {
                 HStack(alignment: .top, spacing: 12) {
                     Image(systemName: iconFor(run.agentName))
                         .font(.title3)
