@@ -337,7 +337,7 @@ final class VelaSmokeUITests: XCTestCase {
         XCTAssertTrue(pending.waitForExistence(timeout: 8))
         pending.tap()
         pending.typeText("Consent draft")
-        consent.buttons["发送"].tap()
+        consent.buttons["发送"].firstMatch.tap()
         XCTAssertTrue(consent.navigationBars["联网 AI 数据授权"].waitForExistence(timeout: 5))
         consent.buttons["取消"].tap()
         XCTAssertEqual(pending.value as? String, "Consent draft")
@@ -441,6 +441,10 @@ final class VelaSmokeUITests: XCTestCase {
             captureTrends("next-" + name + "-accessibility")
             app.swipeUp()
             captureTrends("next-" + name + "-accessibility-scrolled")
+            if name == "recovery" {
+                app.swipeUp()
+                captureTrends("next-recovery-accessibility-observations")
+            }
             app.terminate()
         }
     }
@@ -492,7 +496,8 @@ final class VelaSmokeUITests: XCTestCase {
         coach.buttons["历史分析报告"].tap()
         XCTAssertTrue(coach.navigationBars["历史报告"].waitForExistence(timeout: 5))
         captureTrends("next-coach-reports-dark")
-        coach.staticTexts["查看全部"].firstMatch.tap()
+        XCTAssertTrue(coach.buttons["查看全部"].waitForExistence(timeout: 5))
+        coach.buttons["查看全部"].tap()
         captureTrends("next-artifact-library-dark")
         coach.terminate()
 
@@ -503,7 +508,14 @@ final class VelaSmokeUITests: XCTestCase {
         XCTAssertTrue(large.buttons["记录体重"].waitForExistence(timeout: 5))
         captureTrends("next-quick-actions-accessibility")
         large.buttons["记录体重"].tap()
+        XCTAssertTrue(large.navigationBars["记录体重体脂"].waitForExistence(timeout: 5))
+        let weightField = large.textFields.firstMatch
+        XCTAssertTrue(weightField.waitForExistence(timeout: 5))
+        XCTAssertGreaterThanOrEqual(weightField.frame.minX, large.frame.minX)
+        XCTAssertLessThanOrEqual(weightField.frame.maxX, large.frame.maxX)
         captureTrends("next-weight-accessibility")
+        large.swipeUp()
+        captureTrends("next-weight-accessibility-scrolled")
         large.terminate()
     }
 
@@ -511,13 +523,14 @@ final class VelaSmokeUITests: XCTestCase {
         // A partially visible oversized label may be "hittable" under the toolbar.
         // Keep the entire label in the visible content before tapping.
         for _ in 0..<30 {
-            let frame = row.frame
-            if row.exists && row.isHittable && frame.minY > 110 && frame.maxY < app.frame.maxY - 20 {
+            let exists = row.exists
+            let frame = exists ? row.frame : CGRect.null
+            if exists && row.isHittable && frame.minY > 110 && frame.maxY < app.frame.maxY - 20 {
                 row.tap()
                 return
             }
             let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.72))
-            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: frame.minY < 110 && row.isHittable ? 0.89 : 0.55))
+            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: exists && frame.minY < 110 && row.isHittable ? 0.89 : 0.55))
             start.press(forDuration: 0.05, thenDragTo: end)
         }
         XCTFail("Settings row was not fully visible: " + row.label)

@@ -217,7 +217,7 @@ struct VelaReportsView: View {
             }
             .background(VelaTheme.rhythmCanvasRaised)
             .clipShape(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+            .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
         }
     }
 
@@ -281,7 +281,7 @@ struct VelaReportsView: View {
             }
             .background(VelaTheme.rhythmCanvasRaised)
             .clipShape(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+            .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
         }
     }
 

@@ -84,9 +84,12 @@ final class VelaThemeTests: XCTestCase {
                 return view.subviews.lazy.compactMap { firstScrollView(in: $0) }.first
             }
             let scroll = try XCTUnwrap(firstScrollView(in: host.view))
-            scroll.setContentOffset(CGPoint(x: 0, y: max(0, scroll.contentSize.height - scroll.bounds.height + scroll.adjustedContentInset.bottom)), animated: false)
-            try await Task.sleep(for: .seconds(0.3))
-            host.view.layoutIfNeeded()
+            // Form estimates offscreen row heights; settle each newly realized section.
+            for _ in 0..<4 {
+                scroll.setContentOffset(CGPoint(x: 0, y: max(0, scroll.contentSize.height - scroll.bounds.height + scroll.adjustedContentInset.bottom)), animated: false)
+                try await Task.sleep(for: .seconds(0.2))
+                host.view.layoutIfNeeded()
+            }
         }
         let renderer = UIGraphicsImageRenderer(bounds: window.bounds)
         let image = renderer.image { _ in
