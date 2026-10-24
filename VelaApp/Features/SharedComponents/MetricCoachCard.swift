@@ -99,7 +99,7 @@ struct MetricCoachCard: View {
                             Image(systemName: "arrow.clockwise")
                                 .font(.subheadline.weight(.semibold))
                                 .frame(width: 38, height: 38)
-                                .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(VelaTheme.fillSoft))
+                                .background(RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous).fill(VelaTheme.fillSoft))
                         }
                         .buttonStyle(.cardPress)
                         .foregroundStyle(VelaTheme.fg)

@@ -195,8 +195,8 @@ struct CardioStatusCard: View {
             }
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
-        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+        .background(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
+        .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
     }
 
     private var baselineDetail: String {
@@ -230,7 +230,7 @@ struct CardioStatusCard: View {
         }
         .padding(11)
         .frame(maxWidth: .infinity, minHeight: 92, alignment: .topLeading)
-        .background(VelaTheme.rhythmMist.opacity(0.62), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(VelaTheme.rhythmMist.opacity(0.62), in: RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous))
         .accessibilityElement(children: .combine)
     }
 }
@@ -318,7 +318,7 @@ struct TrainingStatsSection: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(targetComparison.valueText)
-                                .font(.system(.title2, design: .rounded, weight: .bold))
+                                .font(.system(.title2, design: .default, weight: .bold))
                                 .foregroundStyle(VelaTheme.rhythmInk)
                             Text(dynamicExertionWorkload.isEmpty ? "暂无耗力记录" : targetComparison.contextText)
                                 .font(.system(.caption, design: .default, weight: .bold))
@@ -362,7 +362,7 @@ struct TrainingStatsSection: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(totalWorkoutDurationText)
-                                .font(.system(.title2, design: .rounded, weight: .bold))
+                                .font(.system(.title2, design: .default, weight: .bold))
                                 .foregroundStyle(VelaTheme.rhythmInk)
                             Text("过去 30 天耗力趋势")
                                 .font(.system(.caption, design: .default, weight: .medium))
@@ -436,11 +436,11 @@ struct TrainingStatsSection: View {
         }
         .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                 .fill(VelaTheme.rhythmCanvasRaised)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                 .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         )
     }
@@ -451,7 +451,7 @@ struct TrainingStatsSection: View {
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(VelaTheme.rhythmDeep)
                 .frame(width: 36, height: 36)
-                .background(VelaTheme.rhythmDeep.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
+                .background(VelaTheme.rhythmDeep.opacity(0.1), in: RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous))
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
@@ -628,11 +628,11 @@ struct MuscleVolumeCard: View {
         }
         .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                 .fill(VelaTheme.rhythmCanvasRaised)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                 .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         )
     }
@@ -686,11 +686,11 @@ struct PersonalRecordsCard: View {
         }
         .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                 .fill(VelaTheme.rhythmCanvasRaised)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                 .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         )
     }
@@ -766,7 +766,7 @@ struct RecentWorkoutsSection: View {
                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
                     .padding(16)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
+                    .background(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
             } else {
                 ForEach(recentWorkouts.prefix(limit ?? recentWorkouts.count)) { workout in
                     NavigationLink(destination: destination(for: workout)) {
@@ -900,7 +900,7 @@ struct StrengthWorkoutsSection: View {
                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
                     .padding(16)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
+                    .background(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
             } else {
                 ForEach(strengthWorkouts.prefix(5)) { workout in
                     NavigationLink(destination: WorkoutDetailView(workout: WorkoutSummary(
@@ -1172,8 +1172,8 @@ struct YearlyTrainingCard: View {
             }
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
-        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+        .background(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
+        .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
         .task { await load() }
     }
 
@@ -1269,8 +1269,8 @@ struct RecoveryLoadStressTrendsCard: View {
             }
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
-        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+        .background(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
+        .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
     }
 
     private var series: [TrendSeries] {

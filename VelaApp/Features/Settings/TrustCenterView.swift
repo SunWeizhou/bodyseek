@@ -58,7 +58,7 @@ struct TrustCenterView: View {
     // MARK: - Ownership overview
 
     private var trustOverviewCard: some View {
-        VelaHeroSurface(tint: VelaTheme.rhythmInk) {
+        VelaHeroSurface {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(alignment: .top, spacing: 12) {
                     Image(systemName: "hand.raised.fill")
@@ -120,9 +120,9 @@ struct TrustCenterView: View {
                         destination: PrivacyDataControlsView()
                     )
                 }
-                .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                         .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                 }
             }
@@ -151,7 +151,7 @@ struct TrustCenterView: View {
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(tint)
                     .frame(width: 32, height: 32)
-                    .background(tint.opacity(0.11), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                    .background(tint.opacity(0.11), in: RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
@@ -204,9 +204,9 @@ struct TrustCenterView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                 .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         }
     }
@@ -218,7 +218,7 @@ struct TrustCenterView: View {
         let failed = runRecords.filter { $0.status == "failed" }.count
         let running = runRecords.filter { $0.status == "running" }.count
 
-        return VelaHeroSurface(tint: failed > 0 ? VelaTheme.rhythmInk : VelaTheme.accent) {
+        return VelaHeroSurface {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .top, spacing: 12) {
                     Image(systemName: "checkmark.shield.fill")
@@ -247,7 +247,7 @@ struct TrustCenterView: View {
         Button {
             selectedRun = run
         } label: {
-            VelaGlassCard(padding: 14, cornerRadius: 14) {
+            VelaGlassCard(padding: VelaTheme.compactCardPadding, cornerRadius: VelaTheme.radiusCard) {
                 HStack(alignment: .top, spacing: 12) {
                     Image(systemName: iconFor(run.agentName))
                         .font(.title3)
@@ -305,7 +305,7 @@ struct TrustCenterView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
-                    VelaHeroSurface(tint: colorFor(run.status)) {
+                    VelaHeroSurface {
                         VStack(alignment: .leading, spacing: 12) {
                             HStack {
                                 Label(labelFor(run.agentName), systemImage: iconFor(run.agentName))

@@ -26,9 +26,9 @@ struct BehaviorQuickNoteSheet: View {
                     }
                     .padding(16)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
+                    .background(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                             .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                     )
 
@@ -37,8 +37,8 @@ struct BehaviorQuickNoteSheet: View {
                             .frame(minHeight: 120)
                             .padding(10)
                             .scrollContentBackground(.hidden)
-                            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(VelaTheme.rhythmCanvas))
-                            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+                            .background(RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous).fill(VelaTheme.rhythmCanvas))
+                            .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
 
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
@@ -52,8 +52,8 @@ struct BehaviorQuickNoteSheet: View {
                                             .foregroundStyle(VelaTheme.rhythmInk)
                                             .padding(.horizontal, 10)
                                             .padding(.vertical, 7)
-                                            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(VelaTheme.rhythmCanvas))
-                                            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+                                            .background(RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous).fill(VelaTheme.rhythmCanvas))
+                                            .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
                                     }
                                     .buttonStyle(.plain)
                                 }
@@ -68,7 +68,7 @@ struct BehaviorQuickNoteSheet: View {
                                         .foregroundStyle(VelaTheme.rhythmDeep)
                                         .padding(.horizontal, 8)
                                         .padding(.vertical, 5)
-                                        .background(RoundedRectangle(cornerRadius: 10).fill(VelaTheme.rhythmDeep.opacity(0.12)))
+                                        .background(RoundedRectangle(cornerRadius: VelaTheme.radiusSm).fill(VelaTheme.rhythmDeep.opacity(0.12)))
                                 }
                             }
                         } else {
@@ -78,9 +78,9 @@ struct BehaviorQuickNoteSheet: View {
                         }
                     }
                     .padding(16)
-                    .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
+                    .background(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                             .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                     )
 
@@ -94,12 +94,12 @@ struct BehaviorQuickNoteSheet: View {
                             .foregroundStyle(VelaTheme.rhythmDeepOn)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
-                            .background(RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous).fill(VelaTheme.rhythmDeep))
+                            .background(VelaTheme.rhythmDeep, in: Capsule())
                     }
                     .disabled(note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     .buttonStyle(.plain)
                 }
-                .padding(16)
+                .padding(VelaTheme.pagePadding)
             }
             .background(VelaTheme.rhythmCanvas)
             .navigationTitle("随手记")
@@ -144,7 +144,7 @@ struct CaffeineLoggerView: View {
                 .accessibilityLabel(L10n.t("Close", "关闭"))
             }
             .padding(.horizontal, 20)
-            .padding(.top, 16)
+            .padding(.top, VelaTheme.space4)
             
             ScrollView {
                 VStack(spacing: 24) {
@@ -170,8 +170,8 @@ struct CaffeineLoggerView: View {
                     }
                     .padding(.vertical, 20)
                     .frame(maxWidth: .infinity)
-                    .velaNativeCard(radius: 20)
-                    .padding(.horizontal, 16)
+                    .velaNativeCard(radius: VelaTheme.radiusCard)
+                    .padding(.horizontal, VelaTheme.pagePadding)
                     
                     VStack(alignment: .leading, spacing: 12) {
                         Text("快捷选项")
@@ -202,7 +202,7 @@ struct CaffeineLoggerView: View {
                                                 .foregroundStyle(VelaTheme.meta)
                                         }
                                         .frame(width: 90, height: 110)
-                                        .velaNativeCard(radius: 16)
+                                        .velaNativeCard(radius: VelaTheme.radiusCard)
                                         .overlay(
                                             RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous)
                                                 .stroke(customAmount == val ? VelaTheme.rhythmInk : VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
@@ -226,7 +226,7 @@ struct CaffeineLoggerView: View {
                             .foregroundStyle(VelaTheme.rhythmDeepOn)
                             .frame(maxWidth: .infinity)
                             .frame(height: 50)
-                            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(VelaTheme.rhythmDeep))
+                            .background(VelaTheme.rhythmDeep, in: Capsule())
                     }
                     .buttonStyle(.plain)
                     .padding(.horizontal, 20)
@@ -269,7 +269,7 @@ struct WaterLoggerView: View {
                 .accessibilityLabel(L10n.t("Close", "关闭"))
             }
             .padding(.horizontal, 20)
-            .padding(.top, 16)
+            .padding(.top, VelaTheme.space4)
             
             ScrollView {
                 VStack(spacing: 24) {
@@ -282,7 +282,7 @@ struct WaterLoggerView: View {
                     VStack(spacing: 12) {
                         HStack(alignment: .firstTextBaseline) {
                             Text("\(Int(customAmount))")
-                                .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                                .font(VelaTheme.largeTitle())
                                 .foregroundStyle(VelaTheme.accent)
                             Text("ml")
                                 .font(.system(.body, design: .default, weight: .bold))
@@ -295,8 +295,8 @@ struct WaterLoggerView: View {
                     }
                     .padding(.vertical, 20)
                     .frame(maxWidth: .infinity)
-                    .velaNativeCard(radius: 20)
-                    .padding(.horizontal, 16)
+                    .velaNativeCard(radius: VelaTheme.radiusCard)
+                    .padding(.horizontal, VelaTheme.pagePadding)
                     
                     VStack(alignment: .leading, spacing: 12) {
                         Text("快捷选项")
@@ -327,7 +327,7 @@ struct WaterLoggerView: View {
                                                 .foregroundStyle(VelaTheme.meta)
                                         }
                                         .frame(width: 90, height: 110)
-                                        .velaNativeCard(radius: 16)
+                                        .velaNativeCard(radius: VelaTheme.radiusCard)
                                         .overlay(
                                             RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous)
                                                 .stroke(customAmount == val ? VelaTheme.rhythmInk : VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
@@ -351,7 +351,7 @@ struct WaterLoggerView: View {
                             .foregroundStyle(VelaTheme.rhythmDeepOn)
                             .frame(maxWidth: .infinity)
                             .frame(height: 50)
-                            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(VelaTheme.rhythmDeep))
+                            .background(VelaTheme.rhythmDeep, in: Capsule())
                     }
                     .buttonStyle(.plain)
                     .padding(.horizontal, 20)
@@ -396,7 +396,7 @@ struct MoodLoggerView: View {
                 .accessibilityLabel(L10n.t("Close", "关闭"))
             }
             .padding(.horizontal, 20)
-            .padding(.top, 16)
+            .padding(.top, VelaTheme.space4)
             
             ScrollView {
                 VStack(spacing: 24) {
@@ -422,18 +422,18 @@ struct MoodLoggerView: View {
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 80)
                                 .background(
-                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                                         .fill(selectedScore == score ? VelaTheme.rhythmCanvasRaised : VelaTheme.rhythmCanvas)
                                 )
                                 .overlay(
-                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                                         .stroke(selectedScore == score ? VelaTheme.rhythmDeep : VelaTheme.rhythmMist, lineWidth: VelaTheme.hairlineWidth)
                                 )
                             }
                             .buttonStyle(.plain)
                         }
                     }
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, VelaTheme.pagePadding)
                     
                     VStack(alignment: .leading, spacing: 10) {
                         Text("今日备注 (可选)")
@@ -444,9 +444,9 @@ struct MoodLoggerView: View {
                         TextField("记录一些让你开心或焦虑的小事...", text: $noteText)
                             .font(.system(.footnote, design: .default))
                             .padding(14)
-                            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
+                            .background(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
                             .overlay(
-                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                                     .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                             )
                     }
@@ -463,11 +463,11 @@ struct MoodLoggerView: View {
                             .foregroundStyle(VelaTheme.rhythmDeepOn)
                             .frame(maxWidth: .infinity)
                             .frame(height: 50)
-                            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(VelaTheme.rhythmDeep))
+                            .background(VelaTheme.rhythmDeep, in: Capsule())
                     }
                     .buttonStyle(.plain)
                     .padding(.horizontal, 20)
-                    .padding(.top, 16)
+                    .padding(.top, VelaTheme.space4)
                 }
             }
         }
@@ -499,7 +499,7 @@ struct AlcoholLoggerView: View {
                 .accessibilityLabel(L10n.t("Close", "关闭"))
             }
             .padding(.horizontal, 20)
-            .padding(.top, 16)
+            .padding(.top, VelaTheme.space4)
             
             ScrollView {
                 VStack(spacing: 24) {
@@ -512,7 +512,7 @@ struct AlcoholLoggerView: View {
                     VStack(spacing: 16) {
                         HStack(alignment: .firstTextBaseline) {
                             Text(String(format: "%.1f", customDrinks))
-                                .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                                .font(VelaTheme.largeTitle())
                                 .foregroundStyle(VelaTheme.rhythmInk)
                             Text("标准杯")
                                 .font(.system(.body, design: .default, weight: .bold))
@@ -549,8 +549,8 @@ struct AlcoholLoggerView: View {
                     }
                     .padding(.vertical, 24)
                     .frame(maxWidth: .infinity)
-                    .velaNativeCard(radius: 20)
-                    .padding(.horizontal, 16)
+                    .velaNativeCard(radius: VelaTheme.radiusCard)
+                    .padding(.horizontal, VelaTheme.pagePadding)
                     
                     VStack(alignment: .leading, spacing: 10) {
                         Text("标准杯换算")
@@ -563,7 +563,7 @@ struct AlcoholLoggerView: View {
                             .lineSpacing(5)
                     }
                     .padding(18)
-                    .velaNativeCard(radius: 16)
+                    .velaNativeCard(radius: VelaTheme.radiusCard)
                     .overlay(
                         RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous)
                             .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
@@ -580,7 +580,7 @@ struct AlcoholLoggerView: View {
                             .foregroundStyle(VelaTheme.rhythmDeepOn)
                             .frame(maxWidth: .infinity)
                             .frame(height: 50)
-                            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(VelaTheme.rhythmDeep))
+                            .background(VelaTheme.rhythmDeep, in: Capsule())
                     }
                     .buttonStyle(.plain)
                     .padding(.horizontal, 20)

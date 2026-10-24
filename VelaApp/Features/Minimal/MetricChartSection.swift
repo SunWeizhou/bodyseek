@@ -115,7 +115,7 @@ struct MetricChartSection: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .lastTextBaseline, spacing: 8) {
                     Text(dynamicValueText)
-                        .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                        .font(.system(.largeTitle, design: .default, weight: .bold))
                         .monospacedDigit()
                         .foregroundStyle(VelaTheme.rhythmInk)
 
@@ -270,9 +270,9 @@ struct MetricChartSection: View {
             }
         }
         .padding(.vertical, 14)
-        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                 .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         )
     }

@@ -306,8 +306,8 @@ struct DataSourceSettingsView: View {
                         count: appleHealthDetail
                     )
                 }
-                .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(VelaTheme.secondaryGroupedBackground))
-                .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+                .background(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).fill(VelaTheme.secondaryGroupedBackground))
+                .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
                 .padding(.horizontal, 16)
  
                 Button {
@@ -332,7 +332,7 @@ struct DataSourceSettingsView: View {
                     .foregroundStyle(VelaTheme.accentOn)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 13)
-                    .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(VelaTheme.accent))
+                    .background(VelaTheme.accent, in: Capsule())
                 }
                 .buttonStyle(.plain)
                 .disabled(isSyncing)
@@ -400,8 +400,8 @@ struct DataSourceSettingsView: View {
             .buttonStyle(.plain)
         }
         .padding(14)
-        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(VelaTheme.secondaryGroupedBackground))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+        .background(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).fill(VelaTheme.secondaryGroupedBackground))
+        .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
     }
  
     private var appleHealthStatus: String {
@@ -565,10 +565,7 @@ struct CGMSettingsView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, VelaTheme.space3)
                         .frame(minHeight: VelaTheme.minimumHitTarget)
-                        .background(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(VelaTheme.rhythmInk)
-                        )
+                        .background(VelaTheme.rhythmInk, in: Capsule())
                 }
                 .buttonStyle(.plain)
                 .disabled(isLoading)
@@ -590,7 +587,7 @@ struct CGMSettingsView: View {
                 .foregroundStyle(VelaTheme.rhythmInk)
                 .frame(width: 54, height: 54)
                 .background(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous)
                         .fill(VelaTheme.rhythmInk.opacity(0.12))
                 )
  
@@ -617,7 +614,7 @@ struct CGMSettingsView: View {
             if let latest = summary.latestReading {
                 HStack(alignment: .lastTextBaseline, spacing: 6) {
                     Text(latest.milligramsPerDeciliter.formatted(.number.precision(.fractionLength(0))))
-                        .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                        .font(VelaTheme.largeTitle())
                         .foregroundStyle(VelaTheme.fg)
                     Text("mg/dL")
                         .font(.system(.footnote, design: .default, weight: .bold))
@@ -684,10 +681,10 @@ struct CGMSettingsView: View {
     }
  
     private var cardBackground: some View {
-        RoundedRectangle(cornerRadius: 20, style: .continuous)
+        RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
             .fill(VelaTheme.rhythmCanvasRaised)
             .overlay(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                     .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
             )
     }

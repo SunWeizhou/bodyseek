@@ -183,7 +183,7 @@ struct PlanProposalDiffCard: View {
                         .font(VelaTheme.subheadline().weight(.semibold))
                         .foregroundStyle(VelaTheme.rhythmDeepOn)
                         .frame(maxWidth: .infinity, minHeight: VelaTheme.minimumHitTarget)
-                        .background(VelaTheme.rhythmDeep, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .background(VelaTheme.rhythmDeep, in: Capsule(style: .continuous))
                 }
                 .buttonStyle(.cardPress)
 
@@ -195,7 +195,7 @@ struct PlanProposalDiffCard: View {
                         .foregroundStyle(VelaTheme.rhythmInk)
                         .frame(maxWidth: .infinity, minHeight: VelaTheme.minimumHitTarget)
                         .overlay(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            Capsule(style: .continuous)
                                 .stroke(VelaTheme.rhythmInk, lineWidth: 1.2)
                         )
                 }

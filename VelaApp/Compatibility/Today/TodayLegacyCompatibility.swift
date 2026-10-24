@@ -632,7 +632,14 @@ struct LivedStateCheckInSheet: View {
                 )
                 .padding(.horizontal, VelaTheme.pagePadding)
                 .padding(.vertical, 10)
-                .background(.ultraThinMaterial)
+                .background(
+                    VelaTheme.cardBg
+                        .overlay(alignment: .top) {
+                            Rectangle()
+                                .fill(VelaTheme.hairline)
+                                .frame(height: VelaTheme.hairlineWidth)
+                        }
+                )
             }
         }
         .alert("无法保存自评", isPresented: Binding(

@@ -55,7 +55,7 @@ struct DataCoverageView: View {
         let pct = total > 0 ? Int(Double(usable) / Double(total) * 100) : 0
         let missing = total - usable
 
-        return VelaHeroSurface(tint: coverageColor(pct)) {
+        return VelaHeroSurface {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .center, spacing: 14) {
                     ZStack {
