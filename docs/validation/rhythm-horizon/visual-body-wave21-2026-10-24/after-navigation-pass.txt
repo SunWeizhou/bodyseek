@@ -1,0 +1,76 @@
+Post-fix navigation verification (extracted from xcodebuild logs).
+Device: BodySeek Residual SE (66EFE656-F33C-483B-B8D2-06C9CA85533A), iPhone SE 3rd gen 375pt, iOS 26.5 (23F77), Xcode 27.1 (27A9275), zh-CN, Debug simulator build, CODE_SIGNING_ALLOWED=NO.
+
+===== Command 1: testNetworkAgentNavigationAfterFullSwipe with -test-iterations 3 (exit 0) =====
+xcresult: build/wave21/verify-full-swipe-x3.xcresult
+Test Case '-[VelaUITests.VelaSmokeUITests testNetworkAgentNavigationAfterFullSwipe]' started (Iteration 1 of 3).
+Test Case '-[VelaUITests.VelaSmokeUITests testNetworkAgentNavigationAfterFullSwipe]' passed (12.360 seconds).
+Test Case '-[VelaUITests.VelaSmokeUITests testNetworkAgentNavigationAfterFullSwipe]' started (Iteration 2 of 3).
+Test Case '-[VelaUITests.VelaSmokeUITests testNetworkAgentNavigationAfterFullSwipe]' passed (12.358 seconds).
+Test Case '-[VelaUITests.VelaSmokeUITests testNetworkAgentNavigationAfterFullSwipe]' started (Iteration 3 of 3).
+Test Case '-[VelaUITests.VelaSmokeUITests testNetworkAgentNavigationAfterFullSwipe]' passed (12.376 seconds).
+	 Executed 3 tests, with 0 failures (0 unexpected) in 37.094 (37.096) seconds
+	 Executed 3 tests, with 0 failures (0 unexpected) in 37.094 (37.097) seconds
+	 Executed 3 tests, with 0 failures (0 unexpected) in 37.094 (37.097) seconds
+** TEST SUCCEEDED **
+
+Typical idle transition after the tap (iteration 1):
+    t =     1.21s         Wait for com.sunweizhou.Vela4 to idle
+    t =     4.79s Swipe up Target Application 'com.sunweizhou.Vela4'
+    t =     4.80s     Wait for com.sunweizhou.Vela4 to idle
+    t =     5.31s     Wait for com.sunweizhou.Vela4 to idle
+    t =     8.47s Tap "联网 Agent" StaticText
+    t =     8.47s     Wait for com.sunweizhou.Vela4 to idle
+    t =     8.91s     Wait for com.sunweizhou.Vela4 to idle
+    t =     9.92s Waiting 8.0s for "AI 模型设置" NavigationBar to exist
+    t =    10.99s         Checking existence of `"AI 模型设置" NavigationBar`
+    t =     1.87s         Wait for com.sunweizhou.Vela4 to idle
+    t =     4.90s Swipe up Target Application 'com.sunweizhou.Vela4'
+    t =     4.90s     Wait for com.sunweizhou.Vela4 to idle
+    t =     5.41s     Wait for com.sunweizhou.Vela4 to idle
+    t =     8.59s Tap "联网 Agent" StaticText
+    t =     8.59s     Wait for com.sunweizhou.Vela4 to idle
+    t =     9.03s     Wait for com.sunweizhou.Vela4 to idle
+
+===== Command 2: navigation matrix (return / Trust large type / reviewed consent) =====
+xcresult: build/wave21/verify-nav-matrix.xcresult (exit 65: the first combined E1+E2 test was superseded by two separate cases after a UI-automation kill; three navigation cases passed and are shown here)
+Test Case '-[VelaUITests.VelaSmokeUITests testNetworkAgentNavigationAndReturn]' passed (18.773 seconds).
+Test Case '-[VelaUITests.VelaSmokeUITests testNetworkAgentNavigationFromTrustAndLargeType]' passed (54.102 seconds).
+Test Case '-[VelaUITests.VelaSmokeUITests testNetworkAgentNavigationWithReviewedConsent]' passed (18.950 seconds).
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+** TEST FAILED **
+
+===== Command 3: deep-scroll discriminators E1/E2 (exit 0) =====
+xcresult: build/wave21/verify-discriminators.xcresult
+Test Case '-[VelaUITests.VelaSmokeUITests testSettingsRowAfterFullSwipePushesFormDestination]' passed (12.398 seconds).
+Test Case '-[VelaUITests.VelaSmokeUITests testSettingsRowAfterFullSwipePushesScrollViewDestination]' passed (14.259 seconds).
+	 Executed 2 tests, with 0 failures (0 unexpected) in 26.658 (26.659) seconds
+	 Executed 2 tests, with 0 failures (0 unexpected) in 26.658 (26.659) seconds
+	 Executed 2 tests, with 0 failures (0 unexpected) in 26.658 (26.660) seconds
+** TEST SUCCEEDED **
+
+===== Command 4: direct navigation at AccessibilityXXXL (exit 0) =====
+xcresult: build/wave21/verify-large-direct.xcresult
+Test Case '-[VelaUITests.VelaSmokeUITests testNetworkAgentDirectNavigationLargeType]' passed (30.200 seconds).
+	 Executed 1 test, with 0 failures (0 unexpected) in 30.200 (30.201) seconds
+	 Executed 1 test, with 0 failures (0 unexpected) in 30.200 (30.202) seconds
+	 Executed 1 test, with 0 failures (0 unexpected) in 30.200 (30.203) seconds
+** TEST SUCCEEDED **
+
+===== Command 5: #20 Settings subpage matrix + settings deep launch (exit 0) =====
+xcresult: build/wave21/verify-settings-legacy.xcresult
+Test Case '-[VelaUITests.VelaSmokeUITests testSettingsDeepLaunch]' passed (4.711 seconds).
+Test Case '-[VelaUITests.VelaSmokeUITests testVisualNextWaveSettingsSnapshots]' passed (72.523 seconds).
+	 Executed 2 tests, with 0 failures (0 unexpected) in 77.233 (77.234) seconds
+	 Executed 2 tests, with 0 failures (0 unexpected) in 77.233 (77.234) seconds
+	 Executed 2 tests, with 0 failures (0 unexpected) in 77.233 (77.235) seconds
+** TEST SUCCEEDED **
+
+===== Command 6: unit tests VelaTests/VelaThemeTests (exit 0) =====
+xcresult: build/wave21/verify-unit-theme.xcresult
+	 Executed 151 tests, with 0 failures (0 unexpected) in 11.552 (11.580) seconds
+	 Executed 151 tests, with 0 failures (0 unexpected) in 11.552 (11.580) seconds
+	 Executed 151 tests, with 0 failures (0 unexpected) in 11.552 (11.581) seconds
+** TEST SUCCEEDED **

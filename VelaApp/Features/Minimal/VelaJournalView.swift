@@ -557,7 +557,7 @@ struct VelaJournalView: View {
                                             .fill(VelaTheme.accent)
                                     } else if isToday {
                                         Circle()
-                                            .stroke(VelaTheme.accent, lineWidth: 1.5)
+                                            .stroke(VelaTheme.accent, lineWidth: VelaTheme.hairlineWidth)
                                     }
                                 }
                             )

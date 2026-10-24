@@ -1,0 +1,143 @@
+Hang fingerprint excerpts (pre-fix). Full raw samples live in build/ and /tmp and are not committed.
+
+===== A. #18 baseline symbolized sample (/tmp/bodyseek-next-stack.txt, 401 samples, 2026-10-24 10:00 +0800, iOS 26.5 sim) =====
+Analysis of sampling Vela (pid 40797) every 1 millisecond
+Process:         Vela [40797]
+Path:            /Users/USER/Library/Developer/XCTestDevices/FBB99FAF-1C0D-4E1B-8034-A93D4634E948/data/Containers/Bundle/Application/B74DF059-9D3F-4A0D-9268-91089DB1B834/Vela.app/Vela
+Load Address:    0x10410c000
+Identifier:      com.sunweizhou.Vela4
+Version:         4.0.0 (1)
+Code Type:       ARM64
+Platform:        iOS Simulator
+Parent Process:  launchd_sim [40183]
+Target Type:     live task (Roots Present)
+
+Date/Time:       2026-10-24 10:00:48.764 +0800
+Launch Time:     2026-10-24 09:59:08.595 +0800
+OS Version:      macOS 27.0.1 (26A434)
+Report Version:  7
+Analysis Tool:   /usr/bin/sample
+
+Physical footprint:         77.2M
+...
+    + 401 start  (in dyld) + 6688  [0x1043d1e80]
+    +   401 start_sim  (in dyld_sim) + 20  [0x1041c30e4]
+    +     401 __debug_main_executable_dylib_entry_point  (in Vela.debug.dylib) + 12  [0x10af786cc]  VelaApp.swift:0
+    +       401 static VelaApp.$main()  (in Vela.debug.dylib) + 40  [0x10af78074]  /<compiler-generated>:0
+    +         401 static App.main()  (in SwiftUI) + 148  [0x1d2c5f094]
+    +           401 runApp<A>(_:)  (in SwiftUI) + 180  [0x1d2ecdd18]
+    +             401 closure #1 in KitRendererCommon(_:)  (in SwiftUI) + 164  [0x1d2ecdfa4]
+    +               401 UIApplicationMain  (in UIKitCore) + 120  [0x186b9f910]
+    +                 401 -[UIApplication _run]  (in UIKitCore) + 776  [0x1864a54cc]
+    +                   401 GSEventRunModal  (in GraphicsServices) + 116  [0x1933599c0]
+    +                     401 _CFRunLoopRunSpecificWithOptions  (in CoreFoundation) + 496  [0x18041c904]
+    +                       401 __CFRunLoopRun  (in CoreFoundation) + 2100  [0x180421d44]
+    +                         401 __CFRunLoopDoSource1  (in CoreFoundation) + 476  [0x180422c78]
+    +                           401 __CFRUNLOOP_IS_CALLING_OUT_TO_A_SOURCE1_PERFORM_FUNCTION__  (in CoreFoundation) + 56  [0x180423628]
+    +                             401 __CFMachPortPerform  (in CoreFoundation) + 164  [0x1803e6c50]
+    +                               401 UC::DriverCore::continueProcessing()  (in UpdateCycle) + 80  [0x2343d22c0]
+    +                                 401 schedulerStepScheduledMainSectionContinue  (in UIKitCore) + 56  [0x1863b6064]
+    +                                   401 _UIUpdateSequenceRunNext  (in UIKitCore) + 120  [0x18590339c]
+    +                                     401 ???  (in UIKitCore)  load address 0x185289000 + 0x169788  [0x1853f2788]
+    +                                       401 ???  (in UIKitCore)  load address 0x185289000 + 0x169c88  [0x1853f2c88]
+    +                                         401 static ViewGraphHostUpdate.dispatchImmediately<A>(_:)  (in SwiftUICore) + 40  [0x1d3a49218]
+    +                                           401 static Update.dispatchImmediately<A>(reason:_:)  (in SwiftUICore) + 332  [0x1d3d0a8c4]
+    +                                             401 ???  (in UIKitCore)  load address 0x185289000 + 0x1ea30  [0x1852a7a30]
+    +                                               401 ???  (in UIKitCore)  load address 0x185289000 + 0x169994  [0x1853f2994]
+    +                                                 401 ???  (in UIKitCore)  load address 0x185289000 + 0xac264  [0x185335264]
+    +                                                   401 partial apply for closure #1 in closure #1 in _UIHostingView.beginTransaction()  (in SwiftUI) + 64  [0x1d295e28c]
+    +                                                     401 static Update.ensure<A>(_:)  (in SwiftUICore) + 96  [0x1d3d0a2f0]
+    +                                                       401 closure #1 in static Update.ensure<A>(_:)  (in SwiftUICore) + 48  [0x1d3d0b718]
+    +                                                         401 partial apply for closure #1 in closure #1 in closure #1 in _UIHostingView.beginTransaction()  (in SwiftUI) + 20  [0x1d295e2b0]
+    +                                                           401 closure #1 in closure #1 in closure #1 in _UIHostingView.beginTransaction()  (in SwiftUI) + 144  [0x1d2954830]
+    +                                                             401 ViewGraphRootValueUpdater.updateGraph<A>(body:)  (in SwiftUICore) + 136  [0x1d43bf084]
+    +                                                               401 ViewGraphRootValueUpdater._updateViewGraph<A>(body:)  (in SwiftUICore) + 200  [0x1d43c079c]
+    +                                                                 401 <deduplicated_symbol>  (in SwiftUICore) + 20  [0x1d41904c0]
+    +                                                                   401 <deduplicated_symbol>  (in SwiftUI) + 20  [0x1d2954860]
+    +                                                                     399 GraphHost.flushTransactions()  (in SwiftUICore) + 176  [0x1d3f322dc]
+    +                                                                     ! 363 specialized GraphHost.runTransaction(_:do:id:)  (in SwiftUICore) + 352  [0x1d3f4ca50]
+    +                                                                     ! : 330 AG::Subgraph::update(unsigned int)  (in AttributeGraph) + 952  [0x1c42da590]
+    +                                                                     ! : | 287 AG::Graph::UpdateStack::update()  (in AttributeGraph) + 488  [0x1c42cb6c0]
+    +                                                                     ! : | + 87 partial apply for implicit closure #1 in closure #1 in closure #1 in Attribute.init<A>(_:)  (in SwiftUICore) + 28  [0x1d3a882d4]
+    +                                                                     ! : | + ! 58 DynamicBody.updateValue()  (in SwiftUICore) + 840  [0x1d3d0744c]
+    +                                                                     ! : | + ! : 33 closure #1 in DynamicBody.updateValue()  (in SwiftUICore) + 316  [0x1d3d07888]
+    +                                                                     ! : | + ! : | 33 <deduplicated_symbol>  (in SwiftUICore) + 72  [0x1d3a7a600]
+    +                                                                     ! : | + ! : |   33 partial apply for closure #1 in closure #1 in DynamicBody.updateValue()  (in SwiftUICore) + 28  [0x1d3d09904]
+    +                                                                     ! : | + ! : |     30 closure #1 in closure #1 in DynamicBody.updateValue()  (in SwiftUICore) + 204  [0x1d3d07ce4]
+    +                                                                     ! : | + ! : |     + 30 _DynamicPropertyBuffer.update(container:phase:)  (in SwiftUICore) + 128  [0x1d3c725ec]
+    +                                                                     ! : | + ! : |     +   26 static BoxVTable.update(elt:property:phase:)  (in SwiftUICore) + 216  [0x1d3c7317c]
+
+--- top subtrees containing LazyStack / ScrollView measurement (grep):
+180:    +                                                                     ! : | + ! : | 3 initializeWithCopy for StyledNavigationLinkButton  (in SwiftUI) + 60  [0x1d3404acc]
+203:    +                                                                     ! : | + ! : | 1 initializeWithCopy for NavigationLink  (in SwiftUI) + 140  [0x1d2e62b74]
+219:    +                                                                     ! : | + ! : | 1 destroy for NavigationLink  (in SwiftUI) + 116  [0x1d2e62a40]
+230:    +                                                                     ! : | + ! : | 1 destroy for StyledNavigationLinkButton  (in SwiftUI) + 56  [0x1d3404838]
+253:    +                                                                     ! : | + ! : 1 initializeWithCopy for NavigationLink  (in SwiftUI) + 140  [0x1d2e62b74]
+265:    +                                                                     ! : | + ! : 1 initializeWithCopy for NavigationLink  (in SwiftUI) + 196  [0x1d2e62bac]
+267:    +                                                                     ! : | + ! : 1 initializeWithCopy for NavigationLink  (in SwiftUI) + 252  [0x1d2e62be4]
+272:    +                                                                     ! : | + ! : 1 initializeWithCopy for StyledNavigationLinkButton  (in SwiftUI) + 204  [0x1d3404b5c]
+321:    +                                                                     ! : | + ! : 1 destroy for NavigationLinkDisabledModifier  (in SwiftUI) + 32  [0x1d332425c]
+341:    +                                                                     ! : | + ! 66 specialized LazySubviewPlacements.updateValue()  (in SwiftUICore) + 2508  [0x1d401dd34]
+342:    +                                                                     ! : | + ! : 64 specialized LazySubviewPlacements.placeSubviews(placementContext:in:nearestVisibleRect:containingVisibleRect:)  (in SwiftUICore) + 484  [0x1d401ee34]
+346:    +                                                                     ! : | + ! : |       64 partial apply for specialized closure #1 in LazySubviewPlacements.placeSubviews(placementContext:in:nearestVisibleRect:containingVisibleRect:)  (in SwiftUICore) + 36  [0x1d4056a8c]
+347:    +                                                                     ! : | + ! : |         64 specialized closure #1 in LazySubviewPlacements.placeSubviews(placementContext:in:nearestVisibleRect:containingVisibleRect:)  (in SwiftUICore) + 208  [0x1d4020954]
+348:    +                                                                     ! : | + ! : |           63 specialized LazyStack<>.place(subviews:context:cache:in:)  (in SwiftUICore) + 1828  [0x1d3fd9bdc]
+828:    +                                                                     ! : | + ! : |           1 specialized LazyStack<>.place(subviews:context:cache:in:)  (in SwiftUICore) + 2344  [0x1d3fd9de0]
+831:    +                                                                     ! : | + ! : 2 specialized LazySubviewPlacements.placeSubviews(placementContext:in:nearestVisibleRect:containingVisibleRect:)  (in SwiftUICore) + 1084  [0x1d401f08c]
+832:    +                                                                     ! : | + ! :   2 specialized LazySubviewPlacements.makeAnchorTranslationIfNeeded(placements:context:newSize:reason:)  (in SwiftUICore) + 916  [0x1d405364c]
+833:    +                                                                     ! : | + ! :     1 specialized LazySubviewPlacements.placedAnchorTranslation(axes:placementContext:placements:)  (in SwiftUICore) + 844  [0x1d4022670]
+837:    +                                                                     ! : | + ! :     1 specialized LazySubviewPlacements.placedAnchorTranslation(axes:placementContext:placements:)  (in SwiftUICore) + 1040  [0x1d4022734]
+840:    +                                                                     ! : | + ! 3 specialized LazySubviewPlacements.updateValue()  (in SwiftUICore) + 2612  [0x1d401dd9c]
+
+===== B. Current-HEAD repro sample (build/wave21/repro-hang-stack-1.txt, 2 samples, 2026-10-24 12:38) =====
+OS Version:      macOS 27.0.1 (26A434)
+Report Version:  7
+Analysis Tool:   /usr/bin/sample
+
+Physical footprint:         58.1M
+Physical footprint (peak):  58.1M
+Idle exit:                  untracked
+----
+
+Call graph:
+    2 Thread_5225501   DispatchQueue_1: com.apple.main-thread  (serial)
+    + 2 start  (in dyld) + 6688  [0x104515e80]
+    +   2 start_sim  (in dyld_sim) + 20  [0x10465b0e4]
+    +     2 __debug_main_executable_dylib_entry_point  (in Vela.debug.dylib) + 12  [0x10b17db18]  VelaApp.swift:0
+    +       2 static VelaApp.$main()  (in Vela.debug.dylib) + 40  [0x10b17d4c0]  /<compiler-generated>:0
+    +         2 static App.main()  (in SwiftUI) + 148  [0x1d2c5f094]
+    +           2 runApp<A>(_:)  (in SwiftUI) + 180  [0x1d2ecdd18]
+    +             2 closure #1 in KitRendererCommon(_:)  (in SwiftUI) + 164  [0x1d2ecdfa4]
+    +               2 UIApplicationMain  (in UIKitCore) + 120  [0x186b9f910]
+    +                 2 -[UIApplication _run]  (in UIKitCore) + 776  [0x1864a54cc]
+    +                   2 GSEventRunModal  (in GraphicsServices) + 116  [0x1933599c0]
+    +                     2 _CFRunLoopRunSpecificWithOptions  (in CoreFoundation) + 496  [0x18041c904]
+    +                       2 __CFRunLoopRun  (in CoreFoundation) + 2100  [0x180421d44]
+    +                         2 __CFRunLoopDoSource1  (in CoreFoundation) + 476  [0x180422c78]
+    +                           2 __CFRUNLOOP_IS_CALLING_OUT_TO_A_SOURCE1_PERFORM_FUNCTION__  (in CoreFoundation) + 56  [0x180423628]
+    +                             2 __CFMachPortPerform  (in CoreFoundation) + 164  [0x1803e6c50]
+    +                               2 UC::DriverCore::continueProcessing()  (in UpdateCycle) + 80  [0x2343d22c0]
+    +                                 2 schedulerStepScheduledMainSectionContinue  (in UIKitCore) + 56  [0x1863b6064]
+    +                                   2 _UIUpdateSequenceRunNext  (in UIKitCore) + 120  [0x18590339c]
+    +                                     2 ???  (in UIKitCore)  load address 0x185289000 + 0x169788  [0x1853f2788]
+    +                                       2 ???  (in UIKitCore)  load address 0x185289000 + 0x169c88  [0x1853f2c88]
+    +                                         2 static ViewGraphHostUpdate.dispatchImmediately<A>(_:)  (in SwiftUICore) + 40  [0x1d3a49218]
+    +                                           2 static Update.dispatchImmediately<A>(reason:_:)  (in SwiftUICore) + 332  [0x1d3d0a8c4]
+    +                                             2 ???  (in UIKitCore)  load address 0x185289000 + 0x1ea30  [0x1852a7a30]
+    +                                               2 ???  (in UIKitCore)  load address 0x185289000 + 0x169994  [0x1853f2994]
+    +                                                 2 ???  (in UIKitCore)  load address 0x185289000 + 0xac264  [0x185335264]
+    +                                                   2 partial apply for closure #1 in closure #1 in _UIHostingView.beginTransaction()  (in SwiftUI) + 64  [0x1d295e28c]
+    +                                                     2 static Update.ensure<A>(_:)  (in SwiftUICore) + 96  [0x1d3d0a2f0]
+    +                                                       2 closure #1 in static Update.ensure<A>(_:)  (in SwiftUICore) + 48  [0x1d3d0b718]
+    +                                                         2 partial apply for closure #1 in closure #1 in closure #1 in _UIHostingView.beginTransaction()  (in SwiftUI) + 20  [0x1d295e2b0]
+    +                                                           2 closure #1 in closure #1 in closure #1 in _UIHostingView.beginTransaction()  (in SwiftUI) + 144  [0x1d2954830]
+    +                                                             2 ViewGraphRootValueUpdater.updateGraph<A>(body:)  (in SwiftUICore) + 136  [0x1d43bf084]
+    +                                                               2 ViewGraphRootValueUpdater._updateViewGraph<A>(body:)  (in SwiftUICore) + 200  [0x1d43c079c]
+    +                                                                 2 <deduplicated_symbol>  (in SwiftUICore) + 20  [0x1d41904c0]
+    +                                                                   2 <deduplicated_symbol>  (in SwiftUI) + 20  [0x1d2954860]
+    +                                                                     2 GraphHost.flushTransactions()  (in SwiftUICore) + 176  [0x1d3f322dc]
+    +                                                                       2 specialized GraphHost.runTransaction(_:do:id:)  (in SwiftUICore) + 352  [0x1d3f4ca50]
+    +                                                                         2 AG::Subgraph::update(unsigned int)  (in AttributeGraph) + 952  [0x1c42da590]
+    +                                                                           2 AG::Graph::UpdateStack::update()  (in AttributeGraph) + 488  [0x1c42cb6c0]
+    +                                                                             2 specialized implicit closure #1 in closure #1 in closure #1 in Attribute.init<A>(_:)  (in SwiftUICore) + 40  [0x1d404d3e4]
+    +                                                                               1 specialized DynamicLayoutComputer.updateValue()  (in SwiftUICore) + 164  [0x1d402d14c]

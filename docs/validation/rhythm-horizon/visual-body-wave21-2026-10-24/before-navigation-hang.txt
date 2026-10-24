@@ -1,0 +1,52 @@
+Pre-fix navigation hang timeline (extracted from xcodebuild logs; full logs/xcresults live in build/wave21/ and are not committed).
+
+===== Run 1: 2026-10-24 11:00-11:03 +0800, HEAD 7e102927 production code, device BodySeek Wave21 Disposable (0FA54155-145A-4862-ABB1-6D4D5D6A3DEF), iOS 26.5 (23F77), Xcode 27.1
+xcresult: build/wave21/baseline-full-swipe.xcresult
+
+Test Case '-[VelaUITests.VelaSmokeUITests testNetworkAgentNavigationAfterFullSwipe]' started.
+    t =     1.05s         Wait for com.sunweizhou.Vela4 to idle
+    t =     3.94s         Checking existence of `"个人空间" NavigationBar`
+    t =     4.11s Swipe up Target Application 'com.sunweizhou.Vela4'
+    t =     4.11s     Wait for com.sunweizhou.Vela4 to idle
+    t =     4.60s     Wait for com.sunweizhou.Vela4 to idle
+    t =     7.76s Tap "联网 Agent" StaticText
+    t =     7.76s     Wait for com.sunweizhou.Vela4 to idle
+    t =     8.19s     Wait for com.sunweizhou.Vela4 to idle
+    t =    68.20s         App event loop idle notification not received, will attempt to continue.
+    t =    85.51s Waiting 8.0s for "AI 模型设置" NavigationBar to exist
+    t =    86.59s         Checking existence of `"AI 模型设置" NavigationBar`
+    t =    93.78s         Capturing element debug description
+    t =    93.79s     Checking existence of `"AI 模型设置" NavigationBar`
+    t =   124.80s     Checking existence of `"AI 模型设置" NavigationBar` (retry 1)
+    t =   155.81s     Checking existence of `"AI 模型设置" NavigationBar` (retry 2)
+/Users/sunweizhou/Developer/BodySeek/bodyseek-1/VelaUITests/VelaSmokeUITests.swift:432: error: -[VelaUITests.VelaSmokeUITests testNetworkAgentNavigationAfterFullSwipe] : Failed to get matching snapshots: Timed out while 
+Test Case '-[VelaUITests.VelaSmokeUITests testNetworkAgentNavigationAfterFullSwipe]' failed (199.654 seconds).
+	 Executed 1 test, with 1 failure (0 unexpected) in 199.654 (199.655) seconds
+	 Executed 1 test, with 1 failure (0 unexpected) in 199.654 (199.655) seconds
+	 Executed 1 test, with 1 failure (0 unexpected) in 199.654 (199.656) seconds
+
+===== Run 2: 2026-10-24 12:38-12:41 +0800, same HEAD rebuilt, device BodySeek Residual SE (66EFE656), pre-fix
+xcresult: build/wave21/repro-full-swipe.xcresult
+
+Test Case '-[VelaUITests.VelaSmokeUITests testNetworkAgentNavigationAfterFullSwipe]' started.
+    t =     1.85s         Wait for com.sunweizhou.Vela4 to idle
+    t =     5.52s Swipe up Target Application 'com.sunweizhou.Vela4'
+    t =     5.52s     Wait for com.sunweizhou.Vela4 to idle
+    t =     6.13s     Wait for com.sunweizhou.Vela4 to idle
+    t =     9.29s Tap "联网 Agent" StaticText
+    t =     9.29s     Wait for com.sunweizhou.Vela4 to idle
+    t =     9.72s     Wait for com.sunweizhou.Vela4 to idle
+    t =    69.73s         App event loop idle notification not received, will attempt to continue.
+    t =    87.35s Waiting 8.0s for "AI 模型设置" NavigationBar to exist
+/Users/sunweizhou/Developer/BodySeek/bodyseek-1/VelaUITests/VelaSmokeUITests.swift:432: error: -[VelaUITests.VelaSmokeUITests testNetworkAgentNavigationAfterFullSwipe] : Failed to get matching snapshots: Timed out while 
+Test Case '-[VelaUITests.VelaSmokeUITests testNetworkAgentNavigationAfterFullSwipe]' failed (201.984 seconds).
+	 Executed 1 test, with 1 failure (0 unexpected) in 201.984 (201.984) seconds
+	 Executed 1 test, with 1 failure (0 unexpected) in 201.984 (201.985) seconds
+	 Executed 1 test, with 1 failure (0 unexpected) in 201.984 (201.986) seconds
+
+===== Control: same tap without a preceding full swipe (pre-fix) passed
+xcresult: build/wave21/red.xcresult; log: build/wave21/red.log
+Test Case '-[VelaUITests.VelaSmokeUITests testNetworkAgentNavigationAndReturn]' started.
+Test Case '-[VelaUITests.VelaSmokeUITests testNetworkAgentNavigationAndReturn]' passed (19.676 seconds).
+
+Another pre-fix hang capture came from the #18 baseline (10:00 +0800, 401-sample main-thread fingerprint); see hang-stack-excerpt.txt. Raw samples and spindumps are in build/wave21/ and /tmp and are intentionally not committed.
