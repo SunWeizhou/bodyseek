@@ -285,13 +285,13 @@ struct VelaReportsView: View {
 
     private var automationRows: some View {
         VStack(spacing: 0) {
-            automationRow("Morning Brief", "每日 6:00", .blue, $morningBriefOn)
+            automationRow("Morning Brief", "每日 6:00", VelaTheme.rhythmInk, $morningBriefOn)
             Divider().padding(.leading, 60)
-            automationRow("睡眠回顾", "起床后", .purple, $sleepReviewOn)
+            automationRow("睡眠回顾", "起床后", VelaTheme.rhythmInk, $sleepReviewOn)
             Divider().padding(.leading, 60)
-            automationRow("周报", "周日 21:00", .green, $weeklyReviewOn)
+            automationRow("周报", "周日 21:00", VelaTheme.rhythmInk, $weeklyReviewOn)
             Divider().padding(.leading, 60)
-            automationRow("训练后复盘", "训练结束 15 分钟后", .orange, $postWorkoutOn)
+            automationRow("训练后复盘", "训练结束 15 分钟后", VelaTheme.rhythmInk, $postWorkoutOn)
         }
         .background(VelaTheme.rhythmCanvasRaised)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))

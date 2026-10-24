@@ -473,7 +473,7 @@ struct StrengthWorkoutDetailView: View {
             .fill(VelaTheme.rhythmCanvasRaised)
             .overlay(
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                    .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
             )
     }
 
@@ -482,7 +482,7 @@ struct StrengthWorkoutDetailView: View {
             .fill(VelaTheme.rhythmCanvasRaised)
             .overlay(
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                    .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
             )
     }
 

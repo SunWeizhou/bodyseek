@@ -43,7 +43,7 @@ struct JournalTagInsights: View {
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(VelaTheme.rhythmMist, lineWidth: 0.75))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
     }
 
     private func bodyModelMaturityTitle(_ level: BodyModelMaturityLevel) -> String {

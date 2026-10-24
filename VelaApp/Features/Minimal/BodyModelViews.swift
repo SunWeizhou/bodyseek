@@ -266,7 +266,6 @@ struct BaselineRangeIndicator: View {
                             Circle()
                                 .fill(VelaTheme.rhythmDeep)
                                 .frame(width: 10, height: 10)
-                                .shadow(color: VelaTheme.rhythmDeep.opacity(0.4), radius: 3)
                                 .offset(x: width * clampedPct - 5, y: -2)
                         }
                     }
@@ -391,7 +390,7 @@ struct BodyModelDetailView: View {
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
-        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(VelaTheme.rhythmMist, lineWidth: 0.75))
+        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
     }
     
     private var staticParametersSection: some View {
@@ -424,7 +423,7 @@ struct BodyModelDetailView: View {
                 detailRow(title: "教练指导风格", value: staticCoachStyleText)
             }
             .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
-            .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(VelaTheme.rhythmMist, lineWidth: 0.75))
+            .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
         }
     }
     
@@ -506,7 +505,7 @@ struct BodyModelDetailView: View {
             }
             .padding(16)
             .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
-            .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(VelaTheme.rhythmMist, lineWidth: 0.75))
+            .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
         }
     }
     

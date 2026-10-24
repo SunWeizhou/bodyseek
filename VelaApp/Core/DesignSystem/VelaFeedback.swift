@@ -86,7 +86,7 @@ struct VelaStateCard: View {
         .background(VelaTheme.cardBg, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCardLarge, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: VelaTheme.radiusCardLarge, style: .continuous)
-                .stroke(state.tint.opacity(0.18), lineWidth: 0.75)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         )
         .accessibilityElement(children: action == nil ? .combine : .contain)
         .accessibilityLabel("\(title ?? state.defaultTitle)。\(message)")
@@ -141,7 +141,7 @@ struct StatusCapsule: View {
                     .fill(VelaTheme.cardBg)
                     .overlay(
                         Capsule(style: .continuous)
-                            .stroke(VelaTheme.borderSoft, lineWidth: 0.5)
+                            .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                     )
             )
         }
@@ -399,7 +399,7 @@ struct TypingIndicator: View {
                 topTrailingRadius: VelaTheme.radiusLg,
                 style: .continuous
             )
-            .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+            .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         }
         .onAppear {
             animate = !reduceMotion
@@ -413,90 +413,17 @@ struct TypingIndicator: View {
     }
 }
 
-// MARK: - AppleIntelligenceOrb (Glowing Siri-like animated orb)
+// MARK: - AppleIntelligenceOrb (legacy mono mark)
 
 struct AppleIntelligenceOrb: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    @State private var animate = false
-
     var body: some View {
-        ZStack {
-            // Glow layer 1 (Indigo/Purple)
-            Circle()
-                .fill(LinearGradient(colors: [Color(hex: "#9C5FF2"), Color(hex: "#6B6FA0")], startPoint: .topLeading, endPoint: .bottomTrailing))
-                .frame(width: 80, height: 80)
-                .blur(radius: 20)
-                .scaleEffect(animate ? 1.25 : 0.8)
-                .offset(x: animate ? 12 : -12, y: animate ? -6 : 6)
-                .opacity(0.6)
-
-            // Glow layer 2 (Blue/Teal)
-            Circle()
-                .fill(LinearGradient(colors: [Color(hex: "#00A2FF"), Color(hex: "#5B8C6F")], startPoint: .topTrailing, endPoint: .bottomLeading))
-                .frame(width: 75, height: 75)
-                .blur(radius: 18)
-                .scaleEffect(animate ? 0.85 : 1.3)
-                .offset(x: animate ? -14 : 14, y: animate ? 8 : -8)
-                .opacity(0.6)
-
-            // Glow layer 3 (Pink/Rose/Orange)
-            Circle()
-                .fill(LinearGradient(colors: [Color(hex: "#FF2D55"), Color(hex: "#FF9F0A")], startPoint: .bottomLeading, endPoint: .topTrailing))
-                .frame(width: 70, height: 70)
-                .blur(radius: 16)
-                .scaleEffect(animate ? 1.35 : 0.85)
-                .offset(x: animate ? 6 : -6, y: animate ? 14 : -14)
-                .opacity(0.5)
-
-            // Core sphere (translucent glass)
-            Circle()
-                .fill(
-                    reduceTransparency
-                        ? AnyShapeStyle(VelaTheme.cardBg)
-                        : AnyShapeStyle(.ultraThinMaterial)
-                )
-                .frame(width: 68, height: 68)
-                .overlay(
-                    Circle()
-                        .stroke(
-                            LinearGradient(
-                                colors: [.white.opacity(0.6), .clear, .white.opacity(0.2)],
-                                startPoint: .topLeading,
-                                  endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 0.5
-                        )
-                )
-                .shadow(color: Color.black.opacity(0.12), radius: 10, y: 5)
-                .overlay(
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 24, weight: .semibold))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [Color(hex: "#0A84FF"), Color(hex: "#AF52DE"), Color(hex: "#FF2D55")],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                )
-        }
-        .onAppear {
-            guard !reduceMotion else { return }
-            withAnimation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true)) {
-                animate = true
-            }
-        }
-        .onChange(of: reduceMotion) { _, shouldReduceMotion in
-            animate = false
-            guard !shouldReduceMotion else { return }
-            withAnimation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true)) {
-                animate = true
-            }
-        }
-        .onDisappear {
-            animate = false
-        }
+        Image(systemName: "sparkles")
+            .font(VelaTheme.title2())
+            .foregroundStyle(VelaTheme.rhythmInk)
+            .frame(width: 68, height: 68)
+            .background(VelaTheme.rhythmCanvasRaised, in: Circle())
+            .overlay(Circle().stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+            .accessibilityHidden(true)
     }
 }
 
@@ -532,7 +459,7 @@ struct VelaInlineAlertCompat: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: VelaTheme.radiusMd)
-                .stroke(tint.opacity(0.18), lineWidth: 0.5)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         )
     }
 }

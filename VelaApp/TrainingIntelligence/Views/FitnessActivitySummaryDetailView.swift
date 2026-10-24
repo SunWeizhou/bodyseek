@@ -153,7 +153,7 @@ struct FitnessActivitySummaryDetailView: View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 2), spacing: 12) {
             activityStat(title: "活跃天数", value: "\(activeDays) 天", icon: "calendar", color: VelaTheme.accent)
             activityStat(title: "训练次数", value: "\(workoutCount) 次", icon: "figure.run", color: VelaTheme.rhythmInk)
-            activityStat(title: "活动消耗", value: "\(activeCalories) kcal", icon: "flame.fill", color: VelaTheme.systemOrange)
+            activityStat(title: "活动消耗", value: "\(activeCalories) kcal", icon: "flame.fill", color: VelaTheme.rhythmInk)
             activityStat(title: "平均耗力", value: averageStrain.map { String(format: "%.0f", $0) } ?? "--", icon: "bolt.heart.fill", color: VelaTheme.rhythmInk)
         }
     }
@@ -435,7 +435,6 @@ struct AreaChartCurveView: View {
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(VelaTheme.cardBg, in: Capsule())
-                    .shadow(color: VelaTheme.accent.opacity(0.25), radius: 5)
                     .position(
                         x: min(geo.size.width - 52, max(52, x)),
                         y: max(16, y - 18)
@@ -462,7 +461,7 @@ private struct ChartValueLabel: View {
 
     var body: some View {
         Text(text)
-            .font(.system(size: 7, weight: .medium, design: .rounded))
+            .font(VelaTheme.caption2())
             .foregroundStyle(VelaTheme.fg2)
             .position(position)
     }
@@ -478,12 +477,11 @@ private struct ChartMaxMinLegend: View {
             Label("最高 \(maxText)", systemImage: "arrow.up")
             Label("最低 \(minText)", systemImage: "arrow.down")
         }
-        .font(.system(size: 8.5, weight: .semibold, design: .rounded))
+        .font(VelaTheme.caption2().weight(.semibold))
         .foregroundStyle(VelaTheme.fg)
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
         .background(VelaTheme.cardBg.opacity(0.95), in: Capsule())
-        .shadow(color: VelaTheme.accent.opacity(0.25), radius: 5)
     }
 }
 
@@ -524,11 +522,7 @@ struct WorkoutHeartRateRibbonView: View {
                     }
                 }
                 .stroke(
-                    LinearGradient(
-                        colors: [VelaTheme.tagOrange, VelaTheme.heartRateZonePeak, VelaTheme.tagPurple],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    ),
+                    VelaTheme.rhythmInk,
                     style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round)
                 )
 
@@ -540,7 +534,7 @@ struct WorkoutHeartRateRibbonView: View {
                         Circle()
                             .fill(VelaTheme.cardBg)
                             .frame(width: 7, height: 7)
-                            .overlay(Circle().stroke(VelaTheme.heartRateZonePeak, lineWidth: 1.5))
+                            .overlay(Circle().stroke(VelaTheme.rhythmInk, lineWidth: VelaTheme.hairlineWidth))
                             .position(x: x, y: y)
                     }
                 }

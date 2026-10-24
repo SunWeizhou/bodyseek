@@ -105,7 +105,7 @@ struct VelaMetricScoreRing: View {
     }
 
     private var ringWidth: CGFloat {
-        max(6, (size * 0.082).rounded())
+        VelaTheme.hairlineWidth * 2
     }
 
     /// Semantic text styles keep score numerals responsive to Dynamic Type.

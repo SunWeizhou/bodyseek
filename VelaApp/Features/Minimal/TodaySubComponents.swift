@@ -300,15 +300,8 @@ struct TodayVitalCard: View {
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .stroke(
-                    LinearGradient(
-                        colors: [
-                            colorScheme == .dark ? Color.white.opacity(0.12) : VelaTheme.rhythmMist.opacity(0.85),
-                            colorScheme == .dark ? Color.white.opacity(0.03) : VelaTheme.rhythmMist.opacity(0.40)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    ),
-                    lineWidth: 0.75
+                    VelaTheme.hairline,
+                    lineWidth: VelaTheme.hairlineWidth
                 )
         )
         .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))

@@ -62,7 +62,7 @@ struct VelaDetailBackButton: View {
                 .foregroundStyle(tint)
                 .frame(width: 38, height: 38)
                 .background(Circle().fill(VelaTheme.surface))
-                .overlay(Circle().stroke(VelaTheme.borderSoft, lineWidth: 0.5))
+                .overlay(Circle().stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
         }
         .buttonStyle(.cardPress)
         .accessibilityLabel(label)
@@ -115,6 +115,7 @@ struct VelaMetricDetailView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var cs
+    @Environment(\.dynamicTypeSize) private var detailDynamicTypeSize
     @Environment(\.modelContext) private var modelContext
     @ObservedObject var appState = VelaAppState.shared
     @State var historyDays: [PersistedDailyHistoryDay] = []
@@ -198,7 +199,7 @@ struct VelaMetricDetailView: View {
         HStack(spacing: 8) {
             Button(action: dismiss.callAsFunction) {
                 Image(systemName: isPresentedInSheet ? "xmark" : "chevron.left")
-                    .font(.body.weight(.semibold))
+                    .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(VelaTheme.rhythmInk)
                     .frame(width: 44, height: 44)
                     .background(Circle().fill(VelaTheme.surfaceFloating))
@@ -250,12 +251,14 @@ struct VelaMetricDetailView: View {
                     .font(VelaTheme.callout())
                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
                 Spacer(minLength: 6)
-                Text("\(navTitle)详情")
-                    .font(VelaTheme.caption1().weight(.medium))
-                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                    .padding(.horizontal, 10)
-                    .frame(height: 30)
-                    .background(VelaTheme.rhythmCanvas, in: Capsule())
+                if !detailDynamicTypeSize.isAccessibilitySize {
+                    Text("\(navTitle)详情")
+                        .font(VelaTheme.caption1().weight(.medium))
+                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                        .padding(.horizontal, 10)
+                        .frame(height: 30)
+                        .background(VelaTheme.rhythmCanvas, in: Capsule())
+                }
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
@@ -1011,7 +1014,7 @@ struct LongTermHealthTrendView: View {
         }
         .padding(16)
         .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
-        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(VelaTheme.rhythmMist, lineWidth: 0.75))
+        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
     }
 
     private var emptyState: some View {
@@ -1059,7 +1062,7 @@ struct LongTermHealthTrendView: View {
         }
         .padding(16)
         .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
-        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(VelaTheme.rhythmMist, lineWidth: 0.75))
+        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
     }
 
     private func comparisonMetric(title: String, value: String) -> some View {

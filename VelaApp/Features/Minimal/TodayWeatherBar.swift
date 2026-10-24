@@ -17,7 +17,7 @@ struct TodayWeatherBar: View {
                 Image(systemName: "cloud.sun.fill")
                     .symbolRenderingMode(.hierarchical)
                     .font(VelaTheme.subheadline())
-                    .foregroundStyle(weatherTemp == "--" ? VelaTheme.rhythmInkSecondary : Color(hex: "#38BDF8"))
+                    .foregroundStyle(weatherTemp == "--" ? VelaTheme.rhythmInkSecondary : VelaTheme.rhythmInk)
                 Text(weatherTemp == "--" ? "天气" : weatherTemp)
                     .font(.system(.footnote, design: .rounded, weight: .semibold))
                     .foregroundStyle(VelaTheme.rhythmInk)

@@ -88,7 +88,7 @@ struct TrainingHeroSection: View {
                 .background(VelaTheme.rhythmCanvasRaised.opacity(0.85), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                        .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                 )
                 .padding(.top, 14)
             }
@@ -117,7 +117,7 @@ struct TrainingHeroSection: View {
                 .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .overlay {
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                        .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                 }
             }
             .buttonStyle(.cardPress)
@@ -393,7 +393,7 @@ struct TrainingHeroSection: View {
         .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(VelaTheme.rhythmDeep.opacity(0.4), lineWidth: 1)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         }
     }
 
@@ -437,7 +437,7 @@ struct TrainingHeroSection: View {
         .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         }
     }
 
@@ -575,31 +575,8 @@ struct TrainingHeroSection: View {
 private struct TrainingAmbientField: View {
     let decision: DailyTrainingDecisionType
 
-    private var glow: Color {
-        switch decision {
-        case .keep: VelaTheme.rhythmGlow
-        case .reduce: VelaTheme.rhythmWarm
-        case .swap: VelaTheme.rhythmMist
-        case .rest: VelaTheme.rhythmInk
-        }
-    }
-
     var body: some View {
-        ZStack {
-            VelaTheme.rhythmCanvas
-            RadialGradient(
-                colors: [glow.opacity(0.23), glow.opacity(0.05), .clear],
-                center: .topLeading,
-                startRadius: 0,
-                endRadius: 290
-            )
-            RadialGradient(
-                colors: [VelaTheme.rhythmGlow.opacity(0.10), .clear],
-                center: UnitPoint(x: 0.92, y: 0.42),
-                startRadius: 0,
-                endRadius: 230
-            )
-        }
+        VelaTheme.rhythmCanvas
     }
 }
 
@@ -975,7 +952,6 @@ private struct TrainingRhythmHeatmap: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
         .background(VelaTheme.rhythmCanvasRaised.opacity(0.95), in: Capsule())
-        .shadow(color: VelaTheme.rhythmGlow.opacity(0.3), radius: 5)
     }
 
     private func legendCell(color: Color, label: String) -> some View {
@@ -1007,11 +983,11 @@ private struct TrainingRhythmHeatmap: View {
                     .overlay {
                         if isToday {
                             RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .stroke(VelaTheme.rhythmDeep, lineWidth: 1.5)
+                                .stroke(VelaTheme.rhythmInk, lineWidth: VelaTheme.hairlineWidth)
                         }
                         if selectedDay == day {
                             RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .stroke(VelaTheme.rhythmInk.opacity(0.55), lineWidth: 1.2)
+                                .stroke(VelaTheme.rhythmInkSecondary, lineWidth: VelaTheme.hairlineWidth)
                         }
                     }
                     .opacity(day.isFuture ? 0.14 : 1)
@@ -1104,7 +1080,7 @@ struct TrainingMuscleLandscape: View {
                 .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
                 .overlay {
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                        .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                 }
             } else {
                 VStack(alignment: .leading, spacing: 12) {
@@ -1126,7 +1102,7 @@ struct TrainingMuscleLandscape: View {
                 .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
                 .overlay {
                     RoundedRectangle(cornerRadius: 24, style: .continuous)
-                        .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                        .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                 }
             }
         }
@@ -1397,7 +1373,7 @@ struct TrainingAnalysisPortal: View {
         .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCardLarge, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: VelaTheme.radiusCardLarge, style: .continuous)
-                .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         }
         .contentShape(RoundedRectangle(cornerRadius: VelaTheme.radiusCardLarge, style: .continuous))
     }
@@ -1480,7 +1456,7 @@ struct TrainingPostWorkoutPrompt: View {
         .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         }
     }
 }
@@ -1623,7 +1599,7 @@ struct TrainingPlanPortal: View {
         .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCardLarge, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: VelaTheme.radiusCardLarge, style: .continuous)
-                .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         }
         .contentShape(RoundedRectangle(cornerRadius: VelaTheme.radiusCardLarge, style: .continuous))
     }
@@ -1663,7 +1639,7 @@ struct TrainingPlanPortal: View {
             .overlay {
                 if isToday {
                     Circle()
-                        .stroke(VelaTheme.rhythmDeep, lineWidth: 1.5)
+                        .stroke(VelaTheme.rhythmInk, lineWidth: VelaTheme.hairlineWidth)
                 }
             }
             Text("\(day.dayNumber)")
@@ -1793,7 +1769,7 @@ struct TrainingStatusSection: View {
             .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCardLarge, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: VelaTheme.radiusCardLarge, style: .continuous)
-                    .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                    .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
             }
         }
     }
@@ -2030,7 +2006,7 @@ struct TrainingHistoryPortal: View {
         .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCardLarge, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: VelaTheme.radiusCardLarge, style: .continuous)
-                .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         }
         .contentShape(RoundedRectangle(cornerRadius: VelaTheme.radiusCardLarge, style: .continuous))
     }

@@ -28,7 +28,7 @@ struct CoreMetricDetailHero: View {
     let onAskCoach: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 17) {
+        VStack(alignment: .leading, spacing: VelaTheme.space4) {
             Text("今天的\(metric.accessibleTitle)")
                 .font(VelaTheme.caption1().weight(.semibold))
                 .foregroundStyle(VelaTheme.rhythmInkSecondary)
@@ -82,7 +82,7 @@ struct CoreMetricDetailHero: View {
             .accessibilityLabel("\(metric.accessibleTitle)指导，\(guidance)")
             .accessibilityHint("打开 Coach 继续追问")
         }
-        .padding(18)
+        .padding(VelaTheme.cardPadding)
         .background(VelaTheme.rhythmCanvasRaised)
         .clipShape(RoundedRectangle(cornerRadius: VelaTheme.radiusFeature, style: .continuous))
         .overlay {
@@ -90,8 +90,8 @@ struct CoreMetricDetailHero: View {
                 .stroke(
                     colorSchemeContrast == .increased
                         ? VelaTheme.rhythmInk
-                        : VelaTheme.rhythmMist.opacity(0.82),
-                    lineWidth: colorSchemeContrast == .increased ? 1 : 0.6
+                        : VelaTheme.hairline,
+                    lineWidth: VelaTheme.hairlineWidth
                 )
         }
         .accessibilityIdentifier("metric-detail-hero")
@@ -121,11 +121,14 @@ struct CoreMetricDetailHero: View {
         VStack(alignment: .leading, spacing: 11) {
             ForEach(facts) { fact in
                 HStack(spacing: 10) {
-                    Image(systemName: fact.systemImage)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                        .frame(width: 26, height: 26)
-                        .background(VelaTheme.rhythmMist.opacity(0.7), in: Circle())
+                    if !dynamicTypeSize.isAccessibilitySize {
+                        Image(systemName: fact.systemImage)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                            .frame(width: 26, height: 26)
+                            .background(VelaTheme.rhythmMist.opacity(0.7), in: Circle())
+                            .accessibilityHidden(true)
+                    }
 
                     VStack(alignment: .leading, spacing: 1) {
                         Text(fact.title)
@@ -162,7 +165,7 @@ private struct CoreMetricScoreRing: View {
                 .fill(VelaTheme.rhythmCanvasRaised)
 
             Circle()
-                .stroke(color.opacity(0.12), lineWidth: 9)
+                .stroke(VelaTheme.scoreTrack, lineWidth: 3)
 
             if let targetRange {
                 Circle()
@@ -171,8 +174,8 @@ private struct CoreMetricScoreRing: View {
                         to: min(1, max(0, targetRange.upperBound / 100))
                     )
                     .stroke(
-                        color.opacity(0.34),
-                        style: StrokeStyle(lineWidth: 3, lineCap: .round)
+                        VelaTheme.rhythmInkSecondary,
+                        style: StrokeStyle(lineWidth: VelaTheme.hairlineWidth, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
                     .padding(-7)
@@ -182,8 +185,8 @@ private struct CoreMetricScoreRing: View {
                 Circle()
                     .trim(from: 0, to: progress)
                     .stroke(
-                        AngularGradient(colors: [color.opacity(0.70), color], center: .center),
-                        style: StrokeStyle(lineWidth: 9, lineCap: .round)
+                        VelaTheme.rhythmInk,
+                        style: StrokeStyle(lineWidth: 3, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
                     .animation(VelaTheme.dataAnimation(reduceMotion: reduceMotion), value: progress)
@@ -206,7 +209,7 @@ private struct CoreMetricScoreRing: View {
             }
 
             Text(valueText)
-                .font(.system(.largeTitle, design: .rounded, weight: .semibold))
+                .font(VelaTheme.largeTitle())
                 .monospacedDigit()
                 .foregroundStyle(VelaTheme.rhythmInk)
                 .minimumScaleFactor(0.7)
@@ -256,7 +259,7 @@ private struct CoreMetricStressDial: View {
                         let path = Path(roundedRect: rect, cornerRadius: 1.5)
                         layer.fill(
                             path,
-                            with: .color(index < filledTicks ? VelaTheme.color(for: state) : VelaTheme.rhythmMist)
+                            with: .color(index < filledTicks ? VelaTheme.rhythmInk : VelaTheme.scoreTrack)
                         )
                     }
                 }
@@ -264,12 +267,12 @@ private struct CoreMetricStressDial: View {
 
             VStack(spacing: 2) {
                 Text(score.map { String(Int($0.rounded())) } ?? "--")
-                    .font(.system(.largeTitle, design: .rounded, weight: .semibold))
+                    .font(VelaTheme.largeTitle())
                     .monospacedDigit()
                     .foregroundStyle(VelaTheme.rhythmInk)
                 Text(stateLabel)
                     .font(VelaTheme.caption1().weight(.semibold))
-                    .foregroundStyle(score == nil ? VelaTheme.rhythmInkSecondary : VelaTheme.textColor(for: state))
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
             }
             .offset(y: 4)
         }
@@ -293,7 +296,7 @@ private struct CoreMetricEnergyReserve: View {
                     .font(.title3.weight(.bold))
                     .foregroundStyle(color)
                 Text(valueText)
-                    .font(.system(.largeTitle, design: .rounded, weight: .semibold))
+                    .font(VelaTheme.largeTitle())
                     .monospacedDigit()
                     .foregroundStyle(VelaTheme.rhythmInk)
             }
@@ -436,7 +439,7 @@ struct MetricCustomWidgetsSection: View {
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: VelaTheme.radiusMd, style: .continuous)
-                        .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                        .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                 )
 
                 strainLoadContext
@@ -469,7 +472,7 @@ struct MetricCustomWidgetsSection: View {
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: VelaTheme.radiusMd, style: .continuous)
-                        .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                        .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                 )
             }
 
@@ -510,7 +513,7 @@ struct MetricCustomWidgetsSection: View {
                 .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusMd, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: VelaTheme.radiusMd, style: .continuous)
-                        .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                        .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                 )
             }
 
@@ -542,7 +545,7 @@ struct MetricCustomWidgetsSection: View {
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: VelaTheme.radiusMd, style: .continuous)
-                        .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                        .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                 )
             }
         }
@@ -582,7 +585,7 @@ struct MetricCustomWidgetsSection: View {
         .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusMd, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: VelaTheme.radiusMd, style: .continuous)
-                .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         )
     }
 
@@ -612,7 +615,7 @@ struct MetricCustomWidgetsSection: View {
         .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusMd, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: VelaTheme.radiusMd, style: .continuous)
-                .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         }
     }
 
@@ -1245,7 +1248,7 @@ struct MetricMethodologyCard: View {
             .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                    .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
             )
         }
         .accessibilityElement(children: .combine)
@@ -1324,7 +1327,7 @@ struct SleepTimelineCard: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: VelaTheme.radiusMd, style: .continuous)
-                .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         )
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("sleep-timeline-card")

@@ -1246,16 +1246,6 @@ struct VelaTrainingRotationView: View {
             }
         }
         .padding(.vertical, 10)
-        .background(alignment: .topTrailing) {
-            RadialGradient(
-                colors: [VelaTheme.rhythmGlow.opacity(0.22), .clear],
-                center: .topTrailing,
-                startRadius: 0,
-                endRadius: 170
-            )
-            .frame(width: 220, height: 190)
-            .offset(x: 30, y: -30)
-        }
     }
 
     @ViewBuilder

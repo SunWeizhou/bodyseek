@@ -10,7 +10,7 @@ struct JournalEntryCard: View {
         HStack(spacing: 12) {
             Image(systemName: entry.uiIcon)
                 .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(VelaTheme.rhythmDeepOn)
                 .frame(minWidth: VelaTheme.minimumHitTarget, minHeight: VelaTheme.minimumHitTarget)
                     .contentShape(Rectangle())
                 .background(RoundedRectangle(cornerRadius: VelaTheme.radiusSm).fill(entry.uiColor))
@@ -56,7 +56,7 @@ struct JournalEntryCard: View {
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         )
     }
 }
@@ -74,17 +74,7 @@ extension JournalEntryRecord {
         return "text.bubble.fill"
     }
 
-    var uiColor: Color {
-        if tags.contains("低碳水化合物") { return VelaTheme.systemOrange }
-        if tags.contains("添加糖") { return VelaTheme.indigo }
-        if tags.contains("生酮饮食") { return VelaTheme.systemGreen }
-        if tags.contains("在床上使用设备") { return VelaTheme.infoBlue }
-        if tags.contains("caffeine") || tags.contains("咖啡因") { return VelaTheme.caffeineTagColor }
-        if tags.contains("hydration") || tags.contains("补水") { return VelaTheme.accent }
-        if tags.contains("mood") || tags.contains("每日心情") { return VelaTheme.systemYellow }
-        if tags.contains("alcohol") || tags.contains("酒") { return VelaTheme.rhythmInk }
-        return VelaTheme.accent
-    }
+    var uiColor: Color { VelaTheme.rhythmDeep }
 
     var uiDisplayTitle: String {
         if tags.contains("低碳水化合物") { return "低碳水化合物" }

@@ -468,7 +468,7 @@ struct VelaJournalView: View {
                         .foregroundStyle(VelaTheme.fg)
                         .frame(width: 36, height: 36)
                         .background(Circle().fill(VelaTheme.cardBg))
-                        .overlay(Circle().stroke(VelaTheme.separatorSoft, lineWidth: 0.5))
+                        .overlay(Circle().stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
                 }
                 .buttonStyle(.plain)
             }
@@ -486,9 +486,9 @@ struct VelaJournalView: View {
             HStack(alignment: .center, spacing: 12) {
                 Image(systemName: "text.bubble.fill")
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(VelaTheme.rhythmDeepOn)
                     .frame(width: 36, height: 36)
-                    .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(VelaTheme.brandLeaf))
+                    .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(VelaTheme.rhythmDeep))
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("随手记一餐或一个行为")
@@ -508,7 +508,7 @@ struct VelaJournalView: View {
             }
             .padding(14)
             .background(RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous).fill(VelaTheme.cardBg))
-            .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous).stroke(VelaTheme.borderSoft, lineWidth: 0.5))
+            .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
         }
         .buttonStyle(.plain)
     }
@@ -548,7 +548,7 @@ struct VelaJournalView: View {
                         
                         Text("\(dayNumber)")
                             .font(.system(.footnote, design: .default, weight: .bold))
-                            .foregroundStyle(isSelected ? Color.white : VelaTheme.fg)
+                            .foregroundStyle(isSelected ? VelaTheme.rhythmDeepOn : VelaTheme.fg)
                             .frame(width: 26, height: 26)
                             .background(
                                 Group {
@@ -619,7 +619,7 @@ struct VelaJournalView: View {
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(VelaTheme.separatorSoft, lineWidth: 0.5)
+                    .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
             )
         }
         .padding(.horizontal, 14)
@@ -694,7 +694,7 @@ struct VelaJournalView: View {
                         .foregroundStyle(VelaTheme.meta)
                         .frame(width: 28, height: 28)
                         .background(Circle().fill(VelaTheme.rhythmMist.opacity(0.4)))
-                        .overlay(Circle().stroke(VelaTheme.separatorSoft, lineWidth: 0.5))
+                        .overlay(Circle().stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
                 }
             }
             .padding(.horizontal, 14)

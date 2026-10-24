@@ -30,11 +30,11 @@ struct SleepClockWheelView: View {
         ZStack {
             // Dial background
             Circle()
-                .fill(VelaTheme.sleepClockFace.opacity(0.8))
+                .fill(VelaTheme.rhythmCanvasRaised)
                 .frame(width: 170, height: 170)
                 .overlay(
                     Circle()
-                        .stroke(VelaTheme.sleepClockRing, style: StrokeStyle(lineWidth: 1.5, dash: [4, 6]))
+                        .stroke(VelaTheme.hairline, style: StrokeStyle(lineWidth: 1.5, dash: [4, 6]))
                 )
             
             // Hour markings around the circle (12am, 6am, 12pm, 6pm)
@@ -48,7 +48,7 @@ struct SleepClockWheelView: View {
                 let deg = Double(idx) * 30.0 - 90.0
                 let r = 76.0
                 Circle()
-                    .fill(VelaTheme.sleepClockRing)
+                    .fill(VelaTheme.hairline)
                     .frame(width: 2.5, height: 2.5)
                     .offset(x: r * cos(deg * .pi / 180), y: r * sin(deg * .pi / 180))
             }
@@ -57,8 +57,8 @@ struct SleepClockWheelView: View {
             Circle()
                 .trim(from: 0.0, to: sleepDurationFraction)
                 .stroke(
-                    LinearGradient(colors: [VelaTheme.rhythmInk, VelaTheme.sleepClockWakePill], startPoint: .top, endPoint: .bottom),
-                    style: StrokeStyle(lineWidth: 7.5, lineCap: .round)
+                    VelaTheme.rhythmInk,
+                    style: StrokeStyle(lineWidth: 3, lineCap: .round)
                 )
                 .frame(width: 140, height: 140)
                 .rotationEffect(.degrees(bedtimeAngle - 90.0))
@@ -68,11 +68,10 @@ struct SleepClockWheelView: View {
                 Image(systemName: "moon.fill")
                     .font(.system(size: 11))
                     .foregroundStyle(VelaTheme.rhythmInk)
-                    .shadow(color: VelaTheme.rhythmInk.opacity(0.6), radius: 3)
                 
                 Image(systemName: "sun.max.fill")
                     .font(.system(size: 12))
-                    .foregroundStyle(VelaTheme.sleepClockBedPill)
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
             }
             .offset(y: -4)
 
@@ -81,14 +80,14 @@ struct SleepClockWheelView: View {
                 .offset(x: 70 * cos((bedtimeAngle - 90.0) * .pi / 180), y: 70 * sin((bedtimeAngle - 90.0) * .pi / 180))
             
             // Wake Indicator Icon overlay (clock)
-            dialIndicatorPill(icon: "alarm.fill", color: VelaTheme.sleepClockWakePill)
+            dialIndicatorPill(icon: "alarm.fill", color: VelaTheme.rhythmInk)
                 .offset(x: 70 * cos((wakeAngle - 90.0) * .pi / 180), y: 70 * sin((wakeAngle - 90.0) * .pi / 180))
         }
         .overlay(alignment: .bottom) {
             Text("今晚睡眠目标: \(VelaMinimalFormatting.duration(minutes: targetSleepMinutes))")
                 .font(VelaTheme.caption2())
                 .fontWeight(.bold)
-                .foregroundStyle(VelaTheme.mistGray)
+                .foregroundStyle(VelaTheme.rhythmInkSecondary)
                 .offset(y: 12)
         }
         // VoiceOver 组合摘要（此前只读得到散落的 12am/6am 装饰文本）。
@@ -114,16 +113,16 @@ struct SleepClockWheelView: View {
     
     private func dialHourText(_ label: String, angle: Double, radius: Double) -> some View {
         Text(label)
-            .font(.system(size: 8, weight: .bold, design: .rounded))
-            .foregroundStyle(VelaTheme.inkGray)
+            .font(VelaTheme.caption2())
+            .foregroundStyle(VelaTheme.rhythmInkSecondary)
             .position(x: 85 + radius * cos(angle * .pi / 180), y: 85 + radius * sin(angle * .pi / 180))
     }
     
     private func dialIndicatorPill(icon: String, color: Color) -> some View {
         Image(systemName: icon)
             .font(.system(size: 7, weight: .bold))
-            .foregroundStyle(.white)
+            .foregroundStyle(VelaTheme.rhythmDeepOn)
             .frame(width: 15, height: 15)
-            .background(Circle().fill(color).shadow(color: color.opacity(0.4), radius: 3))
+            .background(Circle().fill(color))
     }
 }

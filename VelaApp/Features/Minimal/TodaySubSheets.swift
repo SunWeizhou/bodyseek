@@ -122,7 +122,7 @@ struct ProactiveInsightDetailSheet: View {
                         }
                         .padding(16)
                         .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(VelaTheme.rhythmMist, lineWidth: 0.75))
+                        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
                     }
                 }
                 .padding(.horizontal, 18)
@@ -302,7 +302,7 @@ struct CalendarOverviewSheetView: View {
                             .foregroundStyle(VelaTheme.rhythmInkSecondary)
                             .frame(width: 32, height: 32)
                             .background(Circle().fill(VelaTheme.rhythmCanvasRaised))
-                            .overlay(Circle().stroke(VelaTheme.rhythmMist, lineWidth: 0.75))
+                            .overlay(Circle().stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
                     }
                                         .buttonStyle(.plain)
                     .frame(minWidth: VelaTheme.minimumHitTarget, minHeight: VelaTheme.minimumHitTarget)
@@ -317,7 +317,7 @@ struct CalendarOverviewSheetView: View {
                             .foregroundStyle(VelaTheme.rhythmInkSecondary)
                             .frame(width: 32, height: 32)
                             .background(Circle().fill(VelaTheme.rhythmCanvasRaised))
-                            .overlay(Circle().stroke(VelaTheme.rhythmMist, lineWidth: 0.75))
+                            .overlay(Circle().stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
                     }
                                         .buttonStyle(.plain)
                     .frame(minWidth: VelaTheme.minimumHitTarget, minHeight: VelaTheme.minimumHitTarget)
@@ -388,13 +388,13 @@ struct CalendarOverviewSheetView: View {
                             VStack(spacing: 2) {
                                 ZStack {
                                     Circle()
-                                        .stroke(VelaTheme.borderSoft, lineWidth: 4)
+                                        .stroke(VelaTheme.scoreTrack, lineWidth: 2)
                                         .frame(width: 36, height: 36)
 
                                     if let scoreInfo {
                                         Circle()
                                             .trim(from: 0.0, to: CGFloat(scoreInfo.score / 100.0))
-                                            .stroke(scoreInfo.color, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                                            .stroke(VelaTheme.rhythmInk, style: StrokeStyle(lineWidth: 2, lineCap: .round))
                                             .frame(width: 36, height: 36)
                                             .rotationEffect(.degrees(-90))
                                     }
@@ -450,7 +450,7 @@ struct CalendarOverviewSheetView: View {
                         .foregroundStyle(VelaTheme.rhythmInkSecondary)
                         .frame(width: 36, height: 36)
                         .background(Circle().fill(VelaTheme.rhythmCanvasRaised))
-                        .overlay(Circle().stroke(VelaTheme.rhythmMist, lineWidth: 0.75))
+                        .overlay(Circle().stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
                 }
                 .buttonStyle(.plain)
             }
@@ -761,7 +761,7 @@ struct PostWorkoutCheckInSheet: View {
         .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         }
     }
 
@@ -776,7 +776,7 @@ struct PostWorkoutCheckInSheet: View {
                 .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
                 .overlay {
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                        .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                 }
         }
     }
@@ -978,7 +978,7 @@ struct PostWorkoutImpactSheet: View {
         }
         .padding(16)
         .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(VelaTheme.rhythmMist, lineWidth: 0.75))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
     }
 
     private func summaryGrid(_ impact: PostWorkoutImpact) -> some View {
@@ -1011,7 +1011,7 @@ struct PostWorkoutImpactSheet: View {
         }
         .padding(16)
         .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(VelaTheme.rhythmMist, lineWidth: 0.75))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
     }
 
     private func observedHeartRateTrendCard(_ impact: PostWorkoutImpact) -> some View {
@@ -1452,7 +1452,7 @@ struct WorkoutLogSheetView: View {
                     }
                     .padding(14)
                     .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(VelaTheme.rhythmMist, lineWidth: 0.75))
+                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
                     
                     // Active Calories
                     VStack(alignment: .leading, spacing: 10) {
@@ -1471,7 +1471,7 @@ struct WorkoutLogSheetView: View {
                     }
                     .padding(14)
                     .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(VelaTheme.rhythmMist, lineWidth: 0.75))
+                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
                     
                     // Exertion Score
                     VStack(alignment: .leading, spacing: 10) {
@@ -1490,7 +1490,7 @@ struct WorkoutLogSheetView: View {
                     }
                     .padding(14)
                     .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(VelaTheme.rhythmMist, lineWidth: 0.75))
+                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
                     
                     // Save Button
                     Button {

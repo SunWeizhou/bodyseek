@@ -87,7 +87,7 @@ struct TodayEvidenceSheet: View {
         .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         }
     }
 

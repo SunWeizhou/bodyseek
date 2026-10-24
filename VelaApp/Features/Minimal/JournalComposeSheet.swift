@@ -29,7 +29,7 @@ struct BehaviorQuickNoteSheet: View {
                     .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
                     .overlay(
                         RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                            .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                     )
 
                     VStack(alignment: .leading, spacing: 10) {
@@ -38,7 +38,7 @@ struct BehaviorQuickNoteSheet: View {
                             .padding(10)
                             .scrollContentBackground(.hidden)
                             .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(VelaTheme.rhythmCanvas))
-                            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(VelaTheme.rhythmMist, lineWidth: 0.75))
+                            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
 
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
@@ -53,7 +53,7 @@ struct BehaviorQuickNoteSheet: View {
                                             .padding(.horizontal, 10)
                                             .padding(.vertical, 7)
                                             .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(VelaTheme.rhythmCanvas))
-                                            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(VelaTheme.rhythmMist, lineWidth: 0.5))
+                                            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
                                     }
                                     .buttonStyle(.plain)
                                 }
@@ -81,7 +81,7 @@ struct BehaviorQuickNoteSheet: View {
                     .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
                     .overlay(
                         RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                            .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                     )
 
                     Button {
@@ -157,7 +157,7 @@ struct CaffeineLoggerView: View {
                     VStack(spacing: 12) {
                         HStack(alignment: .firstTextBaseline) {
                             Text("\(Int(customAmount))")
-                                .font(.system(.largeTitle, design: .rounded, weight: .black))
+                                .font(VelaTheme.largeTitle())
                                 .foregroundStyle(VelaTheme.accent)
                             Text("mg")
                                 .font(.system(.body, design: .default, weight: .bold))
@@ -205,7 +205,7 @@ struct CaffeineLoggerView: View {
                                         .velaNativeCard(radius: 16)
                                         .overlay(
                                             RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous)
-                                                .stroke(customAmount == val ? VelaTheme.accent : Color.clear, lineWidth: 1.5)
+                                                .stroke(customAmount == val ? VelaTheme.rhythmInk : VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                                         )
                                     }
                                     .buttonStyle(.plain)
@@ -330,7 +330,7 @@ struct WaterLoggerView: View {
                                         .velaNativeCard(radius: 16)
                                         .overlay(
                                             RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous)
-                                                .stroke(customAmount == val ? VelaTheme.accent : Color.clear, lineWidth: 1.5)
+                                                .stroke(customAmount == val ? VelaTheme.rhythmInk : VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                                         )
                                     }
                                     .buttonStyle(.plain)
@@ -427,7 +427,7 @@ struct MoodLoggerView: View {
                                 )
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                        .stroke(selectedScore == score ? VelaTheme.rhythmDeep : VelaTheme.rhythmMist, lineWidth: selectedScore == score ? 1.5 : 0.75)
+                                        .stroke(selectedScore == score ? VelaTheme.rhythmDeep : VelaTheme.rhythmMist, lineWidth: VelaTheme.hairlineWidth)
                                 )
                             }
                             .buttonStyle(.plain)
@@ -447,7 +447,7 @@ struct MoodLoggerView: View {
                             .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                    .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                                    .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                             )
                     }
                     .padding(.horizontal, 20)
@@ -566,7 +566,7 @@ struct AlcoholLoggerView: View {
                     .velaNativeCard(radius: 16)
                     .overlay(
                         RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous)
-                            .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                            .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                     )
                     .padding(.horizontal, 20)
                     
