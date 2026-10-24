@@ -1,0 +1,30 @@
+剩余固定字号 .system(size:) 站点：
+     1  VelaApp/Core/DesignSystem/VelaCard.swift
+     3  VelaApp/Core/DesignSystem/VelaDesignSystem.swift
+     1  VelaApp/Core/DesignSystem/VelaInput.swift
+     6  VelaApp/Features/Coach/CoachHistoryDrawer.swift
+     4  VelaApp/Features/Coach/CoachMessageBubble.swift
+     8  VelaApp/Features/Coach/CoachView.swift
+     1  VelaApp/Features/Coach/CoachWelcomeWorkspace.swift
+     1  VelaApp/Features/Minimal/BodyModelViews.swift
+     1  VelaApp/Features/Minimal/DailyStressChartView.swift
+     9  VelaApp/Features/Minimal/JournalComposeSheet.swift
+     2  VelaApp/Features/Minimal/JournalCorrelationSection.swift
+     2  VelaApp/Features/Minimal/JournalEntryCard.swift
+     2  VelaApp/Features/Minimal/JournalTagInsights.swift
+     3  VelaApp/Features/Minimal/MetricHighlightsSection.swift
+     3  VelaApp/Features/Minimal/MetricTrendsSection.swift
+     3  VelaApp/Features/Minimal/SettingsAccountView.swift
+     5  VelaApp/Features/Minimal/SettingsCoachModelView.swift
+     3  VelaApp/Features/Minimal/SleepClockWheelView.swift
+     3  VelaApp/Features/Minimal/TodayEvidenceSheet.swift
+     2  VelaApp/Features/Minimal/TodayHeroCard.swift
+     1  VelaApp/Features/Minimal/TodaySignalGrid.swift
+     2  VelaApp/Features/Minimal/TodaySubComponents.swift
+     6  VelaApp/Features/Minimal/TodaySubSheets.swift
+     2  VelaApp/Features/Minimal/TodayTrainingPlanAdaptationCard.swift
+    13  VelaApp/Features/Minimal/TrainingHeroSection.swift
+  ... 以及另外 17 个文件
+合计：179 处（图标/显示级字号属设计决策，清理目标为文字档位）
+阈值：216
+exit=0

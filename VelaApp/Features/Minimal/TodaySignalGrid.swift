@@ -3,9 +3,9 @@ import SwiftUI
 
 // MARK: - Today score dashboard
 
-/// The score-led opening of Today: Agent body, equal-width five-score strip,
-/// one named recent change, follow-up chips, then a one-line next action.
-/// Nothing here derives a score or a total.
+/// The score-led opening of Today: byline + one decision line, one hero score,
+/// a compact four-score support strip, one named recent change, two follow-up
+/// chips, then a single-line next action. Nothing here derives a score or total.
 struct TodaySignalGrid: View {
     let model: TodayExperienceModel
     let freshness: DataFreshness
@@ -33,15 +33,20 @@ struct TodaySignalGrid: View {
 
     var body: some View {
         let readings = readings
-        return VStack(alignment: .leading, spacing: 16) {
+        let heroID = Self.primaryReadingID(readings: readings, statement: agentSentence)
+        return VStack(alignment: .leading, spacing: 0) {
             statement(readings)
+                .padding(.bottom, 18)
             TodayScoreInstrument(
                 readings: readings,
+                heroID: heroID,
                 selectedDate: selectedDate,
                 dashboardSnapshot: dashboardSnapshot
             )
-            recentChangeCard
+            recentChangeRow
+                .padding(.top, 16)
             followUpChips(readings)
+                .padding(.top, 14)
             TodayPlanSection(
                 payload: planPayload,
                 fallback: model.actions.first,
@@ -51,7 +56,57 @@ struct TodaySignalGrid: View {
                 onInspectGuidance: onInspectGuidance,
                 onAsk: onAsk
             )
+            .padding(.top, 14)
         }
+    }
+
+    /// The score the first fold leads with. It prefers the metric the Agent
+    /// statement already names, then a notable deviation, then the first
+    /// reading with data. Display-only: it never re-ranks or re-scores anything.
+    static func primaryReadingID(readings: [ScoreInstrumentReading], statement: String) -> String {
+        let present = readings.filter { $0.value != nil }
+        guard !present.isEmpty else { return readings.first?.id ?? "recovery" }
+        let named = present.filter { statement.contains($0.title) }
+        let candidates = named.isEmpty ? present : named
+        return (candidates.first(where: \.isUnusual) ?? candidates[0]).id
+    }
+
+    /// Presentation-only split of the generated statement: the leading clause
+    /// and the decision clause stay on the fold; the baseline / median clauses
+    /// drop to one supporting caption. Copy generation itself is untouched.
+    static func statementParts(_ sentence: String) -> (lead: String, support: String?) {
+        let trimmed = sentence.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return ("", nil) }
+        let withoutPeriod = trimmed.hasSuffix("。") ? String(trimmed.dropLast()) : trimmed
+        let clauses = withoutPeriod
+            .split(separator: "，", omittingEmptySubsequences: false)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        guard clauses.count > 1 else { return (trimmed, nil) }
+
+        let decisionMarkers = ["建议", "不必", "需要调整", "要调整", "优先恢复"]
+        let decisionIndex = clauses.indices.reversed().first { index in
+            index > 0 && decisionMarkers.contains { clauses[index].contains($0) }
+        }
+        let leadIndexes = decisionIndex.map { [0, $0] } ?? [0]
+        let lead = leadIndexes.map { clauses[$0] }.joined(separator: "，") + "。"
+        let support = clauses.enumerated()
+            .filter { !leadIndexes.contains($0.offset) }
+            .map(\.element)
+        return (lead, support.isEmpty ? nil : support.joined(separator: "，") + "。")
+    }
+
+    /// One quiet caption under the decision line: the deferred statement clauses
+    /// plus the baseline comparison, without a gray copy wall on the fold.
+    static func supportingCaption(support: String?, comparison: String) -> String {
+        func trimmed(_ text: String) -> String {
+            text.trimmingCharacters(in: .whitespacesAndNewlines)
+                .trimmingCharacters(in: CharacterSet(charactersIn: "。"))
+        }
+        var pieces: [String] = []
+        if let support, !trimmed(support).isEmpty { pieces.append(trimmed(support)) }
+        if !trimmed(comparison).isEmpty { pieces.append(trimmed(comparison)) }
+        return pieces.isEmpty ? "" : pieces.joined(separator: " · ") + "。"
     }
 
     private func followUpChips(_ readings: [ScoreInstrumentReading]) -> some View {
@@ -64,7 +119,9 @@ struct TodaySignalGrid: View {
         )
         return Group {
             if !suggestions.isEmpty {
-                CoachFollowUpChipsView(suggestions: suggestions, wraps: true) { question in
+                // Presentation only: two primary questions stay on the fold; the
+                // third is retained in the suggestion generator but not shown.
+                CoachFollowUpChipsView(suggestions: Array(suggestions.prefix(2)), wraps: true) { question in
                     onAsk(question)
                 }
                 .accessibilityIdentifier("today-follow-up-chips")
@@ -80,44 +137,59 @@ struct TodaySignalGrid: View {
     }
 
     private func statement(_ readings: [ScoreInstrumentReading]) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                HStack(spacing: 6) {
-                    Circle()
-                        .fill(VelaTheme.rhythmInk)
-                        .frame(width: 7, height: 7)
-                    Text(bylineText)
-                        .font(VelaTheme.caption1())
-                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                }
-                .accessibilityIdentifier("today-agent-byline")
-                Spacer(minLength: 8)
-                if dashboardSnapshot.source == .preview {
-                    Text("示例数据")
-                        .font(VelaTheme.caption2().weight(.semibold))
-                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Capsule().stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
-                } else if freshness == .missing || freshness == .stale {
-                    Text(freshness == .missing ? "未同步" : "数据较旧")
-                        .font(VelaTheme.caption2().weight(.semibold))
-                        .foregroundStyle(VelaTheme.deviationInk)
-                }
-            }
-            Text(agentSentence)
-                .font(VelaTheme.briefBody())
+        let parts = Self.statementParts(agentSentence)
+        let caption = Self.supportingCaption(
+            support: parts.support,
+            comparison: Self.comparisonLine(readings, formation: model.baselineFormation)
+        )
+        return VStack(alignment: .leading, spacing: 8) {
+            bylineRow
+            Text(parts.lead)
+                .font(VelaTheme.headline())
                 .foregroundStyle(VelaTheme.rhythmInk)
-                .lineSpacing(6)
+                .lineLimit(2)
+                .minimumScaleFactor(0.9)
                 .fixedSize(horizontal: false, vertical: true)
-            Text(Self.comparisonLine(readings, formation: model.baselineFormation))
-                .font(VelaTheme.footnote())
-                .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                .fixedSize(horizontal: false, vertical: true)
+            if !caption.isEmpty {
+                Text(caption)
+                    .font(VelaTheme.caption1())
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .padding(.horizontal, 2)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("today-guidance")
+    }
+
+    private var bylineRow: some View {
+        HStack(spacing: 8) {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(VelaTheme.rhythmInk)
+                    .frame(width: 7, height: 7)
+                Text(bylineText)
+                    .font(VelaTheme.caption1())
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .accessibilityIdentifier("today-agent-byline")
+            Spacer(minLength: 8)
+            if dashboardSnapshot.source == .preview {
+                Text("示例数据")
+                    .font(VelaTheme.caption2().weight(.semibold))
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Capsule().stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+            } else if freshness == .missing || freshness == .stale {
+                Text(freshness == .missing ? "未同步" : "数据较旧")
+                    .font(VelaTheme.caption2().weight(.semibold))
+                    .foregroundStyle(VelaTheme.deviationInk)
+            }
+        }
     }
 
     /// Restates only the published deviation flags; it never ranks or totals.
@@ -182,41 +254,32 @@ struct TodaySignalGrid: View {
         return "近 30 天没有越过你常见范围的变化。"
     }
 
-    private var recentChangeCard: some View {
+    /// One quiet navigation row: the change headline is already on the fold, so
+    /// this stays a caption-weight line instead of a second gray card.
+    private var recentChangeRow: some View {
         Button(action: onOpenTrends) {
-            HStack(alignment: .center, spacing: 12) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Image(systemName: notableFinding == nil ? "waveform.path" : "arrow.up.and.down.text.horizontal")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(notableFinding == nil ? VelaTheme.rhythmInkSecondary : VelaTheme.deviationInk)
-                    .frame(width: 32, height: 32)
-                    .background(
-                        (notableFinding == nil ? VelaTheme.rhythmMist.opacity(0.6) : VelaTheme.deviationWash),
-                        in: Circle()
-                    )
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(recentChangeTitle)
-                        .font(VelaTheme.caption1().weight(.semibold))
-                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                    Text(recentChangeBody)
-                        .font(VelaTheme.subheadline())
-                        .foregroundStyle(VelaTheme.rhythmInk)
-                        .multilineTextAlignment(.leading)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+                Text(recentChangeTitle)
+                    .font(VelaTheme.caption1().weight(.semibold))
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                    .fixedSize(horizontal: true, vertical: false)
+                Text(recentChangeBody)
+                    .font(VelaTheme.footnote())
+                    .foregroundStyle(VelaTheme.rhythmInk)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.right")
                     .font(.caption2.weight(.bold))
                     .foregroundStyle(VelaTheme.rhythmInkSecondary.opacity(0.55))
             }
-            .padding(14)
-            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
-                    .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
-            )
+            .frame(minHeight: VelaTheme.minimumHitTarget)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.cardPress)
+        .buttonStyle(.plain)
         .accessibilityIdentifier("today-recent-change")
         .accessibilityHint("打开趋势")
     }
@@ -248,53 +311,53 @@ struct TodayPlanSection: View {
 
     var body: some View {
         let _ = (selectedDate, onAsk)
-        HStack(spacing: 8) {
-            Button(action: onOpenPlan) {
-                HStack(spacing: 10) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(hasPendingProposal ? "今天的安排 · 待确认" : "今天的安排 · 下一件")
-                            .font(VelaTheme.caption1().weight(.semibold))
-                            .foregroundStyle(hasPendingProposal ? VelaTheme.deviationInk : VelaTheme.rhythmInkSecondary)
-                            .accessibilityIdentifier(
-                                payload?.allActionsCompleted == true ? "today-plan-finished" : "today-plan-title"
-                            )
-                        Text(nextActionTitle)
-                            .font(VelaTheme.subheadline().weight(.semibold))
-                            .foregroundStyle(VelaTheme.rhythmInk)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.85)
-                            .accessibilityIdentifier("today-next-action")
+        VStack(alignment: .leading, spacing: 0) {
+            Rectangle()
+                .fill(VelaTheme.hairline)
+                .frame(height: VelaTheme.hairlineWidth)
+            HStack(spacing: 10) {
+                Button(action: onOpenPlan) {
+                    HStack(spacing: 8) {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(hasPendingProposal ? "待确认" : "下一件")
+                                .font(VelaTheme.caption2().weight(.semibold))
+                                .foregroundStyle(hasPendingProposal ? VelaTheme.deviationInk : VelaTheme.rhythmInkSecondary)
+                                .accessibilityIdentifier(
+                                    payload?.allActionsCompleted == true ? "today-plan-finished" : "today-plan-title"
+                                )
+                            Text(nextActionTitle)
+                                .font(VelaTheme.callout().weight(.semibold))
+                                .foregroundStyle(VelaTheme.rhythmInk)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.85)
+                                .accessibilityIdentifier("today-next-action")
+                        }
+                        Spacer(minLength: 4)
+                        Image(systemName: "chevron.right")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(VelaTheme.rhythmInkSecondary.opacity(0.55))
                     }
-                    Spacer(minLength: 4)
-                    Image(systemName: "chevron.right")
-                        .font(.caption2.weight(.bold))
-                        .foregroundStyle(VelaTheme.rhythmInkSecondary.opacity(0.55))
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("today-open-plan")
-            .accessibilityHint("打开计划查看全部安排")
-
-            Button(action: onInspectGuidance) {
-                Text("依据")
-                    .font(VelaTheme.footnote().weight(.semibold))
-                    .foregroundStyle(VelaTheme.rhythmInk)
-                    .padding(.horizontal, 10)
-                    .frame(minHeight: 44)
-                    .background(Capsule().stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+                    .frame(minHeight: VelaTheme.minimumHitTarget)
                     .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("today-open-plan")
+                .accessibilityHint("打开计划查看全部安排")
+
+                Button(action: onInspectGuidance) {
+                    Text("依据")
+                        .font(VelaTheme.caption1().weight(.semibold))
+                        .foregroundStyle(VelaTheme.rhythmInk)
+                        .padding(.horizontal, 12)
+                        .frame(minHeight: VelaTheme.minimumHitTarget)
+                        .background(Capsule().stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("today-advice-evidence")
+                .accessibilityLabel("为什么这样安排")
             }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("today-advice-evidence")
-            .accessibilityLabel("为什么这样安排")
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
-        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
-                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
+            .padding(.horizontal, 2)
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("today-advice-panel")

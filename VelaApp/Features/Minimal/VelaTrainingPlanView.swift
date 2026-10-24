@@ -304,11 +304,12 @@ struct VelaPlanView: View {
         let total = actions.count
         let completion = PlanCompletionProjection(completed: completedCount, total: total)
         let hasPendingCandidate = (candidatePayload ?? previewCandidatePayload) != nil
-        return VStack(alignment: .leading, spacing: 8) {
+        return VStack(alignment: .leading, spacing: VelaTheme.space2) {
             if let decisionLine = PlanFirstScreenCopy.trainingDecisionLine(decision: payload?.decision) {
                 Text(decisionLine)
-                    .font(VelaTheme.subheadline().weight(.semibold))
-                    .foregroundStyle(VelaTheme.rhythmInk)
+                    .font(VelaTheme.caption1().weight(.semibold))
+                    .tracking(0.4)
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
                     .accessibilityIdentifier("plan-header-decision")
             }
             Text(PlanFirstScreenCopy.primaryActionTitle(actions: actions))
@@ -320,7 +321,7 @@ struct VelaPlanView: View {
                 hasPendingCandidate: hasPendingCandidate
             ) {
                 Text(stability)
-                    .font(VelaTheme.footnote())
+                    .font(VelaTheme.caption1())
                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("plan-header-stability")
@@ -339,13 +340,13 @@ struct VelaPlanView: View {
             .foregroundStyle(VelaTheme.rhythmInkSecondary)
             if let summary = payload?.summary.trimmingCharacters(in: .whitespacesAndNewlines), !summary.isEmpty {
                 Text("已保存的安排：" + summary)
-                    .font(VelaTheme.footnote())
+                    .font(VelaTheme.caption1())
                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 2)
             } else if total == 0 {
                 Text("添加一项真正有帮助的行动")
-                    .font(VelaTheme.footnote())
+                    .font(VelaTheme.caption1())
                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
             }
         }
@@ -354,7 +355,7 @@ struct VelaPlanView: View {
     }
 
     private var actionSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: VelaTheme.cardGap) {
             if actions.isEmpty {
                 Button(action: presentAddEditor) {
                     HStack(spacing: 12) {
@@ -364,12 +365,16 @@ struct VelaPlanView: View {
                             .frame(width: 34, height: 34)
                             .background(VelaTheme.rhythmDeep, in: Circle())
                         Text("添加今天的第一项行动")
-                            .font(.system(.subheadline, design: .default, weight: .semibold))
+                            .font(VelaTheme.subheadline().weight(.semibold))
                             .foregroundStyle(VelaTheme.rhythmInk)
                         Spacer()
                     }
                     .padding(VelaTheme.cardPadding)
                     .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+                            .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
+                    }
                 }
                 .buttonStyle(.cardPress)
             } else {
@@ -414,7 +419,7 @@ struct VelaPlanView: View {
                         .accessibilityIdentifier("plan-add-action")
                     }
                 }
-                .padding(.horizontal, 14)
+                .padding(.horizontal, VelaTheme.compactCardPadding)
                 .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
                 .overlay {
                     RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
@@ -426,7 +431,7 @@ struct VelaPlanView: View {
 
     private func candidateCard(_ candidate: DailyOperatingPlanPayload, current: DailyOperatingPlanPayload) -> some View {
         let rows = PlanProposalDiff.rows(current: current, candidate: candidate)
-        return VStack(alignment: .leading, spacing: 14) {
+        return VStack(alignment: .leading, spacing: VelaTheme.cardGap) {
             HStack(spacing: 6) {
                 Circle().fill(VelaTheme.deviationInk).frame(width: 7, height: 7)
                 Text("BodySeek 建议 · 待你确认")
@@ -490,7 +495,7 @@ struct VelaPlanView: View {
                 .background(VelaTheme.rhythmCanvas, in: Capsule())
                 .overlay(
                     Capsule()
-                        .stroke(VelaTheme.rhythmInk, lineWidth: 1.2)
+                        .stroke(VelaTheme.rhythmInk, lineWidth: VelaTheme.hairlineWidth)
                 )
                 .buttonStyle(.plain)
             }
@@ -499,10 +504,10 @@ struct VelaPlanView: View {
                 .foregroundStyle(VelaTheme.rhythmInkSecondary)
         }
         .padding(VelaTheme.cardPadding)
-        .background(VelaTheme.deviationWash, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
+        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
-                .stroke(VelaTheme.rhythmInk, lineWidth: 1.2)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("plan-proposal-card")
@@ -546,18 +551,19 @@ struct VelaPlanView: View {
         Button {
             showTraining = true
         } label: {
-            HStack(spacing: 14) {
+            HStack(spacing: VelaTheme.cardGap) {
                 Image(systemName: "figure.run")
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(VelaTheme.rhythmInk)
                     .frame(width: 42, height: 42)
-                    .background(VelaTheme.rhythmInk.opacity(0.11), in: Circle())
+                    .background(VelaTheme.rhythmMist, in: Circle())
+                    .overlay(Circle().strokeBorder(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
                 VStack(alignment: .leading, spacing: 3) {
                     Text("训练")
-                        .font(.system(.headline, design: .default))
+                        .font(VelaTheme.headline())
                         .foregroundStyle(VelaTheme.rhythmInk)
                     Text("训练窗口、轮转与记录")
-                        .font(.footnote)
+                        .font(VelaTheme.footnote())
                         .foregroundStyle(VelaTheme.rhythmInkSecondary)
                 }
                 Spacer()
@@ -911,11 +917,12 @@ private struct PlanActionRow: View {
 
     private var primaryBadge: some View {
         Text("重点")
-            .font(.system(.caption2, design: .default, weight: .semibold))
+            .font(VelaTheme.caption2().weight(.semibold))
             .foregroundStyle(VelaTheme.rhythmDeep)
             .padding(.horizontal, 7)
             .padding(.vertical, 3)
-            .background(VelaTheme.rhythmDeep.opacity(0.10), in: Capsule())
+            .background(VelaTheme.rhythmMist, in: Capsule())
+            .overlay(Capsule().strokeBorder(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
     }
 
     private var managementMenu: some View {
@@ -1169,10 +1176,10 @@ struct VelaTrainingRotationView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 30) {
+            VStack(alignment: .leading, spacing: VelaTheme.sectionGap) {
                 planHero
 
-                VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: VelaTheme.cardGap) {
                     VelaRhythmSectionHeader(
                         eyebrow: "",
                         title: "训练轮转",
@@ -1225,17 +1232,17 @@ struct VelaTrainingRotationView: View {
     }
 
     private var planHero: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: VelaTheme.cardGap) {
             Text(activePlan?.title ?? "建立可调整的训练轮转")
-                .font(.system(.title, design: .default, weight: .semibold))
-                .tracking(-0.8)
+                .font(VelaTheme.statement())
                 .foregroundStyle(VelaTheme.rhythmInk)
                 .fixedSize(horizontal: false, vertical: true)
 
             Text(planSummary)
-                .font(.system(.footnote, design: .default))
+                .font(VelaTheme.footnote())
                 .foregroundStyle(VelaTheme.rhythmInkSecondary)
                 .lineSpacing(3)
+                .fixedSize(horizontal: false, vertical: true)
 
             HStack(spacing: 0) {
                 planMetric("已完成", activePlan.map { "\($0.days.filter(\.isCompleted).count)" } ?? "—")
@@ -1262,7 +1269,7 @@ struct VelaTrainingRotationView: View {
                     }
                 }
             }
-            .padding(.horizontal, 15)
+            .padding(.horizontal, VelaTheme.compactCardPadding)
             .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
@@ -1273,43 +1280,47 @@ struct VelaTrainingRotationView: View {
                 Image(systemName: "point.3.connected.trianglepath.dotted")
                     .foregroundStyle(VelaTheme.rhythmDeep)
                 Text("目前没有活动计划。Vela 可以根据恢复、目标与最近训练建立第一版。")
-                    .font(.system(.footnote, design: .default))
+                    .font(VelaTheme.footnote())
                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
             }
-            .padding(16)
+            .padding(VelaTheme.cardPadding)
             .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+                    .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
+            }
         }
     }
 
     /// 今天如何调整：优先展示当天正式决策（容量/RPE 边界 + 理由），
     /// 没有运营计划时退回恢复信号说明——不再是一句通用文案。
     private var todayDecisionSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: VelaTheme.cardGap) {
             Text("今天如何调整")
-                .font(.system(.title3, design: .default, weight: .semibold))
+                .font(VelaTheme.headline())
                 .foregroundStyle(VelaTheme.rhythmInk)
 
             Text(metricContextLine)
-                .font(.system(.caption2, design: .default, weight: .semibold))
+                .font(VelaTheme.caption1().weight(.semibold))
                 .foregroundStyle(VelaTheme.rhythmInkSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
             if let todayOperatingPlan, let payload = todayOperatingPlan.operatingPlanPayload {
                 HStack(spacing: 8) {
                     Text(decisionLabel(payload.decision))
-                        .font(.system(.caption, design: .default, weight: .semibold))
+                        .font(VelaTheme.caption1().weight(.semibold))
                         .foregroundStyle(VelaTheme.rhythmDeepOn)
                         .padding(.horizontal, 9)
                         .padding(.vertical, 4)
                         .background(VelaTheme.rhythmDeep, in: Capsule())
                     Text(boundaryText(payload))
-                        .font(.system(.caption, design: .default, weight: .medium))
+                        .font(VelaTheme.caption1().weight(.medium))
                         .foregroundStyle(VelaTheme.rhythmInkSecondary)
                 }
 
                 if !payload.summary.isEmpty {
                     Text(payload.summary)
-                        .font(.system(.footnote, design: .default))
+                        .font(VelaTheme.footnote())
                         .foregroundStyle(VelaTheme.rhythmInkSecondary)
                         .lineSpacing(3)
                         .fixedSize(horizontal: false, vertical: true)
@@ -1321,11 +1332,11 @@ struct VelaTrainingRotationView: View {
                         ForEach(Array(reasons.prefix(3).enumerated()), id: \.offset) { _, reason in
                             HStack(alignment: .top, spacing: 7) {
                                 Circle()
-                                    .fill(VelaTheme.rhythmDeep.opacity(0.6))
+                                    .fill(VelaTheme.rhythmInkSecondary)
                                     .frame(width: 5, height: 5)
                                     .padding(.top, 5)
                                 Text(reason)
-                                    .font(.system(.caption, design: .default))
+                                    .font(VelaTheme.caption1())
                                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
@@ -1334,14 +1345,18 @@ struct VelaTrainingRotationView: View {
                 }
             } else {
                 Text(adaptationText)
-                    .font(.system(.footnote, design: .default))
+                    .font(VelaTheme.footnote())
                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
                     .lineSpacing(3)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(17)
-        .background(VelaTheme.rhythmMist.opacity(0.72), in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
+        .padding(VelaTheme.cardPadding)
+        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
+        }
     }
 
     private func decisionLabel(_ decision: DailyTrainingDecisionType) -> String {
@@ -1361,7 +1376,7 @@ struct VelaTrainingRotationView: View {
     /// 算法打通（批次 B）：今日的 Vela 调整提案（BodyInterpreterEngine 产出）。
     /// 采纳 → 应用到计划；拒绝 → 标记 rejected。ADR 0008：任何计划修改由用户确认。
     private var adaptationProposalsSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: VelaTheme.cardGap) {
             ForEach(planAdaptations) { adaptation in
                 PlanProposalDiffCard(
                     originalTitle: adaptation.originalDayTitle,
@@ -1375,7 +1390,7 @@ struct VelaTrainingRotationView: View {
                 )
             }
             Text("采纳后计划即时更新，今日决策面板将在下次刷新时重算。")
-                .font(.system(.caption2, design: .default))
+                .font(VelaTheme.caption2())
                 .foregroundStyle(VelaTheme.meta)
                 .padding(.leading, 4)
         }
@@ -1409,12 +1424,12 @@ struct VelaTrainingRotationView: View {
     }
 
     private var coachActions: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: VelaTheme.space2) {
             Button {
                 VelaAppState.shared.routeToCoach(question: coachPlanQuestion, surface: .plan)
             } label: {
                 Label("和 BodySeek 调整计划", systemImage: "bubble.left")
-                    .font(.system(.subheadline, design: .default, weight: .semibold))
+                    .font(VelaTheme.subheadline().weight(.semibold))
                     .foregroundStyle(VelaTheme.rhythmDeepOn)
                     .frame(maxWidth: .infinity)
                     .frame(height: 50)
@@ -1423,7 +1438,7 @@ struct VelaTrainingRotationView: View {
             .buttonStyle(.cardPress)
 
             Text("Vela 只提出方案；任何影响后续安排的修改都由你确认。")
-                .font(.system(.caption2, design: .default))
+                .font(VelaTheme.caption2())
                 .foregroundStyle(VelaTheme.rhythmInkSecondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
@@ -1481,10 +1496,10 @@ struct VelaTrainingRotationView: View {
     private func planMetric(_ title: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.system(.caption2, design: .default, weight: .medium))
+                .font(VelaTheme.caption2().weight(.medium))
                 .foregroundStyle(VelaTheme.rhythmInkSecondary)
             Text(value)
-                .font(.system(.subheadline, design: .default, weight: .semibold))
+                .font(VelaTheme.subheadline().weight(.semibold))
                 .foregroundStyle(VelaTheme.rhythmInk)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1492,7 +1507,7 @@ struct VelaTrainingRotationView: View {
 
     private var metricDivider: some View {
         Rectangle()
-            .fill(VelaTheme.rhythmMist)
+            .fill(VelaTheme.hairline)
             .frame(width: 1, height: 32)
             .padding(.horizontal, 12)
     }
@@ -1643,7 +1658,11 @@ private struct PlanDayRow: View {
         }
         .padding(13)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(VelaTheme.rhythmMist.opacity(0.45), in: RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous))
+        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
+        }
         .padding(.leading, 47)
     }
 

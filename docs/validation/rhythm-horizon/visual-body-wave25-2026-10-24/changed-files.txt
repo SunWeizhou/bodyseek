@@ -1,0 +1,16 @@
+ VelaApp/Core/Theme/VelaTheme.swift                 |   9 +
+ VelaApp/Features/Minimal/BodySeekInstrument.swift  | 197 +++++++++++---
+ VelaApp/Features/Minimal/TodaySignalGrid.swift     | 275 ++++++++++++-------
+ VelaApp/Features/Minimal/TrainingHeroSection.swift | 129 +++++----
+ .../Features/Minimal/VelaTrainingPlanView.swift    | 115 ++++----
+ VelaApp/Features/Trends/VelaTrendsView.swift       | 303 +++++++++++++++------
+ VelaUITests/VelaSmokeUITests.swift                 |  92 +++++++
+ 7 files changed, 786 insertions(+), 334 deletions(-)
+ M VelaApp/Core/Theme/VelaTheme.swift
+ M VelaApp/Features/Minimal/BodySeekInstrument.swift
+ M VelaApp/Features/Minimal/TodaySignalGrid.swift
+ M VelaApp/Features/Minimal/TrainingHeroSection.swift
+ M VelaApp/Features/Minimal/VelaTrainingPlanView.swift
+ M VelaApp/Features/Trends/VelaTrendsView.swift
+ M VelaUITests/VelaSmokeUITests.swift
+?? docs/validation/rhythm-horizon/visual-body-wave25-2026-10-24/

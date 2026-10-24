@@ -352,6 +352,15 @@ enum VelaTheme {
     static func instrumentValue() -> Font {
         .system(.title2, design: .default, weight: .medium).monospacedDigit()
     }
+    /// Surface hero numeral: the one reading a screen leads with.
+    /// One step above the instrument strip so the primary score owns the fold.
+    static func heroValue() -> Font {
+        .system(.largeTitle, design: .default, weight: .semibold).monospacedDigit()
+    }
+    /// Supporting strip numeral: secondary scores stay quieter than the hero.
+    static func supportValue() -> Font {
+        .system(.callout, design: .default, weight: .semibold).monospacedDigit()
+    }
     /// Page-level statement on Today / Trends / Plan.
     static func statement() -> Font { .system(.title2, design: .default, weight: .semibold) }
     /// Section eyebrow label

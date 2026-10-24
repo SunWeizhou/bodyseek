@@ -479,6 +479,89 @@ final class VelaSmokeUITests: XCTestCase {
         large.terminate()
     }
 
+    /// Wave25 evidence: Today hero (hero score + compact support strip) and
+    /// Trends (compact period summary + heterogeneous metric rows) in dark and
+    /// AccessibilityXXXL. The stable identifiers `today-score-instrument`,
+    /// `today-score-recovery`, `trends-content` and `trends-period-summary`
+    /// are owned by the production views and must survive this visual pass.
+    func testVisualBodyWave25Snapshots() {
+        let todayDark = launchApp(
+            initialTab: 0,
+            extraArguments: ["-velaDisableNetworkAI", "-vela_dark_mode", "dark"]
+        )
+        XCTAssertTrue(
+            todayDark.descendants(matching: .any)["today-score-instrument"].waitForExistence(timeout: 10),
+            "Today hero instrument did not appear in dark mode"
+        )
+        XCTAssertTrue(
+            todayDark.descendants(matching: .any)["today-score-recovery"].waitForExistence(timeout: 10),
+            "Today recovery reading did not appear in dark mode"
+        )
+        captureTrends("wave25-today-hero-dark")
+        todayDark.terminate()
+
+        let todayLarge = launchApp(
+            initialTab: 0,
+            extraArguments: [
+                "-velaDisableNetworkAI", "-vela_dark_mode", "dark",
+                "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"
+            ]
+        )
+        XCTAssertTrue(
+            todayLarge.descendants(matching: .any)["today-score-instrument"].waitForExistence(timeout: 10),
+            "Today hero instrument did not appear at AccessibilityXXXL"
+        )
+        captureTrends("wave25-today-hero-accessibility")
+        todayLarge.terminate()
+
+        let trendsDark = launchApp(
+            initialTab: 1,
+            extraArguments: ["-velaDisableNetworkAI", "-vela_dark_mode", "dark"]
+        )
+        XCTAssertTrue(
+            trendsDark.descendants(matching: .any)["trends-content"].waitForExistence(timeout: 10),
+            "Trends content did not appear in dark mode"
+        )
+        XCTAssertTrue(
+            trendsDark.descendants(matching: .any)["trends-period-summary"].waitForExistence(timeout: 10),
+            "Trends period summary banner did not appear in dark mode"
+        )
+        captureTrends("wave25-trends-hierarchy-dark")
+        trendsDark.swipeUp()
+        XCTAssertTrue(
+            trendsDark.descendants(matching: .any)["trends-content"].waitForExistence(timeout: 5),
+            "Trends content disappeared after scrolling"
+        )
+        captureTrends("wave25-trends-hierarchy-dark-scrolled")
+        trendsDark.terminate()
+
+        let trendsLarge = launchApp(
+            initialTab: 1,
+            extraArguments: [
+                "-velaDisableNetworkAI", "-vela_dark_mode", "dark",
+                "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"
+            ]
+        )
+        XCTAssertTrue(
+            trendsLarge.descendants(matching: .any)["trends-content"].waitForExistence(timeout: 10),
+            "Trends content did not appear at AccessibilityXXXL"
+        )
+        captureTrends("wave25-trends-hierarchy-accessibility")
+        trendsLarge.terminate()
+
+        // Plan tab: light alignment evidence (type scale / card gaps / hairline).
+        // The reference screenshot's training landing page is only reachable by
+        // tapping the 训练 portal, which sits under the floating AskBar; kept out
+        // of this snapshot pass so the test stays deterministic.
+        let planDark = launchApp(initialTab: 2, extraArguments: ["-velaDisableNetworkAI", "-vela_dark_mode", "dark"])
+        XCTAssertTrue(
+            planDark.descendants(matching: .any)["surface-2"].waitForExistence(timeout: 10),
+            "Plan surface did not appear in dark mode"
+        )
+        captureTrends("wave25-plan-dark")
+        planDark.terminate()
+    }
+
     private func captureTrends(_ name: String) {
         // Let the asynchronous Store load settle before recording visual evidence.
         Thread.sleep(forTimeInterval: 1)
