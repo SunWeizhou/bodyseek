@@ -85,9 +85,9 @@ struct TrainingHeroSection: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 9)
-                .background(VelaTheme.rhythmCanvasRaised.opacity(0.85), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .background(VelaTheme.rhythmCanvasRaised.opacity(0.85), in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                         .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                 )
                 .padding(.top, 14)
@@ -114,9 +114,9 @@ struct TrainingHeroSection: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
                 .frame(maxWidth: .infinity, minHeight: VelaTheme.minimumHitTarget, alignment: .leading)
-                .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                         .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                 }
             }
@@ -390,9 +390,9 @@ struct TrainingHeroSection: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, minHeight: 92, alignment: .topLeading)
-        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                 .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         }
     }
@@ -434,9 +434,9 @@ struct TrainingHeroSection: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, minHeight: 92, alignment: .topLeading)
-        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                 .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         }
     }
@@ -515,8 +515,8 @@ struct TrainingHeroSection: View {
                             }
                             .padding(10)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(VelaTheme.rhythmCanvasRaised.opacity(0.95), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .background(VelaTheme.rhythmCanvasRaised.opacity(0.95), in: RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous))
+                            .contentShape(RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous))
                         }
                         .buttonStyle(.plain)
                     }
@@ -548,7 +548,7 @@ struct TrainingHeroSection: View {
                     }
                 }
                 .padding(12)
-                .background(VelaTheme.rhythmCanvasRaised.opacity(0.7), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .background(VelaTheme.rhythmCanvasRaised.opacity(0.7), in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
                 .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
             }
         }
@@ -1077,9 +1077,9 @@ struct TrainingMuscleLandscape: View {
                         .foregroundStyle(VelaTheme.rhythmInkSecondary)
                 }
                 .padding(16)
-                .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                         .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                 }
             } else {
@@ -1099,9 +1099,9 @@ struct TrainingMuscleLandscape: View {
                     }
                 }
                 .padding(16)
-                .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+                .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                         .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                 }
             }
@@ -1276,7 +1276,7 @@ private struct MuscleExpandedPanel: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(VelaTheme.rhythmMist.opacity(0.45), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(VelaTheme.rhythmMist.opacity(0.45), in: RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous))
     }
 
     /// 最近 7 天逐日组数迷你柱（真实组数，空天为弱化占位）。
@@ -1453,9 +1453,9 @@ struct TrainingPostWorkoutPrompt: View {
                 .frame(minHeight: 44)
         }
         .padding(14)
-        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                 .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         }
     }
@@ -1498,7 +1498,7 @@ struct TrainingProposalPortal: View {
         .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCardLarge, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: VelaTheme.radiusCardLarge, style: .continuous)
-                .stroke(proposals.isEmpty ? VelaTheme.rhythmMist : VelaTheme.rhythmDeep.opacity(0.35), lineWidth: 0.75)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         }
         .contentShape(RoundedRectangle(cornerRadius: VelaTheme.radiusCardLarge, style: .continuous))
     }
@@ -1591,7 +1591,7 @@ struct TrainingPlanPortal: View {
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 8)
-                .background(VelaTheme.rhythmDeep.opacity(0.10), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .background(VelaTheme.rhythmDeep.opacity(0.10), in: RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous))
                 .padding(.top, 12)
             }
         }
@@ -1884,12 +1884,12 @@ struct TrainingStatusSection: View {
             }
             .padding(11)
             .frame(maxWidth: .infinity, minHeight: 108, alignment: .topLeading)
-            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(color.opacity(0.22), lineWidth: 0.75)
+                RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+                    .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
             }
-            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
         }
         .buttonStyle(.cardPress)
         .accessibilityLabel("\(title) \(value)，\(detail)")
@@ -2042,7 +2042,7 @@ struct TrainingHistoryView: View {
                     }
                     .padding(16)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                    .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
                 } else {
                     RecentWorkoutsSection(
                         recentWorkouts: recentWorkouts,
@@ -2060,7 +2060,7 @@ struct TrainingHistoryView: View {
                         .foregroundStyle(VelaTheme.rhythmDeepOn)
                         .frame(maxWidth: .infinity)
                         .frame(minHeight: VelaTheme.minimumHitTarget)
-                        .background(VelaTheme.rhythmDeep, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .background(VelaTheme.rhythmDeep, in: Capsule())
                 }
                 .buttonStyle(.cardPress)
             }

@@ -344,6 +344,79 @@ final class VelaSmokeUITests: XCTestCase {
         captureTrends("interaction-consent-cancelled-draft")
     }
 
+    /// Wave22 evidence: Coach history drawer, quick actions, Journal logger sheets,
+    /// onboarding sample preview, recovery ring and Plan surface on preview data.
+    /// Read-only launches only; production navigation and existing debug seams.
+    func testVisualBodyWave22Snapshots() {
+        let drawer = launchApp(extraArguments: [
+            "-velaOpenCoach", "-velaOpenCoachHistory", "-velaDisableNetworkAI", "-vela_dark_mode", "dark"
+        ])
+        XCTAssertTrue(drawer.staticTexts["历史对话"].waitForExistence(timeout: 10))
+        captureTrends("wave22-coach-history-dark")
+        drawer.terminate()
+
+        let drawerLarge = launchApp(extraArguments: [
+            "-velaOpenCoach", "-velaOpenCoachHistory", "-velaDisableNetworkAI", "-vela_dark_mode", "light",
+            "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"
+        ])
+        XCTAssertTrue(drawerLarge.staticTexts["历史对话"].waitForExistence(timeout: 10))
+        captureTrends("wave22-coach-history-accessibility")
+        drawerLarge.terminate()
+
+        let quick = launchApp(extraArguments: ["-velaDisableNetworkAI", "-vela_dark_mode", "dark"])
+        assertSurface(0, in: quick)
+        quick.buttons["记录"].tap()
+        XCTAssertTrue(quick.buttons["记录体重"].waitForExistence(timeout: 5))
+        captureTrends("wave22-quick-actions-dark")
+        quick.terminate()
+
+        let large = launchApp(extraArguments: [
+            "-velaDisableNetworkAI", "-vela_dark_mode", "light",
+            "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"
+        ])
+        assertSurface(0, in: large)
+        large.buttons["记录"].tap()
+        XCTAssertTrue(large.buttons["记录体重"].waitForExistence(timeout: 5))
+        captureTrends("wave22-quick-actions-accessibility")
+        large.terminate()
+
+        let journal = launchApp(extraArguments: ["-velaDisableNetworkAI", "-vela_dark_mode", "dark"])
+        assertSurface(0, in: journal)
+        journal.buttons["记录"].tap()
+        XCTAssertTrue(journal.buttons["手记"].waitForExistence(timeout: 5))
+        journal.buttons["手记"].tap()
+        XCTAssertTrue(journal.staticTexts["习惯与记录"].waitForExistence(timeout: 10))
+        let quickNote = journal.staticTexts["随手记一餐或一个行为"].firstMatch
+        for _ in 0..<5 where !quickNote.isHittable { journal.swipeUp() }
+        XCTAssertTrue(quickNote.isHittable)
+        quickNote.tap()
+        XCTAssertTrue(journal.staticTexts["随手记"].firstMatch.waitForExistence(timeout: 5))
+        captureTrends("wave22-journal-quick-note-dark")
+        journal.terminate()
+
+        let onboarding = launchApp(extraArguments: [
+            "-velaForceOnboarding", "先看见身体，再决定今天。", "-vela_dark_mode", "dark"
+        ])
+        XCTAssertTrue(onboarding.staticTexts["先看见身体，再决定今天。"].waitForExistence(timeout: 10))
+        captureTrends("wave22-onboarding-preview-dark")
+        onboarding.terminate()
+
+        let recovery = launchApp(extraArguments: [
+            "-velaOpenRecoveryDetail", "-velaDisableNetworkAI", "-vela_dark_mode", "dark"
+        ])
+        XCTAssertTrue(recovery.descendants(matching: .any)["metric-detail-recovery"].waitForExistence(timeout: 10))
+        captureTrends("wave22-recovery-detail-dark")
+        recovery.terminate()
+
+        let plan = launchApp(
+            initialTab: 2,
+            extraArguments: ["-velaDisableNetworkAI", "-velaPlanProposalFixture", "-vela_dark_mode", "dark"]
+        )
+        assertSurface(2, in: plan)
+        captureTrends("wave22-plan-dark")
+        plan.terminate()
+    }
+
     private func captureTrends(_ name: String) {
         // Let the asynchronous Store load settle before recording visual evidence.
         Thread.sleep(forTimeInterval: 1)

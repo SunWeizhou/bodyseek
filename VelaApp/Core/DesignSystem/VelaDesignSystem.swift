@@ -612,7 +612,7 @@ struct SetInputRow: View {
                 .foregroundStyle(VelaTheme.fg)
             Spacer()
             Text(weight)
-                .font(.system(.footnote, design: .rounded, weight: .semibold))
+                .font(VelaTheme.footnote().weight(.semibold))
                 .foregroundStyle(VelaTheme.fg2)
         }
         .padding(10)
@@ -920,7 +920,7 @@ struct VelaMakeHeader<Trailing: View>: View {
         HStack(alignment: .bottom, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(subtitle)
-                    .font(.system(.footnote, design: .rounded, weight: .regular))
+                    .font(VelaTheme.footnote())
                     .foregroundStyle(VelaTheme.fg2)
                 Text(title)
                     .font(VelaTheme.title1().weight(.bold))
@@ -960,7 +960,7 @@ struct VelaMakeSectionHeader: View {
 
     var body: some View {
         Text(title)
-            .font(.system(.footnote, design: .rounded, weight: .regular))
+            .font(VelaTheme.footnote())
             .foregroundStyle(VelaTheme.fg2)
             .padding(.horizontal, 4)
     }
@@ -1033,7 +1033,7 @@ struct VelaPremiumRing: View {
             if showValue {
                 VStack(spacing: 2) {
                     Text(value >= 0 ? "\(Int(value.rounded()))" : "--")
-                        .font(.system(size: size * 0.28, weight: .bold, design: .rounded))
+                        .font(.system(size: size * 0.28, weight: .bold, design: .default))
                         .monospacedDigit()
                         .foregroundStyle(VelaTheme.rhythmInk)
                     // Domain label underneath

@@ -1,24 +1,20 @@
 import SwiftUI
 
+/// Legacy sail mark. Design D surfaces use `BodySeekBrandMark(monochrome: true)`;
+/// this component stays flattened to solid ink on `surfaceFloating` + hairline so
+/// no decorative gradient can leak back into a D surface.
 struct VelaLogoMark: View {
     var size: CGFloat = 44
 
+    private var cornerRadius: CGFloat { VelaTheme.radiusSm }
+
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: size * 0.24, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            VelaTheme.accent.opacity(0.12),
-                            VelaTheme.rhythmInk.opacity(0.06)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(VelaTheme.surfaceFloating)
                 .overlay(
-                    RoundedRectangle(cornerRadius: size * 0.24, style: .continuous)
-                        .stroke(VelaTheme.accent.opacity(0.2), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                 )
 
             Canvas { context, canvasSize in
@@ -36,29 +32,22 @@ struct VelaLogoMark: View {
                 sail.addLine(to: inner)
                 sail.closeSubpath()
 
-                context.fill(
-                    sail,
-                    with: .linearGradient(
-                        Gradient(colors: [VelaTheme.accent, VelaTheme.rhythmInk]),
-                        startPoint: left,
-                        endPoint: right
-                    )
-                )
+                context.fill(sail, with: .color(VelaTheme.rhythmInk))
 
                 var mast = Path()
                 mast.move(to: left)
                 mast.addLine(to: bottom)
                 mast.addLine(to: CGPoint(x: w * 0.34, y: h * 0.62))
-                context.stroke(mast, with: .color(VelaTheme.fg.opacity(0.88)), style: StrokeStyle(lineWidth: max(1.5, size * 0.045), lineCap: .round, lineJoin: .round))
+                context.stroke(mast, with: .color(VelaTheme.rhythmInk), style: StrokeStyle(lineWidth: max(1.5, size * 0.045), lineCap: .round, lineJoin: .round))
 
                 [left, bottom, right].forEach { point in
                     let rect = CGRect(x: point.x - size * 0.035, y: point.y - size * 0.035, width: size * 0.07, height: size * 0.07)
-                    context.fill(Path(ellipseIn: rect), with: .color(VelaTheme.fg))
+                    context.fill(Path(ellipseIn: rect), with: .color(VelaTheme.rhythmInk))
                 }
             }
             .padding(size * 0.17)
         }
         .frame(width: size, height: size)
-        .accessibilityLabel("Vela")
+        .accessibilityLabel("BodySeek")
     }
 }

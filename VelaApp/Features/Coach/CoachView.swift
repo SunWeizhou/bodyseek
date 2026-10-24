@@ -1095,9 +1095,9 @@ struct VelaCoachView: View {
                     .foregroundStyle(VelaTheme.rhythmInk)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
-                    .background(VelaTheme.surfaceFloating, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .background(VelaTheme.surfaceFloating, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                             .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                     )
             }
@@ -1349,11 +1349,11 @@ struct VelaCoachView: View {
                         .padding(.horizontal, 12)
                         .padding(.vertical, 10)
                         .background(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                                 .fill(VelaTheme.rhythmCanvasRaised)
                         )
                         .overlay(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                                 .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                         )
                     }
@@ -1592,9 +1592,9 @@ struct VelaCoachView: View {
             Spacer(minLength: 0)
         }
         .padding(12)
-        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                 .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         )
         .padding(.horizontal, VelaTheme.pagePadding)
@@ -1730,10 +1730,10 @@ struct VelaCoachView: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .background(
-                        RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        RoundedRectangle(cornerRadius: VelaTheme.radiusInput, style: .continuous)
                             .fill(VelaTheme.rhythmCanvasRaised)
                             .overlay(
-                                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                                RoundedRectangle(cornerRadius: VelaTheme.radiusInput, style: .continuous)
                                     .stroke(isFocused ? VelaTheme.rhythmInk : VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                             )
                     )
@@ -2214,7 +2214,12 @@ private struct CoachOutboundConsentView: View {
                 .tint(VelaTheme.accent)
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(.ultraThinMaterial)
+                .background(VelaTheme.rhythmCanvasRaised)
+                .overlay(alignment: .top) {
+                    Rectangle()
+                        .fill(VelaTheme.hairline)
+                        .frame(height: VelaTheme.hairlineWidth)
+                }
             }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

@@ -21,9 +21,9 @@ struct PlusActionSheet: View {
     }
 
     private var actions: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: VelaTheme.space5) {
             // Spacer to replace deleted hint capsule and keep correct layout margin
-            Spacer().frame(height: 16)
+            Spacer().frame(height: VelaTheme.space4)
             
             // 2. 3×3 Grid
             LazyVGrid(
@@ -101,7 +101,7 @@ struct PlusActionSheet: View {
                     }
                 }
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal, VelaTheme.pagePadding)
             
             Spacer()
             
@@ -110,14 +110,14 @@ struct PlusActionSheet: View {
                 dismiss()
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(.body.weight(.semibold))
                     .foregroundStyle(VelaTheme.fg)
-                    .frame(width: 58, height: 58)
+                    .frame(width: VelaTheme.minimumHitTarget, height: VelaTheme.minimumHitTarget)
                     .background(Circle().fill(VelaTheme.cardBg))
                     .overlay(Circle().stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
             }
             .buttonStyle(.plain)
-            .padding(.bottom, 24)
+            .padding(.bottom, VelaTheme.space6)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(VelaTheme.bg) // Warm canvas base

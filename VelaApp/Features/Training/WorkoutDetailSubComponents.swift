@@ -115,8 +115,8 @@ struct WorkoutHeartRateInsightSheet: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+        .background(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
+        .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
     }
 }
 
@@ -172,8 +172,8 @@ struct StrengthSetDetailSheet: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+        .background(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
+        .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
     }
 }
 
@@ -257,7 +257,7 @@ struct WorkoutExerciseListView: View {
                     }
                 }
                 .padding(16)
-                .velaNativeCard(radius: 18)
+                .velaNativeCard()
             }
         }
     }
@@ -321,7 +321,7 @@ struct WorkoutNotesCardView: View {
                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
             }
             .padding(16)
-            .velaNativeCard(radius: 18)
+            .velaNativeCard()
         }
     }
 }

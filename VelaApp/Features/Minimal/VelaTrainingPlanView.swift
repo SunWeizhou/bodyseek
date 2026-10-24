@@ -400,7 +400,7 @@ struct VelaPlanView: View {
                                     .font(.system(size: 14, weight: .semibold))
                                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
                                     .frame(width: 38, height: 38)
-                                    .overlay(Circle().strokeBorder(VelaTheme.rhythmMist, style: StrokeStyle(lineWidth: 1.2, dash: [3, 3])))
+                                    .overlay(Circle().strokeBorder(VelaTheme.hairline, style: StrokeStyle(lineWidth: VelaTheme.hairlineWidth, dash: [3, 3])))
                                 Text("添加一项（最多 3 项）")
                                     .font(VelaTheme.subheadline())
                                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
@@ -466,7 +466,7 @@ struct VelaPlanView: View {
                 }
             }
             .padding(.horizontal, 12)
-            .background(VelaTheme.rhythmCanvas, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background(VelaTheme.rhythmCanvas, in: RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous))
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("plan-proposal-diff")
 
@@ -848,7 +848,7 @@ private struct PlanActionRow: View {
                 Circle()
                     .stroke(
                         action.completedAt == nil ? VelaTheme.rhythmInk : VelaTheme.rhythmInkSecondary,
-                        lineWidth: 1.25
+                        lineWidth: VelaTheme.hairlineWidth
                     )
                 if action.completedAt != nil {
                     Circle().fill(VelaTheme.rhythmInkSecondary)
@@ -1341,7 +1341,7 @@ struct VelaTrainingRotationView: View {
             }
         }
         .padding(17)
-        .background(VelaTheme.rhythmMist.opacity(0.72), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .background(VelaTheme.rhythmMist.opacity(0.72), in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
     }
 
     private func decisionLabel(_ decision: DailyTrainingDecisionType) -> String {
@@ -1418,7 +1418,7 @@ struct VelaTrainingRotationView: View {
                     .foregroundStyle(VelaTheme.rhythmDeepOn)
                     .frame(maxWidth: .infinity)
                     .frame(height: 50)
-                    .background(VelaTheme.rhythmDeep, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .background(VelaTheme.rhythmDeep, in: Capsule())
             }
             .buttonStyle(.cardPress)
 
@@ -1643,7 +1643,7 @@ private struct PlanDayRow: View {
         }
         .padding(13)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(VelaTheme.rhythmMist.opacity(0.45), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(VelaTheme.rhythmMist.opacity(0.45), in: RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous))
         .padding(.leading, 47)
     }
 

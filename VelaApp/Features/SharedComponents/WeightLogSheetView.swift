@@ -29,7 +29,7 @@ struct WeightLogSheetView: View {
                             .padding()
                             .frame(maxWidth: .infinity)
                             .background(VelaTheme.rhythmInk.opacity(0.12))
-                            .cornerRadius(10)
+                            .cornerRadius(VelaTheme.radiusSm)
                         }
 
                         VStack(spacing: 16) {
@@ -62,7 +62,7 @@ struct WeightLogSheetView: View {
                             .foregroundStyle(VelaTheme.fg)
                             .padding(14)
                             .background(
-                                RoundedRectangle(cornerRadius: VelaTheme.radiusMd, style: .continuous)
+                                RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                                     .fill(VelaTheme.cardBg.opacity(0.6))
                             )
                         }
@@ -78,7 +78,7 @@ struct WeightLogSheetView: View {
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, VelaTheme.space3)
                                 .frame(minHeight: VelaTheme.minimumHitTarget)
-                                .background(VelaTheme.accent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                .background(VelaTheme.accent, in: Capsule())
                         }
                     }
                     .padding(VelaTheme.pagePadding)

@@ -12,6 +12,7 @@ struct CoachHistoryDrawer: View {
     @Binding var isRenamingSession: Bool
     @Binding var sessionPendingDeletion: CoachSessionRecord?
     @State private var searchText = ""
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var filteredSessions: [CoachSessionRecord] {
         guard !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
@@ -28,7 +29,7 @@ struct CoachHistoryDrawer: View {
             // Drawer Header
             HStack {
                 Text("历史对话")
-                    .font(.system(.body, design: .rounded, weight: .bold))
+                    .font(VelaTheme.body().weight(.bold))
                     .foregroundStyle(VelaTheme.rhythmInk)
                 Spacer()
                 Button {
@@ -56,12 +57,12 @@ struct CoachHistoryDrawer: View {
                     Image(systemName: "plus")
                         .font(.system(size: 14, weight: .bold))
                     Text("新建对话")
-                        .font(.system(.footnote, design: .rounded, weight: .bold))
+                        .font(VelaTheme.footnote().weight(.bold))
                 }
                 .foregroundStyle(VelaTheme.rhythmDeepOn)
                 .frame(maxWidth: .infinity)
-                .frame(height: 44)
-                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(VelaTheme.rhythmDeep))
+                .frame(minHeight: VelaTheme.minimumHitTarget)
+                .background(Capsule().fill(VelaTheme.rhythmDeep))
             }
             .buttonStyle(.cardPress)
             .padding(.horizontal, 20)
@@ -81,11 +82,22 @@ struct CoachHistoryDrawer: View {
                 }
             }
             .padding(10)
-            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .background(
+                RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous)
+                    .fill(VelaTheme.rhythmCanvasRaised)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous)
+                    .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
+            )
             .padding(.horizontal, 20)
             .padding(.bottom, 12)
             
-            Divider().padding(.horizontal, 20).padding(.bottom, 12)
+            Rectangle()
+                .fill(VelaTheme.hairline)
+                .frame(height: VelaTheme.hairlineWidth)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 12)
             
             // Sessions Scroll List
             ScrollView {
@@ -103,12 +115,13 @@ struct CoachHistoryDrawer: View {
 
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text(session.title.isEmpty ? "新对话" : session.title)
-                                            .font(.system(.footnote, design: .rounded, weight: .bold))
+                                            .font(VelaTheme.footnote().weight(.bold))
                                             .foregroundStyle(VelaTheme.rhythmInk)
-                                            .lineLimit(1)
+                                            .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                                            .fixedSize(horizontal: false, vertical: true)
 
                                         Text(session.updatedAt.formatted(.dateTime.month().day().hour().minute()))
-                                            .font(.system(.caption2, design: .rounded, weight: .semibold))
+                                            .font(VelaTheme.caption2().weight(.semibold))
                                             .foregroundStyle(VelaTheme.rhythmInkSecondary)
                                     }
 
@@ -151,11 +164,14 @@ struct CoachHistoryDrawer: View {
                         .padding(.horizontal, 14)
                         .padding(.vertical, 12)
                         .background(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                                 .fill(vm.currentSession?.id == session.id ? VelaTheme.rhythmCanvasRaised : Color.clear)
                                 .overlay(
-                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                        .stroke(vm.currentSession?.id == session.id ? VelaTheme.rhythmDeep.opacity(0.3) : Color.clear, lineWidth: 1)
+                                    RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+                                        .stroke(
+                                            vm.currentSession?.id == session.id ? VelaTheme.rhythmInk : Color.clear,
+                                            lineWidth: VelaTheme.hairlineWidth
+                                        )
                                 )
                         )
                         .padding(.horizontal, 14)
@@ -178,10 +194,10 @@ struct CoachHistoryDrawer: View {
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("本机健康资料")
-                        .font(.system(.footnote, design: .rounded, weight: .bold))
+                        .font(VelaTheme.footnote().weight(.bold))
                         .foregroundStyle(VelaTheme.rhythmInk)
                     Text("本机优先存储")
-                        .font(.system(.caption2, design: .rounded, weight: .bold))
+                        .font(VelaTheme.caption2().weight(.bold))
                         .foregroundStyle(VelaTheme.rhythmDeep)
                 }
                 Spacer()
