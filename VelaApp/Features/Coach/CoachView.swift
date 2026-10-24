@@ -1195,7 +1195,7 @@ struct VelaCoachView: View {
                     .foregroundStyle(VelaTheme.rhythmInk)
                     .frame(maxWidth: .infinity, minHeight: 44)
                     .background(VelaTheme.rhythmCanvas, in: Capsule())
-                    .overlay(Capsule().stroke(VelaTheme.rhythmInk, lineWidth: 1.2))
+                    .overlay(Capsule().stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
                     .buttonStyle(.plain)
             }
         }
@@ -1203,7 +1203,7 @@ struct VelaCoachView: View {
         .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
-                .stroke(VelaTheme.rhythmInk, lineWidth: 1.2)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         )
     }
 
@@ -1354,7 +1354,7 @@ struct VelaCoachView: View {
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                         )
                     }
                     .buttonStyle(.cardPress)
@@ -1595,7 +1595,7 @@ struct VelaCoachView: View {
         .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(VelaTheme.rhythmDeep.opacity(0.35), lineWidth: 0.75)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         )
         .padding(.horizontal, VelaTheme.pagePadding)
         .padding(.bottom, 8)
@@ -1734,7 +1734,7 @@ struct VelaCoachView: View {
                             .fill(VelaTheme.rhythmCanvasRaised)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 24, style: .continuous)
-                                    .stroke(isFocused ? VelaTheme.rhythmDeep : VelaTheme.rhythmMist, lineWidth: isFocused ? 1 : 0.75)
+                                    .stroke(isFocused ? VelaTheme.rhythmInk : VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                             )
                     )
                     .onSubmit {

@@ -116,14 +116,9 @@ struct WikiProfileView: View {
                             .frame(height: 6)
                         Capsule()
                             .fill(
-                                LinearGradient(
-                                    colors: [VelaTheme.accent, VelaTheme.tagPurple],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
+                                VelaTheme.rhythmInk
                             )
                             .frame(width: total > 0 ? geo.size.width * CGFloat(filled) / CGFloat(total) : 0, height: 6)
-                            .shadow(color: VelaTheme.accent.opacity(0.3), radius: 3)
                     }
                 }
                 .frame(height: 6)

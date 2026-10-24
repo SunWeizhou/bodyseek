@@ -30,11 +30,7 @@ struct MetricCoachCard: View {
                                 Image(systemName: "sparkles")
                                     .font(.headline)
                                     .foregroundStyle(
-                                        LinearGradient(
-                                            colors: [.pink, .purple, .cyan],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        )
+                                        VelaTheme.rhythmInk
                                     )
                                     .scaleEffect(isBouncing ? 1.25 : 0.8)
                                     .opacity(isBouncing ? 1.0 : 0.4)

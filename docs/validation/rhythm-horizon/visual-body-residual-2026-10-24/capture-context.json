@@ -1,0 +1,23 @@
+{
+  "implementationCommit": "1b0ed1bfc2f9953781f6f5935468ef81ef674b4b",
+  "baseCommit": "dddf4b31a1876e18648ef21bb4e24c2e6d741202",
+  "sourceResultBundle": "build/VisualResidual-verified-SE-20261024.xcresult",
+  "testIdentifier": "VelaSmokeUITests/testVisualResidualSnapshots()",
+  "data": "Existing -velaPreviewDashboard fixtures; empty simulator journal; no personal HealthKit export",
+  "locale": "simplifiedChinese",
+  "appearance": "Dark at UICTContentSizeCategoryL; Sleep Light at UICTContentSizeCategoryAccessibilityXXXL",
+  "screenshots": [
+    "residual-energy-dark.png",
+    "residual-journal-dark.png",
+    "residual-onboarding-agent-dark.png",
+    "residual-onboarding-body-dark.png",
+    "residual-onboarding-health-dark.png",
+    "residual-quick-actions-dark.png",
+    "residual-recovery-dark.png",
+    "residual-sleep-dark.png",
+    "residual-sleep-light-accessibility-scrolled.png",
+    "residual-sleep-light-accessibility.png",
+    "residual-strain-dark.png",
+    "residual-stress-dark.png"
+  ]
+}

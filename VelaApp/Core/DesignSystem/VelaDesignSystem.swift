@@ -421,7 +421,7 @@ struct CoachArtifactCard: View {
         switch artifact.type {
         case .postWorkoutReview, .trainingAdjustment, .workoutReadiness: return VelaTheme.rhythmInk
         case .eveningReview: return VelaTheme.rhythmInk
-        case .wikiUpdateProposal: return Color(hex: "#FF9F0A")
+        case .wikiUpdateProposal: return VelaTheme.rhythmInk
         default: return VelaTheme.accent
         }
     }
@@ -985,16 +985,14 @@ struct VelaMakeIconTile: View {
 
 // MARK: - Premium Score Ring
 
-/// A high-fidelity score ring with angular gradient stroke, endpoint glow,
-/// and animated fill. Used for the three primary scores on the Today surface.
-///
-/// Design references: Apple Watch Activity Rings, Whoop strain ring.
+/// Legacy score ring with solid ink and a quiet track.
+/// Today uses the equal-width score strip; secondary callers stay monochrome.
 /// The ring is decorative and uses accessibility labels on the parent view.
 struct VelaPremiumRing: View {
     let value: Double          // 0–100
     let domain: VelaMetricDomain
     var size: CGFloat = 120
-    var lineWidth: CGFloat = 10
+    var lineWidth: CGFloat = 3
     var showValue: Bool = true
     var animated: Bool = true
 
@@ -1022,32 +1020,14 @@ struct VelaPremiumRing: View {
                     lineWidth: lineWidth
                 )
 
-            // Gradient fill ring
+            // Solid ink fill ring
             Circle()
                 .trim(from: 0, to: animated ? animatedProgress : progress)
                 .stroke(
-                    angularGradient,
+                    domainColor,
                     style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
                 )
                 .rotationEffect(.degrees(-90))
-
-            // Endpoint glow
-            if animatedProgress > 0.02 || !animated {
-                endpointGlow
-            }
-
-            // Ambient glow behind ring
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [domainColor.opacity(0.08), .clear],
-                        center: .center,
-                        startRadius: size * 0.25,
-                        endRadius: size * 0.55
-                    )
-                )
-                .frame(width: size, height: size)
-                .allowsHitTesting(false)
 
             // Center value
             if showValue {
@@ -1092,43 +1072,6 @@ struct VelaPremiumRing: View {
             }
         }
         .accessibilityHidden(true)
-    }
-
-    private var angularGradient: AngularGradient {
-        AngularGradient(
-            colors: [
-                domainColor.opacity(0.35),
-                domainColor.opacity(0.65),
-                domainColor.opacity(0.9),
-                domainColor,
-                domainColor.opacity(0.9),
-                domainColor.opacity(0.35)
-            ],
-            center: .center,
-            startAngle: .degrees(0),
-            endAngle: .degrees(360)
-        )
-    }
-
-    private var endpointGlow: some View {
-        let currentProgress = animated ? animatedProgress : progress
-        let angle = Angle.degrees(Double(currentProgress) * 360 - 90)
-        let radius = (size - lineWidth) / 2
-        let x = size / 2 + radius * CGFloat(cos(angle.radians))
-        let y = size / 2 + radius * CGFloat(sin(angle.radians))
-
-        return Circle()
-            .fill(
-                RadialGradient(
-                    colors: [domainColor.opacity(0.6), domainColor.opacity(0.0)],
-                    center: .center,
-                    startRadius: 0,
-                    endRadius: lineWidth * 2.5
-                )
-            )
-            .frame(width: lineWidth * 4, height: lineWidth * 4)
-            .position(x: x, y: y)
-            .allowsHitTesting(false)
     }
 
     private var domainLabel: String {
@@ -1194,7 +1137,7 @@ struct VelaPremiumScoreStrip: View {
                     value: value,
                     domain: domain,
                     size: 108,
-                    lineWidth: 9
+                    lineWidth: 3
                 )
                 if let state {
                     Text(stateLabel(state))

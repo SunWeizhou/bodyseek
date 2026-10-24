@@ -66,19 +66,19 @@ struct VelaOnboardingView: View {
                     }
                     .id(currentStep.rawValue)
                     .transition(stepTransition)
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, VelaTheme.pagePadding)
                     .padding(.top, 28)
-                    .padding(.bottom, 150)
+                    .padding(.bottom, VelaTheme.space6)
                 }
                 .scrollIndicators(.hidden)
             }
         }
         .safeAreaInset(edge: .bottom) {
             ctaButtons
-                .padding(.horizontal, 20)
+                .padding(.horizontal, VelaTheme.pagePadding)
                 .padding(.top, 12)
                 .padding(.bottom, 10)
-                .background(.ultraThinMaterial)
+                .background(VelaTheme.rhythmCanvas)
         }
         .alert(isPresented: $showingErrorAlert) {
             Alert(
@@ -119,7 +119,7 @@ struct VelaOnboardingView: View {
                 .font(VelaTheme.caption1().weight(.semibold))
                 .foregroundStyle(VelaTheme.rhythmInkSecondary)
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, VelaTheme.pagePadding)
         .padding(.vertical, 12)
     }
 
@@ -177,10 +177,10 @@ struct VelaOnboardingView: View {
                     detail: "观察可以被复核、修改或删除"
                 )
             }
-            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .stroke(VelaTheme.rhythmMist.opacity(0.8), lineWidth: 0.75)
+                RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+                    .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
             }
 
             HStack(spacing: 10) {
@@ -210,10 +210,10 @@ struct VelaOnboardingView: View {
                 Divider().padding(.leading, 52)
                 permissionRow(icon: "figure.run", title: "负荷与能量", detail: "活动、训练与能量消耗")
             }
-            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .stroke(VelaTheme.rhythmMist.opacity(0.8), lineWidth: 0.75)
+                RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+                    .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
             )
 
             VStack(alignment: .leading, spacing: 10) {
@@ -271,10 +271,10 @@ struct VelaOnboardingView: View {
             .padding(.top, 2)
         }
         .padding(16)
-        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(VelaTheme.rhythmMist.opacity(0.8), lineWidth: 0.75)
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         }
         .accessibilityElement(children: .contain)
     }
@@ -364,8 +364,8 @@ struct VelaOnboardingView: View {
                     .font(VelaTheme.headline())
                     .foregroundStyle(VelaTheme.rhythmDeepOn)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 52)
-                    .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(VelaTheme.rhythmDeep))
+                    .frame(minHeight: 52)
+                    .background(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).fill(VelaTheme.rhythmDeep))
             }
             .buttonStyle(.cardPress)
 
@@ -383,7 +383,7 @@ struct VelaOnboardingView: View {
                     Text(currentStep == .appleHealth ? "稍后连接" : "返回")
                         .font(VelaTheme.subheadline().weight(.semibold))
                         .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                        .padding(.vertical, 6)
+                        .frame(minHeight: VelaTheme.minimumHitTarget)
                 }
                 .buttonStyle(.cardPress)
             }

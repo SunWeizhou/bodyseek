@@ -397,6 +397,59 @@ final class VelaSmokeUITests: XCTestCase {
         add(largeAttachment)
     }
 
+    /// Actual SwiftUI evidence for the residual pass; uses existing debug routes only.
+    func testVisualResidualSnapshots() {
+        func capture(_ name: String) {
+            let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            attachment.name = "residual-" + name
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+
+        for (name, route) in [
+            ("recovery", "-velaOpenRecoveryDetail"),
+            ("sleep", "-velaOpenSleepDetail"),
+            ("strain", "-velaOpenStrainDetail"),
+            ("stress", "-velaOpenStressDetail"),
+            ("energy", "-velaOpenEnergyDetail")
+        ] {
+            let app = launchApp(extraArguments: [route, "-vela_dark_mode", "dark"])
+            XCTAssertTrue(app.descendants(matching: .any)["metric-detail-" + name].waitForExistence(timeout: 10))
+            capture(name + "-dark")
+            app.terminate()
+        }
+
+        let large = launchApp(extraArguments: [
+            "-velaOpenSleepDetail", "-vela_dark_mode", "light",
+            "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"
+        ])
+        XCTAssertTrue(large.descendants(matching: .any)["metric-detail-sleep"].waitForExistence(timeout: 10))
+        capture("sleep-light-accessibility")
+        large.swipeUp()
+        capture("sleep-light-accessibility-scrolled")
+        large.terminate()
+
+        for (name, route, title) in [
+            ("body", "-velaForceOnboarding", "先看见身体，再决定今天。"),
+            ("agent", "-velaOnboardingAgentControl", "Agent 解释，你做决定。"),
+            ("health", "-velaOnboardingAppleHealth", "连接 Apple 健康")
+        ] {
+            let app = launchApp(extraArguments: ["-velaForceOnboarding", route, "-vela_dark_mode", "dark"])
+            XCTAssertTrue(app.staticTexts[title].firstMatch.waitForExistence(timeout: 10))
+            capture("onboarding-" + name + "-dark")
+            app.terminate()
+        }
+
+        let journal = launchApp(extraArguments: ["-vela_dark_mode", "dark"])
+        assertSurface(0, in: journal)
+        journal.buttons["记录"].tap()
+        XCTAssertTrue(journal.buttons["手记"].waitForExistence(timeout: 5))
+        capture("quick-actions-dark")
+        journal.buttons["手记"].tap()
+        XCTAssertTrue(journal.staticTexts["习惯与记录"].waitForExistence(timeout: 10))
+        capture("journal-dark")
+    }
+
     func testRecoveryDetailDeepLaunch() {
         let app = launchApp(extraArguments: ["-velaOpenRecoveryDetail"])
 

@@ -10,7 +10,6 @@ import SwiftUI
 struct RecoveryDetailV2EditorialView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @ScaledMetric(relativeTo: .largeTitle) private var scoreFontSize: CGFloat = 68
 
     let model: RecoveryDetailV2Model
     @Binding var selectedRange: DetailTimeRange
@@ -25,7 +24,7 @@ struct RecoveryDetailV2EditorialView: View {
     private let hairline = VelaTheme.rhythmMist
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 28) {
+        VStack(alignment: .leading, spacing: VelaTheme.sectionGap) {
             if model.isSimulated { simulationNotice }
             overview
             history
@@ -34,7 +33,7 @@ struct RecoveryDetailV2EditorialView: View {
             methodNote
         }
         .padding(.top, 12)
-        .padding(.bottom, 28)
+        .padding(.bottom, VelaTheme.space6)
         .onChange(of: selectedRange) { _, _ in
             selectedDate = nil
             showsEvidence = false
@@ -44,11 +43,11 @@ struct RecoveryDetailV2EditorialView: View {
     // MARK: 01 — State at a glance, without another oversized card
 
     private var overview: some View {
-        VStack(alignment: .leading, spacing: 17) {
+        VStack(alignment: .leading, spacing: VelaTheme.space4) {
             eyebrow("BODYSEEK  /  RECOVERY")
 
             Text("你今天的恢复状态")
-                .font(.system(.title2, design: .rounded, weight: .semibold))
+                .font(VelaTheme.title2())
                 .foregroundStyle(ink)
 
             ViewThatFits(in: .horizontal) {
@@ -95,8 +94,8 @@ struct RecoveryDetailV2EditorialView: View {
     private var heroNumber: some View {
         HStack(alignment: .firstTextBaseline, spacing: 4) {
             Text(model.scoreText)
-                .font(.system(size: min(scoreFontSize, 94), weight: .medium, design: .rounded))
-                .tracking(-3)
+                .font(VelaTheme.largeTitle())
+                .tracking(-0.6)
                 .monospacedDigit()
                 .foregroundStyle(ink)
                 .contentTransition(.numericText())
@@ -220,7 +219,7 @@ struct RecoveryDetailV2EditorialView: View {
         .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(hairline.opacity(0.70), lineWidth: 0.75)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         }
     }
 
@@ -391,7 +390,7 @@ struct RecoveryDetailV2EditorialView: View {
                 .font(.caption.weight(.medium))
                 .foregroundStyle(secondary)
             Text(observation.valueText)
-                .font(.system(.title2, design: .rounded, weight: .semibold))
+                .font(VelaTheme.title2())
                 .monospacedDigit()
                 .foregroundStyle(ink)
                 .minimumScaleFactor(0.75)

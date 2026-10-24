@@ -208,7 +208,7 @@ struct CoachRecoveryActionButton: View {
                 )
                 .overlay(
                     Capsule(style: .continuous)
-                        .stroke(VelaTheme.accent.opacity(0.22), lineWidth: 0.8)
+                        .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                 )
         }
         .buttonStyle(.cardPress)

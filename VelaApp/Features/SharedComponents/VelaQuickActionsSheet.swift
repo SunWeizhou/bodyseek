@@ -106,8 +106,7 @@ struct PlusActionSheet: View {
                     .foregroundStyle(VelaTheme.fg)
                     .frame(width: 58, height: 58)
                     .background(Circle().fill(VelaTheme.cardBg))
-                    .shadow(color: Color.black.opacity(0.04), radius: 6, y: 3)
-                    .overlay(Circle().stroke(VelaTheme.borderSoft, lineWidth: 0.5))
+                    .overlay(Circle().stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
             }
             .buttonStyle(.plain)
             .padding(.bottom, 24)
@@ -127,12 +126,11 @@ struct PlusActionSheet: View {
             VStack(spacing: 8) {
                 ZStack {
                     Circle()
-                        .fill(.ultraThinMaterial)
+                        .fill(VelaTheme.surfaceFloating)
                         .frame(width: 60, height: 60)
-                        .shadow(color: Color.black.opacity(0.04), radius: 6, y: 3)
                     
                     Circle()
-                        .stroke(VelaTheme.borderSoft, lineWidth: 0.5)
+                        .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                         .frame(width: 60, height: 60)
                     
                     Image(systemName: icon)
@@ -155,21 +153,10 @@ struct PlusActionSheet: View {
             VStack(spacing: 8) {
                 ZStack {
                     Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    VelaTheme.brandBright,
-                                    VelaTheme.accent,
-                                    VelaTheme.rhythmDeep
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
+                        .fill(VelaTheme.rhythmDeep)
                         .frame(width: 60, height: 60)
-                        .shadow(color: VelaTheme.rhythmDeep.opacity(0.25), radius: 8, y: 4)
                     
-                    AlpacaView()
+                    AlpacaView(strokeColor: VelaTheme.rhythmDeepOn)
                         .offset(y: -1)
                 }
                 

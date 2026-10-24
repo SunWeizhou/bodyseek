@@ -70,7 +70,7 @@ struct JournalCorrelationSection: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 30)
                 .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
-                .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(VelaTheme.rhythmMist, lineWidth: 0.75))
+                .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
             } else {
                 VStack(spacing: 12) {
                     bodyModelStatsRow(bodyModelState)
@@ -92,7 +92,7 @@ struct JournalCorrelationSection: View {
                         .padding(14)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
-                        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(VelaTheme.rhythmMist, lineWidth: 0.75))
+                        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
                     }
                 }
             }
@@ -155,7 +155,7 @@ struct JournalCorrelationSection: View {
         }
         .padding(16)
         .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
-        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(VelaTheme.rhythmMist, lineWidth: 0.75))
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
         .accessibilityElement(children: .contain)
     }
 
@@ -219,9 +219,9 @@ struct PersonalExperimentCard: View {
             HStack(spacing: 12) {
                 Image(systemName: experiment == nil ? "flask.fill" : "moon.stars.fill")
                     .font(.system(size: 17, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(VelaTheme.rhythmDeepOn)
                     .frame(width: 38, height: 38)
-                    .background(RoundedRectangle(cornerRadius: VelaTheme.radiusSm).fill(VelaTheme.tagIndigo))
+                    .background(RoundedRectangle(cornerRadius: VelaTheme.radiusSm).fill(VelaTheme.rhythmDeep))
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(experiment?.title ?? "开始一个个人实验")
@@ -244,7 +244,7 @@ struct PersonalExperimentCard: View {
             }
             .padding(14)
             .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
-            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(VelaTheme.rhythmMist, lineWidth: 0.75))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(experiment == nil ? "开始个人实验" : "查看个人实验")
@@ -319,7 +319,7 @@ struct PersonalExperimentHubSheet: View {
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
-                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(VelaTheme.rhythmMist, lineWidth: 0.75))
+                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
         }
 
         let today = checkIns.first { $0.experimentID == experiment.id && Calendar.current.isDateInToday($0.date) }
@@ -339,7 +339,7 @@ struct PersonalExperimentHubSheet: View {
         }
         .padding(16)
         .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(VelaTheme.rhythmMist, lineWidth: 0.75))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
 
         previousOutcomeContent(experiment)
     }
@@ -380,7 +380,7 @@ struct PersonalExperimentHubSheet: View {
                     }
                     .padding(15)
                     .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
-                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(VelaTheme.rhythmMist, lineWidth: 0.75))
+                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
                 }
                 .buttonStyle(.plain)
             }
@@ -408,7 +408,7 @@ struct PersonalExperimentHubSheet: View {
         }
         .padding(16)
         .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(VelaTheme.rhythmMist, lineWidth: 0.75))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
     }
 
     private func checkInButton(_ title: String, followed: Bool, experiment: PersonalExperimentRecord, color: Color) -> some View {
@@ -426,7 +426,7 @@ struct PersonalExperimentHubSheet: View {
         } label: {
             Text(title)
                 .font(VelaTheme.subheadline().weight(.semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(VelaTheme.rhythmDeepOn)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
                 .background(RoundedRectangle(cornerRadius: 13).fill(color))

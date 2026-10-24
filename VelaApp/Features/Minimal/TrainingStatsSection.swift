@@ -196,7 +196,7 @@ struct CardioStatusCard: View {
         }
         .padding(16)
         .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
-        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(VelaTheme.rhythmMist, lineWidth: 0.75))
+        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
     }
 
     private var baselineDetail: String {
@@ -441,7 +441,7 @@ struct TrainingStatsSection: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         )
     }
 
@@ -633,7 +633,7 @@ struct MuscleVolumeCard: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         )
     }
 }
@@ -691,7 +691,7 @@ struct PersonalRecordsCard: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         )
     }
 
@@ -833,7 +833,7 @@ struct RecentWorkoutsSection: View {
         .background(RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
         .overlay {
             RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous)
-                .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         }
     }
 
@@ -1004,11 +1004,7 @@ struct SafeZoneWorkloadChartView: View {
                     }
                 }
                 .stroke(
-                    LinearGradient(
-                        colors: [VelaTheme.rhythmInk, VelaTheme.rhythmInk, VelaTheme.rhythmDeep],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    ),
+                    VelaTheme.rhythmInk,
                     style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round)
                 )
 
@@ -1027,7 +1023,7 @@ struct SafeZoneWorkloadChartView: View {
                 if showLabels, canInteract, let values {
                     ForEach(0..<workload.count, id: \.self) { index in
                         Text("\(Int(values[index].rounded()))")
-                            .font(.system(size: 7.5, weight: .medium, design: .rounded))
+                            .font(VelaTheme.caption2())
                             .foregroundStyle(VelaTheme.rhythmInkSecondary)
                             .position(
                                 x: min(geo.size.width - 14, pointX(index, width: geo.size.width) + 6),
@@ -1039,12 +1035,11 @@ struct SafeZoneWorkloadChartView: View {
                         Label("最高 \(Int((values.max() ?? 0).rounded()))", systemImage: "arrow.up")
                         Label("最低 \(Int((values.min() ?? 0).rounded()))", systemImage: "arrow.down")
                     }
-                    .font(.system(size: 8.5, weight: .semibold, design: .rounded))
+                    .font(VelaTheme.caption2().weight(.semibold))
                     .foregroundStyle(VelaTheme.rhythmInk)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(VelaTheme.rhythmCanvasRaised.opacity(0.95), in: Capsule())
-                    .shadow(color: VelaTheme.rhythmDeep.opacity(0.25), radius: 5)
                     .position(x: geo.size.width - 68, y: 14)
                 }
 
@@ -1062,7 +1057,6 @@ struct SafeZoneWorkloadChartView: View {
                         .padding(.horizontal, 7)
                         .padding(.vertical, 3)
                         .background(VelaTheme.rhythmCanvasRaised.opacity(0.95), in: Capsule())
-                        .shadow(color: VelaTheme.rhythmDeep.opacity(0.25), radius: 5)
                         .position(
                             x: min(geo.size.width - 46, max(46, x)),
                             y: max(13, y - 16)
@@ -1179,7 +1173,7 @@ struct YearlyTrainingCard: View {
         }
         .padding(16)
         .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
-        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(VelaTheme.rhythmMist, lineWidth: 0.75))
+        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
         .task { await load() }
     }
 
@@ -1276,7 +1270,7 @@ struct RecoveryLoadStressTrendsCard: View {
         }
         .padding(16)
         .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
-        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(VelaTheme.rhythmMist, lineWidth: 0.75))
+        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
     }
 
     private var series: [TrendSeries] {

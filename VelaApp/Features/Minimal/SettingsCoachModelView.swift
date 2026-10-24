@@ -303,7 +303,7 @@ struct DataSourceSettingsView: View {
                     )
                 }
                 .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(VelaTheme.secondaryGroupedBackground))
-                .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(VelaTheme.separatorSoft, lineWidth: 0.5))
+                .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
                 .padding(.horizontal, 16)
  
                 Button {
@@ -397,7 +397,7 @@ struct DataSourceSettingsView: View {
         }
         .padding(14)
         .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(VelaTheme.secondaryGroupedBackground))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(VelaTheme.separatorSoft, lineWidth: 0.5))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
     }
  
     private var appleHealthStatus: String {
@@ -683,7 +683,7 @@ struct CGMSettingsView: View {
             .fill(Color.white)
             .overlay(
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(VelaTheme.separatorSoft, lineWidth: 0.5)
+                    .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
             )
     }
  

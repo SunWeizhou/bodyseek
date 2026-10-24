@@ -162,20 +162,8 @@ struct VelaTodayView: View {
         .overlay {
             RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous)
                 .stroke(
-                    conflicted
-                        ? AnyShapeStyle(VelaTheme.rhythmMist)
-                        : AnyShapeStyle(
-                            LinearGradient(
-                                colors: [
-                                    VelaTheme.rhythmDeep.opacity(0.65),
-                                    Color(hex: "#8B5CF6").opacity(0.55),
-                                    VelaTheme.rhythmInk.opacity(0.45)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        ),
-                    lineWidth: conflicted ? 0.75 : 1.25
+                    VelaTheme.hairline,
+                    lineWidth: VelaTheme.hairlineWidth
                 )
         }
     }
@@ -692,15 +680,8 @@ struct VelaTodayView: View {
         .overlay {
             RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous)
                 .stroke(
-                    LinearGradient(
-                        colors: [
-                            cs == .dark ? Color.white.opacity(0.12) : VelaTheme.rhythmMist.opacity(0.85),
-                            cs == .dark ? Color.white.opacity(0.03) : VelaTheme.rhythmMist.opacity(0.40)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    ),
-                    lineWidth: 0.75
+                    VelaTheme.hairline,
+                    lineWidth: VelaTheme.hairlineWidth
                 )
         }
     }

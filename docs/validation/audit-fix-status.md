@@ -231,3 +231,56 @@ codesign --verify --deep --strict build/DeviceDeployDerivedData/Build/Products/D
 
 
 UI 查询第二轮还确认两个既有标识变化：Strain 当前标题是「负荷」，不再是「耗力」；页内 Coach 的直接子标识被 inline-coach-panel 覆盖。保留 panel 存在断言，并用实际「收起对话」按钮检查 Coach 已可交互。以上仍只修正测试查询，不改生产界面。
+
+
+## 2026-10-24 · Visual Body full-app residual（Design D）
+
+替代中途失败且未推分支/PR 的 Cursor cloud agent `bc-529d55a7` 那轮，按同一 visual-only 范围重做。起点为最新 `origin/main` / 本地 HEAD `dddf4b31a1876e18648ef21bb4e24c2e6d741202`（已含 #12–#17），开始时 working tree 干净；推送前再次 fetch，main 未变化。实现提交 `1b0ed1bfc2f9953781f6f5935468ef81ef674b4b`；下列最终验证和截图来自提交前同内容的 dirty working tree，提交后没有再改 Swift 源码。分支 `cursor/visual-body-full-app-residual-20261024`，仅创建 draft PR，不 merge / ready / request review。
+
+### 改动边界
+
+- Stroke hygiene：旧 `0.5/0.75/0.8pt` 容器描边统一到现有 `VelaTheme.hairline` / `hairlineWidth`；数据图轴线、基线、曲线保留各自语义线宽。
+- Today：仅去掉宿主残留的硬编码紫色渐变描边、Lived State / vitals 渐变边框和天气装饰色；不重排 #17 的 Agent brief、五分条、chips 或下一步。
+- Metric detail：Sleep / Strain 细纯色环、Stress mono dial、详情卡片与 Sheet hairline；Recovery editorial 字阶回到现有语义 token。大字体下隐藏重复事实图标和详情 AskBar 上的重复 context pill，保留完整文字、上下文和按钮动作；修正关闭图标随字号过度放大。日历读数环改 mono 细线，读数计算不变。
+- Onboarding：CTA 已是 ink，不重新引入配色；收口 solid canvas、卡片半径和 hairline，预览环收细，CTA 高度可随文本增长，次级动作保留 44pt 点击区域。
+- Journal / Sheets：分类 badge、实验入口、日历选中态使用 mono 且匹配 `rhythmDeepOn`；记录面板、详情与证据 Sheet 收口描边。
+- Training：Workout / Strength / Fitness 详情和统计子页的装饰色、glow、渐变 stroke 改 mono，字号转既有 caption token；保留真实心率区间与错误/安全颜色语义。Plan 二级训练计划头部只移除 ambient glow。
+- Coach：只改视觉 chrome，包括档案完整度条、自动报告图标、恢复动作与输入边框、通用分析卡和 Quick Actions；legacy `AppleIntelligenceOrb` 压为静态 mono mark。
+- 共 40 个生产 Swift 文件 + 1 个现有 UI test harness 文件；[完整清单](rhythm-horizon/visual-body-residual-2026-10-24/changed-files.txt)。没有更改 `VelaTheme` 的颜色/token 定义，也没有新增 palette。
+
+刻意跳过：评分公式、阈值与数据投影、Store / schema、导航和信息架构、Watch / WidgetKit 实际视图、对话历史、Coach 文案、#17 已正确的主表面布局、AskBar 麦克风与听写发送行为。共享组件改动不改业务动作；未新增生产调试入口或功能。
+
+### 验证与证据
+
+工具链 Xcode 27.1 (`27A9275`)，与仓库锁定的 `.xcode-version` 26.5.0 不同，没有修改 CI 配置或声称固定工具链验证通过。最终设备 iPhone SE (3rd generation)，375pt 宽 / 750×1334px，iOS 26.5 (`23F77`)，arm64 Simulator；中文。所有截图是运行中的 SwiftUI，使用既有 preview dashboard / 空手记 fixture，不含个人健康导出。
+
+```sh
+xcodebuild -project Vela.xcodeproj -scheme Vela -configuration Debug \
+  -destination 'platform=iOS Simulator,id=66EFE656-F33C-483B-B8D2-06C9CA85533A' \
+  -derivedDataPath build/VisualResidualDerivedData \
+  -resultBundlePath build/VisualResidual-verified-SE-20261024.xcresult \
+  -only-testing:VelaTests/VelaThemeTests \
+  -only-testing:VelaUITests/VelaSmokeUITests/testVisualResidualSnapshots \
+  -only-testing:VelaUITests/VelaSmokeUITests/testThreePrimarySurfacesAndInlineCoachAreReachable \
+  -only-testing:VelaUITests/VelaSmokeUITests/testSleepDetailPushNavigationAndReturn \
+  CODE_SIGNING_ALLOWED=NO test
+python3 scripts/check_fixed_fonts.py --strict
+bash scripts/audit_design_tokens.sh
+git diff --check
+```
+
+以上命令退出码均为 0。最终 build + 152 项测试通过（149 项现有 `VelaThemeTests`，3 项 UI tests），0 failures、0 skips；[test summary](rhythm-horizon/visual-body-residual-2026-10-24/test-summary.json)。较早的 iPhone 18 Pro / iOS 27.0 迭代也通过 152 项，但其截图发现大字体重叠，已修复并以上述 SE 最终复验为准。首轮 7 个详情/导航 UI 路由与 149 项测试共 156 项通过；不把早期结果替代最终源码验收。
+
+固定字号 strict 检查为 183 处，低于既有阈值 216；全仓 token report-only 仍报告 596 处，包括既有图标字号和内联圆角，未声称全仓无硬编码。[字体报告](rhythm-horizon/visual-body-residual-2026-10-24/fixed-font-audit.txt)、[token 报告](rhythm-horizon/visual-body-residual-2026-10-24/design-token-audit.txt)。新增 diff 没有硬编码颜色。
+
+[截图与输入上下文](rhythm-horizon/visual-body-residual-2026-10-24/capture-context.json)：五项详情 Dark / 默认字号、三步 Onboarding Dark、Quick Actions / Journal Dark、Sleep Light / AccessibilityXXXL（首屏及滚动后），共 12 张，已逐张检查。大字体可滚动阅读；重复图标不再压住事实文字，详情 context pill 不再截断。
+
+| 样本 | 截图 |
+| --- | --- |
+| Sleep mono 详情 | [Dark](rhythm-horizon/visual-body-residual-2026-10-24/residual-sleep-dark.png) |
+| Stress mono dial | [Dark](rhythm-horizon/visual-body-residual-2026-10-24/residual-stress-dark.png) |
+| Onboarding CTA / 预览环 | [Dark](rhythm-horizon/visual-body-residual-2026-10-24/residual-onboarding-body-dark.png) |
+| Journal | [Dark](rhythm-horizon/visual-body-residual-2026-10-24/residual-journal-dark.png) |
+| AccessibilityXXXL | [首屏](rhythm-horizon/visual-body-residual-2026-10-24/residual-sleep-light-accessibility.png) / [滚动后](rhythm-horizon/visual-body-residual-2026-10-24/residual-sleep-light-accessibility-scrolled.png) |
+
+未验证：真实 HealthKit / 长训练历史和真实训练路线、所有二级 Settings / Coach artifact 状态的逐屏截图、完整 Light/Dark × 字号 × 缺失/零/排除矩阵、iOS 17 真机、VoiceOver 手工操作和 Reduce Motion 手工矩阵。训练与 Settings 子页有编译和静态 diff 验证，不将这 12 张截图解释为全应用所有状态的视觉认证。未做真机部署、发布或 merge。

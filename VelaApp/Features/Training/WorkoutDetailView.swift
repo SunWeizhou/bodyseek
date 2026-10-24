@@ -144,14 +144,7 @@ struct WorkoutDetailView: View {
     private var accentColor: Color { VelaTheme.rhythmDeep }
 
     private var detailBackground: some View {
-        ZStack {
-            VelaTheme.rhythmCanvas
-            LinearGradient(
-                colors: [workoutAccentColor.opacity(0.05), VelaTheme.rhythmCanvas, VelaTheme.rhythmCanvas],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        }
+        VelaTheme.rhythmCanvas
     }
 
     private func heroMetric(_ title: String, _ value: String, _ unit: String) -> some View {
@@ -175,7 +168,7 @@ struct WorkoutDetailView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
         .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(VelaTheme.rhythmCanvas))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(VelaTheme.rhythmMist, lineWidth: 0.75))
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
     }
 
     private var hero: some View {
@@ -303,11 +296,7 @@ struct WorkoutDetailView: View {
                             width: .fixed(3.0)
                         )
                         .foregroundStyle(
-                            LinearGradient(
-                                colors: VelaTheme.heartRateBarGradient,
-                                startPoint: .bottom,
-                                endPoint: .top
-                            )
+                            VelaTheme.rhythmInk
                         )
                         .cornerRadius(1.5)
                     }
@@ -370,7 +359,7 @@ struct WorkoutDetailView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
         .background(RoundedRectangle(cornerRadius: VelaTheme.radiusMd).fill(VelaTheme.rhythmCanvas))
-        .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusMd).stroke(VelaTheme.rhythmMist, lineWidth: 0.75))
+        .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusMd).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
     }
     
     private var gpsRouteSection: some View {
@@ -427,7 +416,7 @@ struct WorkoutDetailView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                        .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                 )
             }
         }
@@ -549,11 +538,11 @@ struct WorkoutDetailView: View {
     }
 
     private var workoutAccentColor: Color {
-        VelaTheme.workoutActivityColor(activityName: workout.activityName)
+        VelaTheme.rhythmInk
     }
 
     private var workoutSecondaryColor: Color {
-        VelaTheme.workoutSecondaryColor(activityName: workout.activityName)
+        VelaTheme.rhythmInkSecondary
     }
     
     private var formattedHomeDate: String {
@@ -767,6 +756,6 @@ struct WorkoutDetailView: View {
     }
 
     private func muscleColor(_ muscle: String) -> Color {
-        VelaTheme.muscleGroupColor(name: muscle)
+        VelaTheme.rhythmInkSecondary
     }
 }

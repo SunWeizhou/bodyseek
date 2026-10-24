@@ -116,7 +116,7 @@ struct WorkoutHeartRateInsightSheet: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
         .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(VelaTheme.rhythmMist, lineWidth: 0.75))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
     }
 }
 
@@ -138,7 +138,7 @@ struct StrengthSetDetailSheet: View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 14) {
                 Text(detail.exerciseName)
-                    .font(.system(.title2, design: .rounded, weight: .bold))
+                    .font(VelaTheme.title2())
                     .foregroundStyle(VelaTheme.rhythmInk)
                 Text("第 \(detail.setIndex) 组")
                     .font(.system(.footnote, design: .default, weight: .semibold))
@@ -173,7 +173,7 @@ struct StrengthSetDetailSheet: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
         .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(VelaTheme.rhythmMist, lineWidth: 0.75))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
     }
 }
 
@@ -266,9 +266,9 @@ struct WorkoutExerciseListView: View {
         HStack(spacing: 12) {
             Text(set.isWarmup ? "热" : "\(index + 1)")
                 .font(.system(.caption2, design: .default, weight: .bold))
-                .foregroundStyle(set.isWarmup ? Color.white : VelaTheme.rhythmDeepOn)
+                .foregroundStyle(set.isWarmup ? VelaTheme.rhythmInk : VelaTheme.rhythmDeepOn)
                 .frame(width: 24, height: 24)
-                .background(Circle().fill(set.isWarmup ? VelaTheme.systemOrange : VelaTheme.rhythmDeep))
+                .background(Circle().fill(set.isWarmup ? VelaTheme.surfaceFloating : VelaTheme.rhythmDeep))
                 .frame(width: 32, alignment: .leading)
 
             Text("\(set.weightKilograms.formatted(.number.precision(.fractionLength(0...1)))) kg")
@@ -293,7 +293,7 @@ struct WorkoutExerciseListView: View {
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: VelaTheme.radiusSm)
-                        .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                        .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                 )
 
             Image(systemName: (set.isCompleted ?? true) ? "checkmark.circle.fill" : "circle")
