@@ -286,7 +286,7 @@ struct WikiProfileView: View {
                     } label: {
                         Text(L10n.t("Save", "保存"))
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(VelaTheme.accentOn)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 6)
                             .background(Capsule().fill(VelaTheme.accent))
@@ -699,7 +699,7 @@ struct WikiProfileView: View {
                                 systemImage: "checkmark.circle.fill"
                             )
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(VelaTheme.accentOn)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 6)
                             .background(Capsule().fill(VelaTheme.accent))

@@ -1,0 +1,561 @@
+{
+  "sourceCommit": "c8893a11f0e15269f4e191f224292b80530b2474",
+  "configuration": "iPhone SE 3 / iOS 26.5 (23F77), 375pt, Xcode 27.1 (27A9275)",
+  "input": "Preview dashboard; empty / locally generated simulator records; isolated in-memory hosted fixtures. No personal HealthKit export.",
+  "notes": "Production View content from c8893a11; e6e5d2ba adds accessibility-only Weight DatePicker layout and test harness fixes, plus whitespace-only Coach alignment. Final weight/Coach/sheet captures run that content; other surfaces unchanged. Hosted captures render production SwiftUI in UIHostingController, not a navigation-path assertion.",
+  "captures": [
+    {
+      "file": "next-account-accessibility-scrolled.png",
+      "test": "VelaSmokeUITests/testVisualNextWaveAccessibilitySnapshots()",
+      "bundle": "build/VisualNext-final-ui-20261024.xcresult",
+      "hosted": false,
+      "timestamp": 1792808014.341,
+      "pixels": [
+        750,
+        1334
+      ],
+      "sha256": "33b2c872309514606eb29c5a5211a0414d692ab2a2fbd7f8984b06a786791b1b",
+      "visualQA": "Reviewed at full size or in contact sheet; final CTA and accessibility repairs also inspected full size."
+    },
+    {
+      "file": "next-account-accessibility.png",
+      "test": "VelaSmokeUITests/testVisualNextWaveAccessibilitySnapshots()",
+      "bundle": "build/VisualNext-final-ui-20261024.xcresult",
+      "hosted": false,
+      "timestamp": 1792808010.717,
+      "pixels": [
+        750,
+        1334
+      ],
+      "sha256": "8fd5502b054b3cf0fc509b70614f827d916a8a985afe28e5c768fb47d1138a63",
+      "visualQA": "Reviewed at full size or in contact sheet; final CTA and accessibility repairs also inspected full size."
+    },
+    {
+      "file": "next-account-dark-scrolled.png",
+      "test": "VelaSmokeUITests/testVisualNextWaveSettingsSnapshots()",
+      "bundle": "build/VisualNext-final-ui-20261024.xcresult",
+      "hosted": false,
+      "timestamp": 1792808067.502,
+      "pixels": [
+        750,
+        1334
+      ],
+      "sha256": "583a383236d287a076404a962440eb007715460e55cfc10584cebe5a3a9d7240",
+      "visualQA": "Reviewed at full size or in contact sheet; final CTA and accessibility repairs also inspected full size."
+    },
+    {
+      "file": "next-account-dark.png",
+      "test": "VelaSmokeUITests/testVisualNextWaveSettingsSnapshots()",
+      "bundle": "build/VisualNext-final-ui-20261024.xcresult",
+      "hosted": false,
+      "timestamp": 1792808065.469,
+      "pixels": [
+        750,
+        1334
+      ],
+      "sha256": "ec28b92c9f47b7b8f5da1e13d5b9650dcc895ef36b7fa1b1afd046ff9eaae0a3",
+      "visualQA": "Reviewed at full size or in contact sheet; final CTA and accessibility repairs also inspected full size."
+    },
+    {
+      "file": "next-artifact-library-dark.png",
+      "test": "VelaSmokeUITests/testVisualNextWaveSheetsAndCoachSnapshots()",
+      "bundle": "build/VisualNext-weight-accessibility-20261024.xcresult",
+      "sourceCommit": "e6e5d2bac0930c6e9e1320ad023688d47e57f01f",
+      "hosted": false,
+      "timestamp": 1792808337.167,
+      "pixels": [
+        750,
+        1334
+      ],
+      "sha256": "ba26ed137c0dabf0c6c6d6da179131ec3551cc36a42ca8936f9e5a55b82aef64",
+      "visualQA": "Reviewed at full size or in contact sheet; final CTA and accessibility repairs also inspected full size."
+    },
+    {
+      "file": "next-cgm-dark-scrolled.png",
+      "test": "VelaSmokeUITests/testVisualNextWaveSettingsSnapshots()",
+      "bundle": "build/VisualNext-final-ui-20261024.xcresult",
+      "hosted": false,
+      "timestamp": 1792808126.385,
+      "pixels": [
+        750,
+        1334
+      ],
+      "sha256": "b70acddf9cf955fd9d7a9a36a45a84899ad64ea33cf99549ab6eccfcafd6f4a5",
+      "visualQA": "Reviewed at full size or in contact sheet; final CTA and accessibility repairs also inspected full size."
+    },
+    {
+      "file": "next-cgm-dark.png",
+      "test": "VelaSmokeUITests/testVisualNextWaveSettingsSnapshots()",
+      "bundle": "build/VisualNext-final-ui-20261024.xcresult",
+      "hosted": false,
+      "timestamp": 1792808123.937,
+      "pixels": [
+        750,
+        1334
+      ],
+      "sha256": "b70acddf9cf955fd9d7a9a36a45a84899ad64ea33cf99549ab6eccfcafd6f4a5",
+      "visualQA": "Reviewed at full size or in contact sheet; final CTA and accessibility repairs also inspected full size."
+    },
+    {
+      "file": "next-coach-full-dark.png",
+      "test": "VelaSmokeUITests/testVisualNextWaveSheetsAndCoachSnapshots()",
+      "bundle": "build/VisualNext-weight-accessibility-20261024.xcresult",
+      "sourceCommit": "e6e5d2bac0930c6e9e1320ad023688d47e57f01f",
+      "hosted": false,
+      "timestamp": 1792808328.251,
+      "pixels": [
+        750,
+        1334
+      ],
+      "sha256": "fefbc783be12a14be54e831c8a3bfe10e67b0509af03be961ed234c7bc6eaeb9",
+      "visualQA": "Reviewed at full size or in contact sheet; final CTA and accessibility repairs also inspected full size."
+    },
+    {
+      "file": "next-coach-reports-dark.png",
+      "test": "VelaSmokeUITests/testVisualNextWaveSheetsAndCoachSnapshots()",
+      "bundle": "build/VisualNext-weight-accessibility-20261024.xcresult",
+      "sourceCommit": "e6e5d2bac0930c6e9e1320ad023688d47e57f01f",
+      "hosted": false,
+      "timestamp": 1792808333.765,
+      "pixels": [
+        750,
+        1334
+      ],
+      "sha256": "acdbb7c046540ecd3ecf3ed71eb75525025862852c8c16b1b0426f1052e57cca",
+      "visualQA": "Reviewed at full size or in contact sheet; final CTA and accessibility repairs also inspected full size."
+    },
+    {
+      "file": "next-energy-accessibility-scrolled.png",
+      "test": "VelaSmokeUITests/testVisualNextWaveAccessibilitySnapshots()",
+      "bundle": "build/VisualNext-final-ui-20261024.xcresult",
+      "hosted": false,
+      "timestamp": 1792808056.96,
+      "pixels": [
+        750,
+        1334
+      ],
+      "sha256": "458841697affd34062a7547ee560b39108a54d441352e776d1b6731676d32c37",
+      "visualQA": "Reviewed at full size or in contact sheet; final CTA and accessibility repairs also inspected full size."
+    },
+    {
+      "file": "next-energy-accessibility.png",
+      "test": "VelaSmokeUITests/testVisualNextWaveAccessibilitySnapshots()",
+      "bundle": "build/VisualNext-final-ui-20261024.xcresult",
+      "hosted": false,
+      "timestamp": 1792808053.284,
+      "pixels": [
+        750,
+        1334
+      ],
+      "sha256": "e7b759d192b4fad7fa7b1fa18f6e4c710992936b94bff713287b71e9f5d1dd5e",
+      "visualQA": "Reviewed at full size or in contact sheet; final CTA and accessibility repairs also inspected full size."
+    },
+    {
+      "file": "next-evidence-dark.png",
+      "test": "VelaSmokeUITests/testVisualNextWaveSheetsAndCoachSnapshots()",
+      "bundle": "build/VisualNext-weight-accessibility-20261024.xcresult",
+      "sourceCommit": "e6e5d2bac0930c6e9e1320ad023688d47e57f01f",
+      "hosted": false,
+      "timestamp": 1792808312.877,
+      "pixels": [
+        750,
+        1334
+      ],
+      "sha256": "0f8813554c2e56b583767f414ed59105845b8e8f5e4ab23896be02665cf45058",
+      "visualQA": "Reviewed at full size or in contact sheet; final CTA and accessibility repairs also inspected full size."
+    },
+    {
+      "file": "next-hosted-artifact-populated.png",
+      "test": "VelaThemeTests/testVisualNextWavePopulatedSnapshots()",
+      "bundle": "build/VisualNext-final-source-20261024.xcresult",
+      "sourceCommit": "e6e5d2bac0930c6e9e1320ad023688d47e57f01f",
+      "hosted": true,
+      "timestamp": 1792808431.635,
+      "pixels": [
+        750,
+        1334
+      ],
+      "sha256": "31894885eac8978a2350491de32c8b27f9d921973cb81284261909a24a929abb",
+      "visualQA": "Reviewed at full size or in contact sheet; final CTA and accessibility repairs also inspected full size."
+    },
+    {
+      "file": "next-hosted-correlation-accessibility.png",
+      "test": "VelaThemeTests/testVisualNextWavePopulatedSnapshots()",
+      "bundle": "build/VisualNext-final-source-20261024.xcresult",
+      "sourceCommit": "e6e5d2bac0930c6e9e1320ad023688d47e57f01f",
+      "hosted": true,
+      "timestamp": 1792808436.1,
+      "pixels": [
+        750,
+        1334
+      ],
+      "sha256": "598215092ba97e2eb335658f7c5496fdbb33c8154481758bf5667cf4ca4f5eec",
+      "visualQA": "Reviewed at full size or in contact sheet; final CTA and accessibility repairs also inspected full size."
+    },
+    {
+      "file": "next-hosted-model-settings-accessibility.png",
+      "test": "VelaThemeTests/testVisualNextWavePopulatedSnapshots()",
+      "bundle": "build/VisualNext-final-source-20261024.xcresult",
+      "sourceCommit": "e6e5d2bac0930c6e9e1320ad023688d47e57f01f",
+      "hosted": true,
+      "timestamp": 1792808429.383,
+      "pixels": [
+        750,
+        1334
+      ],
+      "sha256": "caa2bfc81ff8467df466453364835ce850127b2d1ce3f370e1f879cc03199cdb",
+      "visualQA": "Reviewed at full size or in contact sheet; final CTA and accessibility repairs also inspected full size."
+    },
+    {
+      "file": "next-hosted-model-settings-cta.png",
+      "test": "VelaThemeTests/testVisualNextWavePopulatedSnapshots()",
+      "bundle": "build/VisualNext-final-source-20261024.xcresult",
+      "sourceCommit": "e6e5d2bac0930c6e9e1320ad023688d47e57f01f",
+      "hosted": true,
+      "timestamp": 1792808428.295,
+      "pixels": [
+        750,
+        1334
+      ],
+      "sha256": "e6242b96c9ed6b4b15a752af244aac719aea3e6a99db8370f4b4dcd4d35f7b44",
+      "visualQA": "Reviewed at full size or in contact sheet; final CTA and accessibility repairs also inspected full size."
+    },
+    {
+      "file": "next-hosted-model-settings.png",
+      "test": "VelaThemeTests/testVisualNextWavePopulatedSnapshots()",
+      "bundle": "build/VisualNext-final-source-20261024.xcresult",
+      "sourceCommit": "e6e5d2bac0930c6e9e1320ad023688d47e57f01f",
+      "hosted": true,
+      "timestamp": 1792808426.366,
+      "pixels": [
+        750,
+        1334
+      ],
+      "sha256": "e09340869d8494436f29be15a2e6438c24ab15621111dc732a0df0742618f992",
+      "visualQA": "Reviewed at full size or in contact sheet; final CTA and accessibility repairs also inspected full size."
+    },
+    {
+      "file": "next-hosted-reports-populated.png",
+      "test": "VelaThemeTests/testVisualNextWavePopulatedSnapshots()",
+      "bundle": "build/VisualNext-final-source-20261024.xcresult",
+      "sourceCommit": "e6e5d2bac0930c6e9e1320ad023688d47e57f01f",
+      "hosted": true,
+      "timestamp": 1792808430.485,
+      "pixels": [
+        750,
+        1334
+      ],
+      "sha256": "adbfde92131f15712564c8523cae331cc568e9db7cdaef38bee693ee667352d3",
+      "visualQA": "Reviewed at full size or in contact sheet; final CTA and accessibility repairs also inspected full size."
+    },
+    {
+      "file": "next-hosted-strength-detail.png",
+      "test": "VelaThemeTests/testVisualNextWavePopulatedSnapshots()",
+      "bundle": "build/VisualNext-final-source-20261024.xcresult",
+      "sourceCommit": "e6e5d2bac0930c6e9e1320ad023688d47e57f01f",
+      "hosted": true,
+      "timestamp": 1792808432.739,
+      "pixels": [
+        750,
+        1334
+      ],
+      "sha256": "120f031441de06e27aed25aeda24c8a3ecbebea84793be04376daa5879d2e253",
+      "visualQA": "Reviewed at full size or in contact sheet; final CTA and accessibility repairs also inspected full size."
+    },
+    {
+      "file": "next-hosted-strength-edit.png",
+      "test": "VelaThemeTests/testVisualNextWavePopulatedSnapshots()",
+      "bundle": "build/VisualNext-final-source-20261024.xcresult",
+      "sourceCommit": "e6e5d2bac0930c6e9e1320ad023688d47e57f01f",
+      "hosted": true,
+      "timestamp": 1792808433.834,
+      "pixels": [
+        750,
+        1334
+      ],
+      "sha256": "05d826c69ae57eac6ff5c99bce4f8a19db42844ba13025c081c9fa741281b806",
+      "visualQA": "Reviewed at full size or in contact sheet; final CTA and accessibility repairs also inspected full size."
+    },
+    {
+      "file": "next-hosted-workout-detail.png",
+      "test": "VelaThemeTests/testVisualNextWavePopulatedSnapshots()",
+      "bundle": "build/VisualNext-final-source-20261024.xcresult",
+      "sourceCommit": "e6e5d2bac0930c6e9e1320ad023688d47e57f01f",
+      "hosted": true,
+      "timestamp": 1792808434.956,
+      "pixels": [
+        750,
+        1334
+      ],
+      "sha256": "2808292dc6a0c7519f747629b8972890ff24ac567045a11348fb01c9f8baca34",
+      "visualQA": "Reviewed at full size or in contact sheet; final CTA and accessibility repairs also inspected full size."
+    },
+    {
+      "file": "next-personality-dark-scrolled.png",
+      "test": "VelaSmokeUITests/testVisualNextWaveSettingsSnapshots()",
+      "bundle": "build/VisualNext-final-ui-20261024.xcresult",
+      "hosted": false,
+      "timestamp": 1792808091.836,
+      "pixels": [
+        750,
+        1334
+      ],
+      "sha256": "aa04893c3d23bf3007085dc2be86349091c110566c95a528b9287349d9f310bc",
+      "visualQA": "Reviewed at full size or in contact sheet; final CTA and accessibility repairs also inspected full size."
+    },
+    {
+      "file": "next-personality-dark.png",
+      "test": "VelaSmokeUITests/testVisualNextWaveSettingsSnapshots()",
+      "bundle": "build/VisualNext-final-ui-20261024.xcresult",
+      "hosted": false,
+      "timestamp": 1792808089.541,
+      "pixels": [
+        750,
+        1334
+      ],
+      "sha256": "aa04893c3d23bf3007085dc2be86349091c110566c95a528b9287349d9f310bc",
+      "visualQA": "Reviewed at full size or in contact sheet; final CTA and accessibility repairs also inspected full size."
+    },
+    {
+      "file": "next-plan-editor-dark.png",
+      "test": "VelaSmokeUITests/testVisualNextWavePlanEditorSnapshots()",
+      "bundle": "build/VisualNext-final-source-20261024.xcresult",
+      "sourceCommit": "e6e5d2bac0930c6e9e1320ad023688d47e57f01f",
+      "hosted": false,
+      "timestamp": 1792808459.518,
+      "pixels": [
+        750,
+        1334
+      ],
+      "sha256": "3eecf37deed19715388215cb64b1929bee6f03c37fc1f155ea78008a93a0bdc7",
+      "visualQA": "Reviewed at full size or in contact sheet; final CTA and accessibility repairs also inspected full size."
+    },
+    {
+      "file": "next-quick-actions-accessibility.png",
+      "test": "VelaSmokeUITests/testVisualNextWaveSheetsAndCoachSnapshots()",
+      "bundle": "build/VisualNext-weight-accessibility-20261024.xcresult",
+      "sourceCommit": "e6e5d2bac0930c6e9e1320ad023688d47e57f01f",
+      "hosted": false,
+      "timestamp": 1792808344.479,
+      "pixels": [
+        750,
+        1334
+      ],
+      "sha256": "2704d9461a83d8d0dc9356d0f55ad05dd8d557476487c2402d4774af5bdcc29c",
+      "visualQA": "Reviewed at full size or in contact sheet; final CTA and accessibility repairs also inspected full size."
+    },
+    {
+      "file": "next-quick-actions-dark.png",
+      "test": "VelaSmokeUITests/testVisualNextWaveSheetsAndCoachSnapshots()",
+      "bundle": "build/VisualNext-weight-accessibility-20261024.xcresult",
+      "sourceCommit": "e6e5d2bac0930c6e9e1320ad023688d47e57f01f",
+      "hosted": false,
+      "timestamp": 1792808316.893,
+      "pixels": [
+        750,
+        1334
+      ],
+      "sha256": "703ea1f59892e66878d2a778bc0e07a34b5a3fa06e2f4726565985b3d0fca3cf",
+      "visualQA": "Reviewed at full size or in contact sheet; final CTA and accessibility repairs also inspected full size."
+    },
+    {
+      "file": "next-recovery-accessibility-observations.png",
+      "test": "VelaSmokeUITests/testVisualNextWaveAccessibilitySnapshots()",
+      "bundle": "build/VisualNext-final-ui-20261024.xcresult",
+      "hosted": false,
+      "timestamp": 1792808027.595,
+      "pixels": [
+        750,
+        1334
+      ],
+      "sha256": "396971b49c97f90c1b348acad8ff25aefae707fd54ea4df0cb9d73c7feda71b9",
+      "visualQA": "Reviewed at full size or in contact sheet; final CTA and accessibility repairs also inspected full size."
+    },
+    {
+      "file": "next-recovery-accessibility-scrolled.png",
+      "test": "VelaSmokeUITests/testVisualNextWaveAccessibilitySnapshots()",
+      "bundle": "build/VisualNext-final-ui-20261024.xcresult",
+      "hosted": false,
+      "timestamp": 1792808023.954,
+      "pixels": [
+        750,
+        1334
+      ],
+      "sha256": "db5ba0514a165423153bc2331d0354ae6bb64d2f3b8c7f35d47d4c9f2431aee5",
+      "visualQA": "Reviewed at full size or in contact sheet; final CTA and accessibility repairs also inspected full size."
+    },
+    {
+      "file": "next-recovery-accessibility.png",
+      "test": "VelaSmokeUITests/testVisualNextWaveAccessibilitySnapshots()",
+      "bundle": "build/VisualNext-final-ui-20261024.xcresult",
+      "hosted": false,
+      "timestamp": 1792808020.304,
+      "pixels": [
+        750,
+        1334
+      ],
+      "sha256": "be11af3f3cc56d2cd055e2c7e9125f43e5dc22060b1353018e11cb28d0673ef3",
+      "visualQA": "Reviewed at full size or in contact sheet; final CTA and accessibility repairs also inspected full size."
+    },
+    {
+      "file": "next-settings-accessibility-account.png",
+      "test": "VelaSmokeUITests/testVisualNextWaveAccessibilitySnapshots()",
+      "bundle": "build/VisualNext-final-ui-20261024.xcresult",
+      "hosted": false,
+      "timestamp": 1792808004.401,
+      "pixels": [
+        750,
+        1334
+      ],
+      "sha256": "af51ae7a5bb630128fd0894844e9db7816d541d07d3c205c35ffa895b3260c23",
+      "visualQA": "Reviewed at full size or in contact sheet; final CTA and accessibility repairs also inspected full size."
+    },
+    {
+      "file": "next-sources-dark-scrolled.png",
+      "test": "VelaSmokeUITests/testVisualNextWaveSettingsSnapshots()",
+      "bundle": "build/VisualNext-final-ui-20261024.xcresult",
+      "hosted": false,
+      "timestamp": 1792808081.093,
+      "pixels": [
+        750,
+        1334
+      ],
+      "sha256": "5b2900047904a1438bf54b07cd5fd67ec6f9f92cb15991c27c77b24f84794bdf",
+      "visualQA": "Reviewed at full size or in contact sheet; final CTA and accessibility repairs also inspected full size."
+    },
+    {
+      "file": "next-sources-dark.png",
+      "test": "VelaSmokeUITests/testVisualNextWaveSettingsSnapshots()",
+      "bundle": "build/VisualNext-final-ui-20261024.xcresult",
+      "hosted": false,
+      "timestamp": 1792808078.582,
+      "pixels": [
+        750,
+        1334
+      ],
+      "sha256": "f5276cf1e9f0fe69d24bba00c86987696b242aa642b1a5cec8993377407c828e",
+      "visualQA": "Reviewed at full size or in contact sheet; final CTA and accessibility repairs also inspected full size."
+    },
+    {
+      "file": "next-strain-accessibility-scrolled.png",
+      "test": "VelaSmokeUITests/testVisualNextWaveAccessibilitySnapshots()",
+      "bundle": "build/VisualNext-final-ui-20261024.xcresult",
+      "hosted": false,
+      "timestamp": 1792808037.472,
+      "pixels": [
+        750,
+        1334
+      ],
+      "sha256": "ad5a4c4ebffe694af7948b14db06550d4cf0d4df380dc8e07774c8fe7622bb88",
+      "visualQA": "Reviewed at full size or in contact sheet; final CTA and accessibility repairs also inspected full size."
+    },
+    {
+      "file": "next-strain-accessibility.png",
+      "test": "VelaSmokeUITests/testVisualNextWaveAccessibilitySnapshots()",
+      "bundle": "build/VisualNext-final-ui-20261024.xcresult",
+      "hosted": false,
+      "timestamp": 1792808033.819,
+      "pixels": [
+        750,
+        1334
+      ],
+      "sha256": "d50bc601eb028b87c0886a5879b98ea4df150ef2a276f2310699882833199644",
+      "visualQA": "Reviewed at full size or in contact sheet; final CTA and accessibility repairs also inspected full size."
+    },
+    {
+      "file": "next-stress-accessibility-scrolled.png",
+      "test": "VelaSmokeUITests/testVisualNextWaveAccessibilitySnapshots()",
+      "bundle": "build/VisualNext-final-ui-20261024.xcresult",
+      "hosted": false,
+      "timestamp": 1792808047.293,
+      "pixels": [
+        750,
+        1334
+      ],
+      "sha256": "5e6d9c2d8eef94228d475e8f6f54923b166196aa12c5331bde6da179f1a5e0d2",
+      "visualQA": "Reviewed at full size or in contact sheet; final CTA and accessibility repairs also inspected full size."
+    },
+    {
+      "file": "next-stress-accessibility.png",
+      "test": "VelaSmokeUITests/testVisualNextWaveAccessibilitySnapshots()",
+      "bundle": "build/VisualNext-final-ui-20261024.xcresult",
+      "hosted": false,
+      "timestamp": 1792808043.618,
+      "pixels": [
+        750,
+        1334
+      ],
+      "sha256": "fcf28e9291d045890333bb11f26cf95e781fcca4ec06d1c15ff33f232253baf7",
+      "visualQA": "Reviewed at full size or in contact sheet; final CTA and accessibility repairs also inspected full size."
+    },
+    {
+      "file": "next-trust-dark-scrolled.png",
+      "test": "VelaSmokeUITests/testVisualNextWaveSettingsSnapshots()",
+      "bundle": "build/VisualNext-final-ui-20261024.xcresult",
+      "hosted": false,
+      "timestamp": 1792808106.754,
+      "pixels": [
+        750,
+        1334
+      ],
+      "sha256": "08d48df687b3d2cf19d35955f8f0e38d85487790d5c91910d90308aa23af3e59",
+      "visualQA": "Reviewed at full size or in contact sheet; final CTA and accessibility repairs also inspected full size."
+    },
+    {
+      "file": "next-trust-dark.png",
+      "test": "VelaSmokeUITests/testVisualNextWaveSettingsSnapshots()",
+      "bundle": "build/VisualNext-final-ui-20261024.xcresult",
+      "hosted": false,
+      "timestamp": 1792808103.008,
+      "pixels": [
+        750,
+        1334
+      ],
+      "sha256": "8409c616ca5f815e5798c04d9a4c892075c17497ecc19ff486fe2f7c5eaf8385",
+      "visualQA": "Reviewed at full size or in contact sheet; final CTA and accessibility repairs also inspected full size."
+    },
+    {
+      "file": "next-weight-accessibility-scrolled.png",
+      "test": "VelaSmokeUITests/testVisualNextWaveSheetsAndCoachSnapshots()",
+      "bundle": "build/VisualNext-weight-accessibility-20261024.xcresult",
+      "sourceCommit": "e6e5d2bac0930c6e9e1320ad023688d47e57f01f",
+      "hosted": false,
+      "timestamp": 1792808350.83,
+      "pixels": [
+        750,
+        1334
+      ],
+      "sha256": "68b45be5a92cda27449a5bebe1fce7362015042fd0631dd8880eaad55408cb1c",
+      "visualQA": "Reviewed at full size or in contact sheet; final CTA and accessibility repairs also inspected full size."
+    },
+    {
+      "file": "next-weight-accessibility.png",
+      "test": "VelaSmokeUITests/testVisualNextWaveSheetsAndCoachSnapshots()",
+      "bundle": "build/VisualNext-weight-accessibility-20261024.xcresult",
+      "sourceCommit": "e6e5d2bac0930c6e9e1320ad023688d47e57f01f",
+      "hosted": false,
+      "timestamp": 1792808348.582,
+      "pixels": [
+        750,
+        1334
+      ],
+      "sha256": "36f4955a5ddd799e5fbcc647393718c6ef0d2fe00f6a3ed7c43120ba4a8185d8",
+      "visualQA": "Reviewed at full size or in contact sheet; final CTA and accessibility repairs also inspected full size."
+    },
+    {
+      "file": "next-weight-dark.png",
+      "test": "VelaSmokeUITests/testVisualNextWaveSheetsAndCoachSnapshots()",
+      "bundle": "build/VisualNext-weight-accessibility-20261024.xcresult",
+      "sourceCommit": "e6e5d2bac0930c6e9e1320ad023688d47e57f01f",
+      "hosted": false,
+      "timestamp": 1792808319.732,
+      "pixels": [
+        750,
+        1334
+      ],
+      "sha256": "7e44d3e88c5af475c0698099b6ec45a6f6a21adbd403d68f7c036e01f2094bb8",
+      "visualQA": "Reviewed at full size or in contact sheet; final CTA and accessibility repairs also inspected full size."
+    }
+  ],
+  "finalSourceCommit": "e6e5d2bac0930c6e9e1320ad023688d47e57f01f"
+}

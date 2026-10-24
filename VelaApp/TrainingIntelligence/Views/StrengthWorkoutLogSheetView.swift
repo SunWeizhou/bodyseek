@@ -389,7 +389,7 @@ struct StrengthWorkoutLogSheetView: View {
                 } label: {
                     Text(set.wrappedValue.kind == .working ? "\(index + 1)" : set.wrappedValue.kind.shortLabel)
                         .font(VelaTheme.caption1().weight(.bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(VelaTheme.accentOn)
                         .frame(width: 28, height: 28)
                         .background(Circle().fill(setKindColor(set.wrappedValue.kind)))
                 }
@@ -415,7 +415,7 @@ struct StrengthWorkoutLogSheetView: View {
                         systemImage: (set.wrappedValue.isCompleted ?? false) ? "checkmark.circle.fill" : "circle"
                     )
                     .font(VelaTheme.caption1().weight(.semibold))
-                    .foregroundStyle((set.wrappedValue.isCompleted ?? false) ? VelaTheme.success : VelaTheme.accent)
+                    .foregroundStyle(VelaTheme.rhythmInk)
                     .frame(minHeight: 44)
                 }
                 .buttonStyle(.plain)
@@ -499,7 +499,7 @@ struct StrengthWorkoutLogSheetView: View {
     private func setKindColor(_ kind: StrengthSetKind) -> Color {
         switch kind {
         case .working: VelaTheme.accent
-        case .warmup: VelaTheme.warn
+        case .warmup: VelaTheme.rhythmInk
         case .drop: VelaTheme.rhythmInk
         case .backoff: VelaTheme.rhythmInk
         case .failure: VelaTheme.rhythmInk

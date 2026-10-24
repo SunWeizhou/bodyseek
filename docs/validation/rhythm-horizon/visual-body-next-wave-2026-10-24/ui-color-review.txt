@@ -1,0 +1,60 @@
+# Supplemental UI color / stroke review
+Baseline f2b83b9c; definitions under Core/Theme excluded.
+
+BEFORE
+VelaApp/Core/DesignSystem/VelaDesignSystem.swift:606: .foregroundStyle(.white)
+VelaApp/Core/DesignSystem/VelaDesignSystem.swift:1210: Color.white.opacity(0.08)
+VelaApp/Core/DesignSystem/VelaInput.swift:97: .foregroundStyle(.white)
+VelaApp/Features/Coach/CoachWelcomeWorkspace.swift:263: color: .indigo,
+VelaApp/Features/Coach/CoachWelcomeWorkspace.swift:592: color: .indigo,
+VelaApp/Features/Coach/CoachWelcomeWorkspace.swift:627: color: .indigo,
+VelaApp/Features/Coach/WikiProfileView.swift:289: .foregroundStyle(.white)
+VelaApp/Features/Coach/WikiProfileView.swift:702: .foregroundStyle(.white)
+VelaApp/Features/Minimal/JournalTagInsights.swift:12: .foregroundStyle(.white)
+VelaApp/Features/Minimal/PrivacyDataControlsView.swift:471: .foregroundStyle(Color.white)
+VelaApp/Features/Minimal/SettingsAccountView.swift:381: .foregroundStyle(.red)
+VelaApp/Features/Minimal/SettingsCoachModelView.swift:141: .foregroundStyle(Color.white)
+VelaApp/Features/Minimal/SettingsCoachModelView.swift:282: .foregroundStyle(.red)
+VelaApp/Features/Minimal/SettingsCoachModelView.swift:328: .foregroundStyle(Color.white)
+VelaApp/Features/Minimal/SettingsCoachModelView.swift:391: .foregroundStyle(.white)
+VelaApp/Features/Minimal/SettingsCoachModelView.swift:560: .foregroundStyle(.white)
+VelaApp/Features/Minimal/SettingsCoachModelView.swift:683: .fill(Color.white)
+VelaApp/Features/Minimal/SettingsCoachModelView.swift:736: .foregroundStyle(Color.white)
+VelaApp/Features/Minimal/TodayHeroCard.swift:171: .foregroundStyle(selection.wrappedValue == option.0 ? Color.white : VelaTheme.fg)
+VelaApp/Features/Minimal/TodayHeroCard.swift:208: .foregroundStyle(value == rating ? Color.white : VelaTheme.fg2)
+VelaApp/Features/Minimal/TodayWeatherBar.swift:37: ? Color.white.opacity(0.10)
+VelaApp/Features/Minimal/VelaMetricDetailWidgets.swift:1147: .background(Circle().fill(Color.black.opacity(0.8)))
+VelaApp/Features/Minimal/VelaMetricDetailWidgets.swift:1152: .background(RoundedRectangle(cornerRadius: 12).fill(Color.black.opacity(0.8)))
+VelaApp/Features/Minimal/VelaMetricDetailWidgets.swift:1174: .shadow(color: Color.black.opacity(0.08), radius: 8, y: 4)
+VelaApp/Features/Minimal/VelaMetricDetailWidgets.swift:1189: .shadow(color: Color.black.opacity(0.08), radius: 8, y: 4)
+VelaApp/Features/Minimal/VelaMetricDetailWidgets.swift:1204: .shadow(color: Color.black.opacity(0.08), radius: 8, y: 4)
+VelaApp/Features/Minimal/VelaMinimalShell.swift:189: Color.black.opacity(0.18)
+VelaApp/Features/Minimal/VelaMinimalShell.swift:673: Color.black.opacity(0.35)
+VelaApp/Features/Minimal/VelaTrainingPlanView.swift:1536: .foregroundStyle(.white)
+VelaApp/Features/Settings/BiologyView.swift:235: Text(errorMessage).foregroundStyle(.red)
+VelaApp/Features/Settings/BiologyView.swift:348: .background(name == item ? VelaTheme.accent : Color.black.opacity(0.08))
+VelaApp/Features/SharedComponents/WeightLogSheetView.swift:71: .foregroundStyle(.white)
+VelaApp/Features/Training/WorkoutDetailView.swift:401: .overlay(Circle().stroke(Color.white, lineWidth: 2))
+VelaApp/Features/Training/WorkoutDetailView.swift:410: .overlay(Circle().stroke(Color.white, lineWidth: 2))
+VelaApp/TrainingIntelligence/Views/StrengthWorkoutDetailView.swift:412: .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.white.opacity(0.72)))
+VelaApp/TrainingIntelligence/Views/StrengthWorkoutDetailView.swift:420: .foregroundStyle(Color.white)
+VelaApp/TrainingIntelligence/Views/StrengthWorkoutLogSheetView.swift:392: .foregroundStyle(.white)
+
+AFTER
+VelaApp/Features/Minimal/VelaMetricDetailWidgets.swift:1147: .background(Circle().fill(Color.black.opacity(0.8)))
+VelaApp/Features/Minimal/VelaMetricDetailWidgets.swift:1152: .background(RoundedRectangle(cornerRadius: 12).fill(Color.black.opacity(0.8)))
+VelaApp/Features/Minimal/VelaMetricDetailWidgets.swift:1174: .shadow(color: Color.black.opacity(0.08), radius: 8, y: 4)
+VelaApp/Features/Minimal/VelaMetricDetailWidgets.swift:1189: .shadow(color: Color.black.opacity(0.08), radius: 8, y: 4)
+VelaApp/Features/Minimal/VelaMetricDetailWidgets.swift:1204: .shadow(color: Color.black.opacity(0.08), radius: 8, y: 4)
+
+Remaining AFTER classifications:
+- VelaMetricDetailWidgets.swift widget views / widget previews: explicitly out of scope.
+- Core/Theme/VelaTheme.swift owns scrim black and adaptive color definitions; outside view audit.
+- VelaChart.swift sleep REM systemCyan: semantic sleep stage (preserved).
+- Map start/end colors and heart-rate zone/series colors: semantic data marks (preserved).
+- .clear is absence of paint, not a hardcoded palette hue.
+- Semantic errors, success, destructive actions and data freshness warnings continue to use VelaTheme tokens.
+- appleIntelligenceGlow is already a no-op on base; remaining call sites do not render glow.
+- Chart area fills / loading shimmer are not gradient borders. Chart lines, GPS routes, score/progress rings are data marks, not panel strokes.
+
+Rendered-token finding: fillSoft used RGBA bytes with an ARGB parser. The native SwiftUI strength screenshot exposed an opaque yellow panel. Corrected #11111114/#FFFFFF14 to #14111111/#14FFFFFF; RGB stays achromatic and alpha becomes 20/255. The regression fails on base (exit 65) and passes on final source.

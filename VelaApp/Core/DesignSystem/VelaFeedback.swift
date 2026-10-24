@@ -61,6 +61,7 @@ struct VelaStateCard: View {
 
             VStack(alignment: .leading, spacing: 5) {
                 Text(title ?? state.defaultTitle)
+                    .fixedSize(horizontal: false, vertical: true)
                     .font(VelaTheme.subheadline().weight(.semibold))
                     .foregroundStyle(VelaTheme.fg)
 

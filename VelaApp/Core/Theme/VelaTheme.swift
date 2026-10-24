@@ -32,6 +32,9 @@ enum VelaTheme {
 
     // MARK: - Surface
 
+    /// Fixed black dimming layer behind modal content in either appearance.
+    static let scrim = Color.black
+
     static let backgroundUIColor = adaptiveUIColor("#FFFFFF", "#000000")
     static let bg            = Color(backgroundUIColor)
     static let systemGroupedBackground = bg
@@ -334,7 +337,8 @@ enum VelaTheme {
     static let radiusSheet: CGFloat = 32
     static let radiusPill: CGFloat = 980
 
-    static let fillSoft = adaptive("#11111114", "#FFFFFF14")
+    // hex(_:) reads eight digits as AARRGGBB; alpha belongs at the front.
+    static let fillSoft = adaptive("#14111111", "#14FFFFFF")
 
     /// 大号 caption：基于系统 TextStyle（默认 13pt，随 Dynamic Type 缩放；原 14pt 固定，审计 H1）。
     static func captionLarge() -> Font { .system(.footnote, design: .default) }

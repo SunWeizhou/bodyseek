@@ -418,7 +418,7 @@ struct VelaPlanView: View {
                 .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
                 .overlay {
                     RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
-                        .stroke(VelaTheme.hairline, lineWidth: 1)
+                        .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                 }
             }
         }
@@ -569,7 +569,7 @@ struct VelaPlanView: View {
             .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
-                    .stroke(VelaTheme.hairline, lineWidth: 1)
+                    .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
             }
         }
         .buttonStyle(.cardPress)
@@ -1266,7 +1266,7 @@ struct VelaTrainingRotationView: View {
             .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
-                    .stroke(VelaTheme.hairline, lineWidth: 1)
+                    .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
             }
         } else {
             HStack(spacing: 12) {
@@ -1533,7 +1533,7 @@ private struct PlanDayRow: View {
                         if day.isCompleted {
                             Image(systemName: "checkmark")
                                 .font(.system(size: 11, weight: .bold))
-                                .foregroundStyle(.white)
+                                .foregroundStyle(VelaTheme.accentOn)
                         } else {
                             Text("\(day.dayNumber)")
                                 .font(.system(.caption, design: .default, weight: .semibold))

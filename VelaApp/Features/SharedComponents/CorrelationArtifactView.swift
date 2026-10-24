@@ -174,6 +174,7 @@ enum CorrelationArtifactAnalyzer {
 }
 
 struct CorrelationArtifactView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let key: String
 
     @Environment(\.modelContext) private var modelContext
@@ -211,12 +212,13 @@ struct CorrelationArtifactView: View {
                         .font(.system(.subheadline, design: .rounded, weight: .bold))
                     Text(result.analysis.map { "n=\($0.points.count) · \($0.lagDays == 0 ? "当天" : "次日")" } ?? "样本门槛未满足")
                         .font(.system(.caption, design: .default))
+                        .fixedSize(horizontal: false, vertical: true)
                         .foregroundStyle(VelaTheme.muted)
                 }
                 Spacer()
             }
 
-            HStack(spacing: 8) {
+            (dynamicTypeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout(spacing: 8))) {
                 metricPill(displayName(metrics.x), color: color(metrics.x))
                 Image(systemName: "arrow.left.arrow.right").foregroundStyle(VelaTheme.muted)
                 metricPill(displayName(metrics.y), color: color(metrics.y))
@@ -251,7 +253,7 @@ struct CorrelationArtifactView: View {
         }
         .padding(16)
         .background(RoundedRectangle(cornerRadius: VelaTheme.radiusCardLarge).fill(VelaTheme.cardBg.opacity(0.5)))
-        .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusCardLarge).stroke(VelaTheme.borderSoft, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusCardLarge).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
         .accessibilityElement(children: .contain)
         .task {
             summaries = (try? SwiftDataDailyHealthSummaryRepository(modelContext: modelContext)
@@ -272,7 +274,7 @@ struct CorrelationArtifactView: View {
     private func metricPill(_ title: String, color: Color) -> some View {
         HStack(spacing: 5) {
             Circle().fill(color).frame(width: 7, height: 7)
-            Text(title).font(.system(.caption, design: .default, weight: .semibold)).lineLimit(1)
+            Text(title).font(VelaTheme.caption1().weight(.semibold)).fixedSize(horizontal: false, vertical: true)
         }
         .padding(.horizontal, 10).padding(.vertical, 7)
         .background(Capsule().fill(color.opacity(0.10)))

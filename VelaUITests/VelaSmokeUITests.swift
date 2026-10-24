@@ -337,7 +337,7 @@ final class VelaSmokeUITests: XCTestCase {
         XCTAssertTrue(pending.waitForExistence(timeout: 8))
         pending.tap()
         pending.typeText("Consent draft")
-        consent.buttons["发送"].tap()
+        consent.buttons["发送"].firstMatch.tap()
         XCTAssertTrue(consent.navigationBars["联网 AI 数据授权"].waitForExistence(timeout: 5))
         consent.buttons["取消"].tap()
         XCTAssertEqual(pending.value as? String, "Consent draft")
@@ -395,6 +395,145 @@ final class VelaSmokeUITests: XCTestCase {
         largeAttachment.name = "upgrade-today-accessibility"
         largeAttachment.lifetime = .keepAlways
         add(largeAttachment)
+    }
+
+    /// Next-wave evidence uses production navigation and synthetic dashboard inputs.
+    func testVisualNextWaveSettingsSnapshots() {
+        for (entry, title, slug) in [
+            ("基本资料", "基本资料", "account"),
+            ("数据来源", "健康数据源", "sources"),
+            ("沟通方式", "AI 教练风格", "personality"),
+            ("信任中心", "信任中心", "trust"),
+            ("连续血糖数据", "连续血糖监测 (CGM)", "cgm")
+        ] {
+            let app = launchApp(extraArguments: ["-velaOpenSettings", "-velaDisableNetworkAI", "-vela_dark_mode", "dark"])
+            XCTAssertTrue(app.descendants(matching: .any)["settings-surface"].waitForExistence(timeout: 10))
+            let row = app.staticTexts[entry].firstMatch
+            tapNextWaveSettingsRow(row, in: app)
+            XCTAssertTrue(app.navigationBars[title].waitForExistence(timeout: 8), "Settings title: \(title)")
+            captureTrends("next-" + slug + "-dark")
+            app.swipeUp()
+            captureTrends("next-" + slug + "-dark-scrolled")
+            app.terminate()
+        }
+    }
+
+    func testVisualNextWaveAccessibilitySnapshots() {
+        for entry in ["基本资料"] {
+            let app = launchApp(extraArguments: [
+                "-velaOpenSettings", "-velaDisableNetworkAI", "-vela_dark_mode", "light",
+                "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"
+            ])
+            XCTAssertTrue(app.descendants(matching: .any)["settings-surface"].waitForExistence(timeout: 10))
+            captureTrends("next-settings-accessibility-" + entry)
+            let row = app.staticTexts[entry].firstMatch
+            tapNextWaveSettingsRow(row, in: app)
+            XCTAssertTrue(app.navigationBars[entry == "基本资料" ? "基本资料" : "AI 模型设置"].waitForExistence(timeout: 8))
+            captureTrends("next-" + entry + "-accessibility")
+            app.swipeUp()
+            captureTrends("next-" + entry + "-accessibility-scrolled")
+            app.terminate()
+        }
+        for (name, route) in [("recovery", "-velaOpenRecoveryDetail"), ("strain", "-velaOpenStrainDetail"), ("stress", "-velaOpenStressDetail"), ("energy", "-velaOpenEnergyDetail")] {
+            let app = launchApp(extraArguments: [route, "-vela_dark_mode", "dark",
+                "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
+            XCTAssertTrue(app.descendants(matching: .any)["metric-detail-" + name].waitForExistence(timeout: 10))
+            captureTrends("next-" + name + "-accessibility")
+            app.swipeUp()
+            captureTrends("next-" + name + "-accessibility-scrolled")
+            if name == "recovery" {
+                app.swipeUp()
+                captureTrends("next-recovery-accessibility-observations")
+            }
+            app.terminate()
+        }
+    }
+
+    func testVisualNextWavePlanEditorSnapshots() {
+        // The preview dashboard is read-only; use the empty simulator's local plan.
+        let app = XCUIApplication()
+        app.launchArguments = ["-vela_onboarding_completed", "YES", "-vela_app_language", "simplifiedChinese",
+            "-velaInitialTab", "2", "-velaDisableNetworkAI", "-vela_dark_mode", "dark"]
+        app.launch()
+        assertSurface(2, in: app)
+        let menu = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "管理 ")).firstMatch
+        for _ in 0..<5 where !menu.isHittable { app.swipeUp() }
+        XCTAssertTrue(menu.isHittable)
+        menu.tap()
+        app.buttons["编辑"].tap()
+        XCTAssertTrue(app.navigationBars["编辑行动"].waitForExistence(timeout: 5))
+        captureTrends("next-plan-editor-dark")
+        app.buttons["取消"].tap()
+        assertSurface(2, in: app)
+    }
+
+    func testVisualNextWaveSheetsAndCoachSnapshots() {
+        let app = launchApp(extraArguments: ["-velaDisableNetworkAI", "-vela_dark_mode", "dark"])
+        assertSurface(0, in: app)
+        let evidence = app.buttons["today-advice-evidence"]
+        for _ in 0..<5 where !evidence.isHittable { app.swipeUp() }
+        XCTAssertTrue(evidence.isHittable)
+        evidence.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["today-evidence-sheet"].waitForExistence(timeout: 5))
+        captureTrends("next-evidence-dark")
+        app.buttons["关闭"].tap()
+        app.buttons["记录"].tap()
+        XCTAssertTrue(app.buttons["记录体重"].waitForExistence(timeout: 5))
+        captureTrends("next-quick-actions-dark")
+        app.buttons["记录体重"].tap()
+        XCTAssertTrue(app.buttons["保存记录"].waitForExistence(timeout: 5))
+        captureTrends("next-weight-dark")
+        app.terminate()
+
+        let coach = launchApp(extraArguments: ["-velaDisableNetworkAI", "-vela_dark_mode", "dark"])
+        let field = coach.descendants(matching: .any)["bodyseek-ask-input"]
+        XCTAssertTrue(field.waitForExistence(timeout: 8))
+        field.tap()
+        coach.buttons["展开完整对话"].tap()
+        XCTAssertTrue(coach.descendants(matching: .any)["coach-full-input"].waitForExistence(timeout: 5))
+        captureTrends("next-coach-full-dark")
+        coach.buttons["更多"].tap()
+        coach.buttons["历史分析报告"].tap()
+        XCTAssertTrue(coach.navigationBars["历史报告"].waitForExistence(timeout: 5))
+        captureTrends("next-coach-reports-dark")
+        XCTAssertTrue(coach.buttons["查看全部"].waitForExistence(timeout: 5))
+        coach.buttons["查看全部"].tap()
+        captureTrends("next-artifact-library-dark")
+        coach.terminate()
+
+        let large = launchApp(extraArguments: ["-vela_dark_mode", "light",
+            "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
+        assertSurface(0, in: large)
+        large.buttons["记录"].tap()
+        XCTAssertTrue(large.buttons["记录体重"].waitForExistence(timeout: 5))
+        captureTrends("next-quick-actions-accessibility")
+        large.buttons["记录体重"].tap()
+        XCTAssertTrue(large.navigationBars["记录体重体脂"].waitForExistence(timeout: 5))
+        let weightField = large.textFields.firstMatch
+        XCTAssertTrue(weightField.waitForExistence(timeout: 5))
+        XCTAssertGreaterThanOrEqual(weightField.frame.minX, large.frame.minX)
+        XCTAssertLessThanOrEqual(weightField.frame.maxX, large.frame.maxX)
+        captureTrends("next-weight-accessibility")
+        large.swipeUp()
+        captureTrends("next-weight-accessibility-scrolled")
+        large.terminate()
+    }
+
+    private func tapNextWaveSettingsRow(_ row: XCUIElement, in app: XCUIApplication) {
+        // A partially visible oversized label may be "hittable" under the toolbar.
+        // Keep the entire label in the visible content before tapping.
+        for _ in 0..<30 {
+            let exists = row.exists
+            let frame = exists ? row.frame : CGRect.null
+            if exists && row.isHittable && frame.minY > 110 && frame.maxY < app.frame.maxY - 20 {
+                row.tap()
+                return
+            }
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.72))
+            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: exists && frame.minY < 110 && row.isHittable ? 0.89 : 0.55))
+            start.press(forDuration: 0.05, thenDragTo: end)
+        }
+        XCTFail("Settings row was not fully visible: " + row.label)
     }
 
     /// Actual SwiftUI evidence for the residual pass; uses existing debug routes only.

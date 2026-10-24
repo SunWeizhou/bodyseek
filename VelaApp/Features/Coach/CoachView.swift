@@ -1098,7 +1098,7 @@ struct VelaCoachView: View {
                     .background(VelaTheme.surfaceFloating, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .stroke(VelaTheme.hairline, lineWidth: 1)
+                            .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                     )
             }
             HStack(spacing: 8) {
@@ -1113,7 +1113,7 @@ struct VelaCoachView: View {
                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(Capsule().stroke(VelaTheme.hairline, lineWidth: 1))
+                    .background(Capsule().stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
             }
             if let brief = dashboard.personalHealthBrief {
                 Text(brief.headline)
@@ -1269,7 +1269,7 @@ struct VelaCoachView: View {
             .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
-                    .stroke(VelaTheme.hairline, lineWidth: 1)
+                    .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
             )
         }
     }
@@ -1870,7 +1870,7 @@ struct VelaCoachView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: VelaTheme.radiusInput, style: .continuous)
-                .stroke(VelaTheme.hairline, lineWidth: 1)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         )
     }
 

@@ -6,6 +6,7 @@ struct TodayEvidenceSheet: View {
     var onAskCoach: (String) -> Void
     var onClose: (() -> Void)? = nil
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -160,7 +161,8 @@ struct TodayEvidenceSheet: View {
                         .foregroundStyle(VelaTheme.rhythmInkSecondary)
                 }
                 .padding(14)
-                .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
             }
             .buttonStyle(.cardPress)
         }
@@ -180,7 +182,7 @@ struct TodayEvidenceSheet: View {
                     HStack(alignment: .top, spacing: 10) {
                         Rectangle()
                             .fill(VelaTheme.rhythmDeep)
-                            .frame(width: 2, height: 16)
+                            .frame(width: VelaTheme.hairlineWidth, height: 16)
                             .padding(.top, 2)
                         Text(localizedReason(reason))
                             .font(.system(.footnote, design: .default, weight: .regular))
@@ -221,7 +223,8 @@ struct TodayEvidenceSheet: View {
                             Text(insight.body)
                                 .font(.system(.caption2, design: .default, weight: .regular))
                                 .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                                .lineLimit(2)
+                                .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                         Spacer(minLength: 8)
                         Image(systemName: "arrow.up.right")
@@ -229,7 +232,8 @@ struct TodayEvidenceSheet: View {
                             .foregroundStyle(VelaTheme.rhythmInkSecondary)
                     }
                     .padding(14)
-                    .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
                 }
                 .buttonStyle(.cardPress)
             }

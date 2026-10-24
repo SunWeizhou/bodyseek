@@ -204,7 +204,7 @@ struct VelaReportsView: View {
                     } label: {
                         reportRow(
                             icon: report.type.contains("sleep") ? "moon.fill" : "sun.max.fill",
-                            color: report.type.contains("sleep") ? .indigo : .orange,
+                            color: VelaTheme.rhythmInk,
                             title: report.title,
                             subtitle: report.createdAt.formatted(.dateTime.month().day().hour().minute())
                         )
@@ -216,7 +216,8 @@ struct VelaReportsView: View {
                 }
             }
             .background(VelaTheme.rhythmCanvasRaised)
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
         }
     }
 
@@ -260,7 +261,7 @@ struct VelaReportsView: View {
                     } label: {
                         reportRow(
                             icon: AgentArtifactPresentation.icon(for: artifact.type),
-                            color: .indigo,
+                            color: VelaTheme.rhythmInk,
                             title: artifact.title,
                             subtitle: "\(AgentArtifactPresentation.typeLabel(for: artifact.type)) · \(artifact.createdAt.formatted(.relative(presentation: .named)))"
                         )
@@ -279,7 +280,8 @@ struct VelaReportsView: View {
                 }
             }
             .background(VelaTheme.rhythmCanvasRaised)
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
         }
     }
 
@@ -294,7 +296,8 @@ struct VelaReportsView: View {
             automationRow("训练后复盘", "训练结束 15 分钟后", VelaTheme.rhythmInk, $postWorkoutOn)
         }
         .background(VelaTheme.rhythmCanvasRaised)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
     }
 
     private func reportRow(icon: String, color: Color, title: String, subtitle: String) -> some View {
@@ -583,24 +586,25 @@ struct AgentArtifactLibraryView: View {
 }
 
 private struct AgentArtifactLibraryRow: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let record: AgentArtifactRecord
 
     var body: some View {
         HStack(spacing: 12) {
             VelaMakeIconTile(
                 systemName: AgentArtifactPresentation.icon(for: record.type),
-                color: .indigo,
+                color: VelaTheme.rhythmInk,
                 size: 36
             )
             VStack(alignment: .leading, spacing: 3) {
                 Text(record.title)
                     .font(.system(.subheadline, design: .default, weight: .semibold))
                     .foregroundStyle(VelaTheme.fg)
-                    .lineLimit(2)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
                 Text("\(AgentArtifactPresentation.typeLabel(for: record.type)) · \(record.createdAt.formatted(.dateTime.month().day().hour().minute()))")
                     .font(.system(.caption, design: .default))
                     .foregroundStyle(VelaTheme.fg2)
-                    .lineLimit(1)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
             }
             Spacer(minLength: 4)
             ConfidenceBadge(score: record.confidence)
@@ -624,7 +628,7 @@ struct AgentArtifactDetailView: View {
                     HStack(alignment: .top) {
                         VelaMakeIconTile(
                             systemName: AgentArtifactPresentation.icon(for: record.type),
-                            color: .indigo,
+                            color: VelaTheme.rhythmInk,
                             size: 42
                         )
                         Spacer()

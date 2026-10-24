@@ -232,7 +232,7 @@ private struct HealthRecordReviewSheet: View {
 
                 if let errorMessage {
                     Section {
-                        Text(errorMessage).foregroundStyle(.red)
+                        Text(errorMessage).foregroundStyle(VelaTheme.danger)
                     }
                 }
             }
@@ -345,7 +345,7 @@ struct BloodLogSheetView: View {
                                                 .foregroundStyle(name == item ? VelaTheme.bg : VelaTheme.fg)
                                                 .padding(.horizontal, 12)
                                                 .padding(.vertical, 6)
-                                                .background(name == item ? VelaTheme.accent : Color.black.opacity(0.08))
+                                                .background(name == item ? VelaTheme.accent : VelaTheme.surfaceInset)
                                                 .clipShape(Capsule())
                                         }
                                     }
@@ -560,7 +560,7 @@ struct StyledTextField: View {
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+                        .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                 )
                 .foregroundStyle(VelaTheme.rhythmInk)
         }

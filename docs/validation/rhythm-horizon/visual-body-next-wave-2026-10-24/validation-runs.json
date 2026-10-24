@@ -1,0 +1,104 @@
+{
+  "baselineHead": "f2b83b9cac059f775ad7614b3124fe2051d05cfc",
+  "initialDirty": false,
+  "sourceHead": "e6e5d2bac0930c6e9e1320ad023688d47e57f01f",
+  "branch": "cursor/visual-body-next-wave-20261024",
+  "xcode": "27.1 (27A9275)",
+  "repositoryXcodePin": "26.5.0",
+  "simulator": "66EFE656-F33C-483B-B8D2-06C9CA85533A / iPhone SE 3 / iOS 26.5 (23F77) / arm64",
+  "runs": [
+    {
+      "name": "baseline-build",
+      "exitCode": 0,
+      "localLog": "build/visual-next-baseline.log",
+      "notes": "generic iOS Simulator build on clean f2b83b9c"
+    },
+    {
+      "name": "first",
+      "exitCode": 65,
+      "localLog": "build/visual-next-first.log",
+      "notes": "AnyLayout branch type mismatch; fixed before final source"
+    },
+    {
+      "name": "second",
+      "exitCode": 75,
+      "localLog": "build/visual-next-second.log",
+      "notes": "Interrupted Settings-to-model navigation stall; earlier accessibility snapshots were not treated as final"
+    },
+    {
+      "name": "third",
+      "exitCode": 75,
+      "localLog": "build/visual-next-third.log",
+      "notes": "Interrupted same stall; preview Plan route failed, then changed harness to local simulator plan"
+    },
+    {
+      "name": "baseline-compare",
+      "exitCode": 65,
+      "localLog": "build/visual-next-base-compare.log",
+      "notes": "Mach -308 runner launch failure; no test assertion verdict"
+    },
+    {
+      "name": "baseline-serial",
+      "exitCode": 75,
+      "localLog": "build/visual-next-base-serial.log",
+      "notes": "Same model entry stalls on original f2b83b9c production source; interrupted"
+    },
+    {
+      "name": "fill-red",
+      "exitCode": 65,
+      "localLog": "build/visual-next-fill-red.log",
+      "notes": "Expected red: new color regression on original f2b83b9c"
+    },
+    {
+      "name": "hosted",
+      "exitCode": 0,
+      "localLog": "build/visual-next-hosted.log",
+      "notes": "Intermediate 150 tests passed, before rendered fillSoft finding was fixed"
+    },
+    {
+      "name": "verified",
+      "exitCode": 65,
+      "localLog": "build/visual-next-verified.log",
+      "notes": "151 unit tests passed; 3 UI harness selectors failed; source-validation-summary.json"
+    },
+    {
+      "name": "final-ui",
+      "exitCode": 0,
+      "localLog": "build/visual-next-final-ui.log",
+      "notes": "4 UI tests passed after harness corrections"
+    },
+    {
+      "name": "final-unit",
+      "exitCode": 0,
+      "localLog": "build/visual-next-final-unit.log",
+      "notes": "151 passed; model CTA screenshot settled; before last Weight layout change"
+    },
+    {
+      "name": "weight",
+      "exitCode": 0,
+      "localLog": "build/visual-next-weight.log",
+      "notes": "1 UI test passed after final Weight graphical date layout repair"
+    },
+    {
+      "name": "final-source",
+      "exitCode": 0,
+      "localLog": "build/visual-next-final-source.log",
+      "notes": "153 passed on final source binary: 151 units + 2 UI tests"
+    }
+  ],
+  "staticCommands": [
+    {
+      "command": "python3 scripts/check_fixed_fonts.py --strict",
+      "exitCode": 0
+    },
+    {
+      "command": "bash scripts/audit_design_tokens.sh",
+      "exitCode": 0
+    },
+    {
+      "command": "git diff f2b83b9c HEAD --check",
+      "exitCode": 0
+    }
+  ],
+  "artifacts": "Local build/ xcresults and logs remain ignored; committed summaries, captures, red regression excerpt, baseline navigation excerpt reproduce relevant evidence."
+}

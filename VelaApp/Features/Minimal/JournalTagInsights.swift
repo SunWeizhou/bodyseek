@@ -9,7 +9,7 @@ struct JournalTagInsights: View {
             HStack(alignment: .center, spacing: 10) {
                 Image(systemName: "person.crop.circle.badge.checkmark")
                     .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(VelaTheme.accentOn)
                     .frame(width: 28, height: 28)
                     .background(RoundedRectangle(cornerRadius: VelaTheme.radiusSm).fill(bodyModelMaturityColor(state.maturity.overall)))
                 VStack(alignment: .leading, spacing: 2) {

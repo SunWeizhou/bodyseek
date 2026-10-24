@@ -205,7 +205,7 @@ struct VelaSettingsView: View {
                 .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .stroke(VelaTheme.rhythmMist.opacity(0.78), lineWidth: 0.75)
+                        .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                 )
         }
     }
@@ -275,7 +275,7 @@ struct VelaSettingsView: View {
                 subtitle: "你的资料、偏好与健康记忆，都在这里。",
                 artwork: .profile
             )
-            HStack(spacing: 8) {
+            (dynamicTypeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout(spacing: 8))) {
                 settingsPill("本机保存", icon: "iphone")
                 settingsPill("由你掌控", icon: "hand.raised")
             }
@@ -286,8 +286,8 @@ struct VelaSettingsView: View {
         Label(title, systemImage: icon)
             .font(.system(.caption2, design: .default, weight: .semibold))
             .foregroundStyle(VelaTheme.rhythmInkSecondary)
-            .lineLimit(1)
-            .minimumScaleFactor(0.82)
+            .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+            .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, 9)
             .frame(minHeight: 30)
             .background(VelaTheme.rhythmMist.opacity(0.66), in: Capsule())

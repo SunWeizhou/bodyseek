@@ -5,6 +5,7 @@ struct AccountSettingsView: View {
     let dashboard: DashboardSummary
     var onRefresh: (() async -> Void)?
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.modelContext) private var modelContext
     @AppStorage("vela_user_age") private var userAge = 0
     @AppStorage("vela_user_weight") private var userWeight = 0.0
@@ -58,10 +59,10 @@ struct AccountSettingsView: View {
                         .font(.footnote)
                         .foregroundStyle(VelaTheme.muted)
                 }
-                HStack {
+                profileRowLayout {
                     TextField("年龄", text: $ageDraft)
                         .keyboardType(.numberPad)
-                        .multilineTextAlignment(.trailing)
+                        .multilineTextAlignment(dynamicTypeSize.isAccessibilitySize ? .leading : .trailing)
                     Text("岁")
                     profileSourceBadge(
                         manual: UserProfileSettings.age() != nil,
@@ -70,30 +71,30 @@ struct AccountSettingsView: View {
                             : (WikiFileService.getAgeFromWiki() != nil ? "档案" : nil)
                     )
                 }
-                HStack {
+                profileRowLayout {
                     TextField("体重", text: $weightDraft)
                         .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.trailing)
+                        .multilineTextAlignment(dynamicTypeSize.isAccessibilitySize ? .leading : .trailing)
                     Text("kg")
                     profileSourceBadge(
                         manual: UserProfileSettings.weightKilograms() != nil,
                         automatic: dashboard.bodyMetrics.weightKilograms != nil ? "Apple 健康" : nil
                     )
                 }
-                HStack {
+                profileRowLayout {
                     TextField("身高", text: $heightDraft)
                         .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.trailing)
+                        .multilineTextAlignment(dynamicTypeSize.isAccessibilitySize ? .leading : .trailing)
                     Text("cm")
                     profileSourceBadge(
                         manual: UserProfileSettings.heightCentimeters() != nil,
                         automatic: dashboard.extendedMetrics.heightCm != nil ? "Apple 健康" : nil
                     )
                 }
-                HStack {
+                profileRowLayout {
                     TextField("最大心率（可选）", text: $maxHeartRateDraft)
                         .keyboardType(.numberPad)
-                        .multilineTextAlignment(.trailing)
+                        .multilineTextAlignment(dynamicTypeSize.isAccessibilitySize ? .leading : .trailing)
                     Text("bpm")
                     profileSourceBadge(
                         manual: UserProfileSettings.maxHeartRate() != nil,
@@ -101,7 +102,7 @@ struct AccountSettingsView: View {
                     )
                 }
 
-                HStack {
+                profileRowLayout {
                     Picker("生理性别", selection: $biologicalSex) {
                         Text("未设置").tag("")
                         Text("男性").tag("male")
@@ -130,7 +131,12 @@ struct AccountSettingsView: View {
                     applyProfile()
                 }
                 .frame(maxWidth: .infinity)
-                .fontWeight(.semibold)
+                .font(VelaTheme.headline())
+                .foregroundStyle(VelaTheme.accentOn)
+                .padding(.vertical, VelaTheme.space3)
+                .frame(minHeight: VelaTheme.minimumHitTarget)
+                .background(VelaTheme.accent, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard))
+                .buttonStyle(.plain)
             } footer: {
                 Text("已填写的数值优先于 Apple 健康数据；清空字段即可恢复使用 Apple 健康。应用后会重新计算训练建议。")
             }
@@ -152,6 +158,12 @@ struct AccountSettingsView: View {
         } message: {
             Text(validationMessage ?? "")
         }
+    }
+
+    private var profileRowLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: VelaTheme.space2))
+            : AnyLayout(HStackLayout())
     }
 
     private func populateProfileDrafts() {
@@ -378,7 +390,7 @@ struct UserWikiArchiveView: View {
                                                 } label: {
                                                     Image(systemName: "minus.circle.fill")
                                                         .font(.system(size: 20))
-                                                        .foregroundStyle(.red)
+                                                        .foregroundStyle(VelaTheme.danger)
                                                 }
                                                 .buttonStyle(.plain)
                                                 

@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 
 struct WeightLogSheetView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
@@ -46,11 +47,16 @@ struct WeightLogSheetView: View {
                             )
                             .keyboardType(.decimalPad)
 
-                            DatePicker(
-                                AppLanguage.stored.isChinese ? "记录日期" : "Date",
-                                selection: $date,
-                                displayedComponents: .date
-                            )
+                            Group {
+                                if dynamicTypeSize.isAccessibilitySize {
+                                    VStack(alignment: .leading, spacing: VelaTheme.space2) {
+                                        Text(AppLanguage.stored.isChinese ? "记录日期" : "Date")
+                                        recordDatePicker.datePickerStyle(.graphical)
+                                    }
+                                } else {
+                                    recordDatePicker
+                                }
+                            }
                             .tint(VelaTheme.accent)
                             .font(.subheadline.bold())
                             .foregroundStyle(VelaTheme.fg)
@@ -68,9 +74,10 @@ struct WeightLogSheetView: View {
                         } label: {
                             Text(AppLanguage.stored.isChinese ? "保存记录" : "Save Record")
                                 .font(VelaTheme.headline())
-                                .foregroundStyle(.white)
+                                .foregroundStyle(VelaTheme.accentOn)
                                 .frame(maxWidth: .infinity)
-                                .frame(height: 50)
+                                .padding(.vertical, VelaTheme.space3)
+                                .frame(minHeight: VelaTheme.minimumHitTarget)
                                 .background(VelaTheme.accent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                         }
                     }
@@ -88,6 +95,14 @@ struct WeightLogSheetView: View {
                 }
             }
         }
+    }
+
+    private var recordDatePicker: some View {
+        DatePicker(
+            AppLanguage.stored.isChinese ? "记录日期" : "Date",
+            selection: $date,
+            displayedComponents: .date
+        )
     }
 
     private func saveWeight() {

@@ -545,18 +545,19 @@ struct RecoveryDetailV2View: View {
                 .font(VelaTheme.title2().weight(.semibold))
                 .foregroundStyle(VelaTheme.rhythmInk)
                 .fixedSize(horizontal: false, vertical: true)
-            HStack(spacing: 8) {
+            (dynamicTypeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout(spacing: 8))) {
                 Text(model.sampleText)
                     .font(VelaTheme.caption1())
                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                    .lineLimit(1)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                    .fixedSize(horizontal: false, vertical: true)
                 if model.isSimulated {
                     Text("示例数据")
                         .font(VelaTheme.caption2().weight(.semibold))
                         .foregroundStyle(VelaTheme.rhythmInkSecondary)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
-                        .background(Capsule().stroke(VelaTheme.hairline, lineWidth: 1))
+                        .background(Capsule().stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
                         .accessibilityIdentifier("recovery-detail-simulated")
                 }
             }
@@ -639,9 +640,9 @@ struct RecoveryDetailV2View: View {
             }
             trendChart
             if let start = model.points.first?.date, let end = model.points.last?.date {
-                HStack {
+                (dynamicTypeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout())) {
                     Text(axisDateLabel(start))
-                    Spacer(minLength: 8)
+                    if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 8) }
                     Text(axisDateLabel(end))
                 }
                 .font(VelaTheme.caption2())
@@ -651,7 +652,8 @@ struct RecoveryDetailV2View: View {
                 Text("图中 \(model.observedDayCount) 天有评分，\(model.missingDayCount) 天暂无评分（含当天）")
                     .font(VelaTheme.caption2())
                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                    .lineLimit(1)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(16)
@@ -738,7 +740,7 @@ struct RecoveryDetailV2View: View {
                 }
             }
             .chartLegend(.hidden)
-            .frame(height: dynamicTypeSize.isAccessibilitySize ? 180 : 100)
+            .frame(height: dynamicTypeSize.isAccessibilitySize ? 250 : 100)
             .accessibilityLabel("恢复趋势")
             .accessibilityValue("有效 \(model.observedDayCount) 天，缺失 \(model.missingDayCount) 天")
         }
@@ -792,16 +794,17 @@ struct RecoveryDetailV2View: View {
                 .foregroundStyle(VelaTheme.rhythmInk)
                 .padding(.bottom, 8)
             ForEach(model.observations) { observation in
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                (dynamicTypeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: 8))) {
                     Text(observation.title)
                         .font(VelaTheme.body())
                         .foregroundStyle(VelaTheme.rhythmInk)
-                        .frame(width: 88, alignment: .leading)
+                        .frame(width: dynamicTypeSize.isAccessibilitySize ? nil : 88, alignment: .leading)
                     Text(observation.baselineText ?? "平时 --")
                         .font(VelaTheme.caption1())
                         .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                        .lineLimit(1)
-                    Spacer(minLength: 8)
+                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 8) }
                     Text(observation.valueText)
                         .font(VelaTheme.body().weight(.semibold).monospacedDigit())
                         .foregroundStyle(VelaTheme.rhythmInk)
@@ -811,14 +814,14 @@ struct RecoveryDetailV2View: View {
                 }
                 .padding(.vertical, 10)
                 .overlay(alignment: .bottom) {
-                    Rectangle().fill(VelaTheme.hairline).frame(height: 1)
+                    Rectangle().fill(VelaTheme.hairline).frame(height: VelaTheme.hairlineWidth)
                 }
                 .accessibilityElement(children: .combine)
             }
             Text(confidenceLine)
                 .font(VelaTheme.caption1())
                 .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                .lineLimit(2)
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, 12)
             Text("缺少的数据不会用 0 代替。")

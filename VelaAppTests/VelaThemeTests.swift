@@ -1,9 +1,107 @@
 import XCTest
 import UIKit
 import SwiftData
+import SwiftUI
 @testable import Vela
 
 final class VelaThemeTests: XCTestCase {
+    func testSoftFillIsTranslucentAndAchromaticInBothAppearances() {
+        for style in [UIUserInterfaceStyle.light, .dark] {
+            let color = UIColor(VelaTheme.fillSoft).resolvedColor(with: UITraitCollection(userInterfaceStyle: style))
+            var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+            XCTAssertTrue(color.getRed(&red, green: &green, blue: &blue, alpha: &alpha))
+            XCTAssertEqual(red, green, accuracy: 0.001)
+            XCTAssertEqual(green, blue, accuracy: 0.001)
+            XCTAssertGreaterThan(alpha, 0)
+            XCTAssertLessThan(alpha, 0.1, "Soft fill must not become an opaque colored panel.")
+        }
+    }
+
+    /// Hosted SwiftUI evidence for populated states without changing app launch routes.
+    /// All records live in an isolated in-memory container on the simulator.
+    @MainActor
+    func testVisualNextWavePopulatedSnapshots() async throws {
+        let container = try VelaModelContainer.make(inMemory: true)
+        let date = Date(timeIntervalSince1970: 1_792_800_000)
+        let workout = StrengthWorkoutRecord(
+            title: "视觉验收样例 · 力量训练", startedAt: date, durationMinutes: 45,
+            exercises: [StrengthExerciseLog(
+                name: "卧推", equipment: "杠铃", primaryMuscleGroup: "chest",
+                sets: [
+                    StrengthSetLog(repetitions: 10, weightKilograms: 20, isWarmup: true, isCompleted: true),
+                    StrengthSetLog(repetitions: 8, weightKilograms: 40, rpe: 7, isCompleted: true)
+                ]
+            )]
+        )
+        let artifact = AgentArtifactRecord(
+            type: "training_adjustment", title: "视觉验收样例 · 训练安排", createdAt: date,
+            payloadJSON: #"{"summary":"保留既有安排，结合训练后的身体感受再做调整。","decisionText":"保持计划","intensityCap":7}"#,
+            sourceContextHash: "visual-fixture", confidence: 0.8, source: "visual-fixture"
+        )
+        container.mainContext.insert(workout)
+        container.mainContext.insert(artifact)
+        container.mainContext.insert(AIReportRecord(
+            createdAt: date, type: "sleep_review", title: "视觉验收样例 · 睡眠回顾",
+            markdownContent: "## 观察\n此内容仅用于界面布局检查。", serializedContextSnapshot: "{}"
+        ))
+        try container.mainContext.save()
+        try await captureHostedNextWave(NavigationStack { AIModelSettingsView() }.modelContainer(container), name: "model-settings", style: .dark)
+        try await captureHostedNextWave(NavigationStack { AIModelSettingsView() }.modelContainer(container), name: "model-settings-cta", style: .dark, scrollToBottom: true)
+        try await captureHostedNextWave(NavigationStack { AIModelSettingsView() }.modelContainer(container), name: "model-settings-accessibility", style: .light, accessibility: true)
+        try await captureHostedNextWave(NavigationStack { VelaReportsView() }.modelContainer(container), name: "reports-populated", style: .dark)
+        try await captureHostedNextWave(NavigationStack { AgentArtifactDetailView(record: artifact) }.modelContainer(container), name: "artifact-populated", style: .dark)
+        try await captureHostedNextWave(NavigationStack { StrengthWorkoutDetailView(workout: workout) }.modelContainer(container), name: "strength-detail", style: .dark)
+        try await captureHostedNextWave(StrengthWorkoutLogSheetView(editingWorkout: workout).modelContainer(container), name: "strength-edit", style: .dark)
+        try await captureHostedNextWave(NavigationStack { WorkoutDetailView(workout: WorkoutSummary(start: date, end: date.addingTimeInterval(1_800), activityName: "跑步", energyKilocalories: 200, averageHeartRate: 135)) }.modelContainer(container), name: "workout-detail", style: .dark)
+        try await captureHostedNextWave(NavigationStack { ScrollView { CorrelationArtifactView(key: "hrv_vs_caffeine").padding() } }.modelContainer(container), name: "correlation-accessibility", style: .light, accessibility: true)
+    }
+
+    @MainActor
+    private func captureHostedNextWave<Content: View>(
+        _ content: Content, name: String, style: UIUserInterfaceStyle, accessibility: Bool = false, scrollToBottom: Bool = false
+    ) async throws {
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.first as? UIWindowScene)
+        let previousWindow = scene.windows.first(where: \.isKeyWindow)
+        let window = UIWindow(windowScene: scene)
+        window.frame = CGRect(x: 0, y: 0, width: 375, height: 667)
+        window.overrideUserInterfaceStyle = style
+        let host = UIHostingController(rootView: content
+            .environment(\.locale, Locale(identifier: "zh_CN"))
+            .environment(\.colorScheme, style == .dark ? .dark : .light)
+            .environment(\.dynamicTypeSize, accessibility ? .accessibility5 : .large))
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        defer {
+            window.isHidden = true
+            window.rootViewController = nil
+            previousWindow?.makeKey()
+        }
+        try await Task.sleep(for: .seconds(1))
+        host.view.layoutIfNeeded()
+        if scrollToBottom {
+            func firstScrollView(in view: UIView) -> UIScrollView? {
+                if let scroll = view as? UIScrollView { return scroll }
+                return view.subviews.lazy.compactMap { firstScrollView(in: $0) }.first
+            }
+            let scroll = try XCTUnwrap(firstScrollView(in: host.view))
+            // Form estimates offscreen row heights; settle each newly realized section.
+            for _ in 0..<4 {
+                scroll.setContentOffset(CGPoint(x: 0, y: max(0, scroll.contentSize.height - scroll.bounds.height + scroll.adjustedContentInset.bottom)), animated: false)
+                try await Task.sleep(for: .seconds(0.2))
+                host.view.layoutIfNeeded()
+            }
+        }
+        let renderer = UIGraphicsImageRenderer(bounds: window.bounds)
+        let image = renderer.image { _ in
+            window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
+        }
+        XCTAssertGreaterThan(image.size.height, 600)
+        let attachment = XCTAttachment(image: image)
+        attachment.name = "next-hosted-" + name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
     func testStatusBarAppearanceIsNotGloballyForcedToDarkContent() {
         XCTAssertNotEqual(
             Bundle.main.object(forInfoDictionaryKey: "UIViewControllerBasedStatusBarAppearance") as? Bool,
