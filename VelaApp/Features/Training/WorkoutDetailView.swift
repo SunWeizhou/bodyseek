@@ -167,8 +167,8 @@ struct WorkoutDetailView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(VelaTheme.rhythmCanvas))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+        .background(RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous).fill(VelaTheme.rhythmCanvas))
+        .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
     }
 
     private var hero: some View {
@@ -202,7 +202,7 @@ struct WorkoutDetailView: View {
             }
         }
         .padding(16)
-        .velaNativeCard(radius: 20)
+        .velaNativeCard(radius: VelaTheme.radiusCard)
     }
 
     private var intelligenceStrip: some View {
@@ -223,7 +223,7 @@ struct WorkoutDetailView: View {
             }
         }
         .padding(16)
-        .velaNativeCard(radius: 18)
+        .velaNativeCard(radius: VelaTheme.radiusCard)
     }
     
     private var heartRateChartSection: some View {
@@ -344,7 +344,7 @@ struct WorkoutDetailView: View {
             }
         }
         .padding(16)
-        .velaNativeCard(radius: 20)
+        .velaNativeCard(radius: VelaTheme.radiusCard)
     }
 
     private func heartRateFact(title: String, value: String) -> some View {
@@ -375,7 +375,7 @@ struct WorkoutDetailView: View {
             }
             
             if isLoading {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                     .fill(VelaTheme.rhythmMist.opacity(0.4))
                     .frame(height: 220)
                     .shimmer()
@@ -411,15 +411,15 @@ struct WorkoutDetailView: View {
                     }
                 }
                 .frame(height: 220)
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                         .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                 )
             }
         }
         .padding(16)
-        .velaNativeCard(radius: 20)
+        .velaNativeCard(radius: VelaTheme.radiusCard)
     }
     
     private var workoutCoachCard: some View {
@@ -693,7 +693,7 @@ struct WorkoutDetailView: View {
             history: strengthWorkouts.filter { $0.startedAt < strength.startedAt }.map { $0.dto },
             exerciseLibrary: ExerciseLibraryService.defaultDefinitionsDTO()
         )
-        return VelaGlassCard(padding: 16, cornerRadius: 20) {
+        return VelaGlassCard(padding: 16, cornerRadius: VelaTheme.radiusCard) {
           VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("肌群分布")

@@ -56,7 +56,7 @@ struct ProactiveInsightDetailSheet: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(18)
-                    .velaNativeCard(radius: 22)
+                    .velaNativeCard(radius: VelaTheme.radiusCard)
 
                     VStack(alignment: .leading, spacing: 12) {
                         Text("身体信号")

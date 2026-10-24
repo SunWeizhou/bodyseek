@@ -58,7 +58,7 @@ struct TrustCenterView: View {
     // MARK: - Ownership overview
 
     private var trustOverviewCard: some View {
-        VelaHeroSurface(tint: VelaTheme.rhythmInk) {
+        VelaHeroSurface {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(alignment: .top, spacing: 12) {
                     Image(systemName: "hand.raised.fill")
@@ -218,7 +218,7 @@ struct TrustCenterView: View {
         let failed = runRecords.filter { $0.status == "failed" }.count
         let running = runRecords.filter { $0.status == "running" }.count
 
-        return VelaHeroSurface(tint: failed > 0 ? VelaTheme.rhythmInk : VelaTheme.accent) {
+        return VelaHeroSurface {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .top, spacing: 12) {
                     Image(systemName: "checkmark.shield.fill")
@@ -305,7 +305,7 @@ struct TrustCenterView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
-                    VelaHeroSurface(tint: colorFor(run.status)) {
+                    VelaHeroSurface {
                         VStack(alignment: .leading, spacing: 12) {
                             HStack {
                                 Label(labelFor(run.agentName), systemImage: iconFor(run.agentName))

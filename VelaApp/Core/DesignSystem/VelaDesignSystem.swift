@@ -217,7 +217,7 @@ struct BodySeekMetricAvailabilityStrip: View {
                 .padding(.vertical, 7)
                 .background(
                     (item.isAvailable ? VelaTheme.rhythmDeep : VelaTheme.rhythmMist).opacity(item.isAvailable ? 0.08 : 0.32),
-                    in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    in: RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous)
                 )
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("\(item.title)，\(item.isAvailable ? "有数据" : "暂无数据")")
@@ -332,7 +332,7 @@ struct CoachArtifactCard: View {
                     .foregroundStyle(accent)
                     .frame(width: 32, height: 32)
                     .background(
-                        RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous)
                             .fill(accent.opacity(0.12))
                     )
 
@@ -402,7 +402,7 @@ struct CoachArtifactCard: View {
             }
         }
         .padding(16)
-        .velaNativeCard(radius: 18)
+        .velaNativeCard(radius: VelaTheme.radiusCard)
     }
 
     private var iconName: String {
@@ -490,7 +490,7 @@ struct EmptyStateView: View {
         }
         .padding(24)
         .frame(maxWidth: .infinity)
-        .velaNativeCard(radius: 16)
+        .velaNativeCard(radius: VelaTheme.radiusCard)
     }
 }
 
@@ -567,7 +567,7 @@ struct WorkoutSessionCard: View {
                     .font(.system(.body, design: .default, weight: .bold))
                     .foregroundStyle(VelaTheme.rhythmInk)
                     .frame(width: 36, height: 36)
-                    .background(RoundedRectangle(cornerRadius: 10).fill(VelaTheme.rhythmInk.opacity(0.12)))
+                    .background(RoundedRectangle(cornerRadius: VelaTheme.radiusSm).fill(VelaTheme.rhythmInk.opacity(0.12)))
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
@@ -586,7 +586,7 @@ struct WorkoutSessionCard: View {
                     .foregroundStyle(VelaTheme.fg)
             }
             .padding(14)
-            .velaNativeCard(radius: 16)
+            .velaNativeCard(radius: VelaTheme.radiusCard)
         }
         .buttonStyle(.plain)
     }
@@ -616,7 +616,7 @@ struct SetInputRow: View {
                 .foregroundStyle(VelaTheme.fg2)
         }
         .padding(10)
-        .background(RoundedRectangle(cornerRadius: 12).fill(VelaTheme.surface))
+        .background(RoundedRectangle(cornerRadius: VelaTheme.radiusSm).fill(VelaTheme.surface))
     }
 }
 
@@ -951,7 +951,7 @@ struct VelaMakeCard<Content: View>: View {
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(VelaTheme.cardBg)
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
     }
 }
 

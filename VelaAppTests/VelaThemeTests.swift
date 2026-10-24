@@ -56,6 +56,108 @@ final class VelaThemeTests: XCTestCase {
         try await captureHostedNextWave(NavigationStack { ScrollView { CorrelationArtifactView(key: "hrv_vs_caffeine").padding() } }.modelContainer(container), name: "correlation-accessibility", style: .light, accessibility: true)
     }
 
+    /// Wave23 evidence: Design D chrome on the surfaces that the preview dashboard
+    /// cannot reach through navigation (preview workouts are empty and there is no
+    /// body-model insight link). Hosted in a 375×667 dark window = SE dark.
+    /// Synthetic fixtures only; read-only in-memory container.
+    @MainActor
+    func testVisualBodyWave23Snapshots() async throws {
+        let container = try VelaModelContainer.make(inMemory: true)
+        let date = Date(timeIntervalSince1970: 1_792_800_000)
+        let dashboard = PreviewDataFactory.makeDashboard(date: date)
+        let bodyModelState = BodyModelState(
+            generatedAt: date,
+            maturity: BodyModelMaturity(overall: .stable, baselineDays: 28, behaviorPairs: 12, trainingSessions: 9),
+            claims: [
+                BodyModelClaim(
+                    id: "late_caffeine_sleep",
+                    title: "晚间咖啡因与睡眠分",
+                    summary: "晚间咖啡因后次日睡眠分平均低 6 分。",
+                    confidence: .medium,
+                    evidenceCount: 9
+                ),
+                BodyModelClaim(
+                    id: "alcohol_hrv",
+                    title: "酒精与 HRV",
+                    summary: "饮酒夜晚的次日 HRV 平均下降 8%。",
+                    confidence: .low,
+                    evidenceCount: 5
+                )
+            ],
+            uncertainAreas: [
+                BodyModelUncertainArea(id: "dinner_timing", title: "晚餐时间", detail: "样本仍不足，暂无法判断。")
+            ],
+            behaviorSignals: [],
+            trainingPatternSummary: "近 28 天训练 9 次。",
+            coachRules: []
+        )
+        let insights: [HabitCorrelationInsight] = [
+            HabitCorrelationInsight(
+                habit: "caffeine", outcome: "sleep", lagDays: 0, correlation: -0.42,
+                sampleSize: 12, confidence: .medium, direction: "negative",
+                explanation: "晚间咖啡因与睡眠分负相关。"
+            ),
+            HabitCorrelationInsight(
+                habit: "alcohol", outcome: "hrv", lagDays: 1, correlation: -0.55,
+                sampleSize: 8, confidence: .low, direction: "negative",
+                explanation: "酒精与次日 HRV 负相关。"
+            )
+        ]
+
+        try await captureHostedNextWave(
+            NavigationStack {
+                ScrollView {
+                    JournalCorrelationSection(bodyModelState: bodyModelState, insights: insights)
+                        .padding()
+                }
+            }.modelContainer(container),
+            name: "wave23-journal-correlation-dark", style: .dark
+        )
+        try await captureHostedNextWave(
+            NavigationStack {
+                ScrollView {
+                    JournalCorrelationSection(bodyModelState: bodyModelState, insights: insights)
+                        .padding()
+                }
+            }.modelContainer(container),
+            name: "wave23-journal-correlation-accessibility", style: .dark, accessibility: true
+        )
+        try await captureHostedNextWave(
+            NavigationStack { BodyModelDetailView(selectedDate: date, dashboard: dashboard) }.modelContainer(container),
+            name: "wave23-body-model-dark", style: .dark
+        )
+        try await captureHostedNextWave(
+            NavigationStack { BodyModelDetailView(selectedDate: date, dashboard: dashboard) }.modelContainer(container),
+            name: "wave23-body-model-dark-scrolled", style: .dark, scrollToBottom: true
+        )
+        try await captureHostedNextWave(
+            NavigationStack {
+                WorkoutDetailView(workout: WorkoutSummary(
+                    start: date,
+                    end: date.addingTimeInterval(2_700),
+                    activityName: "跑步",
+                    energyKilocalories: 320,
+                    averageHeartRate: 142,
+                    distanceMeters: 5_400
+                ))
+            }.modelContainer(container),
+            name: "wave23-workout-detail-dark", style: .dark
+        )
+        try await captureHostedNextWave(
+            NavigationStack {
+                WorkoutDetailView(workout: WorkoutSummary(
+                    start: date,
+                    end: date.addingTimeInterval(2_700),
+                    activityName: "跑步",
+                    energyKilocalories: 320,
+                    averageHeartRate: 142,
+                    distanceMeters: 5_400
+                ))
+            }.modelContainer(container),
+            name: "wave23-workout-detail-accessibility", style: .dark, accessibility: true
+        )
+    }
+
     @MainActor
     private func captureHostedNextWave<Content: View>(
         _ content: Content, name: String, style: UIUserInterfaceStyle, accessibility: Bool = false, scrollToBottom: Bool = false

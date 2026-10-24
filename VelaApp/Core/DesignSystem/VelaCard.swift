@@ -457,8 +457,8 @@ struct VelaStatusBadgeCompat: View {
         .foregroundStyle(tint)
         .padding(.horizontal, 8)
         .frame(minHeight: 28)
-        .background(Capsule().fill(tint.opacity(0.12)))
-        .overlay(Capsule().stroke(tint.opacity(0.10), lineWidth: 0.5))
+        .background(Capsule().fill(VelaTheme.rhythmMist))
+        .overlay(Capsule().stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
         .accessibilityElement(children: .combine)
         .accessibilityLabel(label)
     }
@@ -495,7 +495,6 @@ struct VelaMetricPill: View {
 // MARK: - VelaHeroSurface
 
 struct VelaHeroSurface<Content: View>: View {
-    let tint: Color
     @ViewBuilder let content: () -> Content
 
     var body: some View {
@@ -504,11 +503,11 @@ struct VelaHeroSurface<Content: View>: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: VelaTheme.radiusFeature, style: .continuous)
-                    .fill(tint.opacity(0.06))
+                    .fill(VelaTheme.cardBg)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: VelaTheme.radiusFeature, style: .continuous)
-                    .stroke(tint.opacity(0.2), lineWidth: 0.5)
+                    .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
             )
     }
 }

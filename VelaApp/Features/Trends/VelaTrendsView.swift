@@ -223,7 +223,7 @@ struct VelaTrendsView: View {
             .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
-                    .stroke(VelaTheme.hairline, lineWidth: 1)
+                    .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
             }
         }
     }
@@ -322,7 +322,7 @@ struct VelaTrendsView: View {
                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
             }
             .padding(14)
-            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
         }
         .buttonStyle(.cardPress)
     }
@@ -405,7 +405,7 @@ struct VelaTrendsView: View {
                             .foregroundStyle(VelaTheme.rhythmInkSecondary)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
-                            .overlay(Capsule().stroke(VelaTheme.hairline, lineWidth: 1))
+                            .overlay(Capsule().stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
                     }
                 }
                 Text(summary.headline)
@@ -665,12 +665,12 @@ struct VelaTrendsView: View {
         .padding(20)
         .frame(maxWidth: .infinity)
         .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                 .fill(VelaTheme.rhythmCanvasRaised)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(VelaTheme.hairline, lineWidth: 1)
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         )
         .accessibilityIdentifier("trends-empty-state")
     }
@@ -719,12 +719,12 @@ struct VelaTrendsView: View {
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                         .fill(VelaTheme.rhythmCanvasRaised)
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(VelaTheme.hairline, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+                        .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                 )
             }
         }
@@ -910,7 +910,7 @@ struct VelaTrendsView: View {
                     .foregroundStyle(VelaTheme.rhythmDeep)
                     .frame(width: 44, height: 44)
                     .background(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous)
                             .fill(VelaTheme.rhythmMist.opacity(0.8))
                     )
 
@@ -933,12 +933,12 @@ struct VelaTrendsView: View {
             }
             .padding(14)
             .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                     .fill(VelaTheme.rhythmCanvasRaised)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(VelaTheme.hairline, lineWidth: 1)
+                RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+                    .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
             )
         }
         .buttonStyle(.plain)
@@ -975,7 +975,7 @@ struct VelaTrendsView: View {
             .padding(14)
             .frame(maxWidth: .infinity, minHeight: VelaTheme.minimumHitTarget, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                     .fill(VelaTheme.rhythmMist.opacity(0.45))
             )
         }
@@ -1182,7 +1182,7 @@ struct TrendsHistoryCoverageSheet: View {
                             .font(VelaTheme.subheadline().weight(.semibold))
                             .foregroundStyle(VelaTheme.rhythmInk)
                             .padding(16)
-                            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
                         }
                         .buttonStyle(.cardPress)
                     }

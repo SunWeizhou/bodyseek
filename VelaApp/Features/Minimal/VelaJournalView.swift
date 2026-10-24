@@ -139,7 +139,7 @@ struct VelaJournalView: View {
                             )
                         }
                     }
-                    .velaNativeCard(radius: 12)
+                    .velaNativeCard(radius: VelaTheme.radiusSm)
 
                     Button {
                         showCustomHabitManager = true
@@ -435,7 +435,7 @@ struct VelaJournalView: View {
                     .foregroundStyle(VelaTheme.fg)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
-                    .velaNativeCard(radius: 16)
+                    .velaNativeCard(radius: VelaTheme.radiusCard)
                 }
                 .buttonStyle(.plain)
                 
@@ -581,7 +581,7 @@ struct VelaJournalView: View {
         }
         .padding(.vertical, 12)
         .padding(.horizontal, 4)
-        .velaNativeCard(radius: 18)
+        .velaNativeCard(radius: VelaTheme.radiusCard)
     }
 
     private func segmentedJournalRow(icon: String, title: String, state: Binding<Int>) -> some View {
