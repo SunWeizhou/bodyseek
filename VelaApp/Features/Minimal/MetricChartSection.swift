@@ -168,7 +168,7 @@ struct MetricChartSection: View {
                             .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
                             .annotation(position: .trailing, alignment: .trailing) {
                                 Text("基线")
-                                    .font(.system(size: 8, weight: .semibold))
+                                    .font(VelaTheme.caption2().weight(.semibold))
                                     .foregroundStyle(VelaTheme.rhythmInkSecondary.opacity(0.8))
                                     .padding(.trailing, 2)
                             }

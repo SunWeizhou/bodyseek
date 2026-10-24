@@ -346,7 +346,7 @@ struct CalendarOverviewSheetView: View {
                                 )
                                 .overlay(
                                     Capsule()
-                                        .stroke(selectedMetric == metric ? Color.clear : VelaTheme.borderSoft, lineWidth: 0.5)
+                                        .stroke(selectedMetric == metric ? Color.clear : VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                                 )
                         }
                         .buttonStyle(.plain)
@@ -676,7 +676,7 @@ struct PostWorkoutCheckInSheet: View {
                             )
                             .overlay {
                                 RoundedRectangle(cornerRadius: VelaTheme.radiusMd, style: .continuous)
-                                    .stroke(selectedTags.contains(option.key) ? .clear : VelaTheme.rhythmMist, lineWidth: 0.75)
+                                    .stroke(selectedTags.contains(option.key) ? .clear : VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                             }
                     }
                     .buttonStyle(.plain)
@@ -717,7 +717,7 @@ struct PostWorkoutCheckInSheet: View {
                             )
                             .overlay {
                                 RoundedRectangle(cornerRadius: VelaTheme.radiusMd, style: .continuous)
-                                    .stroke(selectedMuscleGroups.contains(option.key) ? .clear : VelaTheme.rhythmMist, lineWidth: 0.75)
+                                    .stroke(selectedMuscleGroups.contains(option.key) ? .clear : VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                             }
                     }
                     .buttonStyle(.plain)

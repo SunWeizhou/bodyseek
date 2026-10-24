@@ -391,15 +391,14 @@ struct WorkoutDetailView: View {
                     span: MKCoordinateSpan(latitudeDelta: 0.008, longitudeDelta: 0.008)
                 )))) {
                     MapPolyline(coordinates: routeCoordinates)
-                        .stroke(VelaTheme.rhythmInk, lineWidth: 4.5) // Reddish-orange loop like Apple Watch route!
+                        .stroke(VelaTheme.rhythmInk, lineWidth: 4.5) // Route is a data mark, separate from panel hairlines.
                     
                     if let first = routeCoordinates.first {
                         Annotation(L10n.t("Start", "起点"), coordinate: first) {
                             Circle()
                                 .fill(VelaTheme.systemGreen)
                                 .frame(width: 12, height: 12)
-                                .overlay(Circle().stroke(Color.white, lineWidth: 2))
-                                .shadow(radius: 2)
+                                .overlay(Circle().stroke(VelaTheme.rhythmCanvasRaised, lineWidth: VelaTheme.hairlineWidth))
                         }
                     }
                     if let last = routeCoordinates.last {
@@ -407,8 +406,7 @@ struct WorkoutDetailView: View {
                             Circle()
                                 .fill(VelaTheme.systemRed)
                                 .frame(width: 12, height: 12)
-                                .overlay(Circle().stroke(Color.white, lineWidth: 2))
-                                .shadow(radius: 2)
+                                .overlay(Circle().stroke(VelaTheme.rhythmCanvasRaised, lineWidth: VelaTheme.hairlineWidth))
                         }
                     }
                 }
@@ -726,7 +724,7 @@ struct WorkoutDetailView: View {
                         }
                         GeometryReader { geo in
                             ZStack(alignment: .leading) {
-                                Capsule().fill(VelaTheme.neutralCapsule)
+                                Capsule().fill(VelaTheme.scoreTrack)
                                 Capsule()
                                     .fill(muscleColor(muscle))
                                     .frame(width: geo.size.width * CGFloat(Double(sets) / Double(maxSets)))

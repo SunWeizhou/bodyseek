@@ -134,14 +134,18 @@ struct AIModelSettingsView: View {
                         .foregroundStyle(testResultText.contains("成功") ? VelaTheme.systemGreen : VelaTheme.systemRed)
                 }
                 
-                Button("保存配置") {
+                Button {
                     saveKeysToKeychain()
+                } label: {
+                    Text("保存配置")
+                        .font(VelaTheme.headline())
+                        .foregroundStyle(VelaTheme.accentOn)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, VelaTheme.space3)
+                        .frame(minHeight: VelaTheme.minimumHitTarget)
+                        .background(RoundedRectangle(cornerRadius: VelaTheme.radiusCard).fill(VelaTheme.accent))
                 }
-                .bold()
-                .foregroundStyle(Color.white)
-                .frame(maxWidth: .infinity)
-                .frame(height: 44)
-                .background(RoundedRectangle(cornerRadius: VelaTheme.radiusCardLarge).fill(VelaTheme.accent))
+                .buttonStyle(.plain)
                 .padding(.vertical, 4)
             }
         }
@@ -253,7 +257,7 @@ struct DataSourceSettingsView: View {
                         desc: "睡眠、HRV、静息心率、日常心率、呼吸、步数和训练记录。",
                         impact: "用于判断今天是否适合训练，以及恢复分数是否可信。",
                         action: "授权基础数据",
-                        color: VelaTheme.systemPink
+                        color: VelaTheme.rhythmInk
                     )
  
                     tierRequestCard(
@@ -262,7 +266,7 @@ struct DataSourceSettingsView: View {
                         desc: "最大摄氧量、体重、体脂率、去脂体重、血氧和腕温。",
                         impact: "用于长期趋势、体能变化和恢复异常解释。",
                         action: "授权体能数据",
-                        color: VelaTheme.tagPurple
+                        color: VelaTheme.rhythmInk
                     )
  
                     tierRequestCard(
@@ -271,7 +275,7 @@ struct DataSourceSettingsView: View {
                         desc: "血糖、血压、水分、膳食摄入、步态稳定性、正念和睡眠呼吸事件。",
                         impact: "用于解释能量、压力、睡眠质量和训练波动来源。",
                         action: "授权进阶数据",
-                        color: VelaTheme.infoBlue
+                        color: VelaTheme.rhythmInk
                     )
                 }
                 .padding(.horizontal, 16)
@@ -279,7 +283,7 @@ struct DataSourceSettingsView: View {
                 if let authErrorMessage {
                     Text(authErrorMessage)
                         .font(.system(.footnote, design: .default, weight: .semibold))
-                        .foregroundStyle(.red)
+                        .foregroundStyle(VelaTheme.danger)
                         .padding(.horizontal, 16)
                 }
  
@@ -325,7 +329,7 @@ struct DataSourceSettingsView: View {
                         Text(isSyncing ? "正在同步..." : "立即同步 Apple 健康")
                     }
                     .font(.system(.footnote, design: .default, weight: .bold))
-                    .foregroundStyle(Color.white)
+                    .foregroundStyle(VelaTheme.accentOn)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 13)
                     .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(VelaTheme.accent))
@@ -388,7 +392,7 @@ struct DataSourceSettingsView: View {
             } label: {
                 Text(action)
                     .font(.system(.footnote, design: .default, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(VelaTheme.accentOn)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
                     .background(RoundedRectangle(cornerRadius: VelaTheme.radiusMd, style: .continuous).fill(color))
@@ -557,12 +561,13 @@ struct CGMSettingsView: View {
                 } label: {
                     Label("请求权限并刷新", systemImage: "arrow.clockwise")
                         .font(.system(.footnote, design: .default, weight: .bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(VelaTheme.accentOn)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 46)
+                        .padding(.vertical, VelaTheme.space3)
+                        .frame(minHeight: VelaTheme.minimumHitTarget)
                         .background(
                             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(VelaTheme.infoBlue)
+                                .fill(VelaTheme.rhythmInk)
                         )
                 }
                 .buttonStyle(.plain)
@@ -582,11 +587,11 @@ struct CGMSettingsView: View {
         HStack(spacing: 14) {
             Image(systemName: "waveform.path.ecg.rectangle")
                 .font(.system(size: 30))
-                .foregroundStyle(VelaTheme.infoBlue)
+                .foregroundStyle(VelaTheme.rhythmInk)
                 .frame(width: 54, height: 54)
                 .background(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(VelaTheme.infoBlue.opacity(0.12))
+                        .fill(VelaTheme.rhythmInk.opacity(0.12))
                 )
  
             VStack(alignment: .leading, spacing: 4) {
@@ -640,7 +645,7 @@ struct CGMSettingsView: View {
                     x: .value("时间", reading.date),
                     y: .value("血糖", reading.milligramsPerDeciliter)
                 )
-                .foregroundStyle(VelaTheme.infoBlue)
+                .foregroundStyle(VelaTheme.rhythmInk)
                 .lineStyle(StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
                 .interpolationMethod(.catmullRom)
  
@@ -648,7 +653,7 @@ struct CGMSettingsView: View {
                     x: .value("时间", reading.date),
                     y: .value("血糖", reading.milligramsPerDeciliter)
                 )
-                .foregroundStyle(VelaTheme.infoBlue)
+                .foregroundStyle(VelaTheme.rhythmInk)
             }
             .chartXAxis(.hidden)
             .chartYAxis {
@@ -664,7 +669,7 @@ struct CGMSettingsView: View {
         VStack(spacing: 12) {
             Image(systemName: "drop.triangle")
                 .font(.system(size: 32))
-                .foregroundStyle(VelaTheme.infoBlue)
+                .foregroundStyle(VelaTheme.rhythmInk)
             Text("等待血糖数据")
                 .font(.system(.body, design: .default, weight: .bold))
                 .foregroundStyle(VelaTheme.fg)
@@ -680,7 +685,7 @@ struct CGMSettingsView: View {
  
     private var cardBackground: some View {
         RoundedRectangle(cornerRadius: 20, style: .continuous)
-            .fill(Color.white)
+            .fill(VelaTheme.rhythmCanvasRaised)
             .overlay(
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
                     .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
@@ -733,9 +738,9 @@ struct CoachPersonalitySettingsView: View {
                         HStack(spacing: 12) {
                             Image(systemName: personality.icon)
                                 .font(.system(size: 16, weight: .bold))
-                                .foregroundStyle(Color.white)
+                                .foregroundStyle(VelaTheme.accentOn)
                                 .frame(width: 28, height: 28)
-                                .background(personality.tint)
+                                .background(VelaTheme.accent)
                                 .clipShape(Circle())
  
                             VStack(alignment: .leading, spacing: 4) {
@@ -759,7 +764,7 @@ struct CoachPersonalitySettingsView: View {
                 }
             }
         }
-        .background(VelaTheme.rhythmCanvas)
+        .velaRhythmFormSurface()
         .navigationTitle("AI 教练风格")
         .velaRhythmDetailChrome()
         .onAppear {

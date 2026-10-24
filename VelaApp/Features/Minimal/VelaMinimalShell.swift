@@ -186,7 +186,7 @@ struct VelaShell: View {
         .overlay(alignment: .bottom) {
             if showTodayEvidence {
                 ZStack(alignment: .bottom) {
-                    Color.black.opacity(0.18)
+                    VelaTheme.scrim.opacity(0.18)
                         .ignoresSafeArea()
                         .onTapGesture { showTodayEvidence = false }
                     TodayEvidenceSheet(
@@ -670,7 +670,7 @@ struct VelaShell: View {
 
     private var sidePanel: some View {
         ZStack(alignment: .leading) {
-            Color.black.opacity(0.35)
+            VelaTheme.scrim.opacity(0.35)
                 .ignoresSafeArea()
                 .onTapGesture { showSidePanel = false }
             VStack(alignment: .leading, spacing: 8) {

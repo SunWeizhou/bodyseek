@@ -7,21 +7,29 @@ import UIKit
 // 3×3 circle buttons grid × Dual-eye AI Mascot center × Bottom circle cancel button
 
 struct PlusActionSheet: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     
     var body: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            ScrollView { actions }
+                .background(VelaTheme.bg)
+        } else {
+            actions
+        }
+    }
+
+    private var actions: some View {
         VStack(spacing: 20) {
             // Spacer to replace deleted hint capsule and keep correct layout margin
             Spacer().frame(height: 16)
             
             // 2. 3×3 Grid
             LazyVGrid(
-                columns: [
-                    GridItem(.flexible(), spacing: 14),
-                    GridItem(.flexible(), spacing: 14),
-                    GridItem(.flexible(), spacing: 14)
-                ],
+                columns: dynamicTypeSize.isAccessibilitySize
+                    ? [GridItem(.adaptive(minimum: 130), spacing: 14)]
+                    : Array(repeating: GridItem(.flexible(), spacing: 14), count: 3),
                 spacing: 16
             ) {
                 if VelaFeatureFlags.nutritionEnabled {
@@ -141,7 +149,9 @@ struct PlusActionSheet: View {
                 Text(label)
                     .font(.system(.caption2, design: .default, weight: .bold))
                     .foregroundStyle(VelaTheme.muted)
-                    .lineLimit(1)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .multilineTextAlignment(.center)
             }
         }
         .buttonStyle(.cardPress)
@@ -163,7 +173,9 @@ struct PlusActionSheet: View {
                 Text(label)
                     .font(.system(.caption2, design: .default, weight: .bold))
                     .foregroundStyle(VelaTheme.muted)
-                    .lineLimit(1)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .multilineTextAlignment(.center)
             }
         }
         .buttonStyle(.plain)
@@ -215,7 +227,7 @@ struct AlpacaShape: Shape {
 }
 
 struct AlpacaView: View {
-    var strokeColor: Color = .white
+    var strokeColor: Color = VelaTheme.rhythmDeepOn
     var size: CGFloat = 28
     var lineWidth: CGFloat = 2
 

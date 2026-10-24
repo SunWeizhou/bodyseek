@@ -468,7 +468,7 @@ struct ExportDataSettingsView: View {
                 } label: {
                     Label("导出本地健康数据", systemImage: "doc.text.fill")
                         .font(.system(.subheadline, design: .default, weight: .bold))
-                        .foregroundStyle(Color.white)
+                        .foregroundStyle(VelaTheme.accentOn)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
                         .background(RoundedRectangle(cornerRadius: VelaTheme.radiusMd).fill(VelaTheme.accent))
@@ -478,7 +478,7 @@ struct ExportDataSettingsView: View {
                 if !statusMessage.isEmpty {
                     Text(statusMessage)
                         .font(.footnote)
-                        .foregroundStyle(isError ? .red : .green)
+                        .foregroundStyle(isError ? VelaTheme.danger : VelaTheme.success)
                 }
             }
         }

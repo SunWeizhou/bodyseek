@@ -168,7 +168,7 @@ struct DailyDecisionFeedbackSheet: View {
                     } label: {
                         Text(option.1)
                             .font(VelaTheme.subheadline().weight(.semibold))
-                            .foregroundStyle(selection.wrappedValue == option.0 ? Color.white : VelaTheme.fg)
+                            .foregroundStyle(selection.wrappedValue == option.0 ? VelaTheme.accentOn : VelaTheme.fg)
                             .padding(.horizontal, 13)
                             .padding(.vertical, 9)
                             .background(Capsule().fill(selection.wrappedValue == option.0 ? VelaTheme.accent : VelaTheme.secondaryGroupedBackground))
@@ -205,7 +205,7 @@ private struct DecisionRatingRow: View {
                         Text("\(rating)")
                             .font(VelaTheme.subheadline().weight(.bold))
                             .frame(maxWidth: .infinity, minHeight: 38)
-                            .foregroundStyle(value == rating ? Color.white : VelaTheme.fg2)
+                            .foregroundStyle(value == rating ? VelaTheme.accentOn : VelaTheme.fg2)
                             .background(
                                 RoundedRectangle(cornerRadius: VelaTheme.radiusMd, style: .continuous)
                                     .fill(value == rating ? VelaTheme.accent : VelaTheme.secondaryGroupedBackground)

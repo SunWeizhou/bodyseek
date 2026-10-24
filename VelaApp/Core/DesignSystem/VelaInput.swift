@@ -94,7 +94,7 @@ struct EvidenceStep: View {
             Text("\(step)")
                 .font(VelaTheme.monoCaption())
                 .fontWeight(.bold)
-                .foregroundStyle(.white)
+                .foregroundStyle(VelaTheme.accentOn)
                 .frame(width: 22, height: 22)
                 .background(VelaTheme.accent)
                 .clipShape(Circle())

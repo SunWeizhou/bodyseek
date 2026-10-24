@@ -68,9 +68,10 @@ struct WeightLogSheetView: View {
                         } label: {
                             Text(AppLanguage.stored.isChinese ? "保存记录" : "Save Record")
                                 .font(VelaTheme.headline())
-                                .foregroundStyle(.white)
+                                .foregroundStyle(VelaTheme.accentOn)
                                 .frame(maxWidth: .infinity)
-                                .frame(height: 50)
+                                .padding(.vertical, VelaTheme.space3)
+                                .frame(minHeight: VelaTheme.minimumHitTarget)
                                 .background(VelaTheme.accent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                         }
                     }

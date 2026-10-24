@@ -209,7 +209,7 @@ struct BodySeekMetricAvailabilityStrip: View {
                         tint: item.isAvailable ? VelaTheme.rhythmDeep : VelaTheme.rhythmInkSecondary.opacity(0.52)
                     )
                     Text(item.title)
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(VelaTheme.caption2().weight(.semibold))
                         .foregroundStyle(item.isAvailable ? VelaTheme.rhythmInkSecondary : VelaTheme.rhythmInkSecondary.opacity(0.62))
                         .lineLimit(1)
                 }
@@ -603,9 +603,9 @@ struct SetInputRow: View {
             Text("\(index)")
                 .font(VelaTheme.caption1())
                 .fontWeight(.bold)
-                .foregroundStyle(.white)
+                .foregroundStyle(VelaTheme.accentOn)
                 .frame(width: 24, height: 24)
-                .background(Circle().fill(completed ? VelaTheme.success : VelaTheme.meta))
+                .background(Circle().fill(completed ? VelaTheme.accent : VelaTheme.rhythmInkSecondary))
 
             Text(reps)
                 .font(VelaTheme.subheadline())
@@ -703,7 +703,7 @@ struct VelaNativeCardModifier: ViewModifier {
             .overlay(
                 shape.stroke(
                     colorSchemeContrast == .increased ? VelaTheme.rhythmInk : VelaTheme.hairline,
-                    lineWidth: 1
+                    lineWidth: VelaTheme.hairlineWidth
                 )
             )
     }
@@ -923,7 +923,7 @@ struct VelaMakeHeader<Trailing: View>: View {
                     .font(.system(.footnote, design: .rounded, weight: .regular))
                     .foregroundStyle(VelaTheme.fg2)
                 Text(title)
-                    .font(.system(size: 28, weight: .bold))
+                    .font(VelaTheme.title1().weight(.bold))
                     .foregroundStyle(VelaTheme.fg)
             }
             Spacer(minLength: 8)
@@ -1207,14 +1207,14 @@ struct ShimmerModifier: ViewModifier {
                     let width = geo.size.width
 
                     if reduceMotion {
-                        Color.white.opacity(0.08)
+                        VelaTheme.rhythmInk.opacity(0.08)
                     } else {
                         LinearGradient(
                             colors: [
                                 .clear,
-                                .white.opacity(0.12),
-                                .white.opacity(0.35),
-                                .white.opacity(0.12),
+                                VelaTheme.rhythmInk.opacity(0.12),
+                                VelaTheme.rhythmInk.opacity(0.35),
+                                VelaTheme.rhythmInk.opacity(0.12),
                                 .clear
                             ],
                             startPoint: .topLeading,

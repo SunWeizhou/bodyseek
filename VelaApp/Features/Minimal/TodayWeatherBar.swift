@@ -2,7 +2,6 @@ import SwiftUI
 
 struct TodayWeatherBar: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @Environment(\.colorScheme) private var colorScheme
 
     let weatherTemp: String
     let weatherStatusText: String
@@ -33,10 +32,8 @@ struct TodayWeatherBar: View {
             .overlay {
                 Capsule(style: .continuous)
                     .stroke(
-                        colorScheme == .dark
-                            ? Color.white.opacity(0.10)
-                            : VelaTheme.rhythmMist.opacity(0.70),
-                        lineWidth: 0.75
+                        VelaTheme.hairline,
+                        lineWidth: VelaTheme.hairlineWidth
                     )
             }
             .contentShape(Capsule())

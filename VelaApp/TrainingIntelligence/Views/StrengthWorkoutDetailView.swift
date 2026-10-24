@@ -142,7 +142,7 @@ struct StrengthWorkoutDetailView: View {
                         .font(.system(size: 22, weight: .semibold))
                         .foregroundStyle(accentColor)
                         .frame(width: 46, height: 46)
-                        .background(Circle().fill(VelaTheme.lightBlueSoft))
+                        .background(Circle().fill(VelaTheme.rhythmMist))
                 }
 
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3), spacing: 10) {
@@ -180,7 +180,7 @@ struct StrengthWorkoutDetailView: View {
                         ForEach(Array(analysis.personalRecords.prefix(3))) { record in
                             HStack {
                                 Image(systemName: "trophy.fill")
-                                    .foregroundStyle(VelaTheme.softGold)
+                                    .foregroundStyle(VelaTheme.rhythmInk)
                                 Text(record.summary)
                                     .font(.system(.caption, design: .rounded, weight: .bold))
                                     .foregroundStyle(bodyTextColor)
@@ -226,7 +226,7 @@ struct StrengthWorkoutDetailView: View {
                             }
                             GeometryReader { geo in
                                 ZStack(alignment: .leading) {
-                                    Capsule().fill(VelaTheme.neutralCapsule)
+                                    Capsule().fill(VelaTheme.scoreTrack)
                                     Capsule()
                                         .fill(muscleColor(muscle))
                                         .frame(width: geo.size.width * CGFloat(Double(sets) / Double(maxSets)))
@@ -409,7 +409,7 @@ struct StrengthWorkoutDetailView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.white.opacity(0.72)))
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
     }
 
     private func setRow(index: Int, set: StrengthSetLog) -> some View {
@@ -417,7 +417,7 @@ struct StrengthWorkoutDetailView: View {
             // 组号 / 热身标记
             Text(set.kind == .working ? "\(index + 1)" : set.kind.shortLabel)
                 .font(.system(.caption2, design: .rounded, weight: .bold))
-                .foregroundStyle(Color.white)
+                .foregroundStyle(VelaTheme.accentOn)
                 .frame(width: 24, height: 24)
                 .background(Circle().fill(detailSetKindColor(set.kind)))
                 .frame(width: 32, alignment: .leading)
@@ -445,7 +445,7 @@ struct StrengthWorkoutDetailView: View {
 
             // 状态
             Image(systemName: (set.isCompleted ?? true) ? "checkmark.circle.fill" : "circle")
-                .foregroundStyle((set.isCompleted ?? true) ? VelaTheme.success : mutedColor)
+                .foregroundStyle((set.isCompleted ?? true) ? VelaTheme.rhythmInk : mutedColor)
                 .font(.system(.title3, design: .default))
                 .frame(width: 32, alignment: .trailing)
         }
@@ -457,7 +457,7 @@ struct StrengthWorkoutDetailView: View {
     private func detailSetKindColor(_ kind: StrengthSetKind) -> Color {
         switch kind {
         case .working: VelaTheme.accent
-        case .warmup: VelaTheme.systemOrange
+        case .warmup: VelaTheme.rhythmInk
         case .drop: VelaTheme.rhythmInk
         case .backoff: VelaTheme.rhythmInk
         case .failure: VelaTheme.rhythmInk
