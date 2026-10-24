@@ -363,6 +363,100 @@ final class VelaSmokeUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["个人空间"].exists)
     }
 
+    func testNetworkAgentNavigationAndReturn() {
+        let app = launchApp(extraArguments: ["-velaOpenSettings", "-velaDisableNetworkAI", "-vela_dark_mode", "dark"])
+        XCTAssertTrue(app.navigationBars["个人空间"].waitForExistence(timeout: 10))
+        let row = app.staticTexts["联网 Agent"].firstMatch
+        tapNextWaveSettingsRow(row, in: app)
+        XCTAssertTrue(app.navigationBars["AI 模型设置"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.secureTextFields["输入 DeepSeek 密钥..."].isHittable)
+        captureTrends("wave21-agent-destination-dark")
+        app.swipeUp()
+        captureTrends("wave21-agent-consent-dark")
+        app.navigationBars.buttons.firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["个人空间"].waitForExistence(timeout: 5))
+        tapNextWaveSettingsRow(row, in: app)
+        XCTAssertTrue(app.navigationBars["AI 模型设置"].waitForExistence(timeout: 5))
+    }
+
+    func testNetworkAgentNavigationFromTrustAndLargeType() {
+        for largeType in [false, true] {
+            let app = launchApp(extraArguments: ["-velaOpenSettings", "-vela_dark_mode", largeType ? "light" : "dark"] +
+                (largeType ? ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"] : []))
+            XCTAssertTrue(app.navigationBars["个人空间"].waitForExistence(timeout: 10))
+            tapNextWaveSettingsRow(app.staticTexts["信任中心"].firstMatch, in: app)
+            XCTAssertTrue(app.navigationBars["信任中心"].waitForExistence(timeout: 8))
+            tapNextWaveSettingsRow(app.staticTexts["联网 Agent"].firstMatch, in: app)
+            XCTAssertTrue(app.navigationBars["AI 模型设置"].waitForExistence(timeout: 8))
+            captureTrends(largeType ? "wave21-trust-agent-accessibility" : "wave21-trust-agent-dark")
+            app.swipeUp()
+            captureTrends(largeType ? "wave21-trust-consent-accessibility" : "wave21-trust-consent-dark")
+            app.navigationBars.buttons.firstMatch.tap()
+            XCTAssertTrue(app.navigationBars["信任中心"].waitForExistence(timeout: 5))
+            app.terminate()
+        }
+    }
+
+    func testNetworkAgentNavigationWithReviewedConsent() {
+        let app = launchApp(extraArguments: ["-velaOpenSettings", "-velaDisableNetworkAI", "-vela_dark_mode", "dark",
+            "-vela_coach_outbound_consent_version", "2", "-vela_coach_outbound_health", "YES"])
+        XCTAssertTrue(app.navigationBars["个人空间"].waitForExistence(timeout: 10))
+        tapNextWaveSettingsRow(app.staticTexts["联网 Agent"].firstMatch, in: app)
+        XCTAssertTrue(app.navigationBars["AI 模型设置"].waitForExistence(timeout: 8))
+        for _ in 0..<4 where !app.switches["健康指标与化验"].isHittable { app.swipeUp() }
+        XCTAssertTrue(app.switches["健康指标与化验"].isHittable)
+        captureTrends("wave21-agent-reviewed-consent-dark")
+        app.navigationBars.buttons.firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["个人空间"].waitForExistence(timeout: 5))
+    }
+
+    func testNetworkAgentDirectNavigationLargeType() {
+        let app = launchApp(extraArguments: ["-velaOpenSettings", "-velaDisableNetworkAI", "-vela_dark_mode", "light",
+            "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
+        XCTAssertTrue(app.navigationBars["个人空间"].waitForExistence(timeout: 10))
+        tapNextWaveSettingsRow(app.staticTexts["联网 Agent"].firstMatch, in: app)
+        XCTAssertTrue(app.navigationBars["AI 模型设置"].waitForExistence(timeout: 8))
+        captureTrends("wave21-agent-direct-accessibility")
+        app.swipeUp()
+        captureTrends("wave21-agent-direct-accessibility-scrolled")
+        app.navigationBars.buttons.firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["个人空间"].waitForExistence(timeout: 5))
+    }
+
+    func testNetworkAgentNavigationAfterFullSwipe() {
+        let app = launchApp(extraArguments: ["-velaOpenSettings", "-velaDisableNetworkAI", "-vela_dark_mode", "dark"])
+        XCTAssertTrue(app.navigationBars["个人空间"].waitForExistence(timeout: 10))
+        app.swipeUp()
+        captureTrends("wave21-settings-full-swipe-before-tap")
+        app.staticTexts["联网 Agent"].firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["AI 模型设置"].waitForExistence(timeout: 8))
+        captureTrends("wave21-agent-after-full-swipe")
+    }
+
+    /// Discriminator E1 for the wave21 hang: a ScrollView destination must still
+    /// push after the same full-swipe gesture that used to freeze the list.
+    func testSettingsRowAfterFullSwipePushesScrollViewDestination() {
+        let app = launchApp(extraArguments: ["-velaOpenSettings", "-velaDisableNetworkAI", "-vela_dark_mode", "dark"])
+        XCTAssertTrue(app.navigationBars["个人空间"].waitForExistence(timeout: 10))
+        app.swipeUp()
+        tapNextWaveSettingsRow(app.staticTexts["信任中心"].firstMatch, in: app)
+        XCTAssertTrue(app.navigationBars["信任中心"].waitForExistence(timeout: 8))
+        captureTrends("wave21-after-full-swipe-trust")
+        app.terminate()
+    }
+
+    /// Discriminator E2 for the wave21 hang: a Form destination (same shape as
+    /// AI model settings) must still push after a deep scroll.
+    func testSettingsRowAfterFullSwipePushesFormDestination() {
+        let app = launchApp(extraArguments: ["-velaOpenSettings", "-velaDisableNetworkAI", "-vela_dark_mode", "dark"])
+        XCTAssertTrue(app.navigationBars["个人空间"].waitForExistence(timeout: 10))
+        app.swipeUp()
+        tapNextWaveSettingsRow(app.staticTexts["隐私与数据控制"].firstMatch, in: app)
+        XCTAssertTrue(app.navigationBars["隐私与数据控制"].waitForExistence(timeout: 8))
+        captureTrends("wave21-after-full-swipe-privacy")
+        app.terminate()
+    }
+
     /// Read-only preview evidence for this redesign; kept separately from old captures.
     func testUpgradeSurfaceSnapshots() {
         for (index, name) in [(0, "today"), (1, "trends"), (2, "plan"), (3, "coach")] {
