@@ -20,7 +20,7 @@
 
 | MUST | 表面 / 文件 | 改动 |
 | --- | --- | --- |
-| #1 | `CoachHistoryDrawer.swift` | 6 处 `design: .rounded` → VelaTheme 语义字阶；选中行 `rhythmDeep.opacity(0.3)` → `rhythmInk` 1pt 选中描边 + `rhythmCanvasRaised`；新建对话按钮 14pt 圆角 → ink `Capsule()`；搜索框 12→`radiusSm` + hairline；Divider → hairline token；AX 字号下标题/元信息放开 `lineLimit` + `fixedSize` |
+| #1 | `CoachHistoryDrawer.swift` | 6 处 `design: .rounded` → VelaTheme 语义字阶；选中行 `rhythmDeep.opacity(0.3)` → `rhythmInk` 1pt 选中描边 + `rhythmCanvasRaised`；新建对话按钮 14pt 圆角 → ink `Capsule()`；搜索框 12→`radiusSm` + hairline；Divider → hairline token；AX 字号下标题行放开 `lineLimit` + `fixedSize`（标题以外文本原本无 lineLimit） |
 | #2 | `Core/DesignSystem/VelaCard.swift` | `VelaMetricCard` 的 `domain.color.opacity(0.16)/0.75pt` → `hairline`/`hairlineWidth`；`InsightCard` 去 `.ultraThinMaterial` + 左侧 3pt 色条 + 0.5pt soft 描边 → 实色 `cardBg` + hairline + `radiusCard`；`EmptyStateCard` 虚线 `border` → hairline、accent 空心胶囊 CTA → ink 填充胶囊；`VelaEmptyState` CTA 同步 mono |
 | #3 | `SharedComponents/VelaLogoMark.swift` | `LinearGradient` 底 + `accent.opacity(0.2)` 描边 → `surfaceFloating` + hairline + solid ink；Canvas sail/mast/marks 全部 ink |
 | #4 | Coach / Journal / Training / Settings 高频文字 | 本波触及文件中 `design: .rounded` **63 → 1**（剩余 1 处为 `VelaDesignSystem` 内 SF Symbol 图标字号）；非图标固定字号按语义档位迁入 `VelaTheme`；所有保留的 `.font(.system(size:))` 均为 SF Symbol/几何图标（逐文件核对，见各文件 `swiftc -parse` 与 reviewer 记录） |

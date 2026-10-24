@@ -48,6 +48,6 @@ struct VelaLogoMark: View {
             .padding(size * 0.17)
         }
         .frame(width: size, height: size)
-        .accessibilityLabel("BodySeek")
+        .accessibilityLabel("Vela")
     }
 }

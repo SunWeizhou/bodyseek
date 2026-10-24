@@ -366,7 +366,7 @@ final class VelaSmokeUITests: XCTestCase {
         let quick = launchApp(extraArguments: ["-velaDisableNetworkAI", "-vela_dark_mode", "dark"])
         assertSurface(0, in: quick)
         quick.buttons["记录"].tap()
-        XCTAssertTrue(quick.buttons["记录体重"].waitForExistence(timeout: 5))
+        XCTAssertTrue(quick.buttons["手记"].waitForExistence(timeout: 5))
         captureTrends("wave22-quick-actions-dark")
         quick.terminate()
 
@@ -376,7 +376,7 @@ final class VelaSmokeUITests: XCTestCase {
         ])
         assertSurface(0, in: large)
         large.buttons["记录"].tap()
-        XCTAssertTrue(large.buttons["记录体重"].waitForExistence(timeout: 5))
+        XCTAssertTrue(large.buttons["手记"].waitForExistence(timeout: 5))
         captureTrends("wave22-quick-actions-accessibility")
         large.terminate()
 
