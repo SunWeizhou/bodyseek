@@ -1,0 +1,81 @@
+{
+  "work": "Trends five-score overview -> Apple Health style trend cards",
+  "startHead": "7e10292706ba1f6a5fd934c5a97f825a656f6143",
+  "branch": "cursor/trends-apple-health-cards-20261024",
+  "environment": {
+    "host": "macOS (arm64), Xcode 27.1 (27A9275)",
+    "simulator": "iPhone 17 / iOS 26.x",
+    "locale": "simplifiedChinese",
+    "repoToolchainPin": "26.5.0 (CI), local differs"
+  },
+  "commands": [
+    {
+      "name": "simulator build",
+      "command": "xcodebuild -project Vela.xcodeproj -scheme Vela -configuration Debug -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath build/TrendsAppleDerivedData build",
+      "exitCode": 0,
+      "log": "build/trends-apple-cards/build-sim.log"
+    },
+    {
+      "name": "unit tests",
+      "command": "xcodebuild test ... -only-testing:VelaTests -resultBundlePath build/trends-apple-cards/unit.xcresult",
+      "exitCode": 0,
+      "log": "build/trends-apple-cards/unit-test.log"
+    },
+    {
+      "name": "trends layouts UI test (preview, dense)",
+      "command": "xcodebuild test ... -only-testing:VelaUITests/VelaSmokeUITests/testTrendsChartLayoutsAndHorizons",
+      "exitCode": 0,
+      "log": "build/trends-apple-cards/ui-test.log",
+      "xcresult": "build/trends-apple-cards/ui.xcresult"
+    },
+    {
+      "name": "trends routing UI test",
+      "command": "xcodebuild test ... -only-testing:VelaUITests/VelaSmokeUITests/testTrendsScoreContentAndMetricRouting",
+      "exitCode": 0,
+      "log": "build/trends-apple-cards/ui-routing.log"
+    },
+    {
+      "name": "trends layouts UI test (temporary sparse preview 8/30, reverted)",
+      "command": "xcodebuild test ... -only-testing:VelaUITests/VelaSmokeUITests/testTrendsChartLayoutsAndHorizons -resultBundlePath build/trends-apple-cards/sparse.xcresult",
+      "exitCode": 0,
+      "log": "build/trends-apple-cards/ui-sparse.log",
+      "xcresult": "build/trends-apple-cards/sparse.xcresult",
+      "note": "PreviewDataFactory temporarily sampled 8/30 days, then restored; git diff for that file is empty."
+    },
+    {
+      "name": "device build",
+      "command": "xcodebuild -project Vela.xcodeproj -scheme Vela -configuration Debug -destination 'generic/platform=iOS' -derivedDataPath build/DeviceDeployDerivedData -allowProvisioningUpdates build",
+      "exitCode": 0,
+      "log": "build/trends-apple-cards/build-device.log"
+    },
+    {
+      "name": "device install",
+      "command": "xcrun devicectl device install app --device 00008140-00164DE022C3801C build/DeviceDeployDerivedData/Build/Products/Debug-iphoneos/Vela.app",
+      "exitCode": 0,
+      "receipt": "build/trends-apple-cards/install.json"
+    },
+    {
+      "name": "git diff --check",
+      "command": "git diff --check",
+      "exitCode": 0
+    }
+  ],
+  "screenshots": [
+    "trends-light-sparse.png (8/30 days, temporary fixture)",
+    "trends-light-dense.png (27/30 preview data)",
+    "trends-dark.png",
+    "trends-accessibility-chart.png (Accessibility XXXL)"
+  ],
+  "installedOn": {
+    "device": "iPhone 16 Pro (Joe's iPhone)",
+    "udid": "00008140-00164DE022C3801C",
+    "app": "com.sunweizhou.Vela4 4.0.0 (1)",
+    "localDataFilesBeforeAfter": "21/21 identical"
+  },
+  "notVerified": [
+    "Physical-device launch and rendering (device locked; launch verification skipped by user request earlier)",
+    "Full UI matrix across all states, VoiceOver manual pass, Reduce Motion manual pass",
+    "Remote CI on pinned Xcode 26.5.0 (local run used Xcode 27.1)",
+    "Real HealthKit data in simulator; screenshots use preview/synthetic values"
+  ]
+}

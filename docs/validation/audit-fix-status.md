@@ -371,3 +371,28 @@ git diff --check
 CGM / Trust 在无 HealthKit entitlement 的模拟器中如实显示读取失败，未填入假数据绕过。Quick Actions 大字体可滚动；Weight TextField 的 frame 已断言位于视口内，日期和保存动作可通过纵向滚动访问。Recovery 依据不再被固定三列挤成拆字/截断。主表面背景在大字体 sheet 下可能只显示部分文字，不把这些截图当成完整 Today 大字体认证。
 
 未验证：真实 HealthKit / GPS 路线与长训练历史、所有 Settings 子页与所有 artifact payload 的完整逐屏矩阵、全 Light/Dark × 字号 × known zero/unknown/excluded 组合、iOS 17 真机、VoiceOver 与 Reduce Motion 手工矩阵、完整远端固定工具链 CI。Watch / WidgetKit 视图与产品逻辑、对话历史列表明确跳过。没有把模拟/托管截图解释为评分有效性或端到端数据链验证。
+
+## 2026-10-24：Trends 五项趋势卡（Apple Health 式等距折线）
+
+本节独立记录本次 UI 变更，不更新上面的历史审计结论。
+
+- 起点：`7e102927`；开始时工作区已有用户改动（`VelaUITests/VelaSmokeUITests.swift`、未跟踪的 `docs/validation/rhythm-horizon/visual-body-wave21-2026-10-24/`），不属于本变更，未纳入本次提交。
+- 分支：`cursor/trends-apple-health-cards-20261024`。
+- 范围：`VelaApp/Core/DesignSystem/VelaChart.swift`（新增 `ObservationSparkline`：等距观测点 + Catmull-Rom 平滑曲线 + 渐变面积 + 端点标记）、`VelaApp/Features/Trends/VelaTrendsView.swift`（五项趋势卡重排、移除行内覆盖说明 / 底部图例 / 最新点空心圆）。评分、Store 数据合同、HealthKit 读取、详情页 date-spaced 图表、SwiftData schema 与算法版本未改变。
+- 结果：每张卡为“标题 + 当前分数 + 全宽等距 sparkline + 覆盖度与变化脚注（`8 次评分 · 9/27–10/24` / `较上次 ±n`）”；概览只表达形状，缺失日不插值；基线就绪后脚注改为“低于 / 高于平时”；详情页仍保留按日期间距、保留空档的真实图表。
+- 本地验证（Xcode 27.1 / iPhone 17 模拟器 / 简体中文）：
+
+```sh
+xcodebuild build -project Vela.xcodeproj -scheme Vela -configuration Debug \
+  -destination 'platform=iOS Simulator,name=iPhone 17' \
+  -derivedDataPath build/TrendsAppleDerivedData
+xcodebuild test ... -only-testing:VelaTests
+xcodebuild test ... -only-testing:VelaUITests/VelaSmokeUITests/testTrendsChartLayoutsAndHorizons
+xcodebuild test ... -only-testing:VelaUITests/VelaSmokeUITests/testTrendsScoreContentAndMetricRouting
+```
+
+- 退出码均为 0：模拟器构建、真机构建、`VelaTests` 全量、Trends 布局 UI 测试、Trends 路由 UI 测试、真机安装；`git diff --check` 退出码 0。命令与产物索引见 [`validation-runs.json`](rhythm-horizon/trends-apple-health-cards-2026-10-24/validation-runs.json)。
+- 原生证据（XCUITest 真实 SwiftUI 截图）：[浅色 · 8/30 天稀疏](rhythm-horizon/trends-apple-health-cards-2026-10-24/trends-light-sparse.png)、[浅色 · 27/30 天预览](rhythm-horizon/trends-apple-health-cards-2026-10-24/trends-light-dense.png)、[深色](rhythm-horizon/trends-apple-health-cards-2026-10-24/trends-dark.png)、[AccessibilityXXXL](rhythm-horizon/trends-apple-health-cards-2026-10-24/trends-accessibility-chart.png)。
+- 8/30 稀疏截图来自临时将 preview 夹具采样为 8 天，抓图后已还原（`PreviewDataFactory.swift` 无 diff）；截图输入是合成预览数据，不是用户真实健康记录。
+- 已安装到 iPhone 16 Pro（`com.sunweizhou.Vela4` 4.0.0 (1)），安装前后本地存储各 21 个文件完全一致；未执行启动验证（设备锁屏，且此前用户选择跳过自动启动）。
+- 限制：未验证真机实际渲染、VoiceOver / Reduce Motion 手工矩阵、全部状态与字号组合；本机 Xcode 27.1 与仓库锁定 26.5.0 不同，未声称远端 CI 通过；未改版本号，未 merge / 发布。

@@ -136,7 +136,6 @@ struct VelaTrendsView: View {
                 trendHistoryErrorCard
                 compactAgentObservation
                 fiveScoreTrendSection
-                trendLegend
 
                 if !hasAnyScoreHistory && scoreDescriptors.allSatisfy({ finding(for: $0.metric)?.isAvailable != true }) {
                     compactCalibrationCard
@@ -234,65 +233,49 @@ struct VelaTrendsView: View {
         let values = trendPoints.compactMap(\.value)
         let valueText = scoreValueText(descriptor: descriptor, finding: finding, values: values)
         let series = currentSeries(for: descriptor.metric)
+        let coverageText = scoreCoverageText(points: trendPoints, values: values)
+        let changeText = scoreChangeText(values: values, finding: finding)
 
         return Button {
             selectedMetricForDetail = descriptor.detail
         } label: {
-            HStack(alignment: .center, spacing: 10) {
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 5) {
-                        Text(descriptor.title)
-                            .font(VelaTheme.subheadline().weight(.semibold))
-                            .foregroundStyle(VelaTheme.rhythmInk)
-                        if finding?.isNotable == true {
-                            BaselineDeviationMarker(
-                                directionLabel: finding.flatMap { BaselineDeviationCopy.label(for: $0) },
-                                showsLabel: false,
-                                diameter: 7
-                            )
-                        }
-                    }
-                    Text(scoreTrendCaption(finding: finding, sampleCount: values.count))
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(descriptor.title)
+                        .font(VelaTheme.subheadline().weight(.semibold))
+                        .foregroundStyle(VelaTheme.rhythmInk)
+                    Spacer(minLength: 8)
+                    Text(valueText)
+                        .font(VelaTheme.instrumentValue())
+                        .monospacedDigit()
+                        .foregroundStyle(valueText == "--" ? VelaTheme.rhythmInkSecondary : VelaTheme.rhythmInk)
+                    Image(systemName: "chevron.right")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                }
+
+                if !values.isEmpty {
+                    ObservationSparkline(values: values)
+                        .accessibilityIdentifier("trends-overview-chart-\(descriptor.metric.rawValue)")
+                } else if series != nil {
+                    Text("暂无评分记录")
                         .font(VelaTheme.caption2())
                         .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.85)
+                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                } else {
+                    Text(dailyRecordsLoadError == nil ? "正在读取记录…" : "暂无可用记录")
+                        .font(VelaTheme.caption2())
+                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                 }
-                .frame(width: 88, alignment: .leading)
 
-                Group {
-                    if let series {
-                        GeometryReader { geo in
-                            DateAwareSparkline(
-                                points: series.points,
-                                color: VelaTheme.rhythmInk,
-                                height: geo.size.height,
-                                width: geo.size.width,
-                                band: series.baselineBand,
-                                marksLatestPoint: true
-                            )
-                        }
-                        .accessibilityIdentifier("trends-overview-chart-\(descriptor.metric.rawValue)")
-                    } else {
-                        Text(dailyRecordsLoadError == nil ? "正在读取记录…" : "暂无可用记录")
-                            .font(VelaTheme.caption2())
-                            .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                    }
+                if !values.isEmpty {
+                    scoreTrendFooter(coverage: coverageText, change: changeText)
                 }
-                .frame(maxWidth: .infinity, minHeight: 36, maxHeight: 36)
-
-                Text(valueText)
-                    .font(VelaTheme.instrumentValue())
-                    .monospacedDigit()
-                    .foregroundStyle(valueText == "--" ? VelaTheme.rhythmInkSecondary : VelaTheme.rhythmInk)
-                    .frame(minWidth: 36, alignment: .trailing)
-                Image(systemName: "chevron.right")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
@@ -303,8 +286,46 @@ struct VelaTrendsView: View {
         .buttonStyle(.cardPress)
         .accessibilityElement(children: .ignore)
         .accessibilityIdentifier("trends-score-\(descriptor.metric.rawValue)")
-        .accessibilityLabel(scoreAccessibilityLabel(descriptor: descriptor, finding: finding, values: values))
+        .accessibilityLabel(
+            scoreAccessibilityLabel(
+                descriptor: descriptor,
+                valueText: valueText,
+                coverageText: coverageText,
+                changeText: changeText
+            )
+        )
         .accessibilityHint("打开\(descriptor.title)详情")
+    }
+
+    @ViewBuilder
+    private func scoreTrendFooter(coverage: String, change: String) -> some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 2) {
+                scoreCoverageLabel(coverage)
+                if !change.isEmpty { scoreChangeLabel(change) }
+            }
+        } else {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                scoreCoverageLabel(coverage)
+                Spacer(minLength: 8)
+                if !change.isEmpty { scoreChangeLabel(change) }
+            }
+        }
+    }
+
+    private func scoreCoverageLabel(_ text: String) -> some View {
+        Text(text)
+            .font(VelaTheme.caption2())
+            .foregroundStyle(VelaTheme.rhythmInkSecondary)
+            .lineLimit(2)
+            .minimumScaleFactor(0.8)
+    }
+
+    private func scoreChangeLabel(_ text: String) -> some View {
+        Text(text)
+            .font(VelaTheme.caption2())
+            .foregroundStyle(VelaTheme.rhythmInkSecondary)
+            .lineLimit(1)
     }
 
     private var compactCalibrationCard: some View {
@@ -447,30 +468,6 @@ struct VelaTrendsView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var trendLegend: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if scoreDescriptors.contains(where: { scoreBand(for: $0.metric) != nil }) {
-                HStack(spacing: 6) {
-                    RoundedRectangle(cornerRadius: 2, style: .continuous)
-                        .fill(VelaTheme.rangeBand)
-                        .frame(width: 18, height: 8)
-                    Text("阴影为个人常见范围")
-                }
-            }
-            HStack(spacing: 6) {
-                Circle()
-                    .stroke(VelaTheme.rhythmInk, lineWidth: 1.25)
-                    .frame(width: 8, height: 8)
-                Text("空心圆 ≠ 不好，只表示偏离你的平时")
-            }
-            Text("空档日期暂无评分")
-        }
-        .font(VelaTheme.caption2())
-        .foregroundStyle(VelaTheme.rhythmInkSecondary)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityLabel("空心圆不等于不好，只表示偏离你的平时")
-    }
-
     private var metricCatalogDisclosure: some View {
         Button {
             withAnimation(reduceMotion ? .easeOut(duration: 0.16) : .snappy(duration: 0.24)) {
@@ -509,10 +506,6 @@ struct VelaTrendsView: View {
         currentSeries(for: metric)?.points ?? []
     }
 
-    private func scoreBand(for metric: CoreHealthMetric) -> ClosedRange<Double>? {
-        trendStates[metric]?.series?.baselineBand
-    }
-
     private func scoreHistory(for metric: CoreHealthMetric) -> [Double] {
         trendStates[metric]?.series?.points.compactMap(\.value) ?? []
     }
@@ -529,30 +522,44 @@ struct VelaTrendsView: View {
         return "\(Int(value.rounded()))"
     }
 
-    private func scoreTrendCaption(finding: HealthTrendFinding?, sampleCount: Int) -> String {
-        guard let finding, finding.isAvailable else {
-            if sampleCount >= selectedHorizon.requiredSampleCount {
-                return "图中 \(sampleCount) 个评分日（含当天）"
-            }
-            return "图中 \(sampleCount) 个评分日（含当天） · 基线历史 \(finding?.sampleCount ?? 0)/\(selectedHorizon.requiredSampleCount) 天"
+    private func scoreCoverageText(points: [TrendsChartPoint], values: [Double]) -> String {
+        guard !values.isEmpty else { return "暂无评分" }
+        let dates = points.compactMap { $0.value == nil ? nil : $0.date }
+        guard let first = dates.first, let last = dates.last else { return "暂无评分" }
+        let countText = values.count == 1 ? "1 次评分" : "\(values.count) 次评分"
+        guard first != last else { return "\(countText) · \(scoreDateText(first))" }
+        return "\(countText) · \(scoreDateText(first))–\(scoreDateText(last))"
+    }
+
+    private func scoreDateText(_ date: Date) -> String {
+        if selectedHorizon == .threeYears {
+            return date.formatted(.dateTime.year().month(.twoDigits))
         }
-        if finding.isNotable {
-            return BaselineDeviationCopy.label(for: finding) ?? BaselineDeviationCopy.unusualFallback
+        return date.formatted(.dateTime.month(.defaultDigits).day())
+    }
+
+    private func scoreChangeText(values: [Double], finding: HealthTrendFinding?) -> String {
+        if let finding, finding.isAvailable, finding.isNotable,
+           let label = BaselineDeviationCopy.label(for: finding) {
+            return label
         }
-        if let baseline = finding.baselineValue {
-            return "基线 \(Int(baseline.rounded())) · \(finding.valueDirection.label)"
-        }
-        return "\(finding.sampleCount) 天 · \(finding.valueDirection.label)"
+        guard values.count >= 2,
+              let latest = values.last,
+              let previous = values.dropLast().last else { return "" }
+        let difference = latest - previous
+        guard abs(difference) >= 0.5 else { return "较上次 持平" }
+        return "较上次 \(difference > 0 ? "+" : "−")\(Int(abs(difference).rounded()))"
     }
 
     private func scoreAccessibilityLabel(
         descriptor: ScoreTrendDescriptor,
-        finding: HealthTrendFinding?,
-        values: [Double]
+        valueText: String,
+        coverageText: String,
+        changeText: String
     ) -> String {
-        let value = scoreValueText(descriptor: descriptor, finding: finding, values: values)
-        let state = scoreTrendCaption(finding: finding, sampleCount: values.count)
-        return "\(descriptor.title)，\(value)，\(state)"
+        [descriptor.title, valueText, coverageText, changeText]
+            .filter { !$0.isEmpty }
+            .joined(separator: "，")
     }
 
     private func currentScoreValue(for metric: CoreHealthMetric) -> Double? {
