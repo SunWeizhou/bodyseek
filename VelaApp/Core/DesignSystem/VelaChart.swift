@@ -504,3 +504,110 @@ struct DateAwareSparkline: View {
     }
 }
 
+// MARK: - Observation Sparkline (equal-spaced overview)
+
+/// Overview sparkline that places each observed score at an equal horizontal
+/// interval. A trend window often contains only a handful of scored days;
+/// equal spacing keeps the shape readable instead of collapsing the points
+/// into gaps. The date-spaced, gap-preserving chart stays the source of truth
+/// on the metric detail page, and no value is invented for a missing day.
+struct ObservationSparkline: View {
+    let values: [Double]
+    var color: Color = VelaTheme.rhythmInk
+    var lineWidth: CGFloat = 2
+    var height: CGFloat = 44
+
+    var body: some View {
+        Canvas { context, size in
+            guard !values.isEmpty else { return }
+            let inset: CGFloat = 5
+            let plotWidth = max(0, size.width - inset * 2)
+            let plotHeight = max(0, size.height - inset * 2)
+            let minValue = values.min() ?? 0
+            let maxValue = values.max() ?? 100
+            let pad = max(4, (maxValue - minValue) * 0.12)
+            let lower = minValue - pad
+            let upper = maxValue + pad
+            let span = max(upper - lower, 1)
+            let step = values.count > 1 ? plotWidth / CGFloat(values.count - 1) : 0
+            let points = values.enumerated().map { index, value in
+                CGPoint(
+                    x: inset + CGFloat(index) * step,
+                    y: inset + CGFloat(1 - (value - lower) / span) * plotHeight
+                )
+            }
+
+            if points.count == 1, let only = points.first {
+                let radius: CGFloat = 2.5
+                context.fill(
+                    Path(ellipseIn: CGRect(x: only.x - radius, y: only.y - radius,
+                                           width: radius * 2, height: radius * 2)),
+                    with: .color(color)
+                )
+                return
+            }
+
+            let linePath = Self.smoothPath(points)
+            if let first = points.first, let last = points.last {
+                var area = linePath
+                area.addLine(to: CGPoint(x: last.x, y: size.height))
+                area.addLine(to: CGPoint(x: first.x, y: size.height))
+                area.closeSubpath()
+                context.fill(
+                    area,
+                    with: .linearGradient(
+                        Gradient(colors: [color.opacity(0.10), color.opacity(0.0)]),
+                        startPoint: CGPoint(x: 0, y: 0),
+                        endPoint: CGPoint(x: 0, y: size.height)
+                    )
+                )
+            }
+
+            context.stroke(
+                linePath,
+                with: .color(color),
+                style: StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round)
+            )
+
+            if let last = points.last {
+                let radius: CGFloat = 2.75
+                context.fill(
+                    Path(ellipseIn: CGRect(x: last.x - radius, y: last.y - radius,
+                                           width: radius * 2, height: radius * 2)),
+                    with: .color(color)
+                )
+            }
+        }
+        .frame(height: height)
+        .clipped()
+        .accessibilityHidden(true)
+    }
+
+    /// Catmull-Rom converted to cubic Béziers. The curve passes through every
+    /// observed value, so it never invents a peak between two measurements.
+    private static func smoothPath(_ points: [CGPoint]) -> Path {
+        var path = Path()
+        guard let first = points.first else { return path }
+        path.move(to: first)
+        guard points.count > 2 else {
+            if points.count == 2 { path.addLine(to: points[1]) }
+            return path
+        }
+        for index in 1..<(points.count - 1) {
+            let p0 = points[max(0, index - 2)]
+            let p1 = points[index - 1]
+            let p2 = points[index]
+            let p3 = points[min(points.count - 1, index + 1)]
+            let c1 = CGPoint(x: p1.x + (p2.x - p0.x) / 6, y: p1.y + (p2.y - p0.y) / 6)
+            let c2 = CGPoint(x: p2.x - (p3.x - p1.x) / 6, y: p2.y - (p3.y - p1.y) / 6)
+            path.addCurve(to: p2, control1: c1, control2: c2)
+        }
+        let p1 = points[points.count - 2]
+        let p2 = points[points.count - 1]
+        let c1 = CGPoint(x: p1.x + (p2.x - p1.x) / 3, y: p1.y + (p2.y - p1.y) / 3)
+        let c2 = CGPoint(x: p2.x - (p2.x - p1.x) / 3, y: p2.y - (p2.y - p1.y) / 3)
+        path.addCurve(to: p2, control1: c1, control2: c2)
+        return path
+    }
+}
+
