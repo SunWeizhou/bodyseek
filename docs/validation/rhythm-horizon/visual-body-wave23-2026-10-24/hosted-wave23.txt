@@ -1,0 +1,9 @@
+Wave23 hosted SwiftUI evidence (VelaThemeTests.testVisualBodyWave23Snapshots) — 375×667 dark window (SE):
+Commands:
+  xcodebuild test ... -only-testing:VelaTests/VelaThemeTests/testVisualBodyWave23Snapshots   (initial, 6.396s)
+  xcodebuild test ... -only-testing:VelaTests/VelaThemeTests/testVisualBodyWave23Snapshots   (final +AX capture, 7.408s)
+
+** TEST SUCCEEDED ** / testVisualBodyWave23Snapshots() passed, exit 0
+Captures (6): wave23-journal-correlation-dark, wave23-journal-correlation-accessibility,
+wave23-body-model-dark, wave23-body-model-dark-scrolled, wave23-workout-detail-dark,
+wave23-workout-detail-accessibility

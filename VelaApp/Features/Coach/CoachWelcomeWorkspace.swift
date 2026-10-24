@@ -642,7 +642,7 @@ struct AgentArtifactDetailView: View {
                         .foregroundStyle(VelaTheme.muted)
                 }
                 .padding(18)
-                .velaNativeCard(radius: 20)
+                .velaNativeCard(radius: VelaTheme.radiusCard)
 
                 if let summary = presentation.summary {
                     artifactSection(title: "摘要") {
@@ -707,6 +707,6 @@ struct AgentArtifactDetailView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .velaNativeCard(radius: 18)
+        .velaNativeCard(radius: VelaTheme.radiusCard)
     }
 }

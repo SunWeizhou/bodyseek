@@ -1,0 +1,4 @@
+Command: xcodebuild build ...
+
+** BUILD SUCCEEDED **
+warning count: 0

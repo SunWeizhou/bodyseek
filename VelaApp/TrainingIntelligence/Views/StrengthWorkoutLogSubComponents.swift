@@ -527,12 +527,12 @@ struct StrengthWorkoutSummarySheet: View {
                 VStack(alignment: .leading, spacing: 14) {
                     VStack(alignment: .leading, spacing: 5) {
                         Label("训练已保存", systemImage: "checkmark.circle.fill")
-                            .font(.system(.footnote, design: .rounded, weight: .bold))
+                            .font(VelaTheme.footnote().weight(.bold))
                             .foregroundStyle(VelaTheme.rhythmInk)
                         Text(workout?.title ?? "力量训练")
                             .font(.system(.title2, design: .default, weight: .bold))
                         Text("基于本次已完成的训练组生成")
-                            .font(.system(.caption, design: .rounded))
+                            .font(VelaTheme.caption1())
                             .foregroundStyle(VelaTheme.muted)
                     }
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
@@ -556,7 +556,7 @@ struct StrengthWorkoutSummarySheet: View {
                         isTemplateSaved = onSaveTemplate()
                     } label: {
                         Label(isTemplateSaved ? "已保存到模板库" : "保存为训练模板", systemImage: isTemplateSaved ? "checkmark" : "bookmark")
-                            .font(.system(.footnote, design: .rounded, weight: .bold))
+                            .font(VelaTheme.footnote().weight(.bold))
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
@@ -580,22 +580,22 @@ struct StrengthWorkoutSummarySheet: View {
 
     private func metric(_ title: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(value).font(.system(.subheadline, design: .rounded, weight: .bold))
+            Text(value).font(VelaTheme.subheadline().weight(.bold))
             Text(title).font(.caption).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .velaNativeCard(radius: 14)
+        .velaNativeCard()
     }
 
     private func summaryCard(_ title: String, _ body: String) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.system(.footnote, design: .rounded, weight: .bold))
-            Text(body.isEmpty ? "暂无数据" : body).font(.system(.footnote, design: .rounded)).foregroundStyle(.secondary)
+            Text(title).font(VelaTheme.footnote().weight(.bold))
+            Text(body.isEmpty ? "暂无数据" : body).font(VelaTheme.footnote()).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .velaNativeCard(radius: 16)
+        .velaNativeCard()
     }
 
     private func localizedMuscle(_ muscle: String) -> String {

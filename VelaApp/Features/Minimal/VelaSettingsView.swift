@@ -205,9 +205,9 @@ struct VelaSettingsView: View {
             )
 
             content()
-                .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                         .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                 )
         }
@@ -222,7 +222,7 @@ struct VelaSettingsView: View {
     private func settingsRow(icon: String, title: String, value: String?) -> some View {
         HStack(spacing: 12) {
             ZStack {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous)
                     .fill(VelaTheme.rhythmMist.opacity(0.72))
                     .frame(width: 32, height: 32)
                 Image(systemName: icon)
@@ -556,7 +556,7 @@ struct ShortcutsSettingsView: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(VelaTheme.secondaryGroupedBackground))
+        .background(RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous).fill(VelaTheme.secondaryGroupedBackground))
     }
 }
 

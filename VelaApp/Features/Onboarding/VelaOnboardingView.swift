@@ -280,13 +280,13 @@ struct VelaOnboardingView: View {
     }
 
     private func previewScore(label: String, score: Double, domain: VelaMetricDomain) -> some View {
-        VelaMetricScoreRing(score: score, label: label, domain: domain, size: 78)
+        VelaMetricScoreRing(score: score, label: label, domain: domain, size: 78, accent: VelaTheme.rhythmInk)
             .frame(maxWidth: .infinity)
     }
 
     private func compactScoreRow(label: String, score: Double, domain: VelaMetricDomain) -> some View {
         HStack(spacing: 12) {
-            VelaMetricScoreRing(score: score, label: "", domain: domain, size: 52, showsLabel: false)
+            VelaMetricScoreRing(score: score, label: "", domain: domain, size: 52, accent: VelaTheme.rhythmInk, showsLabel: false)
             Text(label)
                 .font(VelaTheme.body().weight(.semibold))
                 .foregroundStyle(VelaTheme.rhythmInk)
@@ -313,7 +313,7 @@ struct VelaOnboardingView: View {
                 ZStack(alignment: .leading) {
                     Capsule().fill(VelaTheme.rhythmMist)
                     Capsule()
-                        .fill(domain.color)
+                        .fill(VelaTheme.rhythmInk)
                         .frame(width: proxy.size.width * CGFloat(value / 100))
                 }
             }
@@ -334,7 +334,7 @@ struct VelaOnboardingView: View {
             .font(VelaTheme.caption1().weight(.semibold))
             .foregroundStyle(VelaTheme.rhythmInk)
             .frame(maxWidth: .infinity, minHeight: VelaTheme.minimumHitTarget)
-            .background(VelaTheme.rhythmMist.opacity(0.56), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background(VelaTheme.rhythmMist.opacity(0.56), in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
     }
 
     private func onboardingValueRow(icon: String, title: String, detail: String) -> some View {
@@ -343,7 +343,7 @@ struct VelaOnboardingView: View {
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(VelaTheme.rhythmDeep)
                 .frame(width: 38, height: 38)
-                .background(VelaTheme.rhythmMist.opacity(0.68), in: RoundedRectangle(cornerRadius: 11))
+                .background(VelaTheme.rhythmMist.opacity(0.68), in: RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous))
             VStack(alignment: .leading, spacing: 3) {
                 Text(title).font(VelaTheme.headline()).foregroundStyle(VelaTheme.rhythmInk)
                 Text(detail).font(VelaTheme.footnote()).foregroundStyle(VelaTheme.rhythmInkSecondary).lineSpacing(2)

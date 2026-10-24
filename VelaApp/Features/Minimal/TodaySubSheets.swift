@@ -27,7 +27,7 @@ struct ProactiveInsightDetailSheet: View {
                                 .foregroundStyle(insight.focus.color)
                                 .frame(width: 52, height: 52)
                                 .background(
-                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous)
                                         .fill(insight.focus.color.opacity(0.10))
                                 )
 
@@ -56,7 +56,7 @@ struct ProactiveInsightDetailSheet: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(18)
-                    .velaNativeCard(radius: 22)
+                    .velaNativeCard(radius: VelaTheme.radiusCard)
 
                     VStack(alignment: .leading, spacing: 12) {
                         Text("身体信号")
@@ -95,7 +95,7 @@ struct ProactiveInsightDetailSheet: View {
                                 }
                             }
                         }
-                        .velaNativeCard(radius: 18)
+                        .velaNativeCard(radius: VelaTheme.radiusCard)
                     }
 
                     VStack(alignment: .leading, spacing: 10) {
@@ -121,8 +121,8 @@ struct ProactiveInsightDetailSheet: View {
                             }
                         }
                         .padding(16)
-                        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+                        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
                     }
                 }
                 .padding(.horizontal, 18)
@@ -157,7 +157,12 @@ struct ProactiveInsightDetailSheet: View {
                 .padding(.horizontal, 18)
                 .padding(.top, 12)
                 .padding(.bottom, 10)
-                .background(.ultraThinMaterial)
+                .background(VelaTheme.cardBg)
+                .overlay(alignment: .top) {
+                    Rectangle()
+                        .fill(VelaTheme.hairline)
+                        .frame(height: VelaTheme.hairlineWidth)
+                }
             }
             .navigationTitle("智能建议")
             .velaRhythmDetailChrome()
@@ -410,7 +415,7 @@ struct CalendarOverviewSheetView: View {
                             .background(
                                 Group {
                                     if isSelected {
-                                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                        RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous)
                                             .fill(VelaTheme.accent.opacity(0.08))
                                             .frame(width: 44, height: 48)
                                     }
@@ -436,7 +441,7 @@ struct CalendarOverviewSheetView: View {
                         .foregroundStyle(VelaTheme.rhythmDeepOn)
                         .padding(.horizontal, 20)
                         .padding(.vertical, 10)
-                        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(VelaTheme.rhythmDeep))
+                        .background(VelaTheme.rhythmDeep, in: Capsule())
                 }
                 .buttonStyle(.plain)
 
@@ -643,7 +648,7 @@ struct PostWorkoutCheckInSheet: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("训练后复盘")
-                .font(.system(.title2, design: .rounded, weight: .bold))
+                .font(VelaTheme.title2())
                 .tracking(-0.6)
                 .foregroundStyle(VelaTheme.rhythmInk)
         }
@@ -758,9 +763,9 @@ struct PostWorkoutCheckInSheet: View {
                 .tint(VelaTheme.rhythmDeep)
         }
         .padding(16)
-        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                 .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         }
     }
@@ -773,9 +778,9 @@ struct PostWorkoutCheckInSheet: View {
                 .lineLimit(3...5)
                 .textFieldStyle(.plain)
                 .padding(12)
-                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
+                .background(RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous)
                         .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                 }
         }
@@ -790,7 +795,7 @@ struct PostWorkoutCheckInSheet: View {
                 .foregroundStyle(VelaTheme.rhythmDeepOn)
                 .frame(maxWidth: .infinity)
                 .frame(height: 50)
-                .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(VelaTheme.rhythmDeep))
+                .background(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).fill(VelaTheme.rhythmDeep))
         }
         .buttonStyle(.plain)
     }
@@ -928,15 +933,15 @@ struct PostWorkoutImpactSheet: View {
 
                 if isLoading {
                     VStack(alignment: .leading, spacing: 16) {
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                             .fill(VelaTheme.borderSoft)
                             .frame(height: 100)
                             .shimmer()
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                             .fill(VelaTheme.borderSoft)
                             .frame(height: 140)
                             .shimmer()
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                             .fill(VelaTheme.borderSoft)
                             .frame(height: 120)
                             .shimmer()
@@ -977,8 +982,8 @@ struct PostWorkoutImpactSheet: View {
                 .lineLimit(2)
         }
         .padding(16)
-        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
     }
 
     private func summaryGrid(_ impact: PostWorkoutImpact) -> some View {
@@ -1004,14 +1009,14 @@ struct PostWorkoutImpactSheet: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(12)
                     .background(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous)
                             .fill(VelaTheme.rhythmCanvas)
                     )
             }
         }
         .padding(16)
-        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
     }
 
     private func observedHeartRateTrendCard(_ impact: PostWorkoutImpact) -> some View {
@@ -1049,7 +1054,7 @@ struct PostWorkoutImpactSheet: View {
             .foregroundStyle(VelaTheme.muted)
         }
         .padding(12)
-        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(VelaTheme.cardBg))
+        .background(RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous).fill(VelaTheme.cardBg))
     }
 
     private func impactCard(title: String, value: String, caption: String) -> some View {
@@ -1069,7 +1074,7 @@ struct PostWorkoutImpactSheet: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(13)
-        .velaNativeCard(radius: 16)
+        .velaNativeCard(radius: VelaTheme.radiusCard)
     }
 
     private func shortWindowSection(_ impact: PostWorkoutImpact) -> some View {
@@ -1101,7 +1106,7 @@ struct PostWorkoutImpactSheet: View {
                 .lineSpacing(3)
         }
         .padding(16)
-        .velaNativeCard(radius: 18)
+        .velaNativeCard(radius: VelaTheme.radiusCard)
     }
 
     private func sectionCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
@@ -1112,7 +1117,7 @@ struct PostWorkoutImpactSheet: View {
             content()
         }
         .padding(16)
-        .velaNativeCard(radius: 18)
+        .velaNativeCard(radius: VelaTheme.radiusCard)
     }
 
     private func metricRow(_ title: String, _ value: String) -> some View {
@@ -1139,7 +1144,7 @@ struct PostWorkoutImpactSheet: View {
                 .lineSpacing(3)
         }
         .padding(16)
-        .velaNativeCard(radius: 18)
+        .velaNativeCard(radius: VelaTheme.radiusCard)
     }
 
     @MainActor
@@ -1451,8 +1456,8 @@ struct WorkoutLogSheetView: View {
                             .tint(VelaTheme.accent)
                     }
                     .padding(14)
-                    .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+                    .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
                     
                     // Active Calories
                     VStack(alignment: .leading, spacing: 10) {
@@ -1470,8 +1475,8 @@ struct WorkoutLogSheetView: View {
                             .tint(VelaTheme.accent)
                     }
                     .padding(14)
-                    .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+                    .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
                     
                     // Exertion Score
                     VStack(alignment: .leading, spacing: 10) {
@@ -1489,8 +1494,8 @@ struct WorkoutLogSheetView: View {
                             .tint(VelaTheme.accent)
                     }
                     .padding(14)
-                    .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+                    .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
                     
                     // Save Button
                     Button {
@@ -1504,7 +1509,7 @@ struct WorkoutLogSheetView: View {
                             .foregroundStyle(VelaTheme.rhythmDeepOn)
                             .frame(maxWidth: .infinity)
                             .frame(height: 50)
-                            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(VelaTheme.accent))
+                            .background(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).fill(VelaTheme.accent))
                     }
                     .buttonStyle(.cardPress)
                     .padding(.top, 10)

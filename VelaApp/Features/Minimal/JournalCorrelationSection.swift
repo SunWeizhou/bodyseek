@@ -69,8 +69,8 @@ struct JournalCorrelationSection: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 30)
-                .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
-                .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+                .background(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
+                .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
             } else {
                 VStack(spacing: 12) {
                     bodyModelStatsRow(bodyModelState)
@@ -91,8 +91,8 @@ struct JournalCorrelationSection: View {
                         }
                         .padding(14)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
-                        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+                        .background(RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
+                        .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
                     }
                 }
             }
@@ -154,8 +154,8 @@ struct JournalCorrelationSection: View {
             }
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
-        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+        .background(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
+        .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
         .accessibilityElement(children: .contain)
     }
 
@@ -179,7 +179,7 @@ struct JournalCorrelationSection: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 10)
-        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(VelaTheme.rhythmCanvas))
+        .background(RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous).fill(VelaTheme.rhythmCanvas))
     }
 
     private func confidenceColor(_ conf: DataConfidence) -> Color {
@@ -243,8 +243,8 @@ struct PersonalExperimentCard: View {
                 }
             }
             .padding(14)
-            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
-            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+            .background(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
+            .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(experiment == nil ? "开始个人实验" : "查看个人实验")
@@ -318,8 +318,8 @@ struct PersonalExperimentHubSheet: View {
                 .foregroundStyle(VelaTheme.rhythmInk)
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
-                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+                .background(RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
+                .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
         }
 
         let today = checkIns.first { $0.experimentID == experiment.id && Calendar.current.isDateInToday($0.date) }
@@ -338,8 +338,8 @@ struct PersonalExperimentHubSheet: View {
             }
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+        .background(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
+        .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
 
         previousOutcomeContent(experiment)
     }
@@ -379,8 +379,8 @@ struct PersonalExperimentHubSheet: View {
                             .multilineTextAlignment(.leading)
                     }
                     .padding(15)
-                    .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
-                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+                    .background(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
+                    .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
                 }
                 .buttonStyle(.plain)
             }
@@ -407,8 +407,8 @@ struct PersonalExperimentHubSheet: View {
                 .foregroundStyle(VelaTheme.rhythmInkSecondary)
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+        .background(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
+        .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
     }
 
     private func checkInButton(_ title: String, followed: Bool, experiment: PersonalExperimentRecord, color: Color) -> some View {
@@ -429,7 +429,7 @@ struct PersonalExperimentHubSheet: View {
                 .foregroundStyle(VelaTheme.rhythmDeepOn)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
-                .background(RoundedRectangle(cornerRadius: 13).fill(color))
+                .background(Capsule().fill(color))
         }
         .buttonStyle(.plain)
     }

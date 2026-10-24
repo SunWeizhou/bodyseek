@@ -108,11 +108,11 @@ struct StrengthWorkoutLogSheetView: View {
                         showExercisePicker = true
                     } label: {
                         Label("添加动作", systemImage: "plus.circle.fill")
-                            .font(.system(.footnote, design: .rounded, weight: .bold))
+                            .font(VelaTheme.footnote().weight(.bold))
                             .foregroundStyle(VelaTheme.accent)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
-                            .velaNativeCard(radius: 16)
+                            .velaNativeCard()
                     }
                     .buttonStyle(.cardPress)
                 }
@@ -254,7 +254,7 @@ struct StrengthWorkoutLogSheetView: View {
                         .foregroundStyle(VelaTheme.fg)
                     Spacer()
                     Text("\(Int(exertionScore)) / 10")
-                        .font(.system(.footnote, design: .rounded, weight: .bold))
+                        .font(VelaTheme.footnote().weight(.bold))
                         .foregroundStyle(VelaTheme.accent)
                 }
                 Slider(value: $exertionScore, in: 1...10, step: 1)
@@ -270,7 +270,7 @@ struct StrengthWorkoutLogSheetView: View {
                 .lineLimit(2...4)
         }
         .padding(16)
-        .velaNativeCard(radius: 16)
+        .velaNativeCard()
     }
 
     private func exerciseCard(exercise: Binding<StrengthExerciseLog>) -> some View {
@@ -358,7 +358,7 @@ struct StrengthWorkoutLogSheetView: View {
             .padding(.top, 4)
         }
         .padding(16)
-        .velaNativeCard(radius: 20)
+        .velaNativeCard()
     }
 
     private func strengthSetRow(
@@ -429,7 +429,7 @@ struct StrengthWorkoutLogSheetView: View {
                         .multilineTextAlignment(.center)
                         .font(VelaTheme.headline().monospacedDigit())
                         .frame(height: 38)
-                        .background(VelaTheme.cardBg, in: RoundedRectangle(cornerRadius: 10))
+                        .background(VelaTheme.cardBg, in: RoundedRectangle(cornerRadius: VelaTheme.radiusSm))
                         .onChange(of: set.wrappedValue.weightKilograms) { _, _ in scheduleDraftSave() }
                 }
                 .frame(maxWidth: .infinity)
@@ -441,7 +441,7 @@ struct StrengthWorkoutLogSheetView: View {
                         .multilineTextAlignment(.center)
                         .font(VelaTheme.headline().monospacedDigit())
                         .frame(height: 38)
-                        .background(VelaTheme.cardBg, in: RoundedRectangle(cornerRadius: 10))
+                        .background(VelaTheme.cardBg, in: RoundedRectangle(cornerRadius: VelaTheme.radiusSm))
                         .onChange(of: set.wrappedValue.repetitions) { _, _ in scheduleDraftSave() }
                 }
                 .frame(maxWidth: .infinity)
@@ -458,7 +458,7 @@ struct StrengthWorkoutLogSheetView: View {
                             .font(VelaTheme.headline().monospacedDigit())
                             .foregroundStyle(set.wrappedValue.rpe != nil ? VelaTheme.accent : VelaTheme.muted)
                             .frame(maxWidth: .infinity, minHeight: 38)
-                            .background(VelaTheme.cardBg, in: RoundedRectangle(cornerRadius: 10))
+                            .background(VelaTheme.cardBg, in: RoundedRectangle(cornerRadius: VelaTheme.radiusSm))
                     }
                     .buttonStyle(.plain)
                 }
@@ -466,7 +466,7 @@ struct StrengthWorkoutLogSheetView: View {
             }
         }
         .padding(12)
-        .background(VelaTheme.elevatedBg, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(VelaTheme.elevatedBg, in: RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous))
         .contextMenu {
             Menu("组类型") {
                 ForEach(StrengthSetKind.allCases, id: \.self) { kind in
@@ -1017,7 +1017,7 @@ private struct StrengthRestTimerCard: View {
         .font(.system(.footnote, design: .default, weight: .bold))
         .foregroundStyle(VelaTheme.accent)
         .padding(14)
-        .velaNativeCard(radius: 16)
+        .velaNativeCard()
         .appleIntelligenceGlow(isHighlighted: true, radius: 16)
         .task(id: timer.endsAt) {
             let delay = max(0, timer.endsAt.timeIntervalSinceNow)

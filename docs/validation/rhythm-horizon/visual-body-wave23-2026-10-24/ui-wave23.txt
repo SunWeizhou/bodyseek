@@ -1,0 +1,12 @@
+Command:
+  xcodebuild test -project Vela.xcodeproj -scheme Vela \
+    -destination 'platform=iOS Simulator,id=0FA54155-145A-4862-ABB1-6D4D5D6A3DEF' \
+    -derivedDataPath build/DerivedData -resultBundlePath build/Wave23UI.xcresult \
+    -testLanguage zh -testRegion CN \
+    -only-testing:VelaUITests/VelaSmokeUITests/testVisualBodyWave23Snapshots CODE_SIGNING_ALLOWED=NO
+
+Test Case '-[VelaUITests.VelaSmokeUITests testVisualBodyWave23Snapshots]' passed (31.340 seconds).
+** TEST SUCCEEDED **
+exit: 0
+Captures (6): wave23-trends-dark, wave23-trends-dark-scrolled, wave23-trends-accessibility,
+wave23-settings-dark, wave23-settings-dark-scrolled, wave23-settings-accessibility
