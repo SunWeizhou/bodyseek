@@ -1,0 +1,72 @@
+{
+  "devicesAndConfigurations" : [
+    {
+      "device" : {
+        "architecture" : "arm64",
+        "deviceId" : "66EFE656-F33C-483B-B8D2-06C9CA85533A",
+        "deviceName" : "BodySeek Residual SE",
+        "modelName" : "iPhone SE (3rd generation)",
+        "osBuildNumber" : "23F77",
+        "osVersion" : "26.5",
+        "platform" : "iOS Simulator"
+      },
+      "expectedFailures" : 0,
+      "failedTests" : 3,
+      "passedTests" : 154,
+      "skippedTests" : 0,
+      "testPlanConfiguration" : {
+        "configurationId" : "1",
+        "configurationName" : "Test Scheme Action"
+      }
+    }
+  ],
+  "environmentDescription" : "Vela · Built with macOS 27.0.1",
+  "expectedFailures" : 0,
+  "failedTests" : 3,
+  "finishTime" : 1792807948.512,
+  "passedTests" : 154,
+  "result" : "Failed",
+  "runtimeWarnings" : [
+
+  ],
+  "skippedTests" : 0,
+  "startTime" : 1792807718.882,
+  "statistics" : [
+
+  ],
+  "testFailures" : [
+    {
+      "failureText" : "Failed to tap \"发送\" Button: Find single matching element. Multiple matching elements found for <XCUIElementQuery: 0x10850be80>.\nSparse tree of matches:\n→Application, pid: 45310, label: 'BodySeek'\n  ↳Window (Main)\n  ⋅ ↳Other\n  ⋅   ↳Other\n  ⋅     ↳Other\n  ⋅       ↳Other\n  ⋅         ↳Other, identifier: 'bodyseek-ask-composer'\n  ⋅           ↳Button, identifier: 'bodyseek-send', label: '发送'\n  ↳Window\n    ↳Other\n      ↳Other\n        ↳Other\n          ↳Keyboard\n            ↳Other\n              ↳Other, identifier: 'UIKeyboardLayoutStar Preview'\n                ↳Button, identifier: 'Send', label: '发送'\nPossibly caused by runtime issues:\nAutomation type mismatch: computed Button from legacy attributes vs Key from modern attribute. Input attributes and values: {\n    \"XC_kAXXCAttributeAutomationType\" = 20;\n    \"XC_kAXXCAttributeElementBaseType\" = UIAccessibilityElement;\n    \"XC_kAXXCAttributeElementType\" = UIAccessibilityElementKBKey;\n    \"XC_kAXXCAttributeTraits\" = 8589934641;\n}\nAutomation type mismatch: computed Button from legacy attributes vs Key from modern attribute. Input attributes and values: {\n    \"XC_kAXXCAttributeAutomationType\" = 20;\n    \"XC_kAXXCAttributeElementBaseType\" = UIAccessibilityElement;\n    \"XC_kAXXCAttributeElementType\" = UIAccessibilityElementKBKey;\n    \"XC_kAXXCAttributeTraits\" = 8589936689;\n}\nSee test report attachments for more detail.",
+      "targetName" : "VelaUITests",
+      "testIdentifier" : 152,
+      "testIdentifierString" : "VelaSmokeUITests/testDraftSurvivesExpandedChatAndCancelledConsent()",
+      "testIdentifierURL" : "test://com.apple.xcode/Vela/VelaUITests/VelaSmokeUITests/testDraftSurvivesExpandedChatAndCancelledConsent",
+      "testName" : "testDraftSurvivesExpandedChatAndCancelledConsent()"
+    },
+    {
+      "failureText" : "Failed to get matching snapshot: No matches found for first query match sequence: `Descendants matching type StaticText` -> `Elements matching predicate '\"连续血糖数据\" IN identifiers'`, given input App element pid: 45612\nPossibly caused by runtime issues:\nAutomation type mismatch: computed Other from legacy attributes vs StaticText from modern attribute. Input attributes and values: {\n    \"XC_kAXXCAttributeAutomationType\" = 48;\n    \"XC_kAXXCAttributeElementBaseType\" = UILabel;\n    \"XC_kAXXCAttributeElementType\" = UILabel;\n    \"XC_kAXXCAttributeTraits\" = 8590000128;\n}\nSee test report attachments for more detail.",
+      "targetName" : "VelaUITests",
+      "testIdentifier" : 156,
+      "testIdentifierString" : "VelaSmokeUITests/testVisualNextWaveSettingsSnapshots()",
+      "testIdentifierURL" : "test://com.apple.xcode/Vela/VelaUITests/VelaSmokeUITests/testVisualNextWaveSettingsSnapshots",
+      "testName" : "testVisualNextWaveSettingsSnapshots()"
+    },
+    {
+      "failureText" : "Failed to tap \"查看全部\" StaticText: No matches found for first query match sequence: `Descendants matching type StaticText` -> `Elements matching predicate '\"查看全部\" IN identifiers'`, given input App element pid: 45729\nPossibly caused by runtime issues:\nAutomation type mismatch: computed Other from legacy attributes vs StaticText from modern attribute. Input attributes and values: {\n    \"XC_kAXXCAttributeAutomationType\" = 48;\n    \"XC_kAXXCAttributeElementBaseType\" = UILabel;\n    \"XC_kAXXCAttributeElementType\" = UILabel;\n    \"XC_kAXXCAttributeTraits\" = 8590000128;\n}\nSee test report attachments for more detail.",
+      "targetName" : "VelaUITests",
+      "testIdentifier" : 157,
+      "testIdentifierString" : "VelaSmokeUITests/testVisualNextWaveSheetsAndCoachSnapshots()",
+      "testIdentifierURL" : "test://com.apple.xcode/Vela/VelaUITests/VelaSmokeUITests/testVisualNextWaveSheetsAndCoachSnapshots",
+      "testName" : "testVisualNextWaveSheetsAndCoachSnapshots()"
+    }
+  ],
+  "title" : "Test - Vela",
+  "topInsights" : [
+    {
+      "category" : "Longest Test Runs",
+      "impact" : "94% of duration",
+      "text" : "1 longest test run with outlier durations exceeding 2.59s (three standard deviations)"
+    }
+  ],
+  "totalTestCount" : 157
+}

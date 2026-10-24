@@ -284,3 +284,90 @@ git diff --check
 | AccessibilityXXXL | [首屏](rhythm-horizon/visual-body-residual-2026-10-24/residual-sleep-light-accessibility.png) / [滚动后](rhythm-horizon/visual-body-residual-2026-10-24/residual-sleep-light-accessibility-scrolled.png) |
 
 未验证：真实 HealthKit / 长训练历史和真实训练路线、所有二级 Settings / Coach artifact 状态的逐屏截图、完整 Light/Dark × 字号 × 缺失/零/排除矩阵、iOS 17 真机、VoiceOver 手工操作和 Reduce Motion 手工矩阵。训练与 Settings 子页有编译和静态 diff 验证，不将这 12 张截图解释为全应用所有状态的视觉认证。未做真机部署、发布或 merge。
+
+## 2026-10-24 · Visual Body next wave（Design D，接 #18）
+
+起点：fetch 后最新 `origin/main` / 本地 HEAD `f2b83b9cac059f775ad7614b3124fe2051d05cfc`（#18 squash），起始 `git status --short` 为空。分支 `cursor/visual-body-next-wave-20261024`，任务 [#19](https://github.com/SunWeizhou/bodyseek/issues/19)。先落盘[残留文件清单](rhythm-horizon/visual-body-next-wave-2026-10-24/residual-inventory.md)，再修改。实现提交 `c8893a11`；最终源码与截图 harness 见 `e6e5d2ba`。本波只创建 draft PR，不 merge / ready / request review，不真机部署或发布。
+
+### 变更与合同边界
+
+- **Token / contrast**：视图内白/黑/shorthand 彩色改用语义 VelaTheme tokens；scrim 收进 token，透明度不变；卡片统一 `hairline` / `hairlineWidth`。修正 `fillSoft` 的 RGBA/ARGB 字节顺序错误：Dark 训练建议此前显示为不透明亮黄，现在为低透明度中性色。没有修改 hex helper 或其它调色板规则。[修复前截图](rhythm-horizon/visual-body-next-wave-2026-10-24/before-soft-fill-dark.png)来自实施中的首轮 SwiftUI 托管截图，尚未修 token；不将其称为精确 main 页面截图。新回归在未修改 main 生产代码上失败（exit 65），修复后通过：[red 证据](rhythm-horizon/visual-body-next-wave-2026-10-24/fill-soft-red-on-main.txt)。
+- **Settings**：Account 保存 CTA / 大字体表单 reflow、模型配置保存 CTA、健康授权/同步按钮、CGM 单序列/卡片、Coach personality、Trust / Biology / Privacy 的面板与对比收口。文案、字段、Keychain/授权/导出动作不变。
+- **Coach 次态**：报告 / artifact 列表和详情的装饰 indigo/orange 改 mono；档案保存、输入边框、相关图卡片对齐 hairline；大字体 pills 和空态标题允许换行。没有改消息、工具路由或历史列表。
+- **Training / Plan 二级**：Strength 的蓝色 tile / 金色奖杯 / warmup / 完成态装饰色收为 mono，修复白色指标面板与组号对比；GPS marker 去阴影、边框用 token；Plan 二级完成标记与面板边框一致。训练事实、组类型、推荐策略不变。
+- **Sheets / AccessibilityXXXL**：Evidence 面板；Weight CTA 可增长，AccessibilityXXXL 单独采用 graphical 日期布局，修复 compact 日期控件撑宽视口；Quick Actions 大字体改为可滚动的两列，默认三列保持；Recovery 样本 badge、依据列、缺失天数说明纵向 reflow，图高按字号扩展。没有更改 Recovery model、分数、统计或说明字符串。
+
+生产改动均在 View / DesignSystem / Theme；[文件清单](rhythm-horizon/visual-body-next-wave-2026-10-24/changed-files.txt)。没有评分公式、阈值、输入语义、schema、HealthKit、Store、数据投影、算法版本或 IA/导航变更。Today 五分横条、Speak pill、chips、顶部分段、AskBar mic、主表面布局保留。
+
+### 静态审计与保留项
+
+`python3 scripts/check_fixed_fonts.py --strict`、`bash scripts/audit_design_tokens.sh`、`git diff --check` 均 exit 0。固定字号 **183 → 180 / 216**，其余主要是 SF Symbols、显示几何、wordmark 与本轮跳过的 Widget 文本。[before](rhythm-horizon/visual-body-next-wave-2026-10-24/fixed-font-before.txt) / [after](rhythm-horizon/visual-body-next-wave-2026-10-24/fixed-font-after.txt)。旧 token report 为 **596 → 601**：它将所有内联 RoundedRectangle（包括消费 token 的圆角/新增 hairline overlay）计入报告；不是新增 5 个颜色违规，也不是全仓零硬编码认证。[before](rhythm-horizon/visual-body-next-wave-2026-10-24/design-token-before.txt) / [after](rhythm-horizon/visual-body-next-wave-2026-10-24/design-token-after.txt)。
+
+扩大后的[直接色常量复核](rhythm-horizon/visual-body-next-wave-2026-10-24/ui-color-review.txt)为 **37 → 5**；剩余 5 处在 `VelaMetricDetailWidgets.swift` 的 Widget 预览段，本轮按范围跳过。保留心率区间 / 心率序列、地图起终点、睡眠阶段、错误 / 破坏性操作、数据覆盖 / 新鲜度等语义色。线图、路线、进度环是数据 mark，未机械改为面板宽度。`appleIntelligenceGlow` 在起点已是 no-op；剩余调用名不等于渲染 glow。灰阶 loading shimmer 与图表 area fill 也不是渐变描边。
+
+### 验证命令、退出码与环境
+
+Xcode **27.1 / 27A9275**，与仓库 `.xcode-version` **26.5.0** 不同；未改 CI 配置，未声称固定工具链 CI 通过。设备 iPhone SE (3rd generation)，375pt / 750×1334px，iOS **26.5 / 23F77**，arm64 Simulator；中文，Dark 默认字号 / Light 与 Dark AccessibilityXXXL。截图输入为现有 preview dashboard、空/本地生成的模拟器记录，以及 isolated in-memory fixture，不是个人 HealthKit 数据导出或临床有效性证据。
+
+```sh
+# 基线：exit 0
+xcodebuild -project Vela.xcodeproj -scheme Vela -configuration Debug \
+  -destination 'generic/platform=iOS Simulator' \
+  -derivedDataPath build/VisualResidualDerivedData CODE_SIGNING_ALLOWED=NO build
+
+# 最终源码复验：使用此前 test 构建的产物，exit 0
+xcodebuild test-without-building -project Vela.xcodeproj -scheme Vela -configuration Debug \
+  -destination 'platform=iOS Simulator,id=66EFE656-F33C-483B-B8D2-06C9CA85533A' \
+  -derivedDataPath build/VisualResidualDerivedData \
+  -resultBundlePath build/VisualNext-final-source-20261024.xcresult \
+  -parallel-testing-enabled NO -only-testing:VelaTests/VelaThemeTests \
+  -only-testing:VelaUITests/VelaSmokeUITests/testThreePrimarySurfacesAndInlineCoachAreReachable \
+  -only-testing:VelaUITests/VelaSmokeUITests/testVisualNextWavePlanEditorSnapshots \
+  CODE_SIGNING_ALLOWED=NO
+
+# 最终 UI 复跑：exit 0
+xcodebuild -project Vela.xcodeproj -scheme Vela -configuration Debug \
+  -destination 'platform=iOS Simulator,id=66EFE656-F33C-483B-B8D2-06C9CA85533A' \
+  -derivedDataPath build/VisualResidualDerivedData \
+  -resultBundlePath build/VisualNext-final-ui-20261024.xcresult \
+  -parallel-testing-enabled NO \
+  -only-testing:VelaUITests/VelaSmokeUITests/testDraftSurvivesExpandedChatAndCancelledConsent \
+  -only-testing:VelaUITests/VelaSmokeUITests/testVisualNextWaveSettingsSnapshots \
+  -only-testing:VelaUITests/VelaSmokeUITests/testVisualNextWaveAccessibilitySnapshots \
+  -only-testing:VelaUITests/VelaSmokeUITests/testVisualNextWaveSheetsAndCoachSnapshots \
+  CODE_SIGNING_ALLOWED=NO test
+python3 scripts/check_fixed_fonts.py --strict
+bash scripts/audit_design_tokens.sh
+git diff --check
+```
+
+最终去重覆盖 **151 项 VelaThemeTests + 6 项 UI tests = 157 项**，在修正 harness 并复跑后全部通过，0 skips；不是声称中间所有运行均通过。
+
+- 最终源码 `e6e5d2ba` 的 test-without-building：**153 passed / 0 failed**（151 单元/托管截图 + 三主表面/Coach + Plan editor），exit 0：[summary](rhythm-horizon/visual-body-next-wave-2026-10-24/final-source-summary.json)。
+- 修正选择器后的四项 UI 复跑：**4 passed / 0 failed**，exit 0：[summary](rhythm-horizon/visual-body-next-wave-2026-10-24/final-ui-summary.json)。
+- 之后 Weight 日期布局修复：同一设备/derivedData，结果路径 `build/VisualNext-weight-accessibility-20261024.xcresult`，只跑 `-only-testing:VelaUITests/VelaSmokeUITests/testVisualNextWaveSheetsAndCoachSnapshots`，其余参数与 UI 命令一致：**1 passed / 0 failed**，exit 0；包含视口边界断言及新的滚动截图。[summary](rhythm-horizon/visual-body-next-wave-2026-10-24/final-weight-summary.json)。最后的 153 项源码复验使用该构建产物。
+- 首次完整截图矩阵为 157 项、3 个 harness failures（发送同名 / LazyVStack 未 materialize / NavigationLink 选择器），exit 65；[中间 summary](rhythm-horizon/visual-body-next-wave-2026-10-24/source-validation-summary.json)保留为失败记录，不用于替代最终结果。托管 Model CTA 的 Form 估算高度也通过重复布局/滚动到末尾后重拍。
+
+[迭代命令与退出码索引](rhythm-horizon/visual-body-next-wave-2026-10-24/validation-runs.json)。
+
+迭代中的失败如实保留：首次 AnyLayout 条件分支编译失败（65）已修正类型擦除；早期 preview Plan 的只读路径不能作为 editor 证据，改用空模拟器本地计划并只打开/取消；XCTest 的“发送”同名键盘按钮、offscreen LazyVStack row、NavigationLink 的 Button/StaticText 选择器已修正并复跑。首次基线对照 runner 启动遇到 Mach -308（65），之后串行对照可复现模型入口卡顿，非视觉测试通过的替代品。
+
+**基线未解决问题**：Settings → 联网 Agent 在该 Xcode 27.1 / iOS 26.5 环境出现持续 SwiftUI 更新、停留在 Settings。未修改的 #18 生产源码、同一 UI harness 的独立 worktree 也复现；等待约 100 秒后中止（75），未称为通过。[观察日志](rhythm-horizon/visual-body-next-wave-2026-10-24/baseline-navigation-observation.txt)。模型页改用真实 UIHostingController 托管生产 View 采集首屏 / 保存 CTA / 大字体证据；这证明页面渲染，不证明该导航入口已恢复。未改导航以绕过问题。
+
+### 截图与验收范围
+
+[41 张最终截图与逐张上下文](rhythm-horizon/visual-body-next-wave-2026-10-24/capture-context.json)，另有 1 张实施中 token 修复前图，已逐张目视检查。32 张是运行 App 的 XCUITest screen capture；9 张是 production SwiftUI 的 UIHostingController 托管截图。托管样例：1 个内存报告、1 个 artifact、2 组力量训练；页面内容明确标注为视觉验收样例。字体/日期样式仅作可读性验证。
+
+| 表面 | 证据 |
+| --- | --- |
+| Account CTA / 大字体 | [Dark](rhythm-horizon/visual-body-next-wave-2026-10-24/next-account-dark-scrolled.png) / [AccessibilityXXXL](rhythm-horizon/visual-body-next-wave-2026-10-24/next-account-accessibility-scrolled.png) |
+| Model Settings（hosted） | [Dark 保存 CTA](rhythm-horizon/visual-body-next-wave-2026-10-24/next-hosted-model-settings-cta.png) / [大字体](rhythm-horizon/visual-body-next-wave-2026-10-24/next-hosted-model-settings-accessibility.png) |
+| Settings 子页 | [Sources](rhythm-horizon/visual-body-next-wave-2026-10-24/next-sources-dark-scrolled.png) / [CGM](rhythm-horizon/visual-body-next-wave-2026-10-24/next-cgm-dark.png) / [Personality](rhythm-horizon/visual-body-next-wave-2026-10-24/next-personality-dark.png) / [Trust](rhythm-horizon/visual-body-next-wave-2026-10-24/next-trust-dark.png) |
+| Coach 次态 | [完整 workspace](rhythm-horizon/visual-body-next-wave-2026-10-24/next-coach-full-dark.png) / [报告与 artifact（hosted）](rhythm-horizon/visual-body-next-wave-2026-10-24/next-hosted-reports-populated.png) / [详情（hosted）](rhythm-horizon/visual-body-next-wave-2026-10-24/next-hosted-artifact-populated.png) |
+| Training / Plan | [Strength detail（hosted）](rhythm-horizon/visual-body-next-wave-2026-10-24/next-hosted-strength-detail.png) / [Strength editor（hosted）](rhythm-horizon/visual-body-next-wave-2026-10-24/next-hosted-strength-edit.png) / [Workout（hosted）](rhythm-horizon/visual-body-next-wave-2026-10-24/next-hosted-workout-detail.png) / [Plan editor](rhythm-horizon/visual-body-next-wave-2026-10-24/next-plan-editor-dark.png) |
+| Sheets | [Evidence](rhythm-horizon/visual-body-next-wave-2026-10-24/next-evidence-dark.png) / [Quick Actions 大字体](rhythm-horizon/visual-body-next-wave-2026-10-24/next-quick-actions-accessibility.png) / [Weight 大字体](rhythm-horizon/visual-body-next-wave-2026-10-24/next-weight-accessibility.png) / [日期与 CTA](rhythm-horizon/visual-body-next-wave-2026-10-24/next-weight-accessibility-scrolled.png) |
+| Detail 大字体 | [Recovery 依据](rhythm-horizon/visual-body-next-wave-2026-10-24/next-recovery-accessibility-observations.png) / [Strain](rhythm-horizon/visual-body-next-wave-2026-10-24/next-strain-accessibility.png) / [Stress](rhythm-horizon/visual-body-next-wave-2026-10-24/next-stress-accessibility.png) / [Energy](rhythm-horizon/visual-body-next-wave-2026-10-24/next-energy-accessibility.png) |
+
+CGM / Trust 在无 HealthKit entitlement 的模拟器中如实显示读取失败，未填入假数据绕过。Quick Actions 大字体可滚动；Weight TextField 的 frame 已断言位于视口内，日期和保存动作可通过纵向滚动访问。Recovery 依据不再被固定三列挤成拆字/截断。主表面背景在大字体 sheet 下可能只显示部分文字，不把这些截图当成完整 Today 大字体认证。
+
+未验证：真实 HealthKit / GPS 路线与长训练历史、所有 Settings 子页与所有 artifact payload 的完整逐屏矩阵、全 Light/Dark × 字号 × known zero/unknown/excluded 组合、iOS 17 真机、VoiceOver 与 Reduce Motion 手工矩阵、完整远端固定工具链 CI。Watch / WidgetKit 视图与产品逻辑、对话历史列表明确跳过。没有把模拟/托管截图解释为评分有效性或端到端数据链验证。

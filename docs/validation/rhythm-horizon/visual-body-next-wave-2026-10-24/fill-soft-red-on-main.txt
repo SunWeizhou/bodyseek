@@ -1,0 +1,16 @@
+Regression test copied into isolated baseline worktree (production unchanged f2b83b9c).
+Command: xcodebuild -project /tmp/bodyseek-next-baseline/Vela.xcodeproj -scheme Vela -configuration Debug -destination platform=iOS\ Simulator,id=66EFE656-F33C-483B-B8D2-06C9CA85533A -derivedDataPath /tmp/bodyseek-next-baseline-build -resultBundlePath /tmp/bodyseek-next-baseline-fill-red.xcresult -parallel-testing-enabled NO -only-testing:VelaTests/VelaThemeTests/testSoftFillIsTranslucentAndAchromaticInBothAppearances CODE_SIGNING_ALLOWED=NO test
+Exit 65 (expected red)
+
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -project /tmp/bodyseek-next-baseline/Vela.xcodeproj -scheme Vela -configuration Debug -destination "platform=iOS Simulator,id=66EFE656-F33C-483B-B8D2-06C9CA85533A" -derivedDataPath /tmp/bodyseek-next-baseline-build -resultBundlePath /tmp/bodyseek-next-baseline-fill-red.xcresult -parallel-testing-enabled NO "-only-testing:VelaTests/VelaThemeTests/testSoftFillIsTranslucentAndAchromaticInBothAppearances" CODE_SIGNING_ALLOWED=NO test
+Test Case '-[VelaTests.VelaThemeTests testSoftFillIsTranslucentAndAchromaticInBothAppearances]' started.
+/tmp/bodyseek-next-baseline/VelaAppTests/VelaThemeTests.swift:13: error: -[VelaTests.VelaThemeTests testSoftFillIsTranslucentAndAchromaticInBothAppearances] : XCTAssertEqualWithAccuracy failed: ("0.06666666666666667") is not equal to ("0.0784313725490196") +/- ("0.001")
+/tmp/bodyseek-next-baseline/VelaAppTests/VelaThemeTests.swift:13: error: -[VelaTests.VelaThemeTests testSoftFillIsTranslucentAndAchromaticInBothAppearances] : XCTAssertEqualWithAccuracy failed: ("1.0") is not equal to ("0.0784313725490196") +/- ("0.001")
+/tmp/bodyseek-next-baseline/VelaAppTests/VelaThemeTests.swift:15: error: -[VelaTests.VelaThemeTests testSoftFillIsTranslucentAndAchromaticInBothAppearances] : XCTAssertLessThan failed: ("1.0") is not less than ("0.1") - Soft fill must not become an opaque colored panel.
+Test Case '-[VelaTests.VelaThemeTests testSoftFillIsTranslucentAndAchromaticInBothAppearances]' failed (0.255 seconds).
+	 Executed 1 test, with 3 failures (0 unexpected) in 0.255 (0.256) seconds
+	 Executed 1 test, with 3 failures (0 unexpected) in 0.255 (0.256) seconds
+	 Executed 1 test, with 3 failures (0 unexpected) in 0.255 (0.256) seconds
+	VelaThemeTests.testSoftFillIsTranslucentAndAchromaticInBothAppearances()
+	VelaThemeTests.testSoftFillIsTranslucentAndAchromaticInBothAppearances()
+	VelaThemeTests.testSoftFillIsTranslucentAndAchromaticInBothAppearances()
