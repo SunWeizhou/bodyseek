@@ -37,7 +37,10 @@ struct VelaSettingsView: View {
 
     var body: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 32) {
+            // Wave21 fix: Settings has ~22 lightweight rows. Keeping them eager
+            // avoids the non-converging lazy-measurement layout transaction that
+            // froze the "联网 Agent" push when the list had been scrolled deep.
+            VStack(alignment: .leading, spacing: 32) {
                 profileCardRow
 
                 settingsGroup(eyebrow: "", title: "我的档案") {
