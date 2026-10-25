@@ -52,6 +52,7 @@ private final class TodayLegacyRuntimeHolder: ObservableObject {
 // MARK: - VelaShell — segmented header + AskBar (Design D)
 
 struct VelaShell: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -501,41 +502,60 @@ struct VelaShell: View {
     }
 
     private var segmentedHeader: some View {
-        HStack(spacing: 8) {
-            Button {
-                showSidePanel = true
-            } label: {
-                Image(systemName: "line.3.horizontal")
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(VelaTheme.rhythmInk)
-                    .frame(width: 44, height: 44)
-                    .background(Circle().fill(VelaTheme.surfaceFloating))
+        VStack(spacing: 4) {
+            if dynamicTypeSize.isAccessibilitySize {
+                HStack {
+                    menuButton
+                    Spacer()
+                    profileButton
+                }
+                segments
+            } else {
+                HStack(spacing: 8) {
+                    menuButton
+                    segments
+                    profileButton
+                }
             }
-            .accessibilityLabel("菜单")
-            .accessibilityIdentifier("bodyseek-menu")
-
-            HStack(spacing: 0) {
-                segmentButton(.today)
-                segmentButton(.trends)
-                segmentButton(.plan)
-            }
-            .padding(3)
-            .background(Capsule().fill(VelaTheme.surfaceFloating))
-
-            Button {
-                appState.present(.settings)
-            } label: {
-                Image(systemName: "person")
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(VelaTheme.rhythmInk)
-                    .frame(width: 44, height: 44)
-                    .background(Circle().fill(VelaTheme.surfaceFloating))
-            }
-            .accessibilityLabel("个人档案")
         }
         .padding(.horizontal, VelaTheme.pagePadding)
         .padding(.vertical, 6)
         .background(VelaTheme.rhythmCanvas)
+    }
+
+    private var menuButton: some View {
+        Button { showSidePanel = true } label: {
+            Image(systemName: "line.3.horizontal")
+                .font(VelaTheme.callout().weight(.semibold))
+                .dynamicTypeSize(.large)
+                .foregroundStyle(VelaTheme.rhythmInk)
+                .frame(width: 44, height: 44)
+                .background(Circle().fill(VelaTheme.surfaceFloating))
+        }
+        .accessibilityLabel("菜单")
+        .accessibilityIdentifier("bodyseek-menu")
+    }
+
+    private var profileButton: some View {
+        Button { appState.present(.settings) } label: {
+            Image(systemName: "person")
+                .font(VelaTheme.callout().weight(.semibold))
+                .dynamicTypeSize(.large)
+                .foregroundStyle(VelaTheme.rhythmInk)
+                .frame(width: 44, height: 44)
+                .background(Circle().fill(VelaTheme.surfaceFloating))
+        }
+        .accessibilityLabel("个人档案")
+    }
+
+    private var segments: some View {
+        HStack(spacing: 0) {
+            segmentButton(.today)
+            segmentButton(.trends)
+            segmentButton(.plan)
+        }
+        .padding(3)
+        .background(Capsule().fill(VelaTheme.surfaceFloating))
     }
 
     private func segmentButton(_ tab: VelaTab) -> some View {
@@ -547,7 +567,8 @@ struct VelaShell: View {
                 .font(VelaTheme.subheadline().weight(isActive ? .semibold : .regular))
                 .foregroundStyle(isActive ? VelaTheme.rhythmInk : VelaTheme.rhythmInkSecondary)
                 .frame(maxWidth: .infinity)
-                .frame(height: 36)
+                .frame(minHeight: dynamicTypeSize.isAccessibilitySize ? 44 : 36)
+                .padding(.vertical, dynamicTypeSize.isAccessibilitySize ? 4 : 0)
                 .background {
                     if isActive {
                         Capsule().fill(VelaTheme.segmentOn)
@@ -847,6 +868,7 @@ private struct BodySeekAskComposer: View {
                     Button { showContext = true } label: {
                         Image(systemName: "chevron.down")
                             .font(VelaTheme.caption1().weight(.semibold))
+                            .dynamicTypeSize(.large)
                             .foregroundStyle(VelaTheme.rhythmInkSecondary)
                             .frame(width: 44, height: 44)
                     }

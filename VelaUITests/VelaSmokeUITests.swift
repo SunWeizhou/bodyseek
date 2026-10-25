@@ -562,6 +562,22 @@ final class VelaSmokeUITests: XCTestCase {
         planDark.terminate()
     }
 
+    func testDeviceAuditAccessibilityStaysWithinViewport() {
+        let app = launchApp(extraArguments: ["-velaDisableNetworkAI", "-vela_dark_mode", "dark", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
+        let guidance = app.descendants(matching: .any)["today-guidance"]
+        XCTAssertTrue(guidance.waitForExistence(timeout: 10))
+        let viewport = app.windows.firstMatch.frame
+        XCTAssertGreaterThanOrEqual(guidance.frame.minX, viewport.minX, "Large text must not push Today off the leading edge")
+        XCTAssertLessThanOrEqual(guidance.frame.maxX, viewport.maxX, "Long chips must not widen the Today content")
+        captureTrends("device-audit-accessibility-today-bounds")
+        app.buttons["tab-1"].tap()
+        let summary = app.descendants(matching: .any)["trends-period-summary"]
+        XCTAssertTrue(summary.waitForExistence(timeout: 10))
+        XCTAssertGreaterThanOrEqual(summary.frame.minX, viewport.minX)
+        XCTAssertLessThanOrEqual(summary.frame.maxX, viewport.maxX)
+        captureTrends("device-audit-accessibility-trends-bounds")
+    }
+
     func testDeviceAuditHeaderKeepsSummaryVisible() {
         let app = launchApp(extraArguments: ["-velaPreviewEmptyDashboard", "-velaDisableNetworkAI"])
         let guidance = app.descendants(matching: .any)["today-guidance"]
@@ -589,6 +605,7 @@ final class VelaSmokeUITests: XCTestCase {
             let detail = launchApp(extraArguments: [route, "-velaPreviewEmptyDashboard", "-velaDisableNetworkAI"])
             let identifier = route == "-velaOpenSleepDetail" ? "metric-detail-sleep" : "metric-detail-energy"
             XCTAssertTrue(detail.descendants(matching: .any)[identifier].waitForExistence(timeout: 10))
+            captureTrends("device-audit-\(identifier)-empty-top")
             for _ in 0..<4 {
                 XCTAssertFalse(detail.staticTexts["0 分钟"].exists, "Missing sleep must not look like known zero")
                 XCTAssertFalse(detail.staticTexts["0 → --"].exists, "Missing morning energy must not look like known zero")

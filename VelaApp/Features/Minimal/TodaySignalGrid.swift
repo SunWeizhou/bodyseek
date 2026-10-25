@@ -167,7 +167,9 @@ struct TodaySignalGrid: View {
     }
 
     private var bylineRow: some View {
-        HStack(spacing: 8) {
+        (dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6))
+            : AnyLayout(HStackLayout(spacing: 8))) {
             HStack(spacing: 6) {
                 Circle()
                     .fill(VelaTheme.rhythmInk)
@@ -179,7 +181,7 @@ struct TodaySignalGrid: View {
                     .minimumScaleFactor(0.8)
             }
             .accessibilityIdentifier("today-agent-byline")
-            Spacer(minLength: 8)
+            if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 8) }
             if dashboardSnapshot.source == .preview {
                 Text("示例数据")
                     .font(VelaTheme.caption2().weight(.semibold))

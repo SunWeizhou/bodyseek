@@ -556,7 +556,8 @@ struct CoachFollowUpChipsView: View {
                 .overlay(
                     Capsule().stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                 )
-                .fixedSize(horizontal: true, vertical: false)
+                .fixedSize(horizontal: !wraps, vertical: true)
+                .multilineTextAlignment(.leading)
         }
         .buttonStyle(.cardPress)
         .accessibilityLabel(suggestion)
@@ -576,20 +577,25 @@ private struct ChipFlowLayout: Layout {
         for (index, position) in result.positions.enumerated() {
             subviews[index].place(
                 at: CGPoint(x: bounds.minX + position.x, y: bounds.minY + position.y),
-                proposal: .unspecified
+                proposal: ProposedViewSize(result.sizes[index])
             )
         }
     }
 
-    private func arrange(proposal: ProposedViewSize, subviews: Subviews) -> (size: CGSize, positions: [CGPoint]) {
+    private func arrange(proposal: ProposedViewSize, subviews: Subviews) -> (size: CGSize, positions: [CGPoint], sizes: [CGSize]) {
         let maxWidth = proposal.width ?? .infinity
         var positions: [CGPoint] = []
+        var sizes: [CGSize] = []
         var x: CGFloat = 0
         var y: CGFloat = 0
         var rowHeight: CGFloat = 0
         var width: CGFloat = 0
         for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
+            let size = subview.sizeThatFits(ProposedViewSize(
+                width: maxWidth.isFinite ? maxWidth : nil,
+                height: nil
+            ))
+            sizes.append(size)
             if x > 0, x + size.width > maxWidth {
                 x = 0
                 y += rowHeight + spacing
@@ -600,6 +606,6 @@ private struct ChipFlowLayout: Layout {
             x += size.width + spacing
             width = max(width, x - spacing)
         }
-        return (CGSize(width: width, height: y + rowHeight), positions)
+        return (CGSize(width: width, height: y + rowHeight), positions, sizes)
     }
 }

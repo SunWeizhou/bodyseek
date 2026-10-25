@@ -170,7 +170,7 @@ struct VelaTrendsView: View {
                 }
             }
             .padding(.horizontal, VelaTheme.pagePadding)
-            .padding(.top, 72)
+            .padding(.top, VelaTheme.space4)
             .padding(.bottom, VelaFloatingNavigationMetrics.contentBottomPadding + 20)
         }
         .scrollIndicators(.hidden)
@@ -507,11 +507,13 @@ struct VelaTrendsView: View {
         let hasAvailableSignal = !availableFindings.isEmpty
         return VStack(alignment: .leading, spacing: 6) {
             VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 8) {
+                (dynamicTypeSize.isAccessibilitySize
+                    ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6))
+                    : AnyLayout(HStackLayout(spacing: 8))) {
                     Text("\(selectedHorizon.title)小结")
                         .font(VelaTheme.caption1())
                         .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                    Spacer(minLength: 8)
+                    if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 8) }
                     if dashboard.source == .preview {
                         Text("示例数据")
                             .font(VelaTheme.caption2().weight(.semibold))
