@@ -636,6 +636,7 @@ final class VelaSmokeUITests: XCTestCase {
         document.tap()
         XCTAssertTrue(archive.buttons["阅读"].waitForExistence(timeout: 5))
         XCTAssertFalse(archive.buttons["保存"].exists, "Opening a memory must start in reading mode")
+        XCTAssertFalse(archive.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "# ")).firstMatch.exists, "Reading mode must render Markdown instead of raw heading markers")
         captureTrends("device-audit-archive-reading-dark")
         archive.buttons["关闭"].tap()
         archive.terminate()

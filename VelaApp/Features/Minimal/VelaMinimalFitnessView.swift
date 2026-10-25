@@ -246,11 +246,8 @@ struct VelaTrainingView: View {
             }
         }
         .scrollIndicators(.hidden)
-        .safeAreaInset(edge: .top) {
-            fitnessHeader
-                .padding(.horizontal, VelaTheme.pagePadding)
-                .padding(.vertical, 10)
-                .background(VelaTheme.rhythmCanvas.opacity(0.94))
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) { fitnessHeader }
         }
         .background(VelaTheme.rhythmCanvas)
         .task(id: isActiveSurface) {
@@ -470,31 +467,16 @@ struct VelaTrainingView: View {
 
     // MARK: - Training Title Header
     private var fitnessHeader: some View {
-        HStack {
-            Text("训练")
-                .font(.system(.title2, design: .default, weight: .semibold))
-                .tracking(-0.4)
+        Button {
+            VelaAppState.shared.routeToCoach(question: trainingAnalysisQuestion, surface: .training)
+        } label: {
+            Label("问 Vela", systemImage: "sparkles")
+                .font(VelaTheme.footnote().weight(.semibold))
                 .foregroundStyle(VelaTheme.rhythmInk)
-
-            Spacer()
-
-            Button {
-                VelaAppState.shared.routeToCoach(question: trainingAnalysisQuestion, surface: .training)
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 13, weight: .semibold))
-                    Text("问 Vela")
-                        .font(.system(.footnote, design: .default, weight: .semibold))
-                }
-                .foregroundStyle(VelaTheme.rhythmDeep)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(VelaTheme.rhythmDeep.opacity(0.12), in: Capsule())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("让 Coach 分析训练")
+                .frame(minHeight: VelaTheme.minimumHitTarget)
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel("让 Coach 分析训练")
     }
 
     private var postWorkoutPromptWorkout: WorkoutSummary? {

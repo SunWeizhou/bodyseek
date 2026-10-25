@@ -326,7 +326,7 @@ struct UserWikiArchiveView: View {
                                           .foregroundStyle(VelaTheme.rhythmInkSecondary)
                                   }
                                 
-                                Text(archiveExcerpt(doc.markdownContent))
+                                Text(archiveExcerpt(doc))
                                     .font(.system(.footnote, design: .default))
                                     .foregroundStyle(VelaTheme.muted)
                                     .lineLimit(3)
@@ -382,10 +382,15 @@ struct UserWikiArchiveView: View {
                     if editorMode == .reading {
                         ScrollView {
                             VStack(alignment: .leading, spacing: VelaTheme.space4) {
-                                Text(.init(editText))
-                                    .font(VelaTheme.body())
-                                    .textSelection(.enabled)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                if isUnchangedTemplate {
+                                    Text("还没有相关记录")
+                                        .font(VelaTheme.headline())
+                                    Text("这份档案尚未填写。选择“编辑”补充你的习惯或背景。")
+                                        .font(VelaTheme.callout())
+                                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                                } else {
+                                    MarkdownText(markdown: editText, font: VelaTheme.body(), color: VelaTheme.rhythmInk)
+                                }
                                 DisclosureGroup("文件信息") {
                                     Text(selectedDoc?.filename ?? "")
                                         .font(VelaTheme.caption1())
@@ -553,7 +558,18 @@ struct UserWikiArchiveView: View {
     }
     
     /// List preview only: retain the original Markdown for reading and editing.
-    private func archiveExcerpt(_ markdown: String) -> String {
+    private var isUnchangedTemplate: Bool {
+        guard let filename = selectedDoc?.filename else { return false }
+        return editText.trimmingCharacters(in: .whitespacesAndNewlines)
+            == WikiFileService.defaultContent(for: filename).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func archiveExcerpt(_ doc: UserWikiDocumentRecord) -> String {
+        let markdown = doc.markdownContent
+        if markdown.trimmingCharacters(in: .whitespacesAndNewlines)
+            == WikiFileService.defaultContent(for: doc.filename).trimmingCharacters(in: .whitespacesAndNewlines) {
+            return "还没有相关记录，打开补充。"
+        }
         let lines = markdown.components(separatedBy: .newlines).map {
             $0.trimmingCharacters(in: .whitespaces)
         }.filter { !$0.isEmpty && !$0.hasPrefix("#") }
