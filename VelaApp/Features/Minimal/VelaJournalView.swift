@@ -50,7 +50,7 @@ struct VelaJournalView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: VelaTheme.space3) {
                 // 1. Journal Header Title Row
                 journalHeader
                 
@@ -494,10 +494,6 @@ struct VelaJournalView: View {
                     Text("随手记一餐或一个行为")
                         .font(.system(.footnote, design: .default, weight: .bold))
                         .foregroundStyle(VelaTheme.fg)
-                    Text("一句话即可：火锅、啤酒、睡前咖啡、吃撑、喝水少。无需估克重。")
-                        .font(.system(.caption2, design: .default))
-                        .foregroundStyle(VelaTheme.muted)
-                        .lineLimit(2)
                 }
 
                 Spacer()
@@ -541,7 +537,7 @@ struct VelaJournalView: View {
                 Button {
                     onSelectDate(date)
                 } label: {
-                    VStack(spacing: 8) {
+                    VStack(spacing: 4) {
                         Text(weekdays[idx])
                             .font(.system(.caption2, design: .default, weight: .bold))
                             .foregroundStyle(VelaTheme.muted)
@@ -565,7 +561,7 @@ struct VelaJournalView: View {
                         if hasEntry {
                             Image(systemName: "checkmark.circle.fill")
                                 .font(.system(size: 18))
-                                .foregroundStyle(VelaTheme.systemYellow)
+                                .foregroundStyle(VelaTheme.rhythmInkSecondary)
                         } else {
                             Image(systemName: "circle")
                                 .font(.system(size: 18))
@@ -579,9 +575,8 @@ struct VelaJournalView: View {
                 .opacity(isFuture ? 0.38 : 1)
             }
         }
-        .padding(.vertical, 12)
+        .padding(.vertical, 4)
         .padding(.horizontal, 4)
-        .velaNativeCard(radius: VelaTheme.radiusCard)
     }
 
     private func segmentedJournalRow(icon: String, title: String, state: Binding<Int>) -> some View {

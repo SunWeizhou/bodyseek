@@ -120,11 +120,7 @@ struct TrustCenterView: View {
                         destination: PrivacyDataControlsView()
                     )
                 }
-                .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
-                        .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
-                }
+
             }
         }
     }
@@ -168,9 +164,7 @@ struct TrustCenterView: View {
                 Text(status)
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(tint)
-                    .padding(.horizontal, 7)
                     .padding(.vertical, 4)
-                    .background(tint.opacity(0.1), in: Capsule())
 
                 Image(systemName: "chevron.right")
                     .font(.caption2.weight(.bold))
@@ -264,7 +258,7 @@ struct TrustCenterView: View {
                             statusBadge(run.status)
                         }
 
-                        Text(run.startedAt.formatted(date: .abbreviated, time: .shortened))
+                        Text(run.startedAt.formatted(Date.FormatStyle(date: .abbreviated, time: .shortened).locale(Locale(identifier: AppLanguage.stored.localeIdentifier))))
                             .font(.caption)
                             .foregroundStyle(VelaTheme.fg2)
 

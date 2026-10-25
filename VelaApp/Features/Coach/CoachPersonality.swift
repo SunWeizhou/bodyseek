@@ -11,7 +11,7 @@ public enum CoachPersonality: String, Codable, CaseIterable, Identifiable {
     public var icon: String {
         switch self {
         case .dataNerd: return "chart.bar.doc.horizontal.fill"
-        case .guardian: return "shield.heart.fill"
+        case .guardian: return "heart.fill"
         case .friend: return "face.smiling.fill"
         case .commander: return "bolt.shield.fill"
         }

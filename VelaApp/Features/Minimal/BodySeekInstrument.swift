@@ -280,6 +280,7 @@ struct TodayScoreInstrument: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var hero: ScoreInstrumentReading? {
+        guard readings.contains(where: { $0.value != nil }) else { return nil }
         if let heroID, let match = readings.first(where: { $0.id == heroID }) {
             return match
         }

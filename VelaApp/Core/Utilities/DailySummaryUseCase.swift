@@ -197,6 +197,11 @@ final class DailySummaryUseCase {
         let now = date
         #if DEBUG
         if Self.isPreviewDashboardEnabled() {
+            if ProcessInfo.processInfo.arguments.contains("-velaPreviewEmptyDashboard") {
+                var dashboard = DashboardSummary.empty(date: now)
+                dashboard.source = .preview
+                return dashboard
+            }
             var dashboard = PreviewDataFactory.makeDashboard(date: now)
             let snapshots = PreviewDataFactory.makeTrendSnapshots(endingAt: now, calendar: calendar)
             let analysis = HealthTrendEngine().analyze(

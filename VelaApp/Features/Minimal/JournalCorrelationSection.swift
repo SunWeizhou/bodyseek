@@ -269,17 +269,19 @@ struct PersonalExperimentCard: View {
                 Image(systemName: experiment == nil ? "flask.fill" : "moon.stars.fill")
                     .font(.system(size: 17, weight: .bold))
                     .foregroundStyle(VelaTheme.rhythmDeepOn)
-                    .frame(width: 38, height: 38)
+                    .frame(width: 28, height: 28)
                     .background(RoundedRectangle(cornerRadius: VelaTheme.radiusSm).fill(VelaTheme.rhythmDeep))
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(experiment?.title ?? "开始一个个人实验")
                         .font(VelaTheme.subheadline().weight(.semibold))
                         .foregroundStyle(VelaTheme.rhythmInk)
-                    Text(cardSubtitle)
-                        .font(VelaTheme.caption2())
-                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                        .lineLimit(2)
+                    if experiment != nil {
+                        Text(cardSubtitle)
+                            .font(VelaTheme.caption2())
+                            .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                            .lineLimit(2)
+                    }
                 }
                 Spacer()
                 if todayCheckIn != nil {

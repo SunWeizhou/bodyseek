@@ -7,6 +7,7 @@ import SwiftUI
 /// a compact four-score support strip, one named recent change, two follow-up
 /// chips, then a single-line next action. Nothing here derives a score or total.
 struct TodaySignalGrid: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let model: TodayExperienceModel
     let freshness: DataFreshness
     /// Score id → "低于平时" / "高于平时" / empty when notable without direction.
@@ -138,23 +139,25 @@ struct TodaySignalGrid: View {
 
     private func statement(_ readings: [ScoreInstrumentReading]) -> some View {
         let parts = Self.statementParts(agentSentence)
-        let caption = Self.supportingCaption(
-            support: parts.support,
-            comparison: Self.comparisonLine(readings, formation: model.baselineFormation)
-        )
+        let caption = readings.contains { $0.value != nil }
+            ? Self.supportingCaption(
+                support: parts.support,
+                comparison: Self.comparisonLine(readings, formation: model.baselineFormation)
+            )
+            : "同步 Apple 健康后再查看读数；已保存的安排仍会保留。"
         return VStack(alignment: .leading, spacing: 8) {
             bylineRow
             Text(parts.lead)
                 .font(VelaTheme.headline())
                 .foregroundStyle(VelaTheme.rhythmInk)
-                .lineLimit(2)
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
                 .minimumScaleFactor(0.9)
                 .fixedSize(horizontal: false, vertical: true)
             if !caption.isEmpty {
                 Text(caption)
                     .font(VelaTheme.caption1())
                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                    .lineLimit(2)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }

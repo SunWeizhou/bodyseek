@@ -73,7 +73,10 @@ struct VelaTodayView: View {
     /// optional recent change → whether action is needed, using evaluateAction
     /// and morning-brief facts. It never treats one recovery score as all vitals.
     private var todayAgentSentence: String {
-        TodayAgentBriefCopy.sentence(
+        guard [dashboard.recovery, dashboard.sleepScore, dashboard.strain, dashboard.stress, dashboard.energy].contains(where: \.hasData) else {
+            return "今天的五项评分尚未就绪，先同步健康数据。"
+        }
+        return TodayAgentBriefCopy.sentence(
             brief: dashboard.personalHealthBrief,
             formation: todayExperience.baselineFormation
         )
@@ -359,15 +362,6 @@ struct VelaTodayView: View {
             .accessibilityIdentifier("today-data-state")
             .padding(.horizontal, VelaTheme.pagePadding)
             .padding(.bottom, 8)
-        } else if !hasSignal {
-            VelaStateCard(
-                state: .empty,
-                title: "今日数据待同步",
-                message: "连接 Apple 健康并完成同步后，这里会显示恢复、睡眠、负荷、压力和能量。"
-            )
-            .accessibilityIdentifier("today-data-state")
-            .padding(.horizontal, VelaTheme.pagePadding)
-            .padding(.bottom, 8)
         }
     }
 
@@ -405,7 +399,7 @@ struct VelaTodayView: View {
                 )
                 .equatable()
                 .padding(.horizontal, VelaTheme.pagePadding)
-                .padding(.top, 72)
+                .padding(.top, VelaTheme.space4)
 
                 if calendarIsToday(todayStore.state.selectedDay) {
                     livedStatePrompt

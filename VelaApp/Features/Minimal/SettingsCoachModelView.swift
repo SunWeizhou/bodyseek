@@ -26,6 +26,65 @@ struct AIModelSettingsView: View {
     
     var body: some View {
         Form {
+            Section {
+                LabeledContent("联网数据授权", value: CoachOutboundDataPolicy.hasExplicitConsent ? "已授权" : "未授权")
+                    .font(VelaTheme.callout())
+                Text("只有主动提问或已授权的自动任务，才会使用联网服务。")
+                    .font(VelaTheme.caption1())
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+            }
+            Section(header: Text("DeepSeek 数据授权")) {
+                if outboundConsentVersion >= CoachOutboundDataPolicy.currentConsentVersion {
+                    Toggle("健康指标与化验", isOn: $outboundHealth)
+                    Toggle("训练记录与计划", isOn: $outboundTraining)
+                    Toggle("营养记录", isOn: $outboundNutrition)
+                    Toggle("日志与习惯", isOn: $outboundJournal)
+                    Toggle("个人档案与长期记忆", isOn: $outboundWiki)
+                    Toggle("历史 AI 报告", isOn: $outboundReports)
+                    Toggle("当前对话历史", isOn: $outboundConversationHistory)
+                    Toggle("Bing 联网搜索关键词", isOn: $outboundWebSearch)
+
+                    Text("关闭的类别会在本机组装上下文时移除，同时禁用对应的 AI 读取工具。你的手动问题文本仍会发送。")
+                        .font(.caption)
+                        .foregroundStyle(VelaTheme.muted)
+
+                    Button("撤销全部联网数据授权", role: .destructive) {
+                        CoachOutboundDataPolicy.revoke()
+                        outboundConsentVersion = 0
+                    }
+                } else {
+                    Label("尚未授权。首次发送联网 Coach 消息时，Vela 会逐项询问。", systemImage: "lock.shield")
+                        .font(.footnote)
+                        .foregroundStyle(VelaTheme.muted)
+                }
+            }
+
+            Section {
+                DisclosureGroup("数据如何流动") {
+                    Label {
+                        Text("只有当你主动发送 Coach 消息时，消息与回答所需的健康、训练上下文才会发送给 DeepSeek；餐食照片分析由第三方 Moonshot（Kimi Vision）处理，照片只会用于该次营养分析。")
+                    } icon: {
+                        Image(systemName: "text.bubble.fill")
+                            .foregroundStyle(VelaTheme.accent)
+                    }
+
+                    Label {
+                        Text("餐食照片仅在你确认分析后发送给 Kimi。自动任务还需要在“联网 AI 授权”中单独开启。")
+                    } icon: {
+                        Image(systemName: "photo.badge.checkmark.fill")
+                            .foregroundStyle(VelaTheme.rhythmInk)
+                    }
+
+                    Label {
+                        Text("API 密钥保存在系统钥匙串；模型选择保存在本机设置。Vela 不会把密钥写入聊天记录。")
+                    } icon: {
+                        Image(systemName: "key.fill")
+                            .foregroundStyle(VelaTheme.rhythmInk)
+                    }
+                }
+                .font(VelaTheme.footnote())
+            }
+
             Section(header: Text("模型连接配置")) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("DeepSeek 密钥")
@@ -62,56 +121,6 @@ struct AIModelSettingsView: View {
                 }
             }
 
-            Section(header: Text("数据如何流动")) {
-                Label {
-                    Text("只有当你主动发送 Coach 消息时，消息与回答所需的健康、训练上下文才会发送给 DeepSeek；餐食照片分析由第三方 Moonshot（Kimi Vision）处理，照片只会用于该次营养分析。")
-                } icon: {
-                    Image(systemName: "text.bubble.fill")
-                        .foregroundStyle(VelaTheme.accent)
-                }
-
-                Label {
-                    Text("餐食照片仅在你确认分析后发送给 Kimi。自动任务还需要在“联网 AI 授权”中单独开启。")
-                } icon: {
-                    Image(systemName: "photo.badge.checkmark.fill")
-                        .foregroundStyle(VelaTheme.rhythmInk)
-                }
-
-                Label {
-                    Text("API 密钥保存在系统钥匙串；模型选择保存在本机设置。Vela 不会把密钥写入聊天记录。")
-                } icon: {
-                    Image(systemName: "key.fill")
-                        .foregroundStyle(VelaTheme.rhythmInk)
-                }
-            }
-            .font(.footnote)
-
-            Section(header: Text("DeepSeek 数据授权")) {
-                if outboundConsentVersion >= CoachOutboundDataPolicy.currentConsentVersion {
-                    Toggle("健康指标与化验", isOn: $outboundHealth)
-                    Toggle("训练记录与计划", isOn: $outboundTraining)
-                    Toggle("营养记录", isOn: $outboundNutrition)
-                    Toggle("日志与习惯", isOn: $outboundJournal)
-                    Toggle("个人档案与长期记忆", isOn: $outboundWiki)
-                    Toggle("历史 AI 报告", isOn: $outboundReports)
-                    Toggle("当前对话历史", isOn: $outboundConversationHistory)
-                    Toggle("Bing 联网搜索关键词", isOn: $outboundWebSearch)
-
-                    Text("关闭的类别会在本机组装上下文时移除，同时禁用对应的 AI 读取工具。你的手动问题文本仍会发送。")
-                        .font(.caption)
-                        .foregroundStyle(VelaTheme.muted)
-
-                    Button("撤销全部联网数据授权", role: .destructive) {
-                        CoachOutboundDataPolicy.revoke()
-                        outboundConsentVersion = 0
-                    }
-                } else {
-                    Label("尚未授权。首次发送联网 Coach 消息时，Vela 会逐项询问。", systemImage: "lock.shield")
-                        .font(.footnote)
-                        .foregroundStyle(VelaTheme.muted)
-                }
-            }
-            
             Section(header: Text("连接测试与保存")) {
                 Button {
                     Task {
@@ -157,7 +166,7 @@ struct AIModelSettingsView: View {
         } message: {
             Text("模型密钥已写入系统钥匙串，模型选择已保存在本机设置。")
         }
-        .navigationTitle("AI 模型设置")
+        .navigationTitle("联网 Agent")
         .velaRhythmFormSurface()
         .velaRhythmDetailChrome()
     }
@@ -294,7 +303,7 @@ struct DataSourceSettingsView: View {
                         .padding(.horizontal, 16)
                 }
  
-                Text("已同步健康传感器")
+                Text("健康数据连接")
                     .font(.system(.callout, design: .default, weight: .bold))
                     .foregroundStyle(VelaTheme.fg)
                     .padding(.leading, 16)
@@ -309,7 +318,12 @@ struct DataSourceSettingsView: View {
                 .background(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).fill(VelaTheme.secondaryGroupedBackground))
                 .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
                 .padding(.horizontal, 16)
- 
+
+                Text("评分快照日期：\(dashboard.date.formatted(.dateTime.year().month().day()))。原始信号覆盖在“数据覆盖”中单独检查。")
+                    .font(VelaTheme.caption1())
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                    .padding(.horizontal, 16)
+
                 Button {
                     Task {
                         isSyncing = true
@@ -341,7 +355,7 @@ struct DataSourceSettingsView: View {
             }
         }
         .background(VelaTheme.rhythmCanvas)
-        .navigationTitle("健康数据源")
+        .navigationTitle("数据来源")
         .velaRhythmDetailChrome()
     }
  
@@ -392,10 +406,11 @@ struct DataSourceSettingsView: View {
             } label: {
                 Text(action)
                     .font(.system(.footnote, design: .default, weight: .bold))
-                    .foregroundStyle(VelaTheme.accentOn)
+                    .foregroundStyle(tier == .core ? VelaTheme.rhythmDeepOn : VelaTheme.rhythmInk)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
-                    .background(RoundedRectangle(cornerRadius: VelaTheme.radiusMd, style: .continuous).fill(color))
+                    .background(RoundedRectangle(cornerRadius: VelaTheme.radiusMd, style: .continuous).fill(tier == .core ? VelaTheme.rhythmDeep : VelaTheme.rhythmCanvas))
+                    .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusMd).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
             }
             .buttonStyle(.plain)
         }
@@ -417,8 +432,8 @@ struct DataSourceSettingsView: View {
     private var appleHealthDetail: String {
         switch dashboard.source {
         case .healthKit:
-            return lastSync.map { "最近同步：\($0.formatted(date: .omitted, time: .shortened))" }
-                ?? "已读取 Apple 健康 data"
+            return lastSync.map { "最近请求同步：\($0.formatted(date: .omitted, time: .shortened))" }
+                ?? "已读取 Apple 健康快照"
         case .cache:
             return "正在显示最近一次 Apple 健康快照"
         case .empty:
@@ -452,7 +467,7 @@ struct DataSourceSettingsView: View {
             Spacer()
             Text(status)
                 .font(.system(.footnote, design: .default, weight: .bold))
-                .foregroundStyle(VelaTheme.systemGreen)
+                .foregroundStyle(VelaTheme.rhythmInkSecondary)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 14)
@@ -762,7 +777,7 @@ struct CoachPersonalitySettingsView: View {
             }
         }
         .velaRhythmFormSurface()
-        .navigationTitle("AI 教练风格")
+        .navigationTitle("沟通方式")
         .velaRhythmDetailChrome()
         .onAppear {
             selectedPersonality = CoachPersonality(rawValue: coachPersonalityRaw) ?? .guardian
@@ -820,7 +835,7 @@ struct AgentAutomationSettingsView: View {
                                 .frame(width: 28)
  
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(isChinese ? skill.name : skill.enName)
+                                Text(isChinese && skill.id == "evening_wiki_sync" ? "夜间档案更新" : (isChinese ? skill.name : skill.enName))
                                     .font(.subheadline.weight(.semibold))
                                     .foregroundStyle(VelaTheme.fg)
                                 Text(skill.schedule)
@@ -846,7 +861,7 @@ struct AgentAutomationSettingsView: View {
                             .tint(VelaTheme.accent)
                         }
  
-                        Text(isChinese ? skill.description : skill.enDescription)
+                        Text(isChinese && skill.id == "evening_wiki_sync" ? "总结当日记录，更新健康档案" : (isChinese ? skill.description : skill.enDescription))
                             .font(.caption)
                             .foregroundStyle(VelaTheme.muted)
                             .fixedSize(horizontal: false, vertical: true)
@@ -855,7 +870,7 @@ struct AgentAutomationSettingsView: View {
                 }
             }
 
-            Section(header: Text(isChinese ? "本机 Check-ins" : "On-device check-ins")) {
+            Section(header: Text(isChinese ? "本机提醒" : "On-device check-ins")) {
                 Text(isChinese
                      ? "这些提醒完全由 iPhone 本机安排，不会发送健康数据，也不保证精确到分钟。小时提醒默认关闭。"
                      : "These reminders are scheduled on-device and send no health data. Delivery is not guaranteed to the exact minute. Hourly reminders default off.")
@@ -863,7 +878,7 @@ struct AgentAutomationSettingsView: View {
                     .foregroundStyle(VelaTheme.muted)
 
                 DatePicker(isChinese ? "一次性" : "One-time", selection: $oneTimeCheckInDate, in: Date()..., displayedComponents: [.date, .hourAndMinute])
-                Button(isChinese ? "安排一次性 Check-in" : "Schedule one-time check-in") {
+                Button(isChinese ? "安排一次性提醒" : "Schedule one-time check-in") {
                     Task {
                         let success = await CoachCheckInScheduler.scheduleOneTime(at: oneTimeCheckInDate)
                         oneTimeStatus = success
@@ -908,7 +923,7 @@ struct AgentAutomationSettingsView: View {
                 }
             }
         }
-        .navigationTitle("Agent 自动化技能")
+        .navigationTitle("主动智能")
         .velaRhythmFormSurface()
         .velaRhythmDetailChrome()
         .onChange(of: checkInSignature) { _, _ in

@@ -6,6 +6,7 @@ import HealthKit
 struct DataCoverageView: View {
     @State private var coverageGroups: [CoverageGroup] = []
     @State private var isLoading = true
+    @State private var checkedAt: Date?
 
     var body: some View {
         ZStack {
@@ -21,12 +22,18 @@ struct DataCoverageView: View {
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
-                        VelaRhythmSectionHeader(
-                            eyebrow: "EVIDENCE",
-                            title: AppLanguage.stored.isChinese ? "数据覆盖" : "Data Coverage",
-                            actionTitle: nil,
-                            action: {}
-                        )
+                        Text(AppLanguage.stored.isChinese
+                             ? "这里检查 Apple 健康原始信号；可用信号不等于所选日期已有评分。每项的采样时间与数量见下方。"
+                             : "Raw Apple Health signals can be available before scores exist for the selected day. Sample dates and counts appear below.")
+                            .font(VelaTheme.callout())
+                            .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                        if let checkedAt {
+                            Text(AppLanguage.stored.isChinese
+                                 ? "检查于 \(checkedAt.formatted(Date.FormatStyle(date: .abbreviated, time: .shortened).locale(Locale(identifier: AppLanguage.stored.localeIdentifier)))) · 最近 7 / 30 天样本"
+                                 : "Checked \(checkedAt.formatted(date: .abbreviated, time: .shortened)) · Last 7 / 30 days")
+                                .font(VelaTheme.caption1())
+                                .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                        }
                         overallScoreCard
 
                         ForEach(coverageGroups) { group in
@@ -60,11 +67,11 @@ struct DataCoverageView: View {
                 HStack(alignment: .center, spacing: 14) {
                     ZStack {
                         Circle()
-                            .stroke(VelaTheme.elevatedBg, lineWidth: 8)
+                            .stroke(VelaTheme.elevatedBg, lineWidth: 2)
                             .frame(width: 74, height: 74)
                         Circle()
                             .trim(from: 0, to: CGFloat(pct) / 100)
-                            .stroke(coverageColor(pct), style: StrokeStyle(lineWidth: 8, lineCap: .round))
+                            .stroke(coverageColor(pct), style: StrokeStyle(lineWidth: 2, lineCap: .round))
                             .frame(width: 74, height: 74)
                             .rotationEffect(.degrees(-90))
                         Text("\(pct)%")
@@ -75,7 +82,7 @@ struct DataCoverageView: View {
                     .accessibilityLabel(AppLanguage.stored.isChinese ? "数据覆盖 \(pct)%" : "Data coverage \(pct)%")
 
                     VStack(alignment: .leading, spacing: 5) {
-                        Text(AppLanguage.stored.isChinese ? "今日可用信号" : "Usable Today")
+                        Text(AppLanguage.stored.isChinese ? "可分析的原始信号" : "Usable raw signals")
                             .font(.headline.weight(.semibold))
                             .foregroundStyle(VelaTheme.fg)
                         Text(AppLanguage.stored.isChinese
@@ -88,24 +95,11 @@ struct DataCoverageView: View {
                     }
                 }
 
-                HStack(spacing: 8) {
-                    VelaMetricPill(
-                        title: AppLanguage.stored.isChinese ? "覆盖" : "Coverage",
-                        value: "\(pct)%",
-                        systemImage: "checkmark.shield.fill",
-                        tint: coverageColor(pct)
-                    )
-                    VelaMetricPill(
-                        title: AppLanguage.stored.isChinese ? "缺失" : "Missing",
-                        value: "\(missing)",
-                        systemImage: "exclamationmark.triangle.fill",
-                        tint: missing == 0 ? VelaTheme.rhythmInk : VelaTheme.rhythmInk
-                    )
-                }
+
 
             }
         }
-        .appleIntelligenceGlow(isHighlighted: pct >= 85, radius: 24)
+
     }
 
     // MARK: - Group Card
@@ -190,6 +184,7 @@ struct DataCoverageView: View {
 
     private func loadCoverage() async {
         coverageGroups = await DataCoverageGroupFactory.loadAllGroups()
+        checkedAt = Date()
         isLoading = false
     }
 

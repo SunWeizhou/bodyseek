@@ -5,6 +5,39 @@ import SwiftUI
 @testable import Vela
 
 final class VelaThemeTests: XCTestCase {
+    func testSleepDurationDistinguishesUnknownFromObservedZero() {
+        var summary = DashboardSummary.empty().sleepSummary
+        XCTAssertNil(MetricDetailReadingCopy.sleepMinutes(summary))
+        XCTAssertEqual(MetricDetailReadingCopy.sleepDuration(summary), "--")
+        summary.totalSleepMinutes = 90
+        XCTAssertEqual(MetricDetailReadingCopy.sleepDuration(summary), "90 分钟")
+        summary.totalSleepMinutes = 0
+        summary.sleepScore = 0
+        XCTAssertEqual(MetricDetailReadingCopy.sleepDuration(summary), "0 分钟")
+    }
+
+    func testInBedOnlyDoesNotCreateSleepDuration() {
+        var summary = DashboardSummary.empty().sleepSummary
+        summary.stageMinutes = [.inBed: 60]
+        XCTAssertNil(MetricDetailReadingCopy.sleepMinutes(summary))
+        summary.stageMinutes = [.awake: 60]
+        XCTAssertEqual(MetricDetailReadingCopy.sleepMinutes(summary), 0)
+    }
+
+    func testEnergyComparisonPreservesMissingAndKnownZero() {
+        var energy = DashboardSummary.empty().energy
+        XCTAssertEqual(MetricDetailReadingCopy.morningEnergy(energy), "--")
+        energy.value = 0
+        energy.components["morningEnergy"] = 0
+        XCTAssertEqual(MetricDetailReadingCopy.morningEnergy(energy), "0")
+        energy.components["morningEnergy"] = 72
+        XCTAssertEqual(MetricDetailReadingCopy.morningEnergy(energy), "72")
+        energy.value = nil
+        XCTAssertEqual(MetricDetailReadingCopy.morningEnergy(energy), "72", "A known morning reserve survives a missing current score")
+        energy.components = [:]
+        XCTAssertEqual(MetricDetailReadingCopy.morningEnergy(energy), "--", "Missing values must not expose the numeric fallback")
+    }
+
     func testSoftFillIsTranslucentAndAchromaticInBothAppearances() {
         for style in [UIUserInterfaceStyle.light, .dark] {
             let color = UIColor(VelaTheme.fillSoft).resolvedColor(with: UITraitCollection(userInterfaceStyle: style))

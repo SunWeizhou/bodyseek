@@ -209,10 +209,8 @@ struct TrainingHeroSection: View {
             .frame(maxWidth: .infinity, minHeight: dynamicTypeSize.isAccessibilitySize ? VelaTheme.minimumHitTarget : 0, alignment: .leading)
 
             Text(decision == .rest ? "恢复" : (focus?.title ?? "设置训练轮转"))
-                // Keep the landing hero at the same display step as Today's
-                // hero numeral: one thing leads each screen.
-                .font(VelaTheme.largeTitle())
-                .tracking(-1.1)
+                .font(VelaTheme.title2().weight(.semibold))
+                .tracking(-0.4)
                 .foregroundStyle(VelaTheme.rhythmInk)
                 .minimumScaleFactor(0.8)
 

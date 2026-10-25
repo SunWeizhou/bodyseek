@@ -5,6 +5,7 @@ struct VelaSettingsView: View {
     let dashboard: DashboardSummary
     var onRefresh: (() async -> Void)?
 
+    @ObservedObject private var agentConfig = AutoAgentConfig.shared
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -35,6 +36,17 @@ struct VelaSettingsView: View {
         CoachOutboundDataPolicy.hasExplicitConsent ? "已授权" : "未授权"
     }
 
+    private var automationStatus: String {
+        let tasks = agentConfig.skillList(isChinese: true).filter(\.isEnabled).count
+        let reminders = [agentConfig.hourlyCheckins, agentConfig.progressCheckins,
+                         agentConfig.weeklySummary, agentConfig.monthlySummary].filter { $0 }.count
+        guard tasks + reminders > 0 else { return "已关闭" }
+        if tasks > 0 && !agentConfig.canSendHealthContextToNetworkAI {
+            return reminders > 0 ? "\(reminders) 项提醒 · 联网待授权" : "联网待授权"
+        }
+        return "\(tasks + reminders) 项已开启"
+    }
+
     var body: some View {
         ScrollView {
             // Wave21 fix: Settings has ~22 lightweight rows. Keeping them eager
@@ -61,7 +73,7 @@ struct VelaSettingsView: View {
                         }
                         settingsDivider
                         NavigationLink(destination: AgentAutomationSettingsView()) {
-                            settingsRow(icon: "sparkles", title: "主动智能", value: "已配置")
+                            settingsRow(icon: "sparkles", title: "主动智能", value: automationStatus)
                         }
                     }
                 }
@@ -272,12 +284,12 @@ struct VelaSettingsView: View {
     
     private var profileCardRow: some View {
         VStack(alignment: .leading, spacing: 16) {
-            BodySeekPageIntro(
-                eyebrow: "PERSONAL / YOUR FIELD NOTES",
-                title: "关于你，\n持续了解中。",
-                subtitle: "你的资料、偏好与健康记忆，都在这里。",
-                artwork: .profile
-            )
+            Text("资料与偏好")
+                .font(VelaTheme.title2().weight(.semibold))
+                .foregroundStyle(VelaTheme.rhythmInk)
+            Text("你的资料、偏好与健康记忆，都在这里。")
+                .font(VelaTheme.callout())
+                .foregroundStyle(VelaTheme.rhythmInkSecondary)
             (dynamicTypeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout(spacing: 8))) {
                 settingsPill("本机保存", icon: "iphone")
                 settingsPill("由你掌控", icon: "hand.raised")

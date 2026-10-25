@@ -281,7 +281,9 @@ struct VelaTrainingView: View {
         .onChange(of: appState.adaptiveTrainingStartRequest) { _, _ in
             consumeAdaptiveTrainingStartIfNeeded()
         }
-        .toolbar(.hidden, for: .navigationBar)
+        .navigationTitle("训练")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
     }
 
     private func deepAnalysisDestination(

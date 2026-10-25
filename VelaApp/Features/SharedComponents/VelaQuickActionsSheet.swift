@@ -12,12 +12,12 @@ struct PlusActionSheet: View {
     @Environment(\.modelContext) private var modelContext
     
     var body: some View {
-        if dynamicTypeSize.isAccessibilitySize {
-            ScrollView { actions }
-                .background(VelaTheme.bg)
-        } else {
-            actions
-        }
+        ScrollView { actions }
+            .scrollBounceBehavior(.basedOnSize)
+            .background(VelaTheme.bg)
+            .presentationDetents(dynamicTypeSize.isAccessibilitySize
+                ? [.large]
+                : [.height(VelaFeatureFlags.nutritionEnabled ? 440 : 330), .large])
     }
 
     private var actions: some View {
@@ -103,9 +103,7 @@ struct PlusActionSheet: View {
             }
             .padding(.horizontal, VelaTheme.pagePadding)
             
-            Spacer()
-            
-            // 3. Circular Cancel Button
+            // Close stays next to the grid instead of the bottom of a half-empty sheet.
             Button {
                 dismiss()
             } label: {
@@ -117,9 +115,10 @@ struct PlusActionSheet: View {
                     .overlay(Circle().stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
             }
             .buttonStyle(.plain)
-            .padding(.bottom, VelaTheme.space6)
+            .padding(.bottom, VelaTheme.space3)
+            .accessibilityLabel("关闭")
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity)
         .background(VelaTheme.bg) // Warm canvas base
     }
 
@@ -135,11 +134,11 @@ struct PlusActionSheet: View {
                 ZStack {
                     Circle()
                         .fill(VelaTheme.surfaceFloating)
-                        .frame(width: 60, height: 60)
+                        .frame(width: 48, height: 48)
                     
                     Circle()
                         .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
-                        .frame(width: 60, height: 60)
+                        .frame(width: 48, height: 48)
                     
                     Image(systemName: icon)
                         .font(.system(size: 20, weight: .medium))
@@ -164,7 +163,7 @@ struct PlusActionSheet: View {
                 ZStack {
                     Circle()
                         .fill(VelaTheme.rhythmDeep)
-                        .frame(width: 60, height: 60)
+                        .frame(width: 48, height: 48)
                     
                     AlpacaView(strokeColor: VelaTheme.rhythmDeepOn)
                         .offset(y: -1)

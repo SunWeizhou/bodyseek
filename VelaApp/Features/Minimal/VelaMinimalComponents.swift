@@ -461,7 +461,12 @@ struct VelaMetricDetailView: View {
 
         metricHistoryErrorCard
 
-        trustSection
+        if hasMetricData {
+            trustSection
+        } else {
+            DisclosureGroup("评分依据与缺失项") { trustSection }
+                .font(VelaTheme.callout())
+        }
 
         // 2. 个人比较 / 趋势
         customWidgetsSection(isSleep: isSleep)

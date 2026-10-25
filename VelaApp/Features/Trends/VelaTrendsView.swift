@@ -323,7 +323,7 @@ struct VelaTrendsView: View {
                 .layoutPriority(1)
             }
             trendSparkline(series: series, descriptor: descriptor, height: 44)
-                .frame(maxWidth: .infinity, minHeight: 44, maxHeight: 44)
+                .frame(maxWidth: .infinity)
         }
         .padding(.horizontal, VelaTheme.compactCardPadding)
         .padding(.vertical, VelaTheme.space3)
@@ -363,7 +363,7 @@ struct VelaTrendsView: View {
             .frame(width: 84, alignment: .leading)
 
             trendSparkline(series: series, descriptor: descriptor, height: 24)
-                .frame(maxWidth: .infinity, minHeight: 24, maxHeight: 24)
+                .frame(maxWidth: .infinity)
 
             Text(valueText)
                 .font(VelaTheme.callout().weight(.semibold).monospacedDigit())
@@ -387,17 +387,31 @@ struct VelaTrendsView: View {
         height: CGFloat
     ) -> some View {
         if let series {
-            GeometryReader { geo in
-                DateAwareSparkline(
-                    points: series.points,
-                    color: VelaTheme.rhythmInk,
-                    height: geo.size.height,
-                    width: geo.size.width,
-                    band: series.baselineBand,
-                    marksLatestPoint: true
-                )
+            VStack(spacing: 3) {
+                GeometryReader { geo in
+                    DateAwareSparkline(
+                        points: series.points,
+                        color: VelaTheme.rhythmInk,
+                        height: geo.size.height,
+                        width: geo.size.width,
+                        band: series.baselineBand,
+                        marksLatestPoint: true
+                    )
+                }
+                .frame(height: height)
+                .accessibilityIdentifier("trends-overview-chart-\(descriptor.metric.rawValue)")
+                HStack {
+                    if let first = series.points.first, let last = series.points.last {
+                        Text(first.date.formatted(.dateTime.month(.twoDigits).day(.twoDigits)))
+                        Spacer(minLength: 0)
+                        Text(last.date.formatted(.dateTime.month(.twoDigits).day(.twoDigits)))
+                    }
+                }
+                .font(VelaTheme.caption2().monospacedDigit())
+                .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                .accessibilityHidden(true)
             }
-            .accessibilityIdentifier("trends-overview-chart-\(descriptor.metric.rawValue)")
+
         } else {
             Text(dailyRecordsLoadError == nil ? "正在读取记录…" : "暂无可用记录")
                 .font(VelaTheme.caption2())

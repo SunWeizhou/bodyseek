@@ -312,7 +312,7 @@ struct VelaPlanView: View {
                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
                     .accessibilityIdentifier("plan-header-decision")
             }
-            Text(PlanFirstScreenCopy.primaryActionTitle(actions: actions))
+            Text(actions.isEmpty ? "今天的安排" : "今天的 \(actions.count) 件事")
                 .font(VelaTheme.statement())
                 .foregroundStyle(VelaTheme.rhythmInk)
                 .accessibilityIdentifier("plan-header-primary-action")
@@ -866,8 +866,9 @@ private struct PlanActionRow: View {
                         .fill(Color.clear)
                 }
             }
-            .frame(width: 40, height: 40)
-            .contentShape(Circle())
+            .frame(width: 24, height: 24)
+            .frame(width: VelaTheme.minimumHitTarget, height: VelaTheme.minimumHitTarget)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.cardPress)
         .accessibilityLabel(action.completedAt == nil ? "完成 \(action.title)" : "取消完成 \(action.title)")
@@ -936,7 +937,7 @@ private struct PlanActionRow: View {
             Image(systemName: "ellipsis")
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                .frame(width: 40, height: 44)
+                .frame(width: VelaTheme.minimumHitTarget, height: VelaTheme.minimumHitTarget)
                 .contentShape(Rectangle())
         }
         .accessibilityLabel("管理 \(action.title)")
