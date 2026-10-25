@@ -244,7 +244,7 @@ struct TodayVitalCard: View {
             // Row 1: Icon + Title + Chevron
             HStack(spacing: 6) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous)
                         .fill(accentColor.opacity(0.12))
                     Image(systemName: iconName)
                         .font(.system(size: 10, weight: .bold))
@@ -294,17 +294,17 @@ struct TodayVitalCard: View {
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                 .fill(VelaTheme.rhythmCanvasRaised)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                 .stroke(
                     VelaTheme.hairline,
                     lineWidth: VelaTheme.hairlineWidth
                 )
         )
-        .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
     }
 
     private var statusText: some View {

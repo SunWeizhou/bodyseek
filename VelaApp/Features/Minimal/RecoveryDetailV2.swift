@@ -496,11 +496,11 @@ struct RecoveryDetailV2View: View {
     private var scoreRing: some View {
         ZStack {
             Circle()
-                .stroke(VelaTheme.scoreTrack, lineWidth: 3.5)
+                .stroke(VelaTheme.scoreTrack, lineWidth: 2.5)
             if model.scoreValue != nil {
                 Circle()
                     .trim(from: 0, to: min(1, max(0, (model.scoreValue ?? 0) / 100)))
-                    .stroke(VelaTheme.rhythmInk, style: StrokeStyle(lineWidth: 3.5, lineCap: .round))
+                    .stroke(VelaTheme.rhythmInk, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
                     .rotationEffect(.degrees(-90))
                     .animation(VelaTheme.dataAnimation(reduceMotion: reduceMotion), value: model.scoreValue)
             } else {
@@ -949,7 +949,7 @@ struct RecoveryDetailV2View: View {
                 .foregroundStyle(VelaTheme.rhythmInkSecondary)
             Spacer(minLength: 8)
             Text(value)
-                .font(.system(.title2, design: .rounded, weight: .semibold))
+                .font(VelaTheme.title2())
                 .monospacedDigit()
                 .foregroundStyle(VelaTheme.rhythmInk)
         }
@@ -1016,12 +1016,12 @@ private struct RecoveryDetailCard: ViewModifier {
     func body(content: Content) -> some View {
         content
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                     .stroke(
-                        colorSchemeContrast == .increased ? VelaTheme.rhythmInk : VelaTheme.rhythmMist,
-                        lineWidth: colorSchemeContrast == .increased ? 1 : 0.75
+                        colorSchemeContrast == .increased ? VelaTheme.rhythmInk : VelaTheme.hairline,
+                        lineWidth: VelaTheme.hairlineWidth
                     )
             }
     }

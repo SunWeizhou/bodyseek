@@ -50,7 +50,7 @@ struct VelaJournalView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: VelaTheme.space3) {
                 // 1. Journal Header Title Row
                 journalHeader
                 
@@ -139,7 +139,7 @@ struct VelaJournalView: View {
                             )
                         }
                     }
-                    .velaNativeCard(radius: 12)
+                    .velaNativeCard(radius: VelaTheme.radiusSm)
 
                     Button {
                         showCustomHabitManager = true
@@ -435,7 +435,7 @@ struct VelaJournalView: View {
                     .foregroundStyle(VelaTheme.fg)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
-                    .velaNativeCard(radius: 16)
+                    .velaNativeCard(radius: VelaTheme.radiusCard)
                 }
                 .buttonStyle(.plain)
                 
@@ -488,16 +488,12 @@ struct VelaJournalView: View {
                     .font(.system(size: 16, weight: .bold))
                     .foregroundStyle(VelaTheme.rhythmDeepOn)
                     .frame(width: 36, height: 36)
-                    .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(VelaTheme.rhythmDeep))
+                    .background(RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous).fill(VelaTheme.rhythmDeep))
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("随手记一餐或一个行为")
                         .font(.system(.footnote, design: .default, weight: .bold))
                         .foregroundStyle(VelaTheme.fg)
-                    Text("一句话即可：火锅、啤酒、睡前咖啡、吃撑、喝水少。无需估克重。")
-                        .font(.system(.caption2, design: .default))
-                        .foregroundStyle(VelaTheme.muted)
-                        .lineLimit(2)
                 }
 
                 Spacer()
@@ -541,7 +537,7 @@ struct VelaJournalView: View {
                 Button {
                     onSelectDate(date)
                 } label: {
-                    VStack(spacing: 8) {
+                    VStack(spacing: 4) {
                         Text(weekdays[idx])
                             .font(.system(.caption2, design: .default, weight: .bold))
                             .foregroundStyle(VelaTheme.muted)
@@ -565,7 +561,7 @@ struct VelaJournalView: View {
                         if hasEntry {
                             Image(systemName: "checkmark.circle.fill")
                                 .font(.system(size: 18))
-                                .foregroundStyle(VelaTheme.systemYellow)
+                                .foregroundStyle(VelaTheme.rhythmInkSecondary)
                         } else {
                             Image(systemName: "circle")
                                 .font(.system(size: 18))
@@ -579,9 +575,8 @@ struct VelaJournalView: View {
                 .opacity(isFuture ? 0.38 : 1)
             }
         }
-        .padding(.vertical, 12)
+        .padding(.vertical, 4)
         .padding(.horizontal, 4)
-        .velaNativeCard(radius: 18)
     }
 
     private func segmentedJournalRow(icon: String, title: String, state: Binding<Int>) -> some View {
@@ -591,7 +586,7 @@ struct VelaJournalView: View {
                     .font(.system(size: 16))
                     .foregroundStyle(VelaTheme.accent)
                     .frame(width: 32, height: 32)
-                    .background(Circle().fill(VelaTheme.accent.opacity(0.12)))
+                    .background(Circle().fill(VelaTheme.rhythmMist))
                 
                 Text(title)
                     .font(.system(.footnote, design: .default, weight: .bold))
@@ -616,9 +611,9 @@ struct VelaJournalView: View {
                 segmentButton(title: title, index: 2, state: state)
             }
             .background(VelaTheme.rhythmMist.opacity(0.4))
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous)
                     .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
             )
         }
@@ -675,7 +670,7 @@ struct VelaJournalView: View {
                         .font(.system(size: 16))
                         .foregroundStyle(VelaTheme.accent)
                         .frame(width: 32, height: 32)
-                        .background(Circle().fill(VelaTheme.accent.opacity(0.12)))
+                        .background(Circle().fill(VelaTheme.rhythmMist))
                     
                     Text(title)
                         .font(.system(.footnote, design: .default, weight: .bold))

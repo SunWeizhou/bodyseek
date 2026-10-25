@@ -1,0 +1,41 @@
+===================================
+  Vela 设计 Token 审计
+===================================
+
+✅ 硬编码颜色 Color(hex:) — 0 处
+
+❌ 硬编码字号 .font(.system(size:)) — 177 处
+VelaApp/Features/Training/WorkoutDetailView.swift:81:                            .font(.system(size: 16, weight: .bold))
+VelaApp/Features/Training/WorkoutDetailView.swift:91:                            .font(.system(size: 16, weight: .bold))
+VelaApp/Features/Training/WorkoutDetailView.swift:178:                    .font(.system(size: 18, weight: .semibold))
+VelaApp/Features/Training/WorkoutDetailView.swift:211:                .font(.system(size: 18, weight: .bold))
+VelaApp/Features/Training/WorkoutDetailView.swift:233:                    .font(.system(size: 14, weight: .bold))
+VelaApp/Features/Training/WorkoutDetailView.swift:338:                            .font(.system(size: 10, weight: .bold))
+VelaApp/Features/Training/WorkoutDetailView.swift:369:                    .font(.system(size: 14, weight: .bold))
+VelaApp/Features/SharedComponents/CorrelationArtifactView.swift:206:                    .font(.system(size: 17, weight: .semibold))
+VelaApp/Features/SharedComponents/DataFreshnessIndicator.swift:31:                .font(.system(size: 8))
+VelaApp/Features/SharedComponents/DataFreshnessIndicator.swift:35:                .font(.system(size: 8))
+VelaApp/Features/SharedComponents/VelaQuickActionsSheet.swift:145:                        .font(.system(size: 20, weight: .medium))
+VelaApp/Features/Minimal/TodayEvidenceSheet.swift:160:                        .font(.system(size: 11, weight: .semibold))
+   … 以及 165 处更多(完整列表用 grep 自行查看)
+
+✅ 直写系统语义色 Color.red/green/… — 0 处
+
+❌ 内联 RoundedRectangle(cornerRadius: — 412 处
+VelaApp/Features/Settings/TrustCenterView.swift:123:                .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
+VelaApp/Features/Settings/TrustCenterView.swift:125:                    RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+VelaApp/Features/Settings/TrustCenterView.swift:154:                    .background(tint.opacity(0.11), in: RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous))
+VelaApp/Features/Settings/TrustCenterView.swift:207:        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
+VelaApp/Features/Settings/TrustCenterView.swift:209:            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+VelaApp/Features/Settings/BiologyView.swift:325:                            .background(VelaTheme.rhythmInk.opacity(0.12), in: RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous))
+VelaApp/Features/Settings/BiologyView.swift:384:                                RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+VelaApp/Features/Settings/BiologyView.swift:556:                    RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+VelaApp/Features/Settings/BiologyView.swift:560:                    RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+VelaApp/Features/Training/WorkoutDetailSubComponents.swift:35:                    RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous)
+VelaApp/Features/Training/WorkoutDetailSubComponents.swift:39:                        RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous)
+VelaApp/Features/Training/WorkoutDetailSubComponents.swift:118:        .background(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
+   … 以及 400 处更多(完整列表用 grep 自行查看)
+
+===================================
+  合计 589 处硬编码
+===================================

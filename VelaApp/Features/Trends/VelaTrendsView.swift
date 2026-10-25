@@ -128,6 +128,20 @@ struct VelaTrendsView: View {
         }
     }
 
+    /// One row leads the section: a notable shift first, then any available
+    /// finding, then the first descriptor. Copy and scoring are untouched;
+    /// this only decides where the visual weight goes.
+    private var focusMetric: CoreHealthMetric? {
+        let metrics = scoreDescriptors.map(\.metric)
+        if let notable = metrics.first(where: { finding(for: $0)?.isNotable == true }) {
+            return notable
+        }
+        if let available = metrics.first(where: { finding(for: $0)?.isAvailable == true }) {
+            return available
+        }
+        return metrics.first
+    }
+
     var body: some View {
         ScrollView {
             // Five fixed overview cards do not need lazy height estimation.
@@ -156,7 +170,7 @@ struct VelaTrendsView: View {
                 }
             }
             .padding(.horizontal, VelaTheme.pagePadding)
-            .padding(.top, 72)
+            .padding(.top, VelaTheme.space4)
             .padding(.bottom, VelaFloatingNavigationMetrics.contentBottomPadding + 20)
         }
         .scrollIndicators(.hidden)
@@ -187,9 +201,14 @@ struct VelaTrendsView: View {
     // MARK: - Five scored time series
 
     private var fiveScoreTrendSection: some View {
-        VStack(spacing: 8) {
-            ForEach(scoreDescriptors) { descriptor in
-                scoreTrendRow(descriptor)
+        let focus = focusMetric
+        let others = scoreDescriptors.filter { $0.metric != focus }
+        return VStack(spacing: VelaTheme.cardGap) {
+            if let focusDescriptor = scoreDescriptors.first(where: { $0.metric == focus }) {
+                scoreTrendRow(focusDescriptor, isFocus: true)
+            }
+            ForEach(others) { descriptor in
+                scoreTrendRow(descriptor, isFocus: false)
             }
         }
     }
@@ -223,12 +242,12 @@ struct VelaTrendsView: View {
             .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
-                    .stroke(VelaTheme.hairline, lineWidth: 1)
+                    .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
             }
         }
     }
 
-    private func scoreTrendRow(_ descriptor: ScoreTrendDescriptor) -> some View {
+    private func scoreTrendRow(_ descriptor: ScoreTrendDescriptor, isFocus: Bool) -> some View {
         let finding = finding(for: descriptor.metric)
         let trendPoints = scoreTrendPoints(for: descriptor.metric)
         let values = trendPoints.compactMap(\.value)
@@ -238,11 +257,45 @@ struct VelaTrendsView: View {
         return Button {
             selectedMetricForDetail = descriptor.detail
         } label: {
-            HStack(alignment: .center, spacing: 10) {
+            if isFocus {
+                focusTrendRowContent(
+                    descriptor: descriptor,
+                    finding: finding,
+                    valueText: valueText,
+                    series: series,
+                    sampleCount: values.count
+                )
+            } else {
+                compactTrendRowContent(
+                    descriptor: descriptor,
+                    finding: finding,
+                    valueText: valueText,
+                    series: series,
+                    sampleCount: values.count
+                )
+            }
+        }
+        .buttonStyle(.cardPress)
+        .accessibilityElement(children: .ignore)
+        .accessibilityIdentifier("trends-score-\(descriptor.metric.rawValue)")
+        .accessibilityLabel(scoreAccessibilityLabel(descriptor: descriptor, finding: finding, values: values))
+        .accessibilityHint("打开\(descriptor.title)详情")
+    }
+
+    /// The one row with visual weight: larger numeral, taller chart, one caption line.
+    private func focusTrendRowContent(
+        descriptor: ScoreTrendDescriptor,
+        finding: HealthTrendFinding?,
+        valueText: String,
+        series: TrendsMetricSeries?,
+        sampleCount: Int
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top, spacing: 10) {
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 5) {
                         Text(descriptor.title)
-                            .font(VelaTheme.subheadline().weight(.semibold))
+                            .font(VelaTheme.callout().weight(.semibold))
                             .foregroundStyle(VelaTheme.rhythmInk)
                         if finding?.isNotable == true {
                             BaselineDeviationMarker(
@@ -252,59 +305,118 @@ struct VelaTrendsView: View {
                             )
                         }
                     }
-                    Text(scoreTrendCaption(finding: finding, sampleCount: values.count))
-                        .font(VelaTheme.caption2())
+                    Text(scoreTrendCaption(finding: finding, sampleCount: sampleCount))
+                        .font(VelaTheme.caption1())
                         .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.85)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                 }
-                .frame(width: 88, alignment: .leading)
+                Spacer(minLength: 8)
+                HStack(alignment: .center, spacing: 4) {
+                    Text(valueText)
+                        .font(VelaTheme.heroValue())
+                        .foregroundStyle(valueText == "--" ? VelaTheme.rhythmInkSecondary : VelaTheme.rhythmInk)
+                    Image(systemName: "chevron.right")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                }
+                .layoutPriority(1)
+            }
+            trendSparkline(series: series, descriptor: descriptor, height: 44)
+                .frame(maxWidth: .infinity)
+        }
+        .padding(.horizontal, VelaTheme.compactCardPadding)
+        .padding(.vertical, VelaTheme.space3)
+        .frame(maxWidth: .infinity, minHeight: 104, alignment: .leading)
+        .trendMetricCardSurface()
+        .contentShape(Rectangle())
+    }
 
-                Group {
-                    if let series {
-                        GeometryReader { geo in
-                            DateAwareSparkline(
-                                points: series.points,
-                                color: VelaTheme.rhythmInk,
-                                height: geo.size.height,
-                                width: geo.size.width,
-                                band: series.baselineBand,
-                                marksLatestPoint: true
-                            )
-                        }
-                        .accessibilityIdentifier("trends-overview-chart-\(descriptor.metric.rawValue)")
-                    } else {
-                        Text(dailyRecordsLoadError == nil ? "正在读取记录…" : "暂无可用记录")
-                            .font(VelaTheme.caption2())
-                            .foregroundStyle(VelaTheme.rhythmInkSecondary)
+    /// Dense rows: one short line, a 24pt chart, and a supporting-size numeral.
+    private func compactTrendRowContent(
+        descriptor: ScoreTrendDescriptor,
+        finding: HealthTrendFinding?,
+        valueText: String,
+        series: TrendsMetricSeries?,
+        sampleCount: Int
+    ) -> some View {
+        HStack(alignment: .center, spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
+                    Text(descriptor.title)
+                        .font(VelaTheme.subheadline().weight(.semibold))
+                        .foregroundStyle(VelaTheme.rhythmInk)
+                    if finding?.isNotable == true {
+                        BaselineDeviationMarker(
+                            directionLabel: finding.flatMap { BaselineDeviationCopy.label(for: $0) },
+                            showsLabel: false,
+                            diameter: 6
+                        )
                     }
                 }
-                .frame(maxWidth: .infinity, minHeight: 36, maxHeight: 36)
-
-                Text(valueText)
-                    .font(VelaTheme.instrumentValue())
-                    .monospacedDigit()
-                    .foregroundStyle(valueText == "--" ? VelaTheme.rhythmInkSecondary : VelaTheme.rhythmInk)
-                    .frame(minWidth: 36, alignment: .trailing)
-                Image(systemName: "chevron.right")
-                    .font(.caption2.weight(.semibold))
+                Text(compactTrendCaption(finding: finding, sampleCount: sampleCount))
+                    .font(VelaTheme.caption2())
                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
-            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
-                    .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
-            }
-            .contentShape(Rectangle())
+            .frame(width: 84, alignment: .leading)
+
+            trendSparkline(series: series, descriptor: descriptor, height: 24)
+                .frame(maxWidth: .infinity)
+
+            Text(valueText)
+                .font(VelaTheme.callout().weight(.semibold).monospacedDigit())
+                .foregroundStyle(valueText == "--" ? VelaTheme.rhythmInkSecondary : VelaTheme.rhythmInk)
+                .frame(minWidth: 32, alignment: .trailing)
+            Image(systemName: "chevron.right")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(VelaTheme.rhythmInkSecondary)
         }
-        .buttonStyle(.cardPress)
-        .accessibilityElement(children: .ignore)
-        .accessibilityIdentifier("trends-score-\(descriptor.metric.rawValue)")
-        .accessibilityLabel(scoreAccessibilityLabel(descriptor: descriptor, finding: finding, values: values))
-        .accessibilityHint("打开\(descriptor.title)详情")
+        .padding(.horizontal, VelaTheme.space3)
+        .padding(.vertical, VelaTheme.space2)
+        .frame(maxWidth: .infinity, minHeight: 60, alignment: .leading)
+        .trendMetricCardSurface()
+        .contentShape(Rectangle())
+    }
+
+    @ViewBuilder
+    private func trendSparkline(
+        series: TrendsMetricSeries?,
+        descriptor: ScoreTrendDescriptor,
+        height: CGFloat
+    ) -> some View {
+        if let series {
+            VStack(spacing: 3) {
+                GeometryReader { geo in
+                    DateAwareSparkline(
+                        points: series.points,
+                        color: VelaTheme.rhythmInk,
+                        height: geo.size.height,
+                        width: geo.size.width,
+                        band: series.baselineBand,
+                        marksLatestPoint: true
+                    )
+                }
+                .frame(height: height)
+                .accessibilityIdentifier("trends-overview-chart-\(descriptor.metric.rawValue)")
+                HStack {
+                    if let first = series.points.first, let last = series.points.last {
+                        Text(first.date.formatted(.dateTime.month(.twoDigits).day(.twoDigits)))
+                        Spacer(minLength: 0)
+                        Text(last.date.formatted(.dateTime.month(.twoDigits).day(.twoDigits)))
+                    }
+                }
+                .font(VelaTheme.caption2().monospacedDigit())
+                .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                .accessibilityHidden(true)
+            }
+
+        } else {
+            Text(dailyRecordsLoadError == nil ? "正在读取记录…" : "暂无可用记录")
+                .font(VelaTheme.caption2())
+                .foregroundStyle(VelaTheme.rhythmInkSecondary)
+        }
     }
 
     private var compactCalibrationCard: some View {
@@ -322,7 +434,7 @@ struct VelaTrendsView: View {
                     .foregroundStyle(VelaTheme.rhythmInkSecondary)
             }
             .padding(14)
-            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
         }
         .buttonStyle(.cardPress)
     }
@@ -392,30 +504,40 @@ struct VelaTrendsView: View {
         )
         let rows = coverageRows
         let loaded = rows.filter(\.isLoaded)
-        return VStack(alignment: .leading, spacing: 10) {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 8) {
+        let hasAvailableSignal = !availableFindings.isEmpty
+        return VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 4) {
+                (dynamicTypeSize.isAccessibilitySize
+                    ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6))
+                    : AnyLayout(HStackLayout(spacing: 8))) {
                     Text("\(selectedHorizon.title)小结")
                         .font(VelaTheme.caption1())
                         .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                    Spacer(minLength: 8)
+                    if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 8) }
                     if dashboard.source == .preview {
                         Text("示例数据")
                             .font(VelaTheme.caption2().weight(.semibold))
                             .foregroundStyle(VelaTheme.rhythmInkSecondary)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
-                            .overlay(Capsule().stroke(VelaTheme.hairline, lineWidth: 1))
+                            .overlay(Capsule().stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
                     }
                 }
+                // A compact judgment line: the empty case must not own the fold.
                 Text(summary.headline)
-                    .font(VelaTheme.statement())
+                    .font(hasAvailableSignal ? VelaTheme.statement() : VelaTheme.title3())
                     .foregroundStyle(VelaTheme.rhythmInk)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.9)
                     .fixedSize(horizontal: false, vertical: true)
                 if let detail = summary.detail {
+                    // One line only; the coverage sheet carries the full context.
                     Text(detail)
-                        .font(VelaTheme.subheadline())
+                        .font(VelaTheme.caption1())
                         .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .minimumScaleFactor(0.9)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -430,45 +552,41 @@ struct VelaTrendsView: View {
                     Image(systemName: "calendar")
                         .font(.caption.weight(.semibold))
                     Text(TrendsCoverageRow.summaryText(loaded, horizon: selectedHorizon))
-                        .font(VelaTheme.footnote().weight(.medium))
+                        .font(VelaTheme.caption1().weight(.medium))
+                        .lineLimit(1)
                     Image(systemName: "chevron.right")
                         .font(.caption2.weight(.bold))
                 }
-                .foregroundStyle(VelaTheme.rhythmInk)
-                .padding(.horizontal, 12)
-                .frame(minHeight: 36)
-                .background(Capsule().fill(VelaTheme.surfaceFloating))
-                .frame(minHeight: 44)
+                .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                .frame(minHeight: VelaTheme.minimumHitTarget, alignment: .leading)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("trends-history-coverage")
         }
+        .padding(.top, 2)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var trendLegend: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if scoreDescriptors.contains(where: { scoreBand(for: $0.metric) != nil }) {
-                HStack(spacing: 6) {
-                    RoundedRectangle(cornerRadius: 2, style: .continuous)
-                        .fill(VelaTheme.rangeBand)
-                        .frame(width: 18, height: 8)
-                    Text("阴影为个人常见范围")
-                }
-            }
-            HStack(spacing: 6) {
-                Circle()
-                    .stroke(VelaTheme.rhythmInk, lineWidth: 1.25)
-                    .frame(width: 8, height: 8)
-                Text("空心圆 ≠ 不好，只表示偏离你的平时")
-            }
-            Text("空档日期暂无评分")
+        Text(trendLegendText)
+            .font(VelaTheme.caption2())
+            .foregroundStyle(VelaTheme.rhythmInkSecondary)
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityLabel("阴影为个人常见范围；空心圆不等于不好，只表示偏离你的平时；空档日期暂无评分")
+    }
+
+    /// One compact legend line replaces the three stacked gray captions.
+    private var trendLegendText: String {
+        var parts: [String] = []
+        if scoreDescriptors.contains(where: { scoreBand(for: $0.metric) != nil }) {
+            parts.append("阴影为常见范围")
         }
-        .font(VelaTheme.caption2())
-        .foregroundStyle(VelaTheme.rhythmInkSecondary)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityLabel("空心圆不等于不好，只表示偏离你的平时")
+        parts.append("空心圆=偏离平时")
+        parts.append("空档=暂无评分")
+        return parts.joined(separator: " · ")
     }
 
     private var metricCatalogDisclosure: some View {
@@ -535,6 +653,21 @@ struct VelaTrendsView: View {
                 return "图中 \(sampleCount) 个评分日（含当天）"
             }
             return "图中 \(sampleCount) 个评分日（含当天） · 基线历史 \(finding?.sampleCount ?? 0)/\(selectedHorizon.requiredSampleCount) 天"
+        }
+        if finding.isNotable {
+            return BaselineDeviationCopy.label(for: finding) ?? BaselineDeviationCopy.unusualFallback
+        }
+        if let baseline = finding.baselineValue {
+            return "基线 \(Int(baseline.rounded())) · \(finding.valueDirection.label)"
+        }
+        return "\(finding.sampleCount) 天 · \(finding.valueDirection.label)"
+    }
+
+    /// Compact rows keep one short line. The full phrasing survives in
+    /// `scoreTrendCaption` for VoiceOver and for the detail sheet.
+    private func compactTrendCaption(finding: HealthTrendFinding?, sampleCount: Int) -> String {
+        guard let finding, finding.isAvailable else {
+            return sampleCount > 0 ? "\(sampleCount) 个评分日" : "等待历史"
         }
         if finding.isNotable {
             return BaselineDeviationCopy.label(for: finding) ?? BaselineDeviationCopy.unusualFallback
@@ -665,12 +798,12 @@ struct VelaTrendsView: View {
         .padding(20)
         .frame(maxWidth: .infinity)
         .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                 .fill(VelaTheme.rhythmCanvasRaised)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(VelaTheme.hairline, lineWidth: 1)
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         )
         .accessibilityIdentifier("trends-empty-state")
     }
@@ -719,12 +852,12 @@ struct VelaTrendsView: View {
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                         .fill(VelaTheme.rhythmCanvasRaised)
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(VelaTheme.hairline, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+                        .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                 )
             }
         }
@@ -910,7 +1043,7 @@ struct VelaTrendsView: View {
                     .foregroundStyle(VelaTheme.rhythmDeep)
                     .frame(width: 44, height: 44)
                     .background(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous)
                             .fill(VelaTheme.rhythmMist.opacity(0.8))
                     )
 
@@ -933,12 +1066,12 @@ struct VelaTrendsView: View {
             }
             .padding(14)
             .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                     .fill(VelaTheme.rhythmCanvasRaised)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(VelaTheme.hairline, lineWidth: 1)
+                RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+                    .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
             )
         }
         .buttonStyle(.plain)
@@ -975,7 +1108,7 @@ struct VelaTrendsView: View {
             .padding(14)
             .frame(maxWidth: .infinity, minHeight: VelaTheme.minimumHitTarget, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                     .fill(VelaTheme.rhythmMist.opacity(0.45))
             )
         }
@@ -1182,7 +1315,7 @@ struct TrendsHistoryCoverageSheet: View {
                             .font(VelaTheme.subheadline().weight(.semibold))
                             .foregroundStyle(VelaTheme.rhythmInk)
                             .padding(16)
-                            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
                         }
                         .buttonStyle(.cardPress)
                     }
@@ -1230,5 +1363,29 @@ struct TrendsHistoryCoverageSheet: View {
         }
         .padding(.vertical, 14)
         .accessibilityElement(children: .combine)
+    }
+}
+
+// MARK: - Metric row surface
+
+/// Shared hairline card for the five score rows. The focus row and the dense
+/// rows differ in height and type scale, never in chrome.
+private struct TrendMetricCardSurfaceModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .background(
+                RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+                    .fill(VelaTheme.rhythmCanvasRaised)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+                    .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
+            }
+    }
+}
+
+private extension View {
+    func trendMetricCardSurface() -> some View {
+        modifier(TrendMetricCardSurfaceModifier())
     }
 }

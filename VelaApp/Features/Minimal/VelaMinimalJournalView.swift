@@ -54,9 +54,9 @@ struct HistoricalBackfillView: View {
                     }
                 }
                 .padding(16)
-                .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                         .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                 }
 
@@ -82,7 +82,7 @@ struct HistoricalBackfillView: View {
                         .foregroundStyle(VelaTheme.rhythmDeepOn)
                         .frame(maxWidth: .infinity)
                         .frame(height: 50)
-                        .background(VelaTheme.rhythmDeep, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .background(VelaTheme.rhythmDeep, in: Capsule(style: .continuous))
                 }
                 .buttonStyle(.cardPress)
                 .disabled(scoreCoordinator.isRunning || (coordinator.progress.isComplete && !coordinator.isRunning))
@@ -193,9 +193,9 @@ struct XunjiHistoryBackfillView: View {
                     }
                 }
                 .padding(16)
-                .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                         .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                 }
 
@@ -214,7 +214,7 @@ struct XunjiHistoryBackfillView: View {
                         .foregroundStyle(VelaTheme.rhythmDeepOn)
                         .frame(maxWidth: .infinity)
                         .frame(height: 50)
-                        .background(VelaTheme.rhythmDeep, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .background(VelaTheme.rhythmDeep, in: Capsule(style: .continuous))
                 }
                 .buttonStyle(.cardPress)
 

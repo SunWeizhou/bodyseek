@@ -568,7 +568,7 @@ extension VelaMetricDetailView {
         case .recovery:
             return dashboard.recoveryMetrics.restingHeartRate.map { "\(Int($0)) bpm" } ?? "--"
         case .energy:
-            return dashboard.energy.hasData ? "\(Int(dashboard.energy.morningEnergy)) 分" : "--"
+            return MetricDetailReadingCopy.morningEnergyValue(dashboard.energy).map { "\(Int($0.rounded())) 分" } ?? "--"
         case .hrv:
             return dashboard.recoveryBaseline.hrvMilliseconds.map { "\(Int($0)) ms" } ?? "--"
         case .rhr:
@@ -637,11 +637,8 @@ extension VelaMetricDetailView {
         case .strain:
             return dashboard.strain.metrics["active_energy_raw"].map { "\(Int($0)) kcal" } ?? "--"
         case .sleep:
-            let mins = dashboard.sleepSummary.totalSleepMinutes
-            if mins > 0 {
-                return VelaMinimalFormatting.duration(minutes: mins)
-            }
-            return "--"
+            return MetricDetailReadingCopy.sleepMinutes(dashboard.sleepSummary)
+                .map { VelaMinimalFormatting.duration(minutes: $0) } ?? "--"
         case .stress:
             return dashboard.recoveryMetrics.restingHeartRate.map { "\(Int($0)) bpm" } ?? "--"
         case .recovery:

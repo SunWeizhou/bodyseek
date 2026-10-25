@@ -1,5 +1,27 @@
 import SwiftUI
 
+/// Display availability only; the stored duration and score are never recomputed.
+enum MetricDetailReadingCopy {
+    static func sleepMinutes(_ summary: SleepSummary) -> Int? {
+        let hasObservation = summary.totalSleepMinutes > 0 || summary.sleepScore != nil
+            || summary.stageMinutes.keys.contains { $0 != .inBed }
+            || summary.segments.contains { $0.stage != .inBed }
+        return hasObservation ? summary.totalSleepMinutes : nil
+    }
+
+    static func sleepDuration(_ summary: SleepSummary) -> String {
+        sleepMinutes(summary).map { "\($0) 分钟" } ?? "--"
+    }
+
+    static func morningEnergyValue(_ energy: MetricResult) -> Double? {
+        energy.components["morningEnergy"] ?? energy.value
+    }
+
+    static func morningEnergy(_ energy: MetricResult) -> String {
+        morningEnergyValue(energy).map { String(Int($0.rounded())) } ?? "--"
+    }
+}
+
 struct CoreMetricHeroFact: Identifiable, Equatable {
     var id: String { title }
     let title: String
@@ -32,22 +54,37 @@ struct CoreMetricDetailHero: View {
             Text("今天的\(metric.accessibleTitle)")
                 .font(VelaTheme.caption1().weight(.semibold))
                 .foregroundStyle(VelaTheme.rhythmInkSecondary)
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 22) {
-                    heroVisual
-                    factColumn
-                        .frame(maxWidth: .infinity, alignment: .leading)
+            if score == nil {
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    Text("--")
+                        .font(VelaTheme.title2().weight(.semibold).monospacedDigit())
+                    Text("暂无评分")
+                        .font(VelaTheme.callout())
+                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                }
+                ForEach(facts.filter { $0.value != "--" && $0.value != "待建立" }) { fact in
+                    LabeledContent(fact.title, value: fact.value)
+                        .font(VelaTheme.caption1())
+                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                }
+            } else {
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 22) {
+                        heroVisual
+                        factColumn
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    VStack(alignment: .leading, spacing: 16) {
+                        heroVisual
+                            .frame(maxWidth: .infinity)
+                        factColumn
+                    }
                 }
 
-                VStack(alignment: .leading, spacing: 16) {
-                    heroVisual
-                        .frame(maxWidth: .infinity)
-                    factColumn
-                }
+                Divider()
+                    .overlay(VelaTheme.rhythmMist)
             }
-
-            Divider()
-                .overlay(VelaTheme.rhythmMist)
 
             Button {
                 VelaHaptic.selection()
@@ -432,6 +469,7 @@ struct MetricCustomWidgetsSection: View {
                             .foregroundStyle(isSleep ? VelaTheme.inkGray : VelaTheme.muted)
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(14)
                 .background(
                     RoundedRectangle(cornerRadius: VelaTheme.radiusMd, style: .continuous)
@@ -489,7 +527,7 @@ struct MetricCustomWidgetsSection: View {
                                 .foregroundStyle(VelaTheme.rhythmInkSecondary)
                         }
                         Spacer()
-                        Text("\(Int(dashboard.energy.morningEnergy.rounded())) → \(dashboard.energy.formattedScore)")
+                        Text("\(MetricDetailReadingCopy.morningEnergy(dashboard.energy)) → \(dashboard.energy.formattedScore)")
                             .font(VelaTheme.subheadline().weight(.bold).monospacedDigit())
                             .foregroundStyle(metricColor)
                     }
@@ -678,7 +716,7 @@ struct MetricCustomWidgetsSection: View {
         VStack(spacing: 12) {
             reserveBar(
                 title: "早间储备",
-                value: dashboard.energy.hasData ? dashboard.energy.morningEnergy : nil
+                value: MetricDetailReadingCopy.morningEnergyValue(dashboard.energy)
             )
             reserveBar(
                 title: "当前剩余",
@@ -1356,7 +1394,7 @@ struct SleepTimelineCard: View {
                     Image(systemName: "bed.double.fill")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(VelaTheme.rhythmInk)
-                    Text("实际睡眠 \(summary.totalSleepMinutes > 0 ? VelaMinimalFormatting.duration(minutes: summary.totalSleepMinutes) : "--")")
+                    Text("实际睡眠 \(MetricDetailReadingCopy.sleepMinutes(summary).map { VelaMinimalFormatting.duration(minutes: $0) } ?? "--")")
                         .font(VelaTheme.caption1().weight(.semibold).monospacedDigit())
                         .foregroundStyle(VelaTheme.rhythmInk)
                 }
@@ -1586,7 +1624,7 @@ struct SleepTimelineCard: View {
                         .font(VelaTheme.caption1().weight(.semibold))
                         .foregroundStyle(VelaTheme.rhythmInk)
                     Spacer()
-                    Text("\(summary.totalSleepMinutes) 分钟")
+                    Text(MetricDetailReadingCopy.sleepDuration(summary))
                         .font(VelaTheme.caption1().monospacedDigit())
                         .foregroundStyle(VelaTheme.rhythmInk)
                 }

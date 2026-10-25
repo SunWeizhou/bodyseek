@@ -12,18 +12,18 @@ struct PlusActionSheet: View {
     @Environment(\.modelContext) private var modelContext
     
     var body: some View {
-        if dynamicTypeSize.isAccessibilitySize {
-            ScrollView { actions }
-                .background(VelaTheme.bg)
-        } else {
-            actions
-        }
+        ScrollView { actions }
+            .scrollBounceBehavior(.basedOnSize)
+            .background(VelaTheme.bg)
+            .presentationDetents(dynamicTypeSize.isAccessibilitySize
+                ? [.large]
+                : [.height(VelaFeatureFlags.nutritionEnabled ? 440 : 330), .large])
     }
 
     private var actions: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: VelaTheme.space5) {
             // Spacer to replace deleted hint capsule and keep correct layout margin
-            Spacer().frame(height: 16)
+            Spacer().frame(height: VelaTheme.space4)
             
             // 2. 3×3 Grid
             LazyVGrid(
@@ -101,25 +101,24 @@ struct PlusActionSheet: View {
                     }
                 }
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal, VelaTheme.pagePadding)
             
-            Spacer()
-            
-            // 3. Circular Cancel Button
+            // Close stays next to the grid instead of the bottom of a half-empty sheet.
             Button {
                 dismiss()
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(.body.weight(.semibold))
                     .foregroundStyle(VelaTheme.fg)
-                    .frame(width: 58, height: 58)
+                    .frame(width: VelaTheme.minimumHitTarget, height: VelaTheme.minimumHitTarget)
                     .background(Circle().fill(VelaTheme.cardBg))
                     .overlay(Circle().stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
             }
             .buttonStyle(.plain)
-            .padding(.bottom, 24)
+            .padding(.bottom, VelaTheme.space3)
+            .accessibilityLabel("关闭")
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity)
         .background(VelaTheme.bg) // Warm canvas base
     }
 
@@ -135,11 +134,11 @@ struct PlusActionSheet: View {
                 ZStack {
                     Circle()
                         .fill(VelaTheme.surfaceFloating)
-                        .frame(width: 60, height: 60)
+                        .frame(width: 48, height: 48)
                     
                     Circle()
                         .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
-                        .frame(width: 60, height: 60)
+                        .frame(width: 48, height: 48)
                     
                     Image(systemName: icon)
                         .font(.system(size: 20, weight: .medium))
@@ -164,7 +163,7 @@ struct PlusActionSheet: View {
                 ZStack {
                     Circle()
                         .fill(VelaTheme.rhythmDeep)
-                        .frame(width: 60, height: 60)
+                        .frame(width: 48, height: 48)
                     
                     AlpacaView(strokeColor: VelaTheme.rhythmDeepOn)
                         .offset(y: -1)

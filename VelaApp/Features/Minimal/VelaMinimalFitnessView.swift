@@ -246,11 +246,8 @@ struct VelaTrainingView: View {
             }
         }
         .scrollIndicators(.hidden)
-        .safeAreaInset(edge: .top) {
-            fitnessHeader
-                .padding(.horizontal, VelaTheme.pagePadding)
-                .padding(.vertical, 10)
-                .background(VelaTheme.rhythmCanvas.opacity(0.94))
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) { fitnessHeader }
         }
         .background(VelaTheme.rhythmCanvas)
         .task(id: isActiveSurface) {
@@ -281,7 +278,9 @@ struct VelaTrainingView: View {
         .onChange(of: appState.adaptiveTrainingStartRequest) { _, _ in
             consumeAdaptiveTrainingStartIfNeeded()
         }
-        .toolbar(.hidden, for: .navigationBar)
+        .navigationTitle("训练")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
     }
 
     private func deepAnalysisDestination(
@@ -346,7 +345,7 @@ struct VelaTrainingView: View {
                 HStack(spacing: 14) {
                     ZStack {
                         Circle()
-                            .fill(VelaTheme.rhythmDeep.opacity(0.12))
+                            .fill(VelaTheme.rhythmMist)
                             .frame(width: 44, height: 44)
                         Image(systemName: "applewatch")
                             .accessibilityHidden(true)
@@ -366,9 +365,9 @@ struct VelaTrainingView: View {
                     Spacer()
                 }
                 .padding(16)
-                .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                         .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                 )
             } else {
@@ -397,8 +396,8 @@ struct VelaTrainingView: View {
         let durationMinutes = max(1, Int(workout.end.timeIntervalSince(workout.start) / 60))
         return HStack(spacing: 12) {
             ZStack {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(VelaTheme.rhythmDeep.opacity(0.12))
+                RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous)
+                    .fill(VelaTheme.rhythmMist)
                     .frame(width: 40, height: 40)
                 Image(systemName: workoutIcon(for: workout.activityName))
                 .accessibilityHidden(true)
@@ -435,9 +434,9 @@ struct VelaTrainingView: View {
                 .foregroundStyle(VelaTheme.rhythmInkSecondary.opacity(0.5))
         }
         .padding(14)
-        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                 .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         )
     }
@@ -468,31 +467,16 @@ struct VelaTrainingView: View {
 
     // MARK: - Training Title Header
     private var fitnessHeader: some View {
-        HStack {
-            Text("训练")
-                .font(.system(.title2, design: .default, weight: .semibold))
-                .tracking(-0.4)
+        Button {
+            VelaAppState.shared.routeToCoach(question: trainingAnalysisQuestion, surface: .training)
+        } label: {
+            Label("问 Vela", systemImage: "sparkles")
+                .font(VelaTheme.footnote().weight(.semibold))
                 .foregroundStyle(VelaTheme.rhythmInk)
-
-            Spacer()
-
-            Button {
-                VelaAppState.shared.routeToCoach(question: trainingAnalysisQuestion, surface: .training)
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 13, weight: .semibold))
-                    Text("问 Vela")
-                        .font(.system(.footnote, design: .default, weight: .semibold))
-                }
-                .foregroundStyle(VelaTheme.rhythmDeep)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(VelaTheme.rhythmDeep.opacity(0.12), in: Capsule())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("让 Coach 分析训练")
+                .frame(minHeight: VelaTheme.minimumHitTarget)
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel("让 Coach 分析训练")
     }
 
     private var postWorkoutPromptWorkout: WorkoutSummary? {

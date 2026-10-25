@@ -461,7 +461,12 @@ struct VelaMetricDetailView: View {
 
         metricHistoryErrorCard
 
-        trustSection
+        if hasMetricData {
+            trustSection
+        } else {
+            DisclosureGroup("评分依据与缺失项") { trustSection }
+                .font(VelaTheme.callout())
+        }
 
         // 2. 个人比较 / 趋势
         customWidgetsSection(isSleep: isSleep)
@@ -930,7 +935,7 @@ struct LongTermHealthTrendView: View {
                         .lineSpacing(3)
                 }
                 .padding(14)
-                .background(VelaTheme.rhythmMist.opacity(0.5), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .background(VelaTheme.rhythmMist, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
             }
             .padding(.horizontal, VelaTheme.pagePadding)
             .padding(.top, 18)
@@ -1013,8 +1018,8 @@ struct LongTermHealthTrendView: View {
             }
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
-        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+        .background(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
+        .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
     }
 
     private var emptyState: some View {
@@ -1061,8 +1066,8 @@ struct LongTermHealthTrendView: View {
             }
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
-        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+        .background(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
+        .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
     }
 
     private func comparisonMetric(title: String, value: String) -> some View {

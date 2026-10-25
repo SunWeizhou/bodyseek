@@ -1,0 +1,7 @@
+# Wave25 simulator build — final code
+# xcodebuild build -project Vela.xcodeproj -scheme Vela -configuration Debug
+#   -destination platform=iOS Simulator,id=3BB779BD-022F-4E60-A3BB-70DC5A0BF987
+#   -derivedDataPath build/Wave25DerivedData CODE_SIGNING_ALLOWED=NO
+# Xcode 27.1 (27A9275), iPhone 17 Pro simulator (iOS 26.5)
+result: ** BUILD SUCCEEDED **
+exit code: 0

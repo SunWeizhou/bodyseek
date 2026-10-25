@@ -44,12 +44,9 @@ struct AccountSettingsView: View {
     var body: some View {
         Form {
             Section {
-                BodySeekPageIntro(
-                    eyebrow: "PROFILE / THE BASICS",
-                    title: "先从你，开始。",
-                    subtitle: "保留最有用的资料。你可以随时更新，也可以留空。",
-                    artwork: .profile
-                )
+                Text("评分会使用这些资料；可以留空，也可以随时更新。")
+                    .font(VelaTheme.callout())
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
             }
             .listRowBackground(Color.clear)
             .listRowInsets(EdgeInsets())
@@ -60,7 +57,12 @@ struct AccountSettingsView: View {
                         .foregroundStyle(VelaTheme.muted)
                 }
                 profileRowLayout {
+                    Text("年龄")
+                        .font(VelaTheme.callout())
+                        .foregroundStyle(VelaTheme.rhythmInk)
+                        .fixedSize(horizontal: true, vertical: false)
                     TextField("年龄", text: $ageDraft)
+                        .accessibilityLabel("年龄")
                         .keyboardType(.numberPad)
                         .multilineTextAlignment(dynamicTypeSize.isAccessibilitySize ? .leading : .trailing)
                     Text("岁")
@@ -72,7 +74,12 @@ struct AccountSettingsView: View {
                     )
                 }
                 profileRowLayout {
+                    Text("体重")
+                        .font(VelaTheme.callout())
+                        .foregroundStyle(VelaTheme.rhythmInk)
+                        .fixedSize(horizontal: true, vertical: false)
                     TextField("体重", text: $weightDraft)
+                        .accessibilityLabel("体重")
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(dynamicTypeSize.isAccessibilitySize ? .leading : .trailing)
                     Text("kg")
@@ -82,7 +89,12 @@ struct AccountSettingsView: View {
                     )
                 }
                 profileRowLayout {
+                    Text("身高")
+                        .font(VelaTheme.callout())
+                        .foregroundStyle(VelaTheme.rhythmInk)
+                        .fixedSize(horizontal: true, vertical: false)
                     TextField("身高", text: $heightDraft)
+                        .accessibilityLabel("身高")
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(dynamicTypeSize.isAccessibilitySize ? .leading : .trailing)
                     Text("cm")
@@ -92,7 +104,12 @@ struct AccountSettingsView: View {
                     )
                 }
                 profileRowLayout {
+                    Text("最大心率（可选）")
+                        .font(VelaTheme.callout())
+                        .foregroundStyle(VelaTheme.rhythmInk)
+                        .fixedSize(horizontal: true, vertical: false)
                     TextField("最大心率（可选）", text: $maxHeartRateDraft)
+                        .accessibilityLabel("最大心率（可选）")
                         .keyboardType(.numberPad)
                         .multilineTextAlignment(dynamicTypeSize.isAccessibilitySize ? .leading : .trailing)
                     Text("bpm")
@@ -237,6 +254,7 @@ struct AccountSettingsView: View {
 }
 
 enum EditorMode {
+    case reading
     case form
     case markdown
 }
@@ -265,7 +283,7 @@ struct UserWikiArchiveView: View {
     @State private var editText = ""
     @State private var editTitle = ""
     
-    @State private var editorMode: EditorMode = .form
+    @State private var editorMode: EditorMode = .reading
     @State private var parsedItems: [ParsedItem] = []
     @State private var notesText: String = ""
     
@@ -294,7 +312,7 @@ struct UserWikiArchiveView: View {
                             editTitle = doc.title
                             editText = doc.markdownContent
                             parseMarkdown(doc.markdownContent)
-                            editorMode = .form
+                            editorMode = .reading
                             showEditor = true
                         } label: {
                             VStack(alignment: .leading, spacing: 8) {
@@ -303,15 +321,12 @@ struct UserWikiArchiveView: View {
                                           .font(.system(.callout, design: .default, weight: .bold))
                                           .foregroundStyle(VelaTheme.fg)
                                       Spacer()
-                                      Text(doc.filename)
-                                          .font(.system(.caption2, design: .default, weight: .bold))
-                                          .foregroundStyle(VelaTheme.accent)
-                                          .padding(.horizontal, 8)
-                                          .padding(.vertical, 4)
-                                          .background(Capsule().fill(VelaTheme.accent.opacity(0.12)))
+                                      Image(systemName: "chevron.right")
+                                          .font(VelaTheme.caption1())
+                                          .foregroundStyle(VelaTheme.rhythmInkSecondary)
                                   }
                                 
-                                Text(doc.markdownContent.prefix(120) + (doc.markdownContent.count > 120 ? "..." : ""))
+                                Text(archiveExcerpt(doc))
                                     .font(.system(.footnote, design: .default))
                                     .foregroundStyle(VelaTheme.muted)
                                     .lineLimit(3)
@@ -344,7 +359,8 @@ struct UserWikiArchiveView: View {
             NavigationStack {
                 VStack(spacing: 0) {
                     Picker("编辑模式", selection: $editorMode) {
-                        Text("表单编辑").tag(EditorMode.form)
+                        Text("阅读").tag(EditorMode.reading)
+                        Text("编辑").tag(EditorMode.form)
                         Text("源码编辑").tag(EditorMode.markdown)
                     }
                     .pickerStyle(.segmented)
@@ -352,23 +368,46 @@ struct UserWikiArchiveView: View {
                     .padding(.top, 16)
                     .padding(.bottom, 8)
                     
-                    TextField("标题", text: $editTitle)
-                        .font(.system(.callout, design: .default, weight: .bold))
-                        .padding(12)
-                        .background(RoundedRectangle(cornerRadius: 10).fill(VelaTheme.secondaryGroupedBackground))
-                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
+                    if editorMode != .reading {
+                        TextField("标题", text: $editTitle)
+                            .font(.system(.callout, design: .default, weight: .bold))
+                            .padding(12)
+                            .background(RoundedRectangle(cornerRadius: VelaTheme.radiusSm).fill(VelaTheme.secondaryGroupedBackground))
+                            .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusSm).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
                     
-                    if editorMode == .form {
+                    }
+
+                    if editorMode == .reading {
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: VelaTheme.space4) {
+                                if isUnchangedTemplate {
+                                    Text("还没有相关记录")
+                                        .font(VelaTheme.headline())
+                                    Text("这份档案尚未填写。选择“编辑”补充你的习惯或背景。")
+                                        .font(VelaTheme.callout())
+                                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                                } else {
+                                    MarkdownText(markdown: editText, font: VelaTheme.body(), color: VelaTheme.rhythmInk)
+                                }
+                                DisclosureGroup("文件信息") {
+                                    Text(selectedDoc?.filename ?? "")
+                                        .font(VelaTheme.caption1())
+                                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                                }
+                            }
+                            .padding(VelaTheme.pagePadding)
+                        }
+                    } else if editorMode == .form {
                         ScrollView {
                             VStack(spacing: 16) {
                                 if parsedItems.isEmpty {
                                     VStack(spacing: 12) {
-                                        Text("无结构化项目。")
+                                        Text("这份档案以文字记录。")
                                             .font(.system(.footnote, design: .default, weight: .semibold))
                                             .foregroundStyle(VelaTheme.muted)
-                                        Text("你可以使用下方按钮添加属性或普通列表项。")
+                                        Text("可编辑下方正文，或添加一项资料。")
                                             .font(.system(.caption, design: .default))
                                             .foregroundStyle(VelaTheme.muted)
                                             .multilineTextAlignment(.center)
@@ -475,8 +514,8 @@ struct UserWikiArchiveView: View {
                                         .font(.system(.footnote, design: .default))
                                         .frame(height: 120)
                                         .padding(8)
-                                        .background(RoundedRectangle(cornerRadius: 10).fill(VelaTheme.cardBg))
-                                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+                                        .background(RoundedRectangle(cornerRadius: VelaTheme.radiusSm).fill(VelaTheme.cardBg))
+                                        .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusSm).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
                                 }
                                 .padding(.horizontal, 16)
                                 .padding(.top, 8)
@@ -496,25 +535,50 @@ struct UserWikiArchiveView: View {
                     Spacer(minLength: 16)
                 }
                 .background(VelaTheme.rhythmCanvas)
-                .navigationTitle("编辑健康档案")
+                .navigationTitle(editorMode == .reading ? editTitle : "编辑健康档案")
                 .velaRhythmDetailChrome()
                 .toolbar {
                     ToolbarItem(placement: .navigationBarLeading) {
-                        Button("取消") { showEditor = false }
+                        Button(editorMode == .reading ? "关闭" : "取消") { showEditor = false }
                     }
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button("保存") {
-                            saveDocEdits()
-                            showEditor = false
+                    if editorMode != .reading {
+                        ToolbarItem(placement: .navigationBarTrailing) {
+                            Button("保存") {
+                                saveDocEdits()
+                                showEditor = false
+                            }
+                            .bold()
+                            .foregroundStyle(VelaTheme.accent)
                         }
-                        .bold()
-                        .foregroundStyle(VelaTheme.accent)
                     }
+
                 }
             }
         }
     }
     
+    /// List preview only: retain the original Markdown for reading and editing.
+    private var isUnchangedTemplate: Bool {
+        guard let filename = selectedDoc?.filename else { return false }
+        return editText.trimmingCharacters(in: .whitespacesAndNewlines)
+            == WikiFileService.defaultContent(for: filename).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func archiveExcerpt(_ doc: UserWikiDocumentRecord) -> String {
+        let markdown = doc.markdownContent
+        if markdown.trimmingCharacters(in: .whitespacesAndNewlines)
+            == WikiFileService.defaultContent(for: doc.filename).trimmingCharacters(in: .whitespacesAndNewlines) {
+            return "还没有相关记录，打开补充。"
+        }
+        let lines = markdown.components(separatedBy: .newlines).map {
+            $0.trimmingCharacters(in: .whitespaces)
+        }.filter { !$0.isEmpty && !$0.hasPrefix("#") }
+        let text = lines.map { line in
+            line.hasPrefix("- ") || line.hasPrefix("* ") ? String(line.dropFirst(2)) : line
+        }.joined(separator: " · ")
+        return text.isEmpty ? "打开查看档案" : String(text.prefix(120))
+    }
+
     private func parseMarkdown(_ text: String) {
         var items: [ParsedItem] = []
         var extraLines: [String] = []

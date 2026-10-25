@@ -193,16 +193,16 @@ struct TrendsOneMetricChart: View {
         .chartXSelection(value: $selectedDate)
         .chartPlotStyle { plotArea in
             plotArea
-                .background(VelaTheme.rhythmCanvasRaised.opacity(0.7))
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .background(VelaTheme.surfaceInset)
+                .clipShape(RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous))
         }
         .frame(height: 198)
         .padding(.horizontal, 4)
         .padding(.vertical, 8)
-        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         )
         .accessibilityLabel("\(series.metric.title)趋势图")
         .accessibilityValue(accessibilityValue)

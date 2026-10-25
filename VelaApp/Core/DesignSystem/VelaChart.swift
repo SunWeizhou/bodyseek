@@ -183,10 +183,10 @@ struct VelaTimelineCard: View {
         }
         .padding(VelaTheme.compactCardPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(VelaTheme.rhythmMist, lineWidth: 0.75)
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
         )
     }
 }
@@ -202,7 +202,7 @@ private struct VelaTimelineItemRow: View {
                     .font(.system(.footnote, design: .default, weight: .semibold))
                     .foregroundStyle(item.domain.color)
                     .frame(width: 32, height: 32)
-                    .background(item.domain.color.opacity(0.10), in: Circle())
+                    .background(VelaTheme.rhythmMist, in: Circle())
 
                 if showsConnector {
                     Rectangle()

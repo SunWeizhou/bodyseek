@@ -52,6 +52,7 @@ private final class TodayLegacyRuntimeHolder: ObservableObject {
 // MARK: - VelaShell — segmented header + AskBar (Design D)
 
 struct VelaShell: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -180,7 +181,6 @@ struct VelaShell: View {
         }
         .sheet(isPresented: $showPlusSheet, onDismiss: appState.runDeferredQuickAction) {
             PlusActionSheet()
-                .presentationDetents([.medium])
                 .velaSheetSurface()
         }
         .overlay(alignment: .bottom) {
@@ -357,110 +357,108 @@ struct VelaShell: View {
     private var legacyFloatingNavigation: some View {
         ZStack {
             VelaTheme.rhythmCanvas.ignoresSafeArea()
-
-            // Mount each legacy surface on first visit, then preserve its navigation
-            // and scroll state. This avoids eagerly initializing four SwiftData trees
-            // at launch while keeping normal tab-return behavior after the first visit.
-            ZStack {
-                if mountedLegacyTabs.contains(.today) {
-                    tabSurface(.today) {
-                        VelaTodayView(
-                            showCoach: $showCoach,
-                            showSettings: $appState.showSettings,
-                            showEvidence: $showTodayEvidence,
-                            todayStore: todayStore
-                        )
-                            .environment(\.todayLegacyRuntime, todayLegacyRuntime)
-                    }
+            VStack(spacing: 0) {
+                if appState.detailAskContext == nil {
+                    segmentedHeader
                 }
-                if mountedLegacyTabs.contains(.trends) {
-                    tabSurface(.trends) {
-                        VelaTrendsHost(
-                            selectedDate: todayStore.state.selectedDay,
-                            dashboard: dashboardVM.dashboard
-                        )
+                // Mount each legacy surface on first visit, then preserve its navigation
+                // and scroll state. This avoids eagerly initializing four SwiftData trees
+                // at launch while keeping normal tab-return behavior after the first visit.
+                ZStack {
+                    if mountedLegacyTabs.contains(.today) {
+                        tabSurface(.today) {
+                            VelaTodayView(
+                                showCoach: $showCoach,
+                                showSettings: $appState.showSettings,
+                                showEvidence: $showTodayEvidence,
+                                todayStore: todayStore
+                            )
+                                .environment(\.todayLegacyRuntime, todayLegacyRuntime)
+                        }
                     }
-                }
-                if mountedLegacyTabs.contains(.plan) {
-                    tabSurface(.plan) {
-                        VelaPlanView(
-                            selectedDate: todayStore.state.selectedDay,
-                            dashboard: dashboardVM.dashboard,
-                            dailyTrainingDecision: dashboardVM.dailyTrainingDecision,
-                            onRefresh: {
-                                await todayStore.send(.refresh(force: false))
-                                await dashboardVM.refresh(modelContext: modelContext)
-                            }
-                        )
+                    if mountedLegacyTabs.contains(.trends) {
+                        tabSurface(.trends) {
+                            VelaTrendsHost(
+                                selectedDate: todayStore.state.selectedDay,
+                                dashboard: dashboardVM.dashboard
+                            )
+                        }
                     }
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-        .overlay(alignment: .bottom) {
-            if showInlineConversation {
-                GeometryReader { geometry in
-                    let contentHeight: CGFloat = services.coachChat.messages.isEmpty ? 270 : 420
-                    let limit = max(160, geometry.size.height * 0.9)
-                    let base = min(limit, inlineHeightOverride ?? contentHeight)
-                    let height = min(limit, max(160, base - inlineResizeTranslation))
-                    VStack(spacing: 0) {
-                        Spacer(minLength: 0)
-                        VelaCoachView(
-                            presentation: .inline,
-                            selectedDate: todayStore.state.selectedDay,
-                            dashboard: dashboardVM.dashboard,
-                            onClose: { showInlineConversation = false },
-                            onExpand: {
-                                services.coachChat.draft = composerDraft.text
-                                composerDraft.text = ""
-                                showInlineConversation = false
-                                showCoach = true
-                            },
-                            onRestoreDraft: { composerDraft.text = $0 },
-                            coverage: todayStore.state.coverage,
-                            inlineSuggestions: askSuggestions,
-                            vm: services.coachChat
-                        )
-                        .padding(.top, 10)
-                        .frame(height: height)
-                        .overlay(alignment: .top) {
-                            Capsule().fill(VelaTheme.rhythmMist)
-                                .frame(width: 34, height: 4)
-                                .frame(width: 96, height: 16)
-                                .contentShape(Rectangle())
-                                .gesture(DragGesture(minimumDistance: 6)
-                                    .updating($inlineResizeTranslation) { value, state, _ in state = value.translation.height }
-                                    .onEnded { value in inlineHeightOverride = min(limit, max(160, base - value.translation.height)) })
-                                .accessibilityLabel("调整对话高度")
-                                .accessibilityAdjustableAction { direction in
-                                    inlineHeightOverride = min(limit, max(160, base + (direction == .increment ? 80 : -80)))
+                    if mountedLegacyTabs.contains(.plan) {
+                        tabSurface(.plan) {
+                            VelaPlanView(
+                                selectedDate: todayStore.state.selectedDay,
+                                dashboard: dashboardVM.dashboard,
+                                dailyTrainingDecision: dashboardVM.dailyTrainingDecision,
+                                onRefresh: {
+                                    await todayStore.send(.refresh(force: false))
+                                    await dashboardVM.refresh(modelContext: modelContext)
                                 }
+                            )
                         }
-                        .background(VelaTheme.rhythmCanvas)
-                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                                .stroke(VelaTheme.hairline, lineWidth: 1)
-                        }
-                        .accessibilityIdentifier("inline-coach-panel")
                     }
-                    .padding(.horizontal, VelaTheme.pagePadding)
-                    .padding(.bottom, 4)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .overlay(alignment: .bottom) {
+                    if showInlineConversation {
+                        GeometryReader { geometry in
+                            let contentHeight: CGFloat = services.coachChat.messages.isEmpty ? 270 : 420
+                            let limit = max(160, geometry.size.height * 0.9)
+                            let base = min(limit, inlineHeightOverride ?? contentHeight)
+                            let height = min(limit, max(160, base - inlineResizeTranslation))
+                            VStack(spacing: 0) {
+                                Spacer(minLength: 0)
+                                VelaCoachView(
+                                    presentation: .inline,
+                                    selectedDate: todayStore.state.selectedDay,
+                                    dashboard: dashboardVM.dashboard,
+                                    onClose: { showInlineConversation = false },
+                                    onExpand: {
+                                        services.coachChat.draft = composerDraft.text
+                                        composerDraft.text = ""
+                                        showInlineConversation = false
+                                        showCoach = true
+                                    },
+                                    onRestoreDraft: { composerDraft.text = $0 },
+                                    coverage: todayStore.state.coverage,
+                                    inlineSuggestions: askSuggestions,
+                                    vm: services.coachChat
+                                )
+                                .padding(.top, 10)
+                                .frame(height: height)
+                                .overlay(alignment: .top) {
+                                    Capsule().fill(VelaTheme.rhythmMist)
+                                        .frame(width: 34, height: 4)
+                                        .frame(width: 96, height: 16)
+                                        .contentShape(Rectangle())
+                                        .gesture(DragGesture(minimumDistance: 6)
+                                            .updating($inlineResizeTranslation) { value, state, _ in state = value.translation.height }
+                                            .onEnded { value in inlineHeightOverride = min(limit, max(160, base - value.translation.height)) })
+                                        .accessibilityLabel("调整对话高度")
+                                        .accessibilityAdjustableAction { direction in
+                                            inlineHeightOverride = min(limit, max(160, base + (direction == .increment ? 80 : -80)))
+                                        }
+                                }
+                                .background(VelaTheme.rhythmCanvas)
+                                .clipShape(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+                                        .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
+                                }
+                                .accessibilityIdentifier("inline-coach-panel")
+                            }
+                            .padding(.horizontal, VelaTheme.pagePadding)
+                            .padding(.bottom, 4)
+                        }
+                    }
+                }
+                askBar
+                    .fixedSize(horizontal: false, vertical: true)
+                    .layoutPriority(1)
+                    .padding(.horizontal, VelaTheme.pagePadding)
+                    .padding(.vertical, 8)
+                    .background(VelaTheme.rhythmCanvas)
             }
-        }
-        .safeAreaInset(edge: .top, spacing: 0) {
-            if appState.detailAskContext == nil {
-                segmentedHeader
-            }
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            askBar
-                .padding(.horizontal, VelaTheme.pagePadding)
-                .padding(.top, 8)
-                .padding(.bottom, 8)
-                .background(VelaTheme.rhythmCanvas)
         }
         .overlay {
             if showSidePanel {
@@ -504,41 +502,60 @@ struct VelaShell: View {
     }
 
     private var segmentedHeader: some View {
-        HStack(spacing: 8) {
-            Button {
-                showSidePanel = true
-            } label: {
-                Image(systemName: "line.3.horizontal")
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(VelaTheme.rhythmInk)
-                    .frame(width: 44, height: 44)
-                    .background(Circle().fill(VelaTheme.surfaceFloating))
+        VStack(spacing: 4) {
+            if dynamicTypeSize.isAccessibilitySize {
+                HStack {
+                    menuButton
+                    Spacer()
+                    profileButton
+                }
+                segments
+            } else {
+                HStack(spacing: 8) {
+                    menuButton
+                    segments
+                    profileButton
+                }
             }
-            .accessibilityLabel("菜单")
-            .accessibilityIdentifier("bodyseek-menu")
-
-            HStack(spacing: 0) {
-                segmentButton(.today)
-                segmentButton(.trends)
-                segmentButton(.plan)
-            }
-            .padding(3)
-            .background(Capsule().fill(VelaTheme.surfaceFloating))
-
-            Button {
-                appState.present(.settings)
-            } label: {
-                Image(systemName: "person")
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(VelaTheme.rhythmInk)
-                    .frame(width: 44, height: 44)
-                    .background(Circle().fill(VelaTheme.surfaceFloating))
-            }
-            .accessibilityLabel("个人档案")
         }
         .padding(.horizontal, VelaTheme.pagePadding)
         .padding(.vertical, 6)
         .background(VelaTheme.rhythmCanvas)
+    }
+
+    private var menuButton: some View {
+        Button { showSidePanel = true } label: {
+            Image(systemName: "line.3.horizontal")
+                .font(VelaTheme.callout().weight(.semibold))
+                .dynamicTypeSize(.large)
+                .foregroundStyle(VelaTheme.rhythmInk)
+                .frame(width: 44, height: 44)
+                .background(Circle().fill(VelaTheme.surfaceFloating))
+        }
+        .accessibilityLabel("菜单")
+        .accessibilityIdentifier("bodyseek-menu")
+    }
+
+    private var profileButton: some View {
+        Button { appState.present(.settings) } label: {
+            Image(systemName: "person")
+                .font(VelaTheme.callout().weight(.semibold))
+                .dynamicTypeSize(.large)
+                .foregroundStyle(VelaTheme.rhythmInk)
+                .frame(width: 44, height: 44)
+                .background(Circle().fill(VelaTheme.surfaceFloating))
+        }
+        .accessibilityLabel("个人档案")
+    }
+
+    private var segments: some View {
+        HStack(spacing: 0) {
+            segmentButton(.today)
+            segmentButton(.trends)
+            segmentButton(.plan)
+        }
+        .padding(3)
+        .background(Capsule().fill(VelaTheme.surfaceFloating))
     }
 
     private func segmentButton(_ tab: VelaTab) -> some View {
@@ -550,7 +567,8 @@ struct VelaShell: View {
                 .font(VelaTheme.subheadline().weight(isActive ? .semibold : .regular))
                 .foregroundStyle(isActive ? VelaTheme.rhythmInk : VelaTheme.rhythmInkSecondary)
                 .frame(maxWidth: .infinity)
-                .frame(height: 36)
+                .frame(minHeight: dynamicTypeSize.isAccessibilitySize ? 44 : 36)
+                .padding(.vertical, dynamicTypeSize.isAccessibilitySize ? 4 : 0)
                 .background {
                     if isActive {
                         Capsule().fill(VelaTheme.segmentOn)
@@ -831,23 +849,32 @@ private struct BodySeekAskComposer: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            // The field keeps one position in the tree so focus survives
-            // the compact → expanded switch.
-            TextField(placeholder, text: $draftState.text, axis: .vertical)
-                .font(VelaTheme.callout())
-                .foregroundStyle(VelaTheme.rhythmInk)
-                .lineLimit(isCompact ? 1...1 : 1...5)
-                .frame(minHeight: isCompact ? 28 : 28)
-                .padding(.horizontal, 4)
-                .focused($isFocused)
-                .submitLabel(.send)
-                .onSubmit(send)
-                .accessibilityIdentifier("bodyseek-ask-input")
-
-            HStack(spacing: 6) {
+            HStack(alignment: .bottom, spacing: 6) {
                 addButton
-                contextChip
-                Spacer(minLength: 0)
+                VStack(alignment: .leading, spacing: 4) {
+                    // Stable identity keeps the draft and focus while the field grows.
+                    TextField(placeholder, text: $draftState.text, axis: .vertical)
+                        .font(VelaTheme.callout())
+                        .foregroundStyle(VelaTheme.rhythmInk)
+                        .lineLimit(isCompact ? 1...1 : 1...5)
+                        .frame(minHeight: 44)
+                        .focused($isFocused)
+                        .submitLabel(.send)
+                        .onSubmit(send)
+                        .accessibilityIdentifier("bodyseek-ask-input")
+                    if !isCompact { contextChip }
+                }
+                if isCompact {
+                    Button { showContext = true } label: {
+                        Image(systemName: "chevron.down")
+                            .font(VelaTheme.caption1().weight(.semibold))
+                            .dynamicTypeSize(.large)
+                            .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                            .frame(width: 44, height: 44)
+                    }
+                    .accessibilityLabel("本次提问带上：\(context.chip)")
+                    .accessibilityIdentifier("bodyseek-context")
+                }
                 if vm.isStreaming {
                     trailingAction
                 } else if dictation.isRecording || dictation.isStarting || !canSend {
@@ -866,7 +893,7 @@ private struct BodySeekAskComposer: View {
         }
         .buttonStyle(.plain)
         .padding(.horizontal, 10)
-        .padding(.vertical, 10)
+        .padding(.vertical, 6)
         .background(VelaTheme.surfaceFloating, in: RoundedRectangle(cornerRadius: VelaTheme.radiusInput, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: VelaTheme.radiusInput, style: .continuous)
@@ -981,8 +1008,10 @@ private struct BodySeekAskComposer: View {
                     Image(systemName: dictation.isRecording ? "stop.fill" : "mic")
                         .font(.system(size: 13, weight: .semibold))
                 }
-                Text(dictation.isRecording ? "停止" : dictation.isStarting ? "…" : "说话")
-                    .font(VelaTheme.callout().weight(.semibold))
+                if !isCompact {
+                    Text(dictation.isRecording ? "停止" : dictation.isStarting ? "…" : "说话")
+                        .font(VelaTheme.callout().weight(.semibold))
+                }
             }
             .foregroundStyle(VelaTheme.rhythmDeepOn)
             .padding(.horizontal, 14)

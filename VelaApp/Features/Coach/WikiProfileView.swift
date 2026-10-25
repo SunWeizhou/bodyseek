@@ -125,7 +125,7 @@ struct WikiProfileView: View {
             }
         }
         .padding(16)
-        .velaNativeCard(radius: 18)
+        .velaNativeCard(radius: VelaTheme.radiusCard)
     }
 
     // MARK: - Baseline Card
@@ -184,7 +184,7 @@ struct WikiProfileView: View {
                 }
                 .padding(10)
                 .background(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    RoundedRectangle(cornerRadius: VelaTheme.radiusSm, style: .continuous)
                         .fill(VelaTheme.elevatedBg)
                 )
             }
@@ -199,7 +199,7 @@ struct WikiProfileView: View {
             }
         }
         .padding(16)
-        .velaNativeCard(radius: 18)
+        .velaNativeCard(radius: VelaTheme.radiusCard)
     }
 
     private struct BaselineMetric {
@@ -320,7 +320,7 @@ struct WikiProfileView: View {
                 }
             }
         }
-        .velaNativeCard(radius: 18)
+        .velaNativeCard(radius: VelaTheme.radiusCard)
     }
 
     // MARK: - Read-Only Field Row
@@ -589,7 +589,7 @@ struct WikiProfileView: View {
 
     @ViewBuilder
     private var pendingMemoriesSection: some View {
-        VelaHeroSurface(tint: VelaTheme.rhythmInk) {
+        VelaHeroSurface {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .top, spacing: 12) {
                     Image(systemName: "brain.head.profile")
@@ -729,7 +729,7 @@ struct WikiProfileView: View {
         }
         .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                 .fill(VelaTheme.surface)
         )
     }

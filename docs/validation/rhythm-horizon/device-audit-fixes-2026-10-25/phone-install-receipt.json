@@ -1,0 +1,19 @@
+{
+  "source_commit": "7c62a0d1a29598f12256b7d488f772015923a857",
+  "source_clean": true,
+  "device_model": "iPhone 16 Pro",
+  "bundle_id": "com.sunweizhou.Vela4",
+  "version": "4.0.0",
+  "build": "1",
+  "codesign_verify_exit": 0,
+  "install": "success",
+  "launch": "failed",
+  "launch_blocker": "iOS Locked; installation succeeded, foreground launch not verified",
+  "uninstall_performed": false,
+  "binary_sha256": {
+    "Vela": "a5d7a26471099ddc59113095b02d75d1db1576f6e71b74ecbfafb1f15e946a07",
+    "Vela.debug.dylib": "7a1a24eb49007fb45580e31d4cb9b1fc8937b345f1af3a0f200b50e67f8c69cd"
+  },
+  "launch_attempts": 2,
+  "recorded_at_utc": "2026-10-25T07:56:16.612762+00:00"
+}

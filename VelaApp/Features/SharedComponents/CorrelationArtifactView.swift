@@ -209,7 +209,7 @@ struct CorrelationArtifactView: View {
                     .background(Circle().fill(VelaTheme.accent.opacity(0.12)))
                 VStack(alignment: .leading, spacing: 3) {
                     Text("自定义关联图")
-                        .font(.system(.subheadline, design: .rounded, weight: .bold))
+                        .font(.system(.subheadline, design: .default, weight: .bold))
                     Text(result.analysis.map { "n=\($0.points.count) · \($0.lagDays == 0 ? "当天" : "次日")" } ?? "样本门槛未满足")
                         .font(.system(.caption, design: .default))
                         .fixedSize(horizontal: false, vertical: true)
@@ -265,7 +265,7 @@ struct CorrelationArtifactView: View {
 
     private func metricValue(_ title: String, _ value: String) -> some View {
         VStack(spacing: 2) {
-            Text(value).font(.system(.subheadline, design: .rounded, weight: .bold))
+            Text(value).font(.system(.subheadline, design: .default, weight: .bold))
             Text(title).font(.system(.caption2, design: .default)).foregroundStyle(VelaTheme.muted)
         }
         .frame(maxWidth: .infinity)

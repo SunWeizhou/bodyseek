@@ -1,0 +1,222 @@
+[
+  {
+    "file": "device-audit-filled-profile.png",
+    "test": "VelaSmokeUITests/testDeviceAuditFilledProfileKeepsLabels()",
+    "phase": "candidate",
+    "code_commit": "e470e38d0c58b22de16b272dec539db969eac4bf",
+    "simulator": "iPhone SE 3",
+    "os": "iOS 26.5",
+    "input": "DEBUG read-only synthetic preview; empty route where named",
+    "sha256": "79b7d44e116f93fa16b473851422b64fd4662795791b47c675277d6c357e6a08"
+  },
+  {
+    "file": "device-audit-note-focused.png",
+    "test": "VelaSmokeUITests/testDeviceAuditNestedQuickNoteClosesAfterFocus()",
+    "phase": "candidate",
+    "code_commit": "e470e38d0c58b22de16b272dec539db969eac4bf",
+    "simulator": "iPhone SE 3",
+    "os": "iOS 26.5",
+    "input": "DEBUG read-only synthetic preview; empty route where named",
+    "sha256": "bc358670d529a45094bd8c1bf5104d1607a227d21d8c13e0d4267aae988924fa"
+  },
+  {
+    "file": "device-audit-journal-dark.png",
+    "test": "VelaSmokeUITests/testDeviceAuditSecondaryReadingAndSheets()",
+    "phase": "candidate",
+    "code_commit": "e470e38d0c58b22de16b272dec539db969eac4bf",
+    "simulator": "iPhone SE 3",
+    "os": "iOS 26.5",
+    "input": "DEBUG read-only synthetic preview; empty route where named",
+    "sha256": "1a26e546ae3644df0498717ba6f2a40eee5ad0c8ae13ef3419a2b96de1dd3495"
+  },
+  {
+    "file": "device-audit-quick-actions-dark.png",
+    "test": "VelaSmokeUITests/testDeviceAuditSecondaryReadingAndSheets()",
+    "phase": "candidate",
+    "code_commit": "e470e38d0c58b22de16b272dec539db969eac4bf",
+    "simulator": "iPhone SE 3",
+    "os": "iOS 26.5",
+    "input": "DEBUG read-only synthetic preview; empty route where named",
+    "sha256": "dbd9c61d2f49737b9d687e09a46a08c22aac34b00e790ca3a8098e06106f5f64"
+  },
+  {
+    "file": "device-audit-raw-coverage-light.png",
+    "test": "VelaSmokeUITests/testDeviceAuditSecondaryReadingAndSheets()",
+    "phase": "candidate",
+    "code_commit": "e470e38d0c58b22de16b272dec539db969eac4bf",
+    "simulator": "iPhone SE 3",
+    "os": "iOS 26.5",
+    "input": "DEBUG read-only synthetic preview; empty route where named",
+    "sha256": "8e43f9289cc1f2f9161104082ef4af5393f137c887b968c78a0b268059eea5b6"
+  },
+  {
+    "file": "next-sources-dark-scrolled.png",
+    "test": "VelaSmokeUITests/testVisualNextWaveSettingsSnapshots()",
+    "phase": "candidate",
+    "code_commit": "e470e38d0c58b22de16b272dec539db969eac4bf",
+    "simulator": "iPhone SE 3",
+    "os": "iOS 26.5",
+    "input": "DEBUG read-only synthetic preview; empty route where named",
+    "sha256": "8b3b15ebb093faee62eb2b7dc7c94583ed7cacd8f85cda807f7066f3ddcbded2"
+  },
+  {
+    "file": "next-personality-dark.png",
+    "test": "VelaSmokeUITests/testVisualNextWaveSettingsSnapshots()",
+    "phase": "candidate",
+    "code_commit": "e470e38d0c58b22de16b272dec539db969eac4bf",
+    "simulator": "iPhone SE 3",
+    "os": "iOS 26.5",
+    "input": "DEBUG read-only synthetic preview; empty route where named",
+    "sha256": "82a4d36a57f6ab23e4093423b9e5e7ac0a45f56a164804adad30332691489a54"
+  },
+  {
+    "file": "next-trust-dark.png",
+    "test": "VelaSmokeUITests/testVisualNextWaveSettingsSnapshots()",
+    "phase": "candidate",
+    "code_commit": "e470e38d0c58b22de16b272dec539db969eac4bf",
+    "simulator": "iPhone SE 3",
+    "os": "iOS 26.5",
+    "input": "DEBUG read-only synthetic preview; empty route where named",
+    "sha256": "64d05ac2c237552a77c2abb93b2fa7eb2b44ce68d3aff57756ff617925c122d1"
+  },
+  {
+    "file": "wave21-agent-destination-dark.png",
+    "test": "VelaSmokeUITests/testNetworkAgentNavigationAndReturn()",
+    "phase": "candidate",
+    "code_commit": "e470e38d0c58b22de16b272dec539db969eac4bf",
+    "simulator": "iPhone SE 3",
+    "os": "iOS 26.5",
+    "input": "DEBUG read-only synthetic preview; empty route where named",
+    "sha256": "9102a236a6deeafc2a9496c62f4ded59495086442dea68b1baa38aa4aa63dabb"
+  },
+  {
+    "file": "profile-accessibility.png",
+    "test": "VelaSmokeUITests/testVisualNextWaveAccessibilitySnapshots()",
+    "phase": "candidate",
+    "code_commit": "e470e38d0c58b22de16b272dec539db969eac4bf",
+    "simulator": "iPhone SE 3",
+    "os": "iOS 26.5",
+    "input": "DEBUG read-only synthetic preview; empty route where named",
+    "sha256": "21df6502b9a3e1b221f4e6e9153a6189603a65b98e67df3819e86308712f4311"
+  },
+  {
+    "file": "device-audit-archive-reading-dark.png",
+    "test": "VelaSmokeUITests/testDeviceAuditSecondaryReadingAndSheets()",
+    "phase": "qa",
+    "code_commit": "ec2689cd6ec22d87b66a3c3cc8de5fdb3e8d5a3b",
+    "simulator": "iPhone 17 Pro",
+    "os": "iOS 26.5",
+    "input": "DEBUG read-only synthetic preview; empty route where named",
+    "sha256": "62d3f747dfaab8bd49879f0bbcf376ae2f0aff7d3cd46728d2d8e925241f87f4"
+  },
+  {
+    "file": "device-audit-training-return.png",
+    "test": "VelaSmokeUITests/testDeviceAuditTrainingReturnsToPlanAfterTabSwitch()",
+    "phase": "qa",
+    "code_commit": "ec2689cd6ec22d87b66a3c3cc8de5fdb3e8d5a3b",
+    "simulator": "iPhone 17 Pro",
+    "os": "iOS 26.5",
+    "input": "DEBUG read-only synthetic preview; empty route where named",
+    "sha256": "a875068a836c7370c7633fa431b874b8640fd2bf059f8d8b7c2d27c9c98269a7"
+  },
+  {
+    "file": "wave25-today-hero-dark.png",
+    "test": "VelaSmokeUITests/testVisualBodyWave25Snapshots()",
+    "phase": "ax",
+    "code_commit": "07b85e8ba98bd3c3a526723ad50c6dd984495fc5",
+    "simulator": "iPhone SE 3",
+    "os": "iOS 26.5",
+    "input": "DEBUG read-only synthetic preview; empty route where named",
+    "sha256": "0257ebbf4bb48503a6b5a8f7addb3313967b54167221a24ac71d31a7750719cd"
+  },
+  {
+    "file": "wave25-trends-hierarchy-dark.png",
+    "test": "VelaSmokeUITests/testVisualBodyWave25Snapshots()",
+    "phase": "ax",
+    "code_commit": "07b85e8ba98bd3c3a526723ad50c6dd984495fc5",
+    "simulator": "iPhone SE 3",
+    "os": "iOS 26.5",
+    "input": "DEBUG read-only synthetic preview; empty route where named",
+    "sha256": "5560124c0ed5dfd0ad9b72cb7a298d7b2524161240518e1c20aab97a8b0cac23"
+  },
+  {
+    "file": "wave25-plan-dark.png",
+    "test": "VelaSmokeUITests/testVisualBodyWave25Snapshots()",
+    "phase": "ax",
+    "code_commit": "07b85e8ba98bd3c3a526723ad50c6dd984495fc5",
+    "simulator": "iPhone SE 3",
+    "os": "iOS 26.5",
+    "input": "DEBUG read-only synthetic preview; empty route where named",
+    "sha256": "59829995139cfb73151b66b0458c8c75d68c2524c563dd7b44a6afa8d3b3a305"
+  },
+  {
+    "file": "device-audit-accessibility-today-bounds.png",
+    "test": "VelaSmokeUITests/testDeviceAuditAccessibilityStaysWithinViewport()",
+    "phase": "ax",
+    "code_commit": "07b85e8ba98bd3c3a526723ad50c6dd984495fc5",
+    "simulator": "iPhone SE 3",
+    "os": "iOS 26.5",
+    "input": "DEBUG read-only synthetic preview; empty route where named",
+    "sha256": "df26b23e6b0c5d3dabe5fc6100e5289a9627a09ce0cad2c4b46e94e00f544576"
+  },
+  {
+    "file": "device-audit-accessibility-trends-bounds.png",
+    "test": "VelaSmokeUITests/testDeviceAuditAccessibilityStaysWithinViewport()",
+    "phase": "ax",
+    "code_commit": "07b85e8ba98bd3c3a526723ad50c6dd984495fc5",
+    "simulator": "iPhone SE 3",
+    "os": "iOS 26.5",
+    "input": "DEBUG read-only synthetic preview; empty route where named",
+    "sha256": "fd3d89bb41515f071df10b163b6b9322521a43428f9fe13586460e29d377bc52"
+  },
+  {
+    "file": "device-audit-today-empty-light.png",
+    "test": "VelaSmokeUITests/testDeviceAuditEmptyReadingsAndComposer()",
+    "phase": "tip",
+    "code_commit": "07b85e8ba98bd3c3a526723ad50c6dd984495fc5",
+    "simulator": "iPhone SE 3",
+    "os": "iOS 26.5",
+    "input": "DEBUG read-only synthetic preview; empty route where named",
+    "sha256": "741f8a58d60fe5d30520c5b64a6a3a7916f5bcb7d7df30e65e2446d4843d51f8"
+  },
+  {
+    "file": "device-audit-metric-detail-sleep-empty-top.png",
+    "test": "VelaSmokeUITests/testDeviceAuditMissingDetailReadings()",
+    "phase": "tip",
+    "code_commit": "07b85e8ba98bd3c3a526723ad50c6dd984495fc5",
+    "simulator": "iPhone SE 3",
+    "os": "iOS 26.5",
+    "input": "DEBUG read-only synthetic preview; empty route where named",
+    "sha256": "63a52b12673ceff1072c623d5185358e216fff25ed43f6c60d9a15746c4134bc"
+  },
+  {
+    "file": "device-audit-metric-detail-energy-empty-top.png",
+    "test": "VelaSmokeUITests/testDeviceAuditMissingDetailReadings()",
+    "phase": "tip",
+    "code_commit": "07b85e8ba98bd3c3a526723ad50c6dd984495fc5",
+    "simulator": "iPhone SE 3",
+    "os": "iOS 26.5",
+    "input": "DEBUG read-only synthetic preview; empty route where named",
+    "sha256": "a0b683e1e7947287aee077ccba7337a57587d28aef7393019513ed936943a7ef"
+  },
+  {
+    "file": "device-audit-metric-detail-sleep-empty.png",
+    "test": "VelaSmokeUITests/testDeviceAuditMissingDetailReadings()",
+    "phase": "tip",
+    "code_commit": "07b85e8ba98bd3c3a526723ad50c6dd984495fc5",
+    "simulator": "iPhone SE 3",
+    "os": "iOS 26.5",
+    "input": "DEBUG read-only synthetic preview; empty route where named",
+    "sha256": "9c7f76f71a6fe1417975eb8a97a640b59af4eff80345072fb7b3f843e218226a"
+  },
+  {
+    "file": "device-audit-metric-detail-energy-empty.png",
+    "test": "VelaSmokeUITests/testDeviceAuditMissingDetailReadings()",
+    "phase": "tip",
+    "code_commit": "07b85e8ba98bd3c3a526723ad50c6dd984495fc5",
+    "simulator": "iPhone SE 3",
+    "os": "iOS 26.5",
+    "input": "DEBUG read-only synthetic preview; empty route where named",
+    "sha256": "b610e796bbafa9be9e18ca4c382e2210a0247d41b1d174a833e4adb95c4c36ac"
+  }
+]

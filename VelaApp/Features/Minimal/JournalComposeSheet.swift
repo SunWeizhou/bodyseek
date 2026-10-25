@@ -4,6 +4,7 @@ import SwiftData
 struct BehaviorQuickNoteSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var note = ""
+    @FocusState private var isEditing: Bool
     var onSave: (String) -> Void
 
     private let templates = ["火锅，吃得有点撑", "晚饭很晚", "睡前喝了咖啡", "喝了两杯啤酒", "今天喝水少", "外卖偏咸"]
@@ -14,99 +15,76 @@ struct BehaviorQuickNoteSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Label("随手记", systemImage: "text.bubble.fill")
-                            .font(.system(.body, design: .default, weight: .bold))
-                            .foregroundStyle(VelaTheme.rhythmInk)
-                        Text("记录你觉得可能影响恢复、睡眠或训练的行为。这里不估算热量、克重或宏量营养，只给 Body Model 留低摩擦信号。")
-                            .font(.system(.footnote, design: .default))
+                VStack(alignment: .leading, spacing: VelaTheme.space3) {
+                    Text("记下可能影响睡眠、恢复或训练的事，一句话就好。")
+                        .font(VelaTheme.callout())
+                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                    TextEditor(text: $note)
+                        .font(VelaTheme.body())
+                        .focused($isEditing)
+                        .frame(minHeight: 110)
+                        .scrollContentBackground(.hidden)
+                        .padding(8)
+                        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusInput))
+                        .overlay(RoundedRectangle(cornerRadius: VelaTheme.radiusInput).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
+                        .accessibilityLabel("随手记内容")
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(templates, id: \.self) { template in
+                                Button {
+                                    VelaHaptic.selection()
+                                    note = note.isEmpty ? template : "\(note)，\(template)"
+                                } label: {
+                                    Text(template)
+                                        .font(VelaTheme.caption1())
+                                        .padding(.horizontal, 10)
+                                        .frame(minHeight: VelaTheme.minimumHitTarget)
+                                        .background(VelaTheme.rhythmCanvasRaised, in: Capsule())
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                    if !signals.isEmpty {
+                        Text(signals.map { $0.tag.displayTitle }.joined(separator: " · "))
+                            .font(VelaTheme.caption1())
                             .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                            .lineSpacing(3)
                     }
-                    .padding(16)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
-                    )
-
-                    VStack(alignment: .leading, spacing: 10) {
-                        TextEditor(text: $note)
-                            .frame(minHeight: 120)
-                            .padding(10)
-                            .scrollContentBackground(.hidden)
-                            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(VelaTheme.rhythmCanvas))
-                            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
-
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
-                                ForEach(templates, id: \.self) { template in
-                                    Button {
-                                        VelaHaptic.selection()
-                                        note = note.isEmpty ? template : "\(note)，\(template)"
-                                    } label: {
-                                        Text(template)
-                                            .font(.system(.caption, design: .default, weight: .semibold))
-                                            .foregroundStyle(VelaTheme.rhythmInk)
-                                            .padding(.horizontal, 10)
-                                            .padding(.vertical, 7)
-                                            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(VelaTheme.rhythmCanvas))
-                                            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth))
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                            }
-                        }
-
-                        if !signals.isEmpty {
-                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 8)], alignment: .leading, spacing: 8) {
-                                ForEach(signals) { signal in
-                                    Text("\(signal.tag.displayTitle) · \(signal.intensity.rawValue)")
-                                        .font(.system(.caption2, design: .default, weight: .bold))
-                                        .foregroundStyle(VelaTheme.rhythmDeep)
-                                        .padding(.horizontal, 8)
-                                        .padding(.vertical, 5)
-                                        .background(RoundedRectangle(cornerRadius: 10).fill(VelaTheme.rhythmDeep.opacity(0.12)))
-                                }
-                            }
-                        } else {
-                            Text("保存后仍会作为普通手记进入上下文；识别不到标签时不会强行编造。")
-                                .font(.system(.caption2, design: .default))
-                                .foregroundStyle(VelaTheme.rhythmInkSecondary)
-                        }
-                    }
-                    .padding(16)
-                    .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
-                    )
-
-                    Button {
-                        UINotificationFeedbackGenerator().notificationOccurred(.success)
-                        onSave(note)
-                        dismiss()
-                    } label: {
-                        Text("保存随手记")
-                            .font(.system(.subheadline, design: .default, weight: .bold))
-                            .foregroundStyle(VelaTheme.rhythmDeepOn)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous).fill(VelaTheme.rhythmDeep))
-                    }
-                    .disabled(note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    .buttonStyle(.plain)
+                    Text("保存为手记，供之后回顾；不会估算热量或营养。")
+                        .font(VelaTheme.caption1())
+                        .foregroundStyle(VelaTheme.rhythmInkSecondary)
                 }
-                .padding(16)
+                .padding(VelaTheme.pagePadding)
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                Button {
+                    onSave(note)
+                    isEditing = false
+                    dismiss()
+                } label: {
+                    Text("保存随手记")
+                        .font(VelaTheme.callout().weight(.semibold))
+                        .foregroundStyle(VelaTheme.rhythmDeepOn)
+                        .frame(maxWidth: .infinity, minHeight: VelaTheme.minimumHitTarget)
+                        .background(VelaTheme.rhythmDeep, in: Capsule())
+                }
+                .disabled(note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .opacity(note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.45 : 1)
+                .buttonStyle(.plain)
+                .padding(.horizontal, VelaTheme.pagePadding)
+                .padding(.vertical, 8)
+                .background(VelaTheme.rhythmCanvas)
             }
             .background(VelaTheme.rhythmCanvas)
             .navigationTitle("随手记")
             .velaRhythmDetailChrome()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("关闭") { dismiss() }
+                    Button("关闭") {
+                        isEditing = false
+                        dismiss()
+                    }
+                    .frame(minHeight: VelaTheme.minimumHitTarget)
                 }
             }
         }
@@ -144,7 +122,7 @@ struct CaffeineLoggerView: View {
                 .accessibilityLabel(L10n.t("Close", "关闭"))
             }
             .padding(.horizontal, 20)
-            .padding(.top, 16)
+            .padding(.top, VelaTheme.space4)
             
             ScrollView {
                 VStack(spacing: 24) {
@@ -170,8 +148,8 @@ struct CaffeineLoggerView: View {
                     }
                     .padding(.vertical, 20)
                     .frame(maxWidth: .infinity)
-                    .velaNativeCard(radius: 20)
-                    .padding(.horizontal, 16)
+                    .velaNativeCard(radius: VelaTheme.radiusCard)
+                    .padding(.horizontal, VelaTheme.pagePadding)
                     
                     VStack(alignment: .leading, spacing: 12) {
                         Text("快捷选项")
@@ -202,7 +180,7 @@ struct CaffeineLoggerView: View {
                                                 .foregroundStyle(VelaTheme.meta)
                                         }
                                         .frame(width: 90, height: 110)
-                                        .velaNativeCard(radius: 16)
+                                        .velaNativeCard(radius: VelaTheme.radiusCard)
                                         .overlay(
                                             RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous)
                                                 .stroke(customAmount == val ? VelaTheme.rhythmInk : VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
@@ -226,7 +204,7 @@ struct CaffeineLoggerView: View {
                             .foregroundStyle(VelaTheme.rhythmDeepOn)
                             .frame(maxWidth: .infinity)
                             .frame(height: 50)
-                            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(VelaTheme.rhythmDeep))
+                            .background(VelaTheme.rhythmDeep, in: Capsule())
                     }
                     .buttonStyle(.plain)
                     .padding(.horizontal, 20)
@@ -269,7 +247,7 @@ struct WaterLoggerView: View {
                 .accessibilityLabel(L10n.t("Close", "关闭"))
             }
             .padding(.horizontal, 20)
-            .padding(.top, 16)
+            .padding(.top, VelaTheme.space4)
             
             ScrollView {
                 VStack(spacing: 24) {
@@ -282,7 +260,7 @@ struct WaterLoggerView: View {
                     VStack(spacing: 12) {
                         HStack(alignment: .firstTextBaseline) {
                             Text("\(Int(customAmount))")
-                                .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                                .font(VelaTheme.largeTitle())
                                 .foregroundStyle(VelaTheme.accent)
                             Text("ml")
                                 .font(.system(.body, design: .default, weight: .bold))
@@ -295,8 +273,8 @@ struct WaterLoggerView: View {
                     }
                     .padding(.vertical, 20)
                     .frame(maxWidth: .infinity)
-                    .velaNativeCard(radius: 20)
-                    .padding(.horizontal, 16)
+                    .velaNativeCard(radius: VelaTheme.radiusCard)
+                    .padding(.horizontal, VelaTheme.pagePadding)
                     
                     VStack(alignment: .leading, spacing: 12) {
                         Text("快捷选项")
@@ -327,7 +305,7 @@ struct WaterLoggerView: View {
                                                 .foregroundStyle(VelaTheme.meta)
                                         }
                                         .frame(width: 90, height: 110)
-                                        .velaNativeCard(radius: 16)
+                                        .velaNativeCard(radius: VelaTheme.radiusCard)
                                         .overlay(
                                             RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous)
                                                 .stroke(customAmount == val ? VelaTheme.rhythmInk : VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
@@ -351,7 +329,7 @@ struct WaterLoggerView: View {
                             .foregroundStyle(VelaTheme.rhythmDeepOn)
                             .frame(maxWidth: .infinity)
                             .frame(height: 50)
-                            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(VelaTheme.rhythmDeep))
+                            .background(VelaTheme.rhythmDeep, in: Capsule())
                     }
                     .buttonStyle(.plain)
                     .padding(.horizontal, 20)
@@ -396,7 +374,7 @@ struct MoodLoggerView: View {
                 .accessibilityLabel(L10n.t("Close", "关闭"))
             }
             .padding(.horizontal, 20)
-            .padding(.top, 16)
+            .padding(.top, VelaTheme.space4)
             
             ScrollView {
                 VStack(spacing: 24) {
@@ -422,18 +400,18 @@ struct MoodLoggerView: View {
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 80)
                                 .background(
-                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                                         .fill(selectedScore == score ? VelaTheme.rhythmCanvasRaised : VelaTheme.rhythmCanvas)
                                 )
                                 .overlay(
-                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                                         .stroke(selectedScore == score ? VelaTheme.rhythmDeep : VelaTheme.rhythmMist, lineWidth: VelaTheme.hairlineWidth)
                                 )
                             }
                             .buttonStyle(.plain)
                         }
                     }
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, VelaTheme.pagePadding)
                     
                     VStack(alignment: .leading, spacing: 10) {
                         Text("今日备注 (可选)")
@@ -444,9 +422,9 @@ struct MoodLoggerView: View {
                         TextField("记录一些让你开心或焦虑的小事...", text: $noteText)
                             .font(.system(.footnote, design: .default))
                             .padding(14)
-                            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
+                            .background(RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous).fill(VelaTheme.rhythmCanvasRaised))
                             .overlay(
-                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
                                     .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
                             )
                     }
@@ -463,11 +441,11 @@ struct MoodLoggerView: View {
                             .foregroundStyle(VelaTheme.rhythmDeepOn)
                             .frame(maxWidth: .infinity)
                             .frame(height: 50)
-                            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(VelaTheme.rhythmDeep))
+                            .background(VelaTheme.rhythmDeep, in: Capsule())
                     }
                     .buttonStyle(.plain)
                     .padding(.horizontal, 20)
-                    .padding(.top, 16)
+                    .padding(.top, VelaTheme.space4)
                 }
             }
         }
@@ -499,7 +477,7 @@ struct AlcoholLoggerView: View {
                 .accessibilityLabel(L10n.t("Close", "关闭"))
             }
             .padding(.horizontal, 20)
-            .padding(.top, 16)
+            .padding(.top, VelaTheme.space4)
             
             ScrollView {
                 VStack(spacing: 24) {
@@ -512,7 +490,7 @@ struct AlcoholLoggerView: View {
                     VStack(spacing: 16) {
                         HStack(alignment: .firstTextBaseline) {
                             Text(String(format: "%.1f", customDrinks))
-                                .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                                .font(VelaTheme.largeTitle())
                                 .foregroundStyle(VelaTheme.rhythmInk)
                             Text("标准杯")
                                 .font(.system(.body, design: .default, weight: .bold))
@@ -549,8 +527,8 @@ struct AlcoholLoggerView: View {
                     }
                     .padding(.vertical, 24)
                     .frame(maxWidth: .infinity)
-                    .velaNativeCard(radius: 20)
-                    .padding(.horizontal, 16)
+                    .velaNativeCard(radius: VelaTheme.radiusCard)
+                    .padding(.horizontal, VelaTheme.pagePadding)
                     
                     VStack(alignment: .leading, spacing: 10) {
                         Text("标准杯换算")
@@ -563,7 +541,7 @@ struct AlcoholLoggerView: View {
                             .lineSpacing(5)
                     }
                     .padding(18)
-                    .velaNativeCard(radius: 16)
+                    .velaNativeCard(radius: VelaTheme.radiusCard)
                     .overlay(
                         RoundedRectangle(cornerRadius: VelaTheme.radiusLg, style: .continuous)
                             .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
@@ -580,7 +558,7 @@ struct AlcoholLoggerView: View {
                             .foregroundStyle(VelaTheme.rhythmDeepOn)
                             .frame(maxWidth: .infinity)
                             .frame(height: 50)
-                            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(VelaTheme.rhythmDeep))
+                            .background(VelaTheme.rhythmDeep, in: Capsule())
                     }
                     .buttonStyle(.plain)
                     .padding(.horizontal, 20)

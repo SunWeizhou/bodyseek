@@ -266,39 +266,46 @@ struct ScoreInstrumentReading: Equatable, Identifiable {
 
 // MARK: - Today instrument
 
-/// Today's five independent scores as an equal-width strip. There is no total
-/// and no vertical baseline gauge on this surface — `BaselineGauge` stays for
-/// Trends / detail if those screens need a track.
+/// Today leads with one reading, then keeps the other four as a quiet support
+/// strip. The hero is the score the Agent statement already named (or the
+/// notable / first reading); the remaining four no longer share its weight.
+/// It reads published values only: no total, no derived score.
 struct TodayScoreInstrument: View {
     let readings: [ScoreInstrumentReading]
+    /// The reading this surface leads with. Falls back to the first reading.
+    var heroID: String? = nil
     let selectedDate: Date
     let dashboardSnapshot: DashboardSummary
 
-    var body: some View {
-        HStack(spacing: 0) {
-            ForEach(Array(readings.enumerated()), id: \.element.id) { index, reading in
-                if index > 0 {
-                    Rectangle()
-                        .fill(VelaTheme.hairline)
-                        .frame(width: VelaTheme.hairlineWidth)
-                        .padding(.vertical, 12)
-                }
-                column(reading)
-                    .frame(maxWidth: .infinity)
-            }
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    private var hero: ScoreInstrumentReading? {
+        guard readings.contains(where: { $0.value != nil }) else { return nil }
+        if let heroID, let match = readings.first(where: { $0.id == heroID }) {
+            return match
         }
-        .padding(.vertical, 12)
-        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
-                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
-        )
+        return readings.first
+    }
+
+    private var support: [ScoreInstrumentReading] {
+        readings.filter { $0.id != hero?.id }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: VelaTheme.space3) {
+            if let hero {
+                heroLink(hero)
+            }
+            supportStrip
+        }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("today-score-instrument")
     }
 
+    // MARK: Hero
+
     @ViewBuilder
-    private func column(_ reading: ScoreInstrumentReading) -> some View {
+    private func heroLink(_ reading: ScoreInstrumentReading) -> some View {
         if let metric = detailMetric(for: reading.id) {
             NavigationLink {
                 VelaMetricDetailView(
@@ -308,7 +315,7 @@ struct TodayScoreInstrument: View {
                     isPresentedInSheet: false
                 )
             } label: {
-                columnContent(reading)
+                heroContent(reading)
             }
             .buttonStyle(.plain)
             .accessibilityElement(children: .ignore)
@@ -317,40 +324,145 @@ struct TodayScoreInstrument: View {
             .accessibilityAddTraits(.isButton)
             .accessibilityIdentifier(identifier(for: reading.id))
         } else {
-            columnContent(reading)
+            heroContent(reading)
         }
     }
 
-    private func columnContent(_ reading: ScoreInstrumentReading) -> some View {
-        VStack(spacing: 4) {
-            Text(reading.valueText)
-                .font(VelaTheme.instrumentValue())
-                .monospacedDigit()
-                .foregroundStyle(reading.value == nil ? VelaTheme.rhythmInkSecondary : VelaTheme.rhythmInk)
-                .minimumScaleFactor(0.7)
-                .lineLimit(1)
+    private func heroContent(_ reading: ScoreInstrumentReading) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(reading.title)
+                    .font(VelaTheme.caption1().weight(.semibold))
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                if let label = reading.stripDeviationLabel {
+                    BaselineDeviationMarker(directionLabel: label, showsLabel: true, diameter: 6)
+                }
+                Spacer(minLength: 8)
+                Text(heroCaption(reading))
+                    .font(VelaTheme.caption2())
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(reading.valueText)
+                    .font(VelaTheme.heroValue())
+                    .foregroundStyle(reading.value == nil ? VelaTheme.rhythmInkSecondary : VelaTheme.rhythmInk)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(VelaTheme.rhythmInkSecondary.opacity(0.55))
+            }
+
+            BaselineGauge(
+                value: reading.value,
+                baseline: reading.baseline,
+                isUnusual: reading.isUnusual,
+                height: 12
+            )
+        }
+        .padding(.horizontal, VelaTheme.cardPadding)
+        .padding(.vertical, VelaTheme.compactCardPadding)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: VelaTheme.radiusCard, style: .continuous)
+                .stroke(VelaTheme.hairline, lineWidth: VelaTheme.hairlineWidth)
+        )
+        .contentShape(Rectangle())
+    }
+
+    /// Top-right context for the hero: the published baseline number when it
+    /// exists, otherwise the reading's own caption. The direction label already
+    /// sits next to the title, so this never repeats it.
+    private func heroCaption(_ reading: ScoreInstrumentReading) -> String {
+        if let baseline = reading.baseline {
+            return "基线 \(Int(baseline.rounded()))"
+        }
+        return reading.caption
+    }
+
+    // MARK: Support strip
+
+    @ViewBuilder
+    private var supportStrip: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            LazyVGrid(
+                columns: [
+                    GridItem(.flexible(), spacing: VelaTheme.space3),
+                    GridItem(.flexible(), spacing: VelaTheme.space3)
+                ],
+                alignment: .leading,
+                spacing: VelaTheme.space3
+            ) {
+                ForEach(support) { reading in
+                    supportLink(reading)
+                }
+            }
+        } else {
+            HStack(spacing: 0) {
+                ForEach(Array(support.enumerated()), id: \.element.id) { index, reading in
+                    if index > 0 {
+                        Rectangle()
+                            .fill(VelaTheme.hairline)
+                            .frame(width: VelaTheme.hairlineWidth, height: 22)
+                    }
+                    supportLink(reading)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func supportLink(_ reading: ScoreInstrumentReading) -> some View {
+        if let metric = detailMetric(for: reading.id) {
+            NavigationLink {
+                VelaMetricDetailView(
+                    metric: metric,
+                    selectedDate: selectedDate,
+                    dashboardSnapshot: dashboardSnapshot,
+                    isPresentedInSheet: false
+                )
+            } label: {
+                supportContent(reading)
+            }
+            .buttonStyle(.plain)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(reading.accessibilityText)
+            .accessibilityHint("查看\(reading.title)的依据和个人趋势")
+            .accessibilityAddTraits(.isButton)
+            .accessibilityIdentifier(identifier(for: reading.id))
+        } else {
+            supportContent(reading)
+        }
+    }
+
+    private func supportContent(_ reading: ScoreInstrumentReading) -> some View {
+        VStack(spacing: 2) {
+            HStack(spacing: 4) {
+                Text(reading.valueText)
+                    .font(VelaTheme.supportValue())
+                    .foregroundStyle(reading.value == nil ? VelaTheme.rhythmInkSecondary : VelaTheme.rhythmInk)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                if reading.isUnusual {
+                    Circle()
+                        .strokeBorder(VelaTheme.deviationInk, lineWidth: 1)
+                        .frame(width: 5, height: 5)
+                }
+            }
             Text(reading.title)
-                .font(VelaTheme.caption1())
+                .font(VelaTheme.caption2())
                 .foregroundStyle(VelaTheme.rhythmInkSecondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
-            if let label = reading.stripDeviationLabel {
-                HStack(spacing: 3) {
-                    Circle()
-                        .strokeBorder(VelaTheme.deviationInk, lineWidth: 1)
-                        .frame(width: 6, height: 6)
-                    Text(label)
-                        .font(VelaTheme.caption2())
-                        .foregroundStyle(VelaTheme.deviationInk)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
-                }
-            } else {
-                Color.clear.frame(height: 14)
-            }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, 2)
+        .frame(maxWidth: .infinity, minHeight: 40)
+        .padding(.vertical, 4)
         .contentShape(Rectangle())
     }
 
