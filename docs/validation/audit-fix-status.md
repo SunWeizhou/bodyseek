@@ -507,3 +507,8 @@ CGM / Trust 在无 HealthKit entitlement 的模拟器中如实显示读取失败
 - Xcode 27.1 / 27A9275；pin 26.5.0 未改。SE 3 375pt 与 iPhone 17 Pro Simulator，iOS 26.5，L / AccessibilityXXXL，深浅色。并行 clone 未完成的尝试以退出 143 保留，未算作通过；后改串行完成。
 
 真实 iPhone 仍为旧安装包；2026-10-25 镜像后续读取显示 Touch ID 锁定，未代填设备或 Mac 凭证，未部署修复包。模拟器合成样例只证明布局与指定交互，不是该次真实健康数据问题的闭环证据。
+
+
+### 2026-10-25 · 用户授权后的手机安装
+
+用户明确要求“推送到手机”后，已将 `7c62a0d1` 的签名构建覆盖安装到 iPhone 16 Pro，构建、签名验证和安装均 exit 0；没有卸载或执行数据删除。两次启动均被 iOS `Locked` 拒绝，已请求解锁，启动与真机 UI 验收仍待确认。此前“未部署”描述保留为历史阶段状态，当前安装以此更新及 [脱敏凭据](rhythm-horizon/device-audit-fixes-2026-10-25/phone-install-receipt.json) 为准。

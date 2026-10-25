@@ -11,7 +11,7 @@
 - Xcode 27.1 / 27A9275；仓库 pin 26.5.0 未修改，本机构建不能替代 CI 对 pinned toolchain 的结果。
 - iPhone SE 3（375pt）与 iPhone 17 Pro Simulator，iOS 26.5，简体中文，L / AccessibilityXXXL，深浅色。
 - `-velaPreviewDashboard` 使用既有只读合成样例；新增 `-velaPreviewEmptyDashboard` 只在 DEBUG preview 分支返回空快照。没有写入健康数据或把示例用作生产默认值。
-- 真实 iPhone 镜像只用于前置审查。当前设备 Git SHA 未确认，后续镜像处于 Touch ID 锁定，未安装候选。本目录仅包含模拟器合成数据截图，没有真实个人健康数据、密钥或镜像截图。
+- 真实 iPhone 镜像只用于前置审查。当前设备 Git SHA 未确认，此前镜像处于 Touch ID 锁定，尚未安装候选；后续安装状态见本报告末尾的部署更新。本目录仅包含模拟器合成数据截图，没有真实个人健康数据、密钥或镜像截图。
 
 ## Red → Green
 
@@ -91,3 +91,16 @@ git diff --check
 - Metric detail：[睡眠缺失/首屏](device-audit-metric-detail-sleep-empty-top.png)、[睡眠缺失/下部](device-audit-metric-detail-sleep-empty.png)、[能量缺失/首屏](device-audit-metric-detail-energy-empty-top.png)。
 - Journal / Sheets：[快捷操作](device-audit-quick-actions-dark.png)、[Journal](device-audit-journal-dark.png)、[随手记/软件键盘](device-audit-note-focused.png)。
 - Settings：[已填资料](device-audit-filled-profile.png)、[资料最大字号](profile-accessibility.png)、[档案空模板阅读](device-audit-archive-reading-dark.png)、[数据覆盖](device-audit-raw-coverage-light.png)、[数据来源](next-sources-dark-scrolled.png)、[沟通方式](next-personality-dark.png)、[信任中心](next-trust-dark.png)、[联网 Agent 配置](wave21-agent-destination-dark.png)。
+
+
+## 真机部署更新
+
+用户随后明确要求“推送到手机”。已在 iPhone 16 Pro 上覆盖安装本轮签名构建，未卸载 App，也未执行数据删除。
+
+- 安装来源：`7c62a0d1a29598f12256b7d488f772015923a857`（生产代码 `07b85e8b`）；构建前工作区 clean。
+- `xcodebuild -project Vela.xcodeproj -scheme Vela -configuration Debug -destination 'id=<paired iPhone>' -derivedDataPath build/DeviceAuditPhoneDerivedData -allowProvisioningUpdates build`：exit 0。
+- `codesign --verify --deep --strict <Vela.app>`：exit 0。
+- `xcrun devicectl device install app --device <paired iPhone> <Vela.app>`：exit 0，安装 receipt 为 success。Bundle `com.sunweizhou.Vela4`，版本 4.0.0 (1)。
+- 随后两次前台启动均被 iOS 以 `Locked` 拒绝，尚未验证运行/首屏，不把安装成功等同于真机 UI 验收。已请求用户解锁；VB-16 / VB-22 仍未闭环。
+
+脱敏安装凭据：[phone-install-receipt.json](phone-install-receipt.json)。不提交设备 UDID、签名账户、安装容器路径或真实健康数据。此部署只更新手机包，没有单独向 Watch 部署。
