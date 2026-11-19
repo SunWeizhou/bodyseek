@@ -37,6 +37,12 @@ final class BodySeekStoreTests: XCTestCase {
             "logged_workout_session",
             "memory_fts",
             "workout_annotation_fts",
+            "nutrition_profile",
+            "nutrition_target_plan",
+            "food_library_item",
+            "food_library_fts",
+            "daily_nutrition_log",
+            "meal_entry",
         ]
 
         for name in requiredTables {
@@ -407,5 +413,103 @@ final class BodySeekStoreTests: XCTestCase {
         // Total across overnight + 45m nap = 525 min
         XCTAssertEqual(result.totalAsleepMinutes, 525)
         XCTAssertEqual(result.naps.first?.asleepMinutes, 45)
+    }
+
+    func testReadModelPrecomputesChartCacheAndDeduplicatesIdenticalContentDigest() async throws {
+        let db = try BodySeekDatabase.inMemory()
+        let repo = BodySeekRepository(database: db)
+        let readModel = BodySeekReadModel(database: db)
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Shanghai"))
+
+        let refDate = try XCTUnwrap(cal.date(from: DateComponents(year: 2026, month: 11, day: 19, hour: 12)))
+        let rawDays = PreviewSeedFactory.makeRawWindow(endingAt: refDate, days: 45, calendar: cal)
+        let snapshot = BevelScoringEngine.computeWindow(
+            rawDays: rawDays,
+            sleepGoalMinutes: 450,
+            referenceDate: refDate,
+            sourceLabel: "Apple 健康",
+            isAuthorized: true,
+            calendar: cal
+        )
+
+        try await repo.saveDailyRawMetrics(rawDays, calendar: cal)
+        try await repo.saveComputedDays(snapshot.historyDays)
+
+        let cachedOptional = try await readModel.loadCachedDashboard(
+            sleepGoalMinutes: 450,
+            referenceDate: refDate,
+            sourceLabel: "Apple 健康",
+            isAuthorized: true,
+            calendar: cal
+        )
+        let cached = try XCTUnwrap(cachedOptional)
+        XCTAssertEqual(cached.snapshot.historyDays.count, rawDays.count)
+        XCTAssertEqual(cached.chartCache[.threeYears]?[.recovery]?.totalDays, 1095)
+        XCTAssertEqual(cached.chartCache[.month]?[.recovery]?.coveredDays, cached.chartCache[.month]?[.recovery]?.dailyPoints.filter { $0.value != nil }.count)
+
+        let firstExp = expectation(description: "Initial ReadModel emission")
+        let changeExp = expectation(description: "Second emission after real metric change")
+        actor EmissionCounter {
+            var states: [CachedDashboardState] = []
+            func append(_ s: CachedDashboardState) -> Int {
+                states.append(s)
+                return states.count
+            }
+            func count() -> Int { states.count }
+            func all() -> [CachedDashboardState] { states }
+        }
+        let counter = EmissionCounter()
+        let tz = cal.timeZone
+
+        let stream = readModel.observeDashboard(
+            sleepGoalMinutes: 450,
+            referenceDateProvider: { refDate },
+            sourceLabel: "Apple 健康",
+            isAuthorized: true,
+            calendar: cal
+        )
+
+        let task = Task {
+            for try await state in stream {
+                let c = await counter.append(state)
+                if c == 1 {
+                    firstExp.fulfill()
+                } else if c == 2 {
+                    changeExp.fulfill()
+                }
+            }
+        }
+        defer { task.cancel() }
+
+        await fulfillment(of: [firstExp], timeout: 2.0)
+
+        // Re-write identical raw data + new computedAt timestamp -> SHA256 contentDigest unchanged -> 0 new emissions.
+        try await repo.saveDailyRawMetrics(rawDays, calendar: cal)
+        try await repo.saveComputedDays(snapshot.historyDays, computedAt: refDate.addingTimeInterval(300))
+        try await Task.sleep(for: .milliseconds(150))
+        let countAfterIdenticalRewrite = await counter.count()
+        XCTAssertEqual(countAfterIdenticalRewrite, 1)
+
+        // Mutate a real HRV metric -> triggers real digest change -> 2nd emission delivered.
+        var mutatedRaw = rawDays
+        var calCopy = Calendar(identifier: .gregorian)
+        calCopy.timeZone = tz
+        mutatedRaw[mutatedRaw.count - 1].hrvMs = (mutatedRaw[mutatedRaw.count - 1].hrvMs ?? 55) + 22
+        let updatedSnapshot = BevelScoringEngine.computeWindow(
+            rawDays: mutatedRaw,
+            sleepGoalMinutes: 450,
+            referenceDate: refDate,
+            sourceLabel: "Apple 健康",
+            isAuthorized: true,
+            calendar: calCopy
+        )
+        try await repo.saveDailyRawMetrics([mutatedRaw[mutatedRaw.count - 1]], calendar: calCopy)
+        try await repo.saveComputedDays([updatedSnapshot.historyDays[updatedSnapshot.historyDays.count - 1]], computedAt: refDate.addingTimeInterval(600))
+
+        await fulfillment(of: [changeExp], timeout: 2.0)
+        let states = await counter.all()
+        XCTAssertEqual(states.count, 2)
+        XCTAssertNotEqual(states[0].contentDigest, states[1].contentDigest)
     }
 }

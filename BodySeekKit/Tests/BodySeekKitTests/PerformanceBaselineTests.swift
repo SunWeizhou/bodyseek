@@ -57,7 +57,7 @@ final class PerformanceBaselineTests: XCTestCase {
         XCTAssertEqual(snap365.historyDays.count, raw365.count)
         XCTAssertEqual(snap1095.historyDays.count, raw1095.count)
 
-        // Quantify pre-M1 TrendsFeature computed property overhead during 60 scrub updates (month vs threeYears)
+        // Quantify post-M1-Data cached TrendsFeature lookup + zero-recompute scrub performance
         var trendsMonth = TrendsFeature.State(snapshot: snap365)
         trendsMonth.horizon = .month
         let scrubMonthMs = measureMs {
@@ -69,7 +69,9 @@ final class PerformanceBaselineTests: XCTestCase {
         }
 
         var trends3Y = TrendsFeature.State(snapshot: snap1095)
-        trends3Y.horizon = .threeYears
+        let horizonSwitch3YMs = measureMs {
+            trends3Y.horizon = .threeYears
+        }
         let scrub3YMs = measureMs {
             for idx in 0..<60 {
                 trends3Y.selectedDate = calendar.date(byAdding: .day, value: -(idx % 90), to: now)
@@ -78,9 +80,12 @@ final class PerformanceBaselineTests: XCTestCase {
             }
         }
 
+        XCTAssertLessThan(horizonSwitch3YMs, 150.0)
+        XCTAssertLessThan(scrub3YMs, 50.0)
+
         print(String(
-            format: "BENCHMARK_M0: compute60d=%.2fms compute365d=%.2fms compute1095d=%.2fms trendsScrub60xMonth=%.2fms trendsScrub60x3Y=%.2fms",
-            ms60, ms365, ms1095, scrubMonthMs, scrub3YMs
+            format: "BENCHMARK_M1_DATA: compute60d=%.2fms compute365d=%.2fms compute1095d=%.2fms horizonSwitch3Y=%.2fms trendsScrub60xMonth=%.2fms trendsScrub60x3Y=%.2fms",
+            ms60, ms365, ms1095, horizonSwitch3YMs, scrubMonthMs, scrub3YMs
         ))
     }
 }

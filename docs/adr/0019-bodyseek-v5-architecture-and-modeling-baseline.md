@@ -65,8 +65,11 @@ All production logic converges onto a clean acyclic dependency graph inside `Bod
 - **Baseline-first walk-forward evaluation**: Offline Python (`uv`, PyTorch/sklearn/LightGBM/coremltools) in `BodySeekML/` (raw `data/` strictly `.gitignore`d) compares Persistence, Ridge, Banister state-space, and LightGBM on strictly chronological expanding windows (e.g., 24m initial train, monthly walk-forward). Lightweight DL (Masked TCN / PatchTST-Lite) is a research track promoted/ensembled ONLY upon statistically significant paired-fold improvement over the best baseline.
 - **No observational causal/counterfactual claims**: UI and Coach NEVER present observational predictions as causal "what-if" outcomes. Instead, pair `find_similar_days` (k historical similar states with outcome distribution & sample count `n`) with **N-of-1 Experiments** (`Experiments` template, baseline/intervention windows, pre-registered metrics, report).
 
-### 9. Reserved Eating Context (ADR 0006)
-- No premature `eating_event` table in GRDB v1; reserve `DayKey` + timezone consistency, eating-channel missingness mask bits in `feature_spec.json`, and Coach `get_eating_context` tool slot until the nutrition milestone is kicked off.
+### 9. Daily Nutrition & Energy Balance Integration (GRDB Schema v2, User-Requested 2026-11-19 Addendum)
+- Integrating the user's validated Obsidian vault specification (`每日营养素`: `AGENTS.md`, `营养目标.js`, `food_database.md`) directly into `BodySeekCore` and GRDB Schema `v2_nutrition_schema` rather than deferring to a disconnected post-V5 project.
+- Three-role Agent workflow preserved explicitly: `nutrition-library` (traceable per-100g/100mL food database + chemical forms), `health-record` (meal logging, portion scaling, three orthogonal completion flags `diet_day_complete` / `diet_partial_fields` / `health_confirmed_fields`), and `health-coach` (personal DRIs target generation, weekly/monthly board review, recovery-aware nutrition & workout advice).
+- Non-fabrication & energy invariants: `missingAsZero = false` for nutrient metrics; incomplete or unclosed days display `unknown` (`暂不判断`); `calorie_surplus_kcal` (`diet_kcal - (bmr_kcal + sport_kcal)`) is computed ONLY when intake closure (`diet_day_complete == true`), BMR reference, and full-day expenditure are present — never replacing total energy expenditure with single-session exercise calories or incentivizing compensatory starvation/cardio.
+- Reserved Coach tool name `get_eating_context` (implemented in M3 alongside M1-UI nutrition dashboard views).
 
 ## Consequences
 - All M0–M4 implementation PRs have one single canonical architectural and scientific baseline (`ADR 0019` + V5 Blueprint).

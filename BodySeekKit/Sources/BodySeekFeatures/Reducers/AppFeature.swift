@@ -1,5 +1,6 @@
 import BodySeekCore
 import BodySeekHealth
+import BodySeekStore
 import ComposableArchitecture
 import Foundation
 
@@ -90,7 +91,10 @@ public struct AppFeature: Sendable {
         case onboardingSkipTapped
         case refreshRequested
         case authorizationFinished(Bool)
+        case cachedDashboardLoaded(CachedDashboardState)
         case snapshotLoaded(BodySeekDashboardSnapshot)
+        case persistenceFailed(String)
+        case backgroundSyncCompleted(String?)
         case fitnessStoreLoaded(
             templates: [WorkoutTemplate],
             sessions: [LoggedWorkoutSession],
@@ -113,11 +117,15 @@ public struct AppFeature: Sendable {
         case checkInSaved(DailyCheckIn)
     }
 
-    private enum CancelID { case healthUpdates }
+    private enum CancelID {
+        case healthUpdates
+        case dashboardObservation
+    }
 
     @Dependency(\.healthKitClient) var healthKitClient
     @Dependency(\.preferencesClient) var preferencesClient
     @Dependency(\.fitnessStoreClient) var fitnessStoreClient
+    @Dependency(\.bodySeekStoreClient) var bodySeekStoreClient
     @Dependency(\.coachAIClient) var coachAIClient
     @Dependency(\.continuousClock) var clock
     @Dependency(\.date.now) var now
@@ -150,9 +158,11 @@ public struct AppFeature: Sendable {
                     state.today.lastError = "读取偏好设置失败：\(error.localizedDescription)"
                 }
                 return .merge(
+                    loadCachedDashboardEffect(goalMinutes: state.preferences.sleepGoalMinutes, referenceDate: now),
                     loadSnapshotEffect(goalMinutes: state.preferences.sleepGoalMinutes, referenceDate: now),
                     loadFitnessStoreEffect(),
-                    observeHealthUpdatesEffect()
+                    observeHealthUpdatesEffect(),
+                    observeStoredDashboardEffect(goalMinutes: state.preferences.sleepGoalMinutes)
                 )
 
             case let .tabSelected(tab):
@@ -178,15 +188,59 @@ public struct AppFeature: Sendable {
             case .authorizationFinished:
                 return loadSnapshotEffect(goalMinutes: state.preferences.sleepGoalMinutes, referenceDate: now)
 
+            case let .cachedDashboardLoaded(cached):
+                if state.snapshot.historyDays.isEmpty
+                    || !state.snapshot.isAuthorized
+                    || cached.snapshot.historyDays.count >= state.snapshot.historyDays.count
+                {
+                    apply(snapshot: cached.snapshot, precomputedCache: cached.chartCache, to: &state)
+                    BodySeekSignposts.shared.endColdStartIfActive()
+                }
+                return .none
+
             case let .snapshotLoaded(snapshot):
-                apply(snapshot: snapshot, to: &state)
+                let mergedSnapshot: BodySeekDashboardSnapshot
+                if snapshot.isAuthorized,
+                   state.snapshot.isAuthorized,
+                   state.snapshot.historyDays.count > snapshot.historyDays.count
+                {
+                    let newerKeys = Set(snapshot.historyDays.map(\.dayKey))
+                    let preservedOlder = state.snapshot.historyDays.filter { !newerKeys.contains($0.dayKey) }
+                    let combinedHistory = (preservedOlder + snapshot.historyDays).sorted { $0.date < $1.date }
+                    mergedSnapshot = BodySeekDashboardSnapshot(
+                        referenceDate: snapshot.referenceDate,
+                        today: snapshot.today,
+                        historyDays: combinedHistory,
+                        trainingLoad: snapshot.trainingLoad,
+                        sourceLabel: snapshot.sourceLabel,
+                        lastUpdatedAt: snapshot.lastUpdatedAt,
+                        isAuthorized: snapshot.isAuthorized,
+                        scoreAlgorithmVersion: snapshot.scoreAlgorithmVersion
+                    )
+                } else {
+                    mergedSnapshot = snapshot
+                }
+                apply(snapshot: mergedSnapshot, precomputedCache: nil, to: &state)
                 BodySeekSignposts.shared.endColdStartIfActive()
-                guard snapshot.isAuthorized else {
+                guard mergedSnapshot.isAuthorized else {
                     state.today.briefingStatus = .unconfigured(reason: "连接 Apple 健康并配置 AI 模型后生成生理简报")
                     return .none
                 }
                 state.today.briefingStatus = .loading
-                return generateBriefingEffect(state: state)
+                return .merge(
+                    generateBriefingEffect(state: state),
+                    triggerBackgroundBackfillEffect(goalMinutes: state.preferences.sleepGoalMinutes, referenceDate: now)
+                )
+
+            case let .persistenceFailed(message):
+                state.today.lastError = message
+                return .none
+
+            case let .backgroundSyncCompleted(error):
+                if let error {
+                    state.today.lastError = error
+                }
+                return .none
 
             case let .fitnessStoreLoaded(templates, sessions, memories, messages, error):
                 state.templates = templates
@@ -358,6 +412,14 @@ public struct AppFeature: Sendable {
                     state.coach.templates = ExerciseCatalog.defaultTemplates
                     state.today.subjectiveFeeling = nil
                     state.today.todayCheckIn = nil
+                    let emptySnapshot = BevelScoringEngine.computeWindow(
+                        rawDays: PreviewSeedFactory.makeEmptyRawWindow(endingAt: now),
+                        sleepGoalMinutes: state.preferences.sleepGoalMinutes,
+                        referenceDate: now,
+                        sourceLabel: "已重置",
+                        isAuthorized: false
+                    )
+                    apply(snapshot: emptySnapshot, precomputedCache: nil, to: &state)
                     return loadSnapshotEffect(goalMinutes: state.preferences.sleepGoalMinutes, referenceDate: now)
 
                 case .dismissed:
@@ -401,7 +463,18 @@ public struct AppFeature: Sendable {
                     state.today.lastError = "保存每日体感打卡失败：\(error.localizedDescription)"
                 }
                 state.isCheckInPresented = false
-                return .none
+                return .run { send in
+                    do {
+                        let proposal = try ActionProposal(
+                            kind: .recordCheckIn,
+                            origin: .user,
+                            encodablePayload: RecordCheckInPayload(checkIn: entry)
+                        )
+                        _ = try await bodySeekStoreClient.executeProposal(proposal)
+                    } catch {
+                        await send(.persistenceFailed("同步每日体感打卡至数据库失败：\(error.localizedDescription)"))
+                    }
+                }
 
             case .today, .workout, .trends, .coach, .todayPath, .trendsPath, .settings:
                 return .none
@@ -418,6 +491,18 @@ public struct AppFeature: Sendable {
         }
     }
 
+    private func loadCachedDashboardEffect(goalMinutes: Int, referenceDate: Date) -> Effect<Action> {
+        .run { send in
+            do {
+                if let cached = try await bodySeekStoreClient.loadCachedDashboard(goalMinutes, referenceDate) {
+                    await send(.cachedDashboardLoaded(cached))
+                }
+            } catch {
+                await send(.persistenceFailed("读取离线生理缓存失败：\(error.localizedDescription)"))
+            }
+        }
+    }
+
     private func loadSnapshotEffect(goalMinutes: Int, referenceDate: Date) -> Effect<Action> {
         .run { send in
             let snapshot = await healthKitClient.loadDashboardWindow(
@@ -426,6 +511,39 @@ public struct AppFeature: Sendable {
                 referenceDate: referenceDate
             )
             await send(.snapshotLoaded(snapshot))
+            if snapshot.isAuthorized {
+                do {
+                    try await bodySeekStoreClient.persistDashboardSnapshot(snapshot)
+                } catch {
+                    await send(.persistenceFailed("保存生理快照到数据库失败：\(error.localizedDescription)"))
+                }
+            }
+        }
+    }
+
+    private func observeStoredDashboardEffect(goalMinutes: Int) -> Effect<Action> {
+        .run { send in
+            do {
+                let stream = await bodySeekStoreClient.observeDashboard(goalMinutes)
+                for try await cached in stream {
+                    await send(.cachedDashboardLoaded(cached))
+                }
+            } catch {
+                await send(.persistenceFailed("监听数据库快照更新失败：\(error.localizedDescription)"))
+            }
+        }
+        .cancellable(id: CancelID.dashboardObservation, cancelInFlight: true)
+    }
+
+    private func triggerBackgroundBackfillEffect(goalMinutes: Int, referenceDate: Date) -> Effect<Action> {
+        .run { send in
+            do {
+                _ = try await bodySeekStoreClient.syncRecentWindow(goalMinutes, referenceDate)
+                _ = try await bodySeekStoreClient.runBackgroundBackfill(goalMinutes, referenceDate)
+                await send(.backgroundSyncCompleted(nil))
+            } catch {
+                await send(.backgroundSyncCompleted("后台同步历史健康数据失败：\(error.localizedDescription)"))
+            }
         }
     }
 
@@ -478,13 +596,17 @@ public struct AppFeature: Sendable {
         .cancellable(id: CancelID.healthUpdates, cancelInFlight: true)
     }
 
-    private func apply(snapshot: BodySeekDashboardSnapshot, to state: inout State) {
+    private func apply(
+        snapshot: BodySeekDashboardSnapshot,
+        precomputedCache: [TrendHorizon: [MetricKind: ChartSeriesSnapshot]]?,
+        to state: inout State
+    ) {
         state.snapshot = snapshot
         state.today.isLoading = false
         state.today.snapshot = snapshot
         syncCheckInFromPreferences(into: &state)
         state.workout.snapshot = snapshot
-        state.trends.snapshot = snapshot
+        state.trends.updateSnapshot(snapshot, precomputedCache: precomputedCache)
         state.coach.snapshot = snapshot
         if state.settings != nil {
             state.settings?.snapshot = snapshot

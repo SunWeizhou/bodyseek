@@ -99,6 +99,53 @@ public final class ActionExecutor: Sendable {
                     let payload = try proposal.decodePayload(RecordCheckInPayload.self)
                     try BodySeekRepository.saveCheckInSync(db: db, checkIn: payload.checkIn)
                     affectedIDs = [payload.checkIn.id.uuidString, payload.checkIn.dayKey.isoString]
+
+                case .upsertNutritionProfile:
+                    let payload = try proposal.decodePayload(UpsertNutritionProfilePayload.self)
+                    try BodySeekRepository.saveNutritionProfileSync(db: db, profile: payload.profile)
+                    affectedIDs = [payload.profile.id.uuidString]
+
+                case .commitNutritionTargets:
+                    let payload = try proposal.decodePayload(CommitNutritionTargetsPayload.self)
+                    try BodySeekRepository.saveNutritionTargetPlanSync(db: db, plan: payload.plan)
+                    affectedIDs = [payload.plan.id.uuidString, payload.plan.targetVersion]
+
+                case .logNutritionMeal:
+                    let payload = try proposal.decodePayload(LogNutritionMealPayload.self)
+                    var log = try BodySeekRepository.loadDailyNutritionLogSync(db: db, dayKey: payload.dayKey)
+                        ?? DailyNutritionLog(dayKey: payload.dayKey)
+                    if let idx = log.entries.firstIndex(where: { $0.id == payload.entry.id }) {
+                        log.entries[idx] = payload.entry
+                    } else {
+                        log.entries.append(payload.entry)
+                    }
+                    if !payload.partialFields.isEmpty {
+                        var set = Set(log.dietPartialFields)
+                        for f in payload.partialFields { set.insert(f) }
+                        log.dietPartialFields = set.sorted()
+                    }
+                    if let note = payload.note, !note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        log.notes.append(note)
+                    }
+                    log.updatedAt = now
+                    log.recalculateTotals()
+                    try BodySeekRepository.saveDailyNutritionLogSync(db: db, log: log)
+                    affectedIDs = [payload.dayKey.isoString, payload.entry.id.uuidString]
+
+                case .closeNutritionDay:
+                    let payload = try proposal.decodePayload(CloseNutritionDayPayload.self)
+                    var log = try BodySeekRepository.loadDailyNutritionLogSync(db: db, dayKey: payload.dayKey)
+                        ?? DailyNutritionLog(dayKey: payload.dayKey)
+                    log.dietDayComplete = payload.markComplete
+                    if let sportHours = payload.sportHours { log.sportHours = sportHours }
+                    if let sportKcal = payload.sportKcal { log.sportKcal = sportKcal }
+                    if let steps = payload.steps { log.steps = steps }
+                    if let bmr = payload.bmrKcalUsed { log.bmrKcalUsed = bmr }
+                    if let review = payload.reviewSummary { log.reviewSummary = review }
+                    log.updatedAt = now
+                    log.recalculateTotals()
+                    try BodySeekRepository.saveDailyNutritionLogSync(db: db, log: log)
+                    affectedIDs = [payload.dayKey.isoString]
                 }
 
                 let audit = ActionAuditEntry(

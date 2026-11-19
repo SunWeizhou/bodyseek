@@ -123,10 +123,34 @@ public final class BodySeekRepository: Sendable {
 
     // MARK: - Day Metrics, Hourly Metrics, Sleep & Workouts
 
+    private static func invalidateComputedArtifactsSync(
+        db: Database,
+        dayKeys: Set<DayKey>,
+        calendar: Calendar = .current
+    ) throws {
+        guard !dayKeys.isEmpty else { return }
+        var affected = Set<String>()
+        for key in dayKeys {
+            let start = key.calendarDayStart(calendar: calendar)
+            for offset in 0...28 {
+                if let date = calendar.date(byAdding: .day, value: offset, to: start) {
+                    affected.insert(DayKey.fromCalendarDay(date, calendar: calendar).isoString)
+                }
+            }
+        }
+        let placeholders = Array(repeating: "?", count: affected.count).joined(separator: ",")
+        try db.execute(
+            sql: "DELETE FROM day_computed_artifact WHERE day_key IN (\(placeholders))",
+            arguments: StatementArguments(Array(affected))
+        )
+    }
+
     public func upsertDayMetrics(_ records: [DayMetricRecord]) async throws {
         guard !records.isEmpty else { return }
         try await database.writer.write { db in
+            var dirtyKeys = Set<DayKey>()
             for record in records {
+                dirtyKeys.insert(record.dayKey)
                 let sourcesJSON = try Self.encodeJSONString(record.sources, label: "DayMetricRecord.sources")
                 try db.execute(
                     sql: """
@@ -150,6 +174,7 @@ public final class BodySeekRepository: Sendable {
                     ]
                 )
             }
+            try Self.invalidateComputedArtifactsSync(db: db, dayKeys: dirtyKeys)
         }
     }
 
@@ -343,8 +368,10 @@ public final class BodySeekRepository: Sendable {
     public func saveDailyRawMetrics(_ rawDays: [DailyRawMetrics], calendar: Calendar = .current) async throws {
         guard !rawDays.isEmpty else { return }
         try await database.writer.write { db in
+            var dirtyKeys = Set<DayKey>()
             for raw in rawDays {
                 let dayKey = raw.dayKey ?? raw.date.physiologicalDayKey(cutoverHour: 4, timeZone: calendar.timeZone)
+                dirtyKeys.insert(dayKey)
                 let sources = raw.sourceNames.enumerated().map { idx, name in
                     SourceRef(name: name, priority: max(0, 100 - idx))
                 }
@@ -495,6 +522,7 @@ public final class BodySeekRepository: Sendable {
                     )
                 }
             }
+            try Self.invalidateComputedArtifactsSync(db: db, dayKeys: dirtyKeys, calendar: calendar)
         }
     }
 
@@ -1388,10 +1416,259 @@ public final class BodySeekRepository: Sendable {
         }
     }
 
+    // MARK: - Nutrition Sub-System (Profile, Targets, Food Library, Daily Logs)
+
+    public func saveNutritionProfile(_ profile: NutritionProfile) async throws {
+        try await database.writer.write { db in
+            try Self.saveNutritionProfileSync(db: db, profile: profile)
+        }
+    }
+
+    static func saveNutritionProfileSync(db: Database, profile: NutritionProfile) throws {
+        let json = try encodeJSONString(profile, label: "NutritionProfile")
+        try db.execute(
+            sql: """
+            INSERT INTO nutrition_profile (id, payload_json, updated_at)
+            VALUES ('current', ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                payload_json = excluded.payload_json,
+                updated_at = excluded.updated_at
+            """,
+            arguments: [json, profile.updatedAt.timeIntervalSince1970]
+        )
+    }
+
+    public func loadNutritionProfile() async throws -> NutritionProfile? {
+        try await database.writer.read { db in
+            guard let row = try Row.fetchOne(
+                db,
+                sql: "SELECT payload_json FROM nutrition_profile WHERE id = 'current'"
+            ) else {
+                return nil
+            }
+            return try Self.decodeJSON(row["payload_json"] as String, as: NutritionProfile.self)
+        }
+    }
+
+    public func saveNutritionTargetPlan(_ plan: NutritionTargetPlan) async throws {
+        try await database.writer.write { db in
+            try Self.saveNutritionTargetPlanSync(db: db, plan: plan)
+        }
+    }
+
+    static func saveNutritionTargetPlanSync(db: Database, plan: NutritionTargetPlan) throws {
+        let json = try encodeJSONString(plan, label: "NutritionTargetPlan")
+        try db.execute(
+            sql: """
+            INSERT INTO nutrition_target_plan (id, version, status, effective_from, payload_json, updated_at)
+            VALUES ('current', ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                version = excluded.version,
+                status = excluded.status,
+                effective_from = excluded.effective_from,
+                payload_json = excluded.payload_json,
+                updated_at = excluded.updated_at
+            """,
+            arguments: [
+                plan.targetVersion,
+                plan.targetStatus.rawValue,
+                plan.effectiveFrom?.isoString,
+                json,
+                plan.updatedAt.timeIntervalSince1970,
+            ]
+        )
+    }
+
+    public func loadNutritionTargetPlan() async throws -> NutritionTargetPlan? {
+        try await database.writer.read { db in
+            guard let row = try Row.fetchOne(
+                db,
+                sql: "SELECT payload_json FROM nutrition_target_plan WHERE id = 'current'"
+            ) else {
+                return nil
+            }
+            return try Self.decodeJSON(row["payload_json"] as String, as: NutritionTargetPlan.self)
+        }
+    }
+
+    public func seedStarterFoodLibraryIfNeeded() async throws {
+        try await database.writer.write { db in
+            let count = try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM food_library_item") ?? 0
+            guard count == 0 else { return }
+            let nowEpoch = Date().timeIntervalSince1970
+            for item in NutritionCatalog.starterFoodItems {
+                try Self.saveFoodLibraryItemSync(db: db, item: item, updatedAt: nowEpoch)
+            }
+        }
+    }
+
+    public func saveFoodLibraryItem(_ item: FoodLibraryItem) async throws {
+        try await database.writer.write { db in
+            try Self.saveFoodLibraryItemSync(db: db, item: item, updatedAt: Date().timeIntervalSince1970)
+        }
+    }
+
+    static func saveFoodLibraryItemSync(db: Database, item: FoodLibraryItem, updatedAt: TimeInterval) throws {
+        let json = try encodeJSONString(item, label: "FoodLibraryItem")
+        let aliasesText = item.aliases.joined(separator: " ")
+        try db.execute(
+            sql: """
+            INSERT INTO food_library_item (food_id, name, aliases_text, category, state, usable, payload_json, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(food_id) DO UPDATE SET
+                name = excluded.name,
+                aliases_text = excluded.aliases_text,
+                category = excluded.category,
+                state = excluded.state,
+                usable = excluded.usable,
+                payload_json = excluded.payload_json,
+                updated_at = excluded.updated_at
+            """,
+            arguments: [
+                item.foodID,
+                item.name,
+                aliasesText,
+                item.category,
+                item.stateDescription,
+                item.usable,
+                json,
+                updatedAt,
+            ]
+        )
+    }
+
+    public func searchFoodLibrary(query: String) async throws -> [FoodLibraryItem] {
+        try await seedStarterFoodLibraryIfNeeded()
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        return try await database.writer.read { db in
+            let rows: [Row]
+            if trimmed.isEmpty {
+                rows = try Row.fetchAll(db, sql: "SELECT payload_json FROM food_library_item ORDER BY name ASC")
+            } else if trimmed.count >= 3 {
+                rows = try Row.fetchAll(
+                    db,
+                    sql: """
+                    SELECT i.payload_json
+                    FROM food_library_item i
+                    JOIN food_library_fts f ON i.rowid = f.rowid
+                    WHERE food_library_fts MATCH ?
+                    ORDER BY bm25(food_library_fts)
+                    """,
+                    arguments: [Self.ftsPhraseLiteral(trimmed)]
+                )
+            } else {
+                let pattern = "%\(Self.escapeLikePattern(trimmed))%"
+                rows = try Row.fetchAll(
+                    db,
+                    sql: """
+                    SELECT payload_json
+                    FROM food_library_item
+                    WHERE name LIKE ? ESCAPE '\\' OR aliases_text LIKE ? ESCAPE '\\' OR category LIKE ? ESCAPE '\\'
+                    ORDER BY name ASC
+                    """,
+                    arguments: [pattern, pattern, pattern]
+                )
+            }
+            return try rows.map { try Self.decodeJSON($0["payload_json"] as String, as: FoodLibraryItem.self) }
+        }
+    }
+
+    public func saveDailyNutritionLog(_ log: DailyNutritionLog) async throws {
+        try await database.writer.write { db in
+            try Self.saveDailyNutritionLogSync(db: db, log: log)
+        }
+    }
+
+    static func saveDailyNutritionLogSync(db: Database, log: DailyNutritionLog) throws {
+        let json = try encodeJSONString(log, label: "DailyNutritionLog")
+        try db.execute(
+            sql: """
+            INSERT INTO daily_nutrition_log (day_key, diet_kcal, sport_kcal, surplus_kcal, day_complete, payload_json, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(day_key) DO UPDATE SET
+                diet_kcal = excluded.diet_kcal,
+                sport_kcal = excluded.sport_kcal,
+                surplus_kcal = excluded.surplus_kcal,
+                day_complete = excluded.day_complete,
+                payload_json = excluded.payload_json,
+                updated_at = excluded.updated_at
+            """,
+            arguments: [
+                log.dayKey.isoString,
+                log.dietKcal,
+                log.sportKcal,
+                log.calorieSurplusKcal,
+                log.dietDayComplete,
+                json,
+                log.updatedAt.timeIntervalSince1970,
+            ]
+        )
+
+        try db.execute(sql: "DELETE FROM meal_entry WHERE day_key = ?", arguments: [log.dayKey.isoString])
+        for entry in log.entries {
+            let entryJSON = try encodeJSONString(entry, label: "MealEntry")
+            try db.execute(
+                sql: """
+                INSERT INTO meal_entry (
+                    id, day_key, meal_type, food_id, food_name,
+                    portion_amount, portion_unit, kcal, payload_json, recorded_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                arguments: [
+                    entry.id.uuidString,
+                    log.dayKey.isoString,
+                    entry.mealType.rawValue,
+                    entry.foodID,
+                    entry.foodName,
+                    entry.portionAmount,
+                    entry.portionUnit,
+                    entry.kcal,
+                    entryJSON,
+                    entry.recordedAt.timeIntervalSince1970,
+                ]
+            )
+        }
+    }
+
+    static func loadDailyNutritionLogSync(db: Database, dayKey: DayKey) throws -> DailyNutritionLog? {
+        guard let row = try Row.fetchOne(
+            db,
+            sql: "SELECT payload_json FROM daily_nutrition_log WHERE day_key = ?",
+            arguments: [dayKey.isoString]
+        ) else {
+            return nil
+        }
+        return try decodeJSON(row["payload_json"] as String, as: DailyNutritionLog.self)
+    }
+
+    public func loadNutritionLogs(from startKey: DayKey? = nil, to endKey: DayKey? = nil) async throws -> [DailyNutritionLog] {
+        try await database.writer.read { db in
+            var sql = "SELECT payload_json FROM daily_nutrition_log WHERE 1=1"
+            var args: [DatabaseValueConvertible?] = []
+            if let startKey {
+                sql += " AND day_key >= ?"
+                args.append(startKey.isoString)
+            }
+            if let endKey {
+                sql += " AND day_key <= ?"
+                args.append(endKey.isoString)
+            }
+            sql += " ORDER BY day_key ASC"
+            let rows = try Row.fetchAll(db, sql: sql, arguments: StatementArguments(args))
+            return try rows.map { try Self.decodeJSON($0["payload_json"] as String, as: DailyNutritionLog.self) }
+        }
+    }
+
     public func resetAll() async throws {
         try await database.writer.write { db in
             let tables = [
                 "action_audit",
+                "meal_entry",
+                "daily_nutrition_log",
+                "nutrition_target_plan",
+                "nutrition_profile",
+                "food_library_item",
                 "workout_muscle_load",
                 "workout_annotation",
                 "workout",

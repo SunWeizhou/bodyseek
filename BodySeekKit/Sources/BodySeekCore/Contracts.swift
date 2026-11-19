@@ -240,6 +240,10 @@ public struct ActionProposal: Identifiable, Hashable, Codable, Sendable {
         case retireMemory
         case adjustPlan
         case recordCheckIn
+        case upsertNutritionProfile
+        case commitNutritionTargets
+        case logNutritionMeal
+        case closeNutritionDay
     }
 
     public enum Origin: String, Codable, Sendable, Hashable {

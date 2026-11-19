@@ -331,6 +331,80 @@ public final class BodySeekDatabase: Sendable {
             """)
         }
 
+        migrator.registerMigration("v2_nutrition_schema") { db in
+            try db.create(table: "nutrition_profile") { t in
+                t.column("id", .text).primaryKey()
+                t.column("payload_json", .text).notNull()
+                t.column("updated_at", .double).notNull()
+            }
+
+            try db.create(table: "nutrition_target_plan") { t in
+                t.column("id", .text).primaryKey()
+                t.column("version", .text).notNull()
+                t.column("status", .text).notNull()
+                t.column("effective_from", .text)
+                t.column("payload_json", .text).notNull()
+                t.column("updated_at", .double).notNull()
+            }
+
+            try db.create(table: "food_library_item") { t in
+                t.column("food_id", .text).primaryKey()
+                t.column("name", .text).notNull()
+                t.column("aliases_text", .text).notNull().defaults(to: "")
+                t.column("category", .text).notNull()
+                t.column("state", .text).notNull()
+                t.column("usable", .boolean).notNull().defaults(to: true)
+                t.column("payload_json", .text).notNull()
+                t.column("updated_at", .double).notNull()
+            }
+
+            try db.create(table: "daily_nutrition_log") { t in
+                t.column("day_key", .text).primaryKey()
+                t.column("diet_kcal", .double)
+                t.column("sport_kcal", .double)
+                t.column("surplus_kcal", .double)
+                t.column("day_complete", .boolean)
+                t.column("payload_json", .text).notNull()
+                t.column("updated_at", .double).notNull()
+            }
+
+            try db.create(table: "meal_entry") { t in
+                t.column("id", .text).primaryKey()
+                t.column("day_key", .text)
+                    .notNull()
+                    .references("daily_nutrition_log", column: "day_key", onDelete: .cascade)
+                t.column("meal_type", .text).notNull()
+                t.column("food_id", .text)
+                t.column("food_name", .text).notNull()
+                t.column("portion_amount", .double).notNull()
+                t.column("portion_unit", .text).notNull()
+                t.column("kcal", .double)
+                t.column("payload_json", .text).notNull()
+                t.column("recorded_at", .double).notNull()
+            }
+            try db.create(index: "idx_meal_entry_day", on: "meal_entry", columns: ["day_key", "recorded_at"])
+
+            try db.execute(sql: """
+                CREATE VIRTUAL TABLE food_library_fts USING fts5(
+                    name,
+                    aliases_text,
+                    content='food_library_item',
+                    content_rowid='rowid',
+                    tokenize='trigram'
+                );
+                CREATE TRIGGER food_library_fts_ai AFTER INSERT ON food_library_item BEGIN
+                    INSERT INTO food_library_fts(rowid, name, aliases_text) VALUES (new.rowid, new.name, new.aliases_text);
+                END;
+                CREATE TRIGGER food_library_fts_ad AFTER DELETE ON food_library_item BEGIN
+                    INSERT INTO food_library_fts(food_library_fts, rowid, name, aliases_text) VALUES ('delete', old.rowid, old.name, old.aliases_text);
+                END;
+                CREATE TRIGGER food_library_fts_au AFTER UPDATE ON food_library_item BEGIN
+                    INSERT INTO food_library_fts(food_library_fts, rowid, name, aliases_text) VALUES ('delete', old.rowid, old.name, old.aliases_text);
+                    INSERT INTO food_library_fts(rowid, name, aliases_text) VALUES (new.rowid, new.name, new.aliases_text);
+                END;
+            """)
+        }
+
         return migrator
     }
 }

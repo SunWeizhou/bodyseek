@@ -1,4 +1,5 @@
 import BodySeekCore
+import BodySeekStore
 import Dependencies
 import DependenciesMacros
 import Foundation
@@ -79,6 +80,14 @@ public actor BodySeekSwiftDataBackend {
         }
     }
 
+    private var legacyStoreURL: URL {
+        let baseDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
+        return baseDir
+            .appendingPathComponent("BodySeek", isDirectory: true)
+            .appendingPathComponent("bodyseek_v3.store")
+    }
+
     private func container() throws -> ModelContainer {
         if let cachedContainer { return cachedContainer }
         let schema = Schema([
@@ -87,17 +96,50 @@ public actor BodySeekSwiftDataBackend {
             StoredAthleteMemory.self,
             StoredCoachMessage.self,
         ])
-        let baseDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-            ?? FileManager.default.temporaryDirectory
-        let folder = baseDir.appendingPathComponent("BodySeek", isDirectory: true)
+        let storeURL = legacyStoreURL
+        let folder = storeURL.deletingLastPathComponent()
         if !FileManager.default.fileExists(atPath: folder.path) {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         }
-        let storeURL = folder.appendingPathComponent("bodyseek_v3.store")
         let config = ModelConfiguration(url: storeURL)
         let mc = try ModelContainer(for: schema, configurations: [config])
         cachedContainer = mc
         return mc
+    }
+
+    /// Reads the legacy SwiftData SQLite file ONLY if it already exists on disk (used once for GRDB migration).
+    public nonisolated func exportLegacyPayloadIfStoreExists() throws -> LegacyImportPayload? {
+        let baseDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
+        let storeURL = baseDir
+            .appendingPathComponent("BodySeek", isDirectory: true)
+            .appendingPathComponent("bodyseek_v3.store")
+        guard FileManager.default.fileExists(atPath: storeURL.path) else {
+            return nil
+        }
+        let schema = Schema([
+            StoredWorkoutTemplate.self,
+            StoredWorkoutSession.self,
+            StoredAthleteMemory.self,
+            StoredCoachMessage.self,
+        ])
+        let config = ModelConfiguration(url: storeURL)
+        let mc = try ModelContainer(for: schema, configurations: [config])
+        let context = ModelContext(mc)
+        let decoder = JSONDecoder()
+
+        let templateRows = try context.fetch(FetchDescriptor<StoredWorkoutTemplate>(sortBy: [SortDescriptor(\.sortOrder)]))
+        let sessionRows = try context.fetch(FetchDescriptor<StoredWorkoutSession>(sortBy: [SortDescriptor(\.completedAt, order: .reverse)]))
+        let memoryRows = try context.fetch(FetchDescriptor<StoredAthleteMemory>(sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]))
+        let messageRows = try context.fetch(FetchDescriptor<StoredCoachMessage>(sortBy: [SortDescriptor(\.timestamp, order: .forward)]))
+
+        return LegacyImportPayload(
+            templates: try templateRows.map { try decoder.decode(WorkoutTemplate.self, from: $0.payload) },
+            sessions: try sessionRows.map { try decoder.decode(LoggedWorkoutSession.self, from: $0.payload) },
+            memories: try memoryRows.map { try decoder.decode(AthleteMemoryItem.self, from: $0.payload) },
+            messages: try messageRows.map { try decoder.decode(CoachMessage.self, from: $0.payload) },
+            checkIns: []
+        )
     }
 
     public func loadTemplates() throws -> [WorkoutTemplate] {
@@ -234,79 +276,84 @@ public struct FitnessStoreClient: Sendable {
 extension FitnessStoreClient: DependencyKey {
     public static let liveValue: FitnessStoreClient = {
         let preview = InMemoryPreviewStore()
+        @Sendable func grdbRepository() async throws -> BodySeekRepository {
+            _ = try await BodySeekSharedStore.shared.ensureLegacyMigratedIfNeeded()
+            return try await BodySeekSharedStore.shared.repository()
+        }
+
         return FitnessStoreClient(
             loadTemplates: {
                 if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard") {
                     return await preview.templates
                 }
-                return try await BodySeekSwiftDataBackend.shared.loadTemplates()
+                return try await grdbRepository().loadTemplates()
             },
             saveTemplate: { template in
                 if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard") {
                     await preview.saveTemplate(template)
                     return
                 }
-                try await BodySeekSwiftDataBackend.shared.saveTemplate(template)
+                try await grdbRepository().saveTemplate(template)
             },
             loadSessions: {
                 if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard") {
                     return await preview.sessions
                 }
-                return try await BodySeekSwiftDataBackend.shared.loadSessions()
+                return try await grdbRepository().loadSessions()
             },
             saveSession: { session in
                 if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard") {
                     await preview.saveSession(session)
                     return
                 }
-                try await BodySeekSwiftDataBackend.shared.saveSession(session)
+                try await grdbRepository().saveSession(session)
             },
             loadMemories: {
                 if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard") {
                     return await preview.memories
                 }
-                return try await BodySeekSwiftDataBackend.shared.loadMemories()
+                return try await grdbRepository().loadAthleteMemories()
             },
             saveMemory: { item in
                 if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard") {
                     await preview.saveMemory(item)
                     return
                 }
-                try await BodySeekSwiftDataBackend.shared.saveMemory(item)
+                try await grdbRepository().saveAthleteMemory(item)
             },
             deleteMemory: { id in
                 if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard") {
                     await preview.deleteMemory(id: id)
                     return
                 }
-                try await BodySeekSwiftDataBackend.shared.deleteMemory(id: id)
+                try await grdbRepository().deleteMemory(id: id)
             },
             loadMessages: {
                 if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard") {
                     return await preview.messages
                 }
-                return try await BodySeekSwiftDataBackend.shared.loadMessages()
+                return try await grdbRepository().loadMessages()
             },
             appendMessage: { msg in
                 if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard") {
                     await preview.appendMessage(msg)
                     return
                 }
-                try await BodySeekSwiftDataBackend.shared.appendMessage(msg)
+                try await grdbRepository().appendMessage(msg)
             },
             clearMessages: {
                 if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard") {
                     await preview.clearMessages()
                     return
                 }
-                try await BodySeekSwiftDataBackend.shared.clearMessages()
+                try await grdbRepository().clearMessages()
             },
             resetAll: {
                 if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard") {
                     await preview.reset()
                     return
                 }
-                try await BodySeekSwiftDataBackend.shared.resetAll()
+                try await BodySeekSharedStore.shared.resetAll()
             }
         )
     }()
