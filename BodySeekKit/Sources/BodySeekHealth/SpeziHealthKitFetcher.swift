@@ -435,12 +435,13 @@ enum SpeziHealthKitFetcher {
         )
     }
 
-    private static func activityDisplay(for type: HKWorkoutActivityType) -> (String, String) {
+    static func activityDisplay(for type: HKWorkoutActivityType) -> (String, String) {
         switch type {
         case .running: ("跑步", "figure.run")
         case .walking: ("步行", "figure.walk")
         case .cycling: ("骑行", "figure.outdoor.cycle")
         case .swimming: ("游泳", "figure.pool.swim")
+        case .badminton: ("羽毛球", "figure.badminton")
         case .traditionalStrengthTraining, .functionalStrengthTraining: ("力量训练", "dumbbell.fill")
         case .highIntensityIntervalTraining: ("HIIT", "flame.fill")
         case .yoga: ("瑜伽", "figure.mind.and.body")

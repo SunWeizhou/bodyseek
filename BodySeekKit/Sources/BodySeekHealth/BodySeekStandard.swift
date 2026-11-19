@@ -69,6 +69,12 @@ public enum BodySeekSpeziConfiguration {
                         .bloodOxygen,
                         .appleSleepingWristTemperature,
                         .workoutEffortScore,
+                        .estimatedWorkoutEffortScore,
+                        .physicalEffort,
+                        .walkingHeartRateAverage,
+                        .vo2Max,
+                        .heartRateRecoveryOneMinute,
+                        .bodyMass,
                     ]
                 )
                 RequestWriteAccess(
