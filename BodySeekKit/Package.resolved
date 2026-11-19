@@ -1,5 +1,5 @@
 {
-  "originHash" : "9e0c0133c3f41764f213aefaf608a6ffb6b85f4ea06a0fb798fa423a3aee2c80",
+  "originHash" : "6276ed46d1262eec4bd1e98065e56922c73e88ee666095593c53bc0342c4563e",
   "pins" : [
     {
       "identity" : "combine-schedulers",
@@ -26,15 +26,6 @@
       "state" : {
         "revision" : "731037f6cc2be2ec01562f6597c1d0aa3fe6fd05",
         "version" : "6.0.1"
-      }
-    },
-    {
-      "identity" : "liveline-swift",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/ParthJadhav/liveline-swift.git",
-      "state" : {
-        "revision" : "2b57a29bc13d9acb7029f12caa29d6d7ccfda80f",
-        "version" : "0.7.0"
       }
     },
     {
@@ -80,15 +71,6 @@
       "state" : {
         "revision" : "5b72eb9a6b23b1fec439d9a0bf38f115400421f9",
         "version" : "6.4.0"
-      }
-    },
-    {
-      "identity" : "sleepchartkit",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/DanielJamesTronca/SleepChartKit.git",
-      "state" : {
-        "revision" : "0c1077bd035f05e912e64a34ec0c9de5b0b142d0",
-        "version" : "1.2.0"
       }
     },
     {

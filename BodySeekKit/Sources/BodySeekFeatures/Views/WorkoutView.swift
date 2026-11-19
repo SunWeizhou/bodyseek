@@ -1,4 +1,5 @@
 import BodySeekCore
+import BodySeekDesign
 import ComposableArchitecture
 import MuscleMap
 import SwiftUI
@@ -549,7 +550,7 @@ public struct WorkoutView: View {
                             .foregroundStyle(BevelTheme.inkSecondary)
 
                             if let zones = workout.heartRateZones, zones.totalZoneMinutes > 0 {
-                                WatchHeartRateZonesBar(zones: zones)
+                                ZoneBar(zones: zones, showsTrimp: true)
                             }
                         }
                     }

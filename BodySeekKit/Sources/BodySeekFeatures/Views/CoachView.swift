@@ -1,4 +1,5 @@
 import BodySeekCore
+import BodySeekDesign
 import ComposableArchitecture
 import SwiftUI
 
@@ -203,7 +204,7 @@ public struct CoachView: View {
                         .font(.caption2)
                         .foregroundStyle(BevelTheme.inkSecondary)
                 }
-                MetricSparklineChart(
+                MiniSparkline(
                     points: store.state.sparklinePoints(for: kind),
                     tint: tint,
                     height: 44

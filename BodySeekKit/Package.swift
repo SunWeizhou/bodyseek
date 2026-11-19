@@ -10,6 +10,7 @@ let package = Package(
     ],
     products: [
         .library(name: "BodySeekCore", targets: ["BodySeekCore"]),
+        .library(name: "BodySeekDesign", targets: ["BodySeekDesign"]),
         .library(name: "BodySeekStore", targets: ["BodySeekStore"]),
         .library(name: "BodySeekHealth", targets: ["BodySeekHealth"]),
         .library(name: "BodySeekFeatures", targets: ["BodySeekFeatures"]),
@@ -56,14 +57,6 @@ let package = Package(
             from: "1.9.0"
         ),
         .package(
-            url: "https://github.com/DanielJamesTronca/SleepChartKit.git",
-            from: "1.2.0"
-        ),
-        .package(
-            url: "https://github.com/ParthJadhav/liveline-swift.git",
-            from: "0.6.1"
-        ),
-        .package(
             url: "https://github.com/groue/GRDB.swift.git",
             from: "7.0.0"
         ),
@@ -72,6 +65,12 @@ let package = Package(
         .target(
             name: "BodySeekCore",
             dependencies: []
+        ),
+        .target(
+            name: "BodySeekDesign",
+            dependencies: [
+                "BodySeekCore",
+            ]
         ),
         .target(
             name: "BodySeekStore",
@@ -100,13 +99,12 @@ let package = Package(
             name: "BodySeekFeatures",
             dependencies: [
                 "BodySeekCore",
+                "BodySeekDesign",
                 "BodySeekStore",
                 "BodySeekHealth",
                 .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
                 .product(name: "Dependencies", package: "swift-dependencies"),
-                .product(name: "Liveline", package: "liveline-swift"),
                 .product(name: "MuscleMap", package: "MuscleMap"),
-                .product(name: "SleepChartKit", package: "SleepChartKit"),
                 .product(name: "Spezi", package: "Spezi"),
                 .product(name: "SpeziHealthKit", package: "SpeziHealthKit"),
                 .product(name: "SpeziLLM", package: "SpeziLLM"),
@@ -117,6 +115,7 @@ let package = Package(
             name: "BodySeekKitTests",
             dependencies: [
                 "BodySeekCore",
+                "BodySeekDesign",
                 "BodySeekStore",
                 "BodySeekHealth",
                 "BodySeekFeatures",

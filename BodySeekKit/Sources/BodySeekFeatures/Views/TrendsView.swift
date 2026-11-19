@@ -1,4 +1,5 @@
 import BodySeekCore
+import BodySeekDesign
 import ComposableArchitecture
 import SwiftUI
 
@@ -147,14 +148,21 @@ public struct TrendsView: View {
                     }
                 }
 
-                BevelMetricTrendChart(
-                    series: series,
-                    tint: tint,
-                    selectedDate: Binding(
-                        get: { store.selectedDate },
-                        set: { store.send(.selectedDateChanged($0)) }
-                    )
-                )
+                if store.horizon.usesRangeCapsules {
+                    RangeCapsuleChart(
+                        snapshot: store.activeChartSnapshot,
+                        tint: tint
+                    ) { bucket in
+                        store.send(.selectedDateChanged(bucket?.endDate))
+                    }
+                } else {
+                    TrendLineChart(
+                        snapshot: store.activeChartSnapshot,
+                        tint: tint
+                    ) { date in
+                        store.send(.selectedDateChanged(date))
+                    }
+                }
             }
         }
     }
@@ -181,13 +189,9 @@ public struct TrendsView: View {
                         .foregroundStyle(BevelTheme.brand)
                 }
 
-                DualAxisLoadRecoveryChart(
-                    days: days,
-                    selectedDate: Binding(
-                        get: { store.selectedDate },
-                        set: { store.send(.selectedDateChanged($0)) }
-                    )
-                )
+                LoadRecoveryComboChart(days: days) { date in
+                    store.send(.selectedDateChanged(date))
+                }
             }
         }
     }
@@ -215,7 +219,7 @@ public struct TrendsView: View {
                             .foregroundStyle(BevelTheme.inkSecondary)
                     }
 
-                    MetricSparklineChart(
+                    MiniSparkline(
                         points: series.points.map { ($0.date, $0.value.map(Double.init)) },
                         tint: tint,
                         baselineRange: series.baselineRange,

@@ -1,4 +1,5 @@
 @_exported import BodySeekCore
+@_exported import BodySeekDesign
 @_exported import BodySeekFeatures
 @_exported import BodySeekHealth
 import ComposableArchitecture

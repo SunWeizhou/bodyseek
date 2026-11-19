@@ -1,4 +1,5 @@
 import BodySeekCore
+import BodySeekDesign
 import SwiftUI
 
 public struct OnboardingView: View {
@@ -38,7 +39,7 @@ public struct OnboardingView: View {
                         icon: "bed.double.fill",
                         tint: BevelTheme.sleepColor,
                         title: "睡眠分期阶梯 & 昼夜压力能量图",
-                        detail: "集成 SleepChartKit 阶梯分期图、24 小时压力节律与 ACWR 负荷平衡。"
+                        detail: "原生 Swift Charts 与阶梯睡眠图呈现 24 小时压力节律、能量充放与 ACWR 负荷平衡。"
                     )
                     featureRow(
                         icon: "sparkles",

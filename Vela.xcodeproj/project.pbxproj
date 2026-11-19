@@ -9,15 +9,16 @@
 /* Begin PBXBuildFile section */
 		089F5C009FF1D9092921A053 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 3ECDF3E2FC7C622B347DE25F /* PrivacyInfo.xcprivacy */; };
 		12C884983D26B9478D304845 /* BodySeekIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = A49A7B26B4BF131FE837F590 /* BodySeekIcon.icon */; };
-		37550D7DE71BBDD2E162F7C0 /* BodySeekFeatures in Frameworks */ = {isa = PBXBuildFile; productRef = C19CBD0A40EA7C601C02835D /* BodySeekFeatures */; };
-		4F46C1ED06C3A1AE8B0E18CE /* BodySeekStore in Frameworks */ = {isa = PBXBuildFile; productRef = 9EB3A65ED6E6A8147035EA08 /* BodySeekStore */; };
+		37550D7DE71BBDD2E162F7C0 /* BodySeekHealth in Frameworks */ = {isa = PBXBuildFile; productRef = 2856C729EEC2A06F86A035DB /* BodySeekHealth */; };
+		4F46C1ED06C3A1AE8B0E18CE /* BodySeekDesign in Frameworks */ = {isa = PBXBuildFile; productRef = 8AD9E50BF80AEE91AE719A8F /* BodySeekDesign */; };
 		5DDF685059EB432BB24FF62E /* BodySeekUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C55DEC4A06FDADF31AAC755 /* BodySeekUITests.swift */; };
 		7E68DB6F7B15AB8C028E8CC1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1BED176B9748E9E0B87D79D7 /* Assets.xcassets */; };
-		8E9A857D6630E3F65677543F /* BodySeekHealth in Frameworks */ = {isa = PBXBuildFile; productRef = 2856C729EEC2A06F86A035DB /* BodySeekHealth */; };
+		8E9A857D6630E3F65677543F /* BodySeekStore in Frameworks */ = {isa = PBXBuildFile; productRef = 9EB3A65ED6E6A8147035EA08 /* BodySeekStore */; };
 		A35153FC9A17858A3A8AF0A8 /* VelaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7499466D6D0797FCF7AB6CB /* VelaApp.swift */; };
 		A591830F448954367B34CF1B /* BodySeekCore in Frameworks */ = {isa = PBXBuildFile; productRef = E031FC1C3EF2981CD0379868 /* BodySeekCore */; };
 		A889A67CA7D501EC0400642F /* BodySeekAppIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E974BE917F29D0ACA303CE02 /* BodySeekAppIntegrationTests.swift */; };
 		B6A23A9084994CF3DD8B40F4 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 9AE69E6819F40934E746AA99 /* Localizable.strings */; };
+		C881CC0F63E055DADB293792 /* BodySeekFeatures in Frameworks */ = {isa = PBXBuildFile; productRef = C19CBD0A40EA7C601C02835D /* BodySeekFeatures */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -57,9 +58,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				A591830F448954367B34CF1B /* BodySeekCore in Frameworks */,
-				4F46C1ED06C3A1AE8B0E18CE /* BodySeekStore in Frameworks */,
-				8E9A857D6630E3F65677543F /* BodySeekHealth in Frameworks */,
-				37550D7DE71BBDD2E162F7C0 /* BodySeekFeatures in Frameworks */,
+				4F46C1ED06C3A1AE8B0E18CE /* BodySeekDesign in Frameworks */,
+				8E9A857D6630E3F65677543F /* BodySeekStore in Frameworks */,
+				37550D7DE71BBDD2E162F7C0 /* BodySeekHealth in Frameworks */,
+				C881CC0F63E055DADB293792 /* BodySeekFeatures in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -157,6 +159,7 @@
 			name = Vela;
 			packageProductDependencies = (
 				E031FC1C3EF2981CD0379868 /* BodySeekCore */,
+				8AD9E50BF80AEE91AE719A8F /* BodySeekDesign */,
 				9EB3A65ED6E6A8147035EA08 /* BodySeekStore */,
 				2856C729EEC2A06F86A035DB /* BodySeekHealth */,
 				C19CBD0A40EA7C601C02835D /* BodySeekFeatures */,
@@ -598,6 +601,10 @@
 		2856C729EEC2A06F86A035DB /* BodySeekHealth */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = BodySeekHealth;
+		};
+		8AD9E50BF80AEE91AE719A8F /* BodySeekDesign */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = BodySeekDesign;
 		};
 		9EB3A65ED6E6A8147035EA08 /* BodySeekStore */ = {
 			isa = XCSwiftPackageProductDependency;

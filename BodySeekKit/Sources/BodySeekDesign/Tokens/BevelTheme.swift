@@ -5,6 +5,10 @@ import SwiftUI
 import UIKit
 #endif
 
+public enum BodySeekMotion {
+    public static let standard = Animation.spring(response: 0.35, dampingFraction: 0.82)
+}
+
 public enum BevelTheme {
     private static func hexRGBA(_ value: String) -> (r: CGFloat, g: CGFloat, b: CGFloat, a: CGFloat) {
         let hex = value.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
@@ -75,6 +79,31 @@ public enum BevelTheme {
 
     public static let dangerColor = adaptive("#D92D20", "#FF6B6B")
 
+    // MARK: - Daily Nutrition 4-State Circle Tokens (每日营养素)
+
+    public static let nutritionMet = adaptive("#4A9D72", "#4A9D72")
+    public static let nutritionLow = adaptive("#D79939", "#D79939")
+    public static let nutritionOver = adaptive("#D65C5C", "#D65C5C")
+    public static let nutritionUnknown = adaptive("#8A9099", "#8A9099")
+
+    public static func nutritionColor(for status: NutritionReadingStatus) -> Color {
+        switch status {
+        case .met: nutritionMet
+        case .low: nutritionLow
+        case .over: nutritionOver
+        case .unknown: nutritionUnknown
+        }
+    }
+
+    public static func nutritionInkColor(for status: NutritionReadingStatus) -> Color {
+        switch status {
+        case .met: adaptive("#226B46", "#6AD198")
+        case .low: adaptive("#8B5A0B", "#F2B857")
+        case .over: adaptive("#A42D2D", "#F28080")
+        case .unknown: inkSecondary
+        }
+    }
+
     public static func color(for kind: MetricKind) -> Color {
         switch kind {
         case .recovery: recoveryColor
@@ -92,5 +121,46 @@ public enum BevelTheme {
         case .rem: adaptive("#14B8A6", "#2DD4BF")
         case .awake: adaptive("#F97316", "#FB923C")
         }
+    }
+}
+
+public extension View {
+    /// Unified BodySeek grouped card surface with subtle hairline stroke and continuous corner radius.
+    func bodySeekSurface(cornerRadius: CGFloat = 20, padding: CGFloat = 16) -> some View {
+        self
+            .padding(padding)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(BevelTheme.card, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(BevelTheme.hairline.opacity(0.6), lineWidth: 0.5)
+            )
+    }
+
+    /// Liquid pill control chrome compatible with iOS 26 glass surfaces and clean grouped fallback.
+    @ViewBuilder
+    func bodySeekLiquidPill(isSelected: Bool, tint: Color = BevelTheme.brand) -> some View {
+        #if os(iOS)
+        if #available(iOS 26.0, *) {
+            self
+                .background(
+                    isSelected ? tint.opacity(0.16) : BevelTheme.card.opacity(0.85),
+                    in: Capsule()
+                )
+                .overlay(
+                    Capsule()
+                        .strokeBorder(
+                            isSelected ? tint.opacity(0.45) : BevelTheme.hairline.opacity(0.65),
+                            lineWidth: isSelected ? 1.0 : 0.5
+                        )
+                )
+        } else {
+            self
+                .background(isSelected ? tint.opacity(0.16) : BevelTheme.surfaceElevated, in: Capsule())
+        }
+        #else
+        self
+            .background(isSelected ? tint.opacity(0.16) : BevelTheme.surfaceElevated, in: Capsule())
+        #endif
     }
 }

@@ -1,6 +1,6 @@
 import SwiftUI
 
-extension ToolbarItemPlacement {
+public extension ToolbarItemPlacement {
     static var bodyseekLeading: ToolbarItemPlacement {
         #if os(iOS)
         .topBarLeading
@@ -18,7 +18,7 @@ extension ToolbarItemPlacement {
     }
 }
 
-extension View {
+public extension View {
     @ViewBuilder
     func bodyseekNavigationBarInline() -> some View {
         #if os(iOS)

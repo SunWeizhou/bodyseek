@@ -1,4 +1,5 @@
 import BodySeekCore
+import BodySeekDesign
 import SwiftUI
 
 public struct CheckInSheetView: View {

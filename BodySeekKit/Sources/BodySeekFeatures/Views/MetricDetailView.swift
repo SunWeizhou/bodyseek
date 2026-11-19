@@ -1,4 +1,5 @@
 import BodySeekCore
+import BodySeekDesign
 import ComposableArchitecture
 import SwiftUI
 
@@ -132,14 +133,21 @@ public struct MetricDetailView: View {
                     }
                 }
 
-                BevelMetricTrendChart(
-                    series: series,
-                    tint: tint,
-                    selectedDate: Binding(
-                        get: { store.selectedDate },
-                        set: { store.send(.selectedDateChanged($0)) }
-                    )
+                let chartSnapshot = BevelScoringEngine.buildChartSeriesSnapshot(
+                    for: store.kind,
+                    horizon: store.horizon,
+                    days: store.snapshot.historyDays,
+                    referenceDate: store.snapshot.referenceDate
                 )
+                if store.horizon.usesRangeCapsules {
+                    RangeCapsuleChart(snapshot: chartSnapshot, tint: tint) { bucket in
+                        store.send(.selectedDateChanged(bucket?.endDate))
+                    }
+                } else {
+                    TrendLineChart(snapshot: chartSnapshot, tint: tint) { date in
+                        store.send(.selectedDateChanged(date))
+                    }
+                }
 
                 Text(series.statusSummary)
                     .font(.caption)
@@ -157,14 +165,14 @@ public struct MetricDetailView: View {
                     .foregroundStyle(BevelTheme.ink)
 
                 if store.kind == .sleep && day.raw.sleepAsleepMinutes != nil {
-                    SleepStageTimelineView(segments: day.raw.sleepSegments, height: 158)
+                    SleepStageChart(segments: day.raw.sleepSegments, height: 158, interactive: true)
                     Divider()
                 } else if store.kind == .stress && !day.stressTimeline.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("24 小时自主神经压力节律")
                             .font(.caption)
                             .foregroundStyle(BevelTheme.inkSecondary)
-                        StressHeatmapChart(bins: day.stressTimeline, height: 72, interactive: true)
+                        IntradayBarChart(bins: day.stressTimeline, height: 112, interactive: true)
                     }
                     Divider()
                 } else if store.kind == .energy && !day.energyCurve.isEmpty {
@@ -172,7 +180,7 @@ public struct MetricDetailView: View {
                         Text("昼夜电池充放电轨迹")
                             .font(.caption)
                             .foregroundStyle(BevelTheme.inkSecondary)
-                        EnergyBatteryCurveChart(curve: day.energyCurve, height: 72, interactive: true)
+                        EnergyAreaChart(curve: day.energyCurve, height: 112, interactive: true)
                     }
                     Divider()
                 }

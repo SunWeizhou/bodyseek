@@ -1,4 +1,5 @@
 import BodySeekCore
+import BodySeekDesign
 import ComposableArchitecture
 import SwiftUI
 
@@ -110,7 +111,7 @@ public struct SettingsView: View {
                     Button("重置训练日志、记忆与设置", role: .destructive) {
                         store.send(.resetAllDataTapped)
                     }
-                    Text("开源生态：SpeziHealthKit · SpeziLLM · TCA · MuscleMap · SleepChartKit · free-exercise-db · SwiftData。")
+                    Text("开源生态：SpeziHealthKit · TCA · GRDB.swift · Swift Charts · MuscleMap · free-exercise-db。")
                         .font(.footnote)
                         .foregroundStyle(BevelTheme.inkSecondary)
                 }

@@ -1,4 +1,5 @@
 import BodySeekCore
+import BodySeekDesign
 import ComposableArchitecture
 import SwiftUI
 
@@ -398,7 +399,7 @@ public struct TodayView: View {
                             .foregroundStyle(BevelTheme.inkSecondary)
                     }
 
-                    StressHeatmapChart(bins: store.today.stressTimeline, height: 34)
+                    IntradayBarChart(bins: store.today.stressTimeline, height: 34)
                 }
             }
         }
@@ -440,7 +441,7 @@ public struct TodayView: View {
                             .lineLimit(1)
                     }
 
-                    EnergyBatteryCurveChart(curve: store.today.energyCurve, height: 34)
+                    EnergyAreaChart(curve: store.today.energyCurve, height: 34)
                 }
             }
         }
@@ -474,7 +475,7 @@ public struct TodayView: View {
                     }
 
                     if store.today.raw.sleepAsleepMinutes != nil {
-                        SleepStageTimelineView(segments: store.today.raw.sleepSegments, height: 148)
+                        SleepStageChart(segments: store.today.raw.sleepSegments, height: 148, interactive: false)
                     } else {
                         Text(store.today.sleep.availability.reasonText ?? "昨晚暂无睡眠分段数据")
                             .font(.footnote)
@@ -537,7 +538,7 @@ public struct TodayView: View {
                     .font(.title3.weight(.semibold).monospacedDigit())
                     .contentTransition(.numericText())
                     .foregroundStyle(valueText.contains("--") ? BevelTheme.inkSecondary : BevelTheme.ink)
-                MetricSparklineChart(points: points, tint: tint, height: 42)
+                MiniSparkline(points: points, tint: tint, height: 42)
             }
         }
     }
@@ -582,7 +583,7 @@ public struct TodayView: View {
                         }
 
                         if let zones = workout.heartRateZones, zones.totalZoneMinutes > 0 {
-                            WatchHeartRateZonesBar(zones: zones)
+                            ZoneBar(zones: zones)
                         }
                     }
                 }
