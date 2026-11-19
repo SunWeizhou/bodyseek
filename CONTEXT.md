@@ -1,9 +1,9 @@
 # Vela Health Intelligence — Domain Glossary
 
 > Status: Canonical
-> Last verified: 2026-10-06
+> Last verified: 2026-11-19
 > Scope: Vela 全局唯一领域术语定义与受控词汇表（Domain Ubiquitous Language）
-> Does not define: 页面结构与 UI 组件（见 [docs/PRD.md](docs/PRD.md)）、代码实现细节（见 [docs/TECH_ARCHITECTURE.md](docs/TECH_ARCHITECTURE.md)）
+> Does not define: 页面结构与 UI 组件（见 [docs/PRD.md](docs/PRD.md)）、代码实现细节（见 [docs/TECH_ARCHITECTURE.md](docs/TECH_ARCHITECTURE.md)）与架构决策（见 [docs/adr/0019-bodyseek-v5-architecture-and-modeling-baseline.md](docs/adr/0019-bodyseek-v5-architecture-and-modeling-baseline.md)）
 
 BodySeek（工程身份 Vela）是建立在 Apple 健康之上的个人身体状态仪表与 AI 分析助手：用个人长期数据量化当下状态，让用户为真实感受找到客观线索，而不是把疲惫或不适简单归咎于意志力；Agent 负责解释、追问与把理解转化为可调整的日常计划。
 
@@ -73,7 +73,7 @@ A multi-scale (7d, 30d, 6m, 3y) statistical finding for a specific health metric
 _Avoid_: Raw difference, isolated daily variance
 
 **Personal Health Brief**:
-The canonical, structured daily intelligence object answering "How am I overall? What is changing? Is it noteworthy? What might be driving it? Does it need action?". Consumed synchronously by Today, Trends, Plan, and Coach.
+The canonical, structured daily intelligence object answering "How am I overall? What is changing? Is it noteworthy? What might be driving it? Does it need action?". Consumed synchronously by Today, Workout, Trends, and Coach.
 _Avoid_: Workout prescription, isolated score summary
 
 **Lived State**:
@@ -93,7 +93,7 @@ The canonical daily choice to keep, reduce, swap, or recover, with reasons and c
 _Avoid_: AI recommendation, workout verdict, readiness label
 
 **Daily Operating Plan**:
-A locally available plan created for every day that protects Health Rhythm through one primary action and at most two supporting actions across training, movement, eating, stress recovery, and sleep. Deterministic evidence establishes safety constraints, the Agent expresses and organizes them naturally, and the Primary User may edit, delete, reschedule, or replace any action. A saved canonical action sequence stays in place when body state changes; Plan shows a candidate instead of replacing it. It does not become a general work or calendar manager.
+A locally available plan created for every day (surfaced via the Today action card under ADR 0019) that protects Health Rhythm through one primary action and at most two supporting actions across training, movement, eating, stress recovery, and sleep. Deterministic evidence establishes safety constraints, the Agent expresses and organizes them naturally, and the Primary User may edit, delete, reschedule, or replace any action. A saved canonical action sequence stays in place when body state changes; the Today action card shows a candidate instead of replacing it. It does not become a general work or calendar manager.
 _Avoid_: Today card, generated brief, coach plan, silent regeneration
 
 **Plan Proposal**:

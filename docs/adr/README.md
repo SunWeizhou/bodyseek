@@ -1,10 +1,10 @@
 # Architecture Decision Records (ADRs)
 
 > Status: Canonical
-> Last verified: 2026-11-16
+> Last verified: 2026-11-19
 > Scope: Vela 核心架构决策记录索引、状态与演进关系
 >
-> 现行软件以 **ADR 0018 Accepted** 为最新平台与 UI 基线（iOS 26.0 原生 `TabView` / Liquid Glass 壳层、Bevel 启发语义色与丰富可视化）；ADR 0017 的纯 Domain Core、`BodySeek`/`Vela` 工程身份、五项独立分数、SwiftData V3 保护与 AI/用户确认边界继续有效。Superseded 记录只供追溯。
+> 现行软件以 **ADR 0019 Accepted** 为最新总体架构与 V5 工程基线（`BodySeekCore` 纯领域核心、GRDB 7 本地持久化、原生 Swift Charts 组件族、Watch-First 健身与启发式肌群恢复、Keychain + 轻量双引擎 Agent、Walk-Forward 基线优先个人建模）；`ADR 0018` 的 iOS 26 原生 `TabView` / Liquid Glass 壳层与五域语义色继续作为交互底座，`ADR 0001–0011` 核心边界保持有效。Superseded 记录只供追溯。
 
 ---
 
@@ -28,5 +28,6 @@
 | [0014](0014-product-identity-and-primary-surface-labels.md) | Product Identity and Primary Surface Labels | Superseded | 被 ADR 0017 取代；工程身份仍为 Vela，BodySeek 固定为对外产品名。 |
 | [0015](0015-platform-floor-and-transition.md) | Platform Floor and Transition | Superseded | 被 ADR 0017 取代；现行 shipping floor 固定为 iOS 17 / watchOS 10。 |
 | [0016](0016-widget-scope-for-current-release.md) | Widget Scope for Current Release | Superseded | 被 ADR 0017 吸收；Widget 继续是 bounded preview，不进入当前 critical path。 |
-| [0017](0017-bodyseek-architecture-and-product-baseline-v2.md) | BodySeek Architecture and Product Baseline v2 | Superseded (by 0018 for iOS floor & UI) | 确立 BodySeek/Vela 身份、纯 Domain Core 与 PR0–PR8 迁移；iOS 17 底线由 ADR 0018 升级。 |
-| [0018](0018-ios26-native-architecture-and-bevel-visual-reset.md) | iOS 26 Native Architecture and Bevel-Inspired Visual Reset | Accepted | 升级 iOS 26.0 部署底线，采用原生 `TabView` + `TabRole.search` Coach + Liquid Glass，废除 Design D 单色限制并强化多维数据可视化。 |
+| [0017](0017-bodyseek-architecture-and-product-baseline-v2.md) | BodySeek Architecture and Product Baseline v2 | Superseded (by 0018 / 0019) | 确立 BodySeek/Vela 身份、纯 Domain Core 与 PR0–PR8 迁移；iOS 17 底线由 ADR 0018 升级，持久化与引擎由 ADR 0019 接续。 |
+| [0018](0018-ios26-native-architecture-and-bevel-visual-reset.md) | iOS 26 Native Architecture and Bevel-Inspired Visual Reset | Partially Superseded (by 0019) | 升级 iOS 26.0 部署底线，采用原生 `TabView` + `TabRole.search` Coach + Liquid Glass，废除 Design D 单色限制。 |
+| [0019](0019-bodyseek-v5-architecture-and-modeling-baseline.md) | BodySeek V5 Architecture, GRDB Persistence & Modeling Baseline | Accepted | 确立纯 `BodySeekCore`、`score-v2`、GRDB 7、原生 `BodySeekChart`、Watch-First 健身、Keychain/可控 Agent 与 Walk-Forward 基线建模。 |
