@@ -58,7 +58,7 @@ extension HealthKitClient: DependencyKey {
                 }
                 if args.contains("-velaPreviewDashboard") {
                     return BevelScoringEngine.computeWindow(
-                        rawDays: PreviewSeedFactory.makeRawWindow(endingAt: referenceDate, days: days),
+                        rawDays: PreviewSeedFactory.makeRawWindow(endingAt: referenceDate, days: max(days, 420)),
                         sleepGoalMinutes: sleepGoalMinutes,
                         referenceDate: referenceDate,
                         sourceLabel: "示例数据",

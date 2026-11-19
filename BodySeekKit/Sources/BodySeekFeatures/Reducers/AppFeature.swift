@@ -29,6 +29,7 @@ public struct AppFeature: Sendable {
         public var todayPath = StackState<MetricDetailFeature.State>()
         public var trendsPath = StackState<MetricDetailFeature.State>()
         @Presents public var settings: SettingsFeature.State?
+        @Presents public var nutrition: NutritionFeature.State?
         public var isCheckInPresented: Bool = false
 
         public init(
@@ -61,7 +62,13 @@ public struct AppFeature: Sendable {
             self.templates = templates
             self.sessions = resolvedSessions
             self.memories = memories
-            self.today = TodayFeature.State(snapshot: initialSnapshot)
+            self.today = TodayFeature.State(
+                snapshot: initialSnapshot,
+                planItems: TodayActionGenerator.generateDefaultPlanItems(
+                    for: initialSnapshot,
+                    dayKey: initialSnapshot.referenceDate.physiologicalDayKey()
+                )
+            )
             self.workout = WorkoutFeature.State(
                 snapshot: initialSnapshot,
                 templates: templates,
@@ -95,6 +102,14 @@ public struct AppFeature: Sendable {
         case snapshotLoaded(BodySeekDashboardSnapshot)
         case persistenceFailed(String)
         case backgroundSyncCompleted(String?)
+        case supplementalContextLoaded(
+            planItems: [PlanItemRecord],
+            patterns: [PatternFindingRecord],
+            todayNutritionLog: DailyNutritionLog?,
+            nutritionTargetPlan: NutritionTargetPlan?,
+            rollingDeficit7d: Double?,
+            error: String?
+        )
         case fitnessStoreLoaded(
             templates: [WorkoutTemplate],
             sessions: [LoggedWorkoutSession],
@@ -112,6 +127,7 @@ public struct AppFeature: Sendable {
         case todayPath(StackActionOf<MetricDetailFeature>)
         case trendsPath(StackActionOf<MetricDetailFeature>)
         case settings(PresentationAction<SettingsFeature.Action>)
+        case nutrition(PresentationAction<NutritionFeature.Action>)
         case checkInPresented(Bool)
         case checkInFeelingSelected(Int)
         case checkInSaved(DailyCheckIn)
@@ -161,6 +177,7 @@ public struct AppFeature: Sendable {
                     loadCachedDashboardEffect(goalMinutes: state.preferences.sleepGoalMinutes, referenceDate: now),
                     loadSnapshotEffect(goalMinutes: state.preferences.sleepGoalMinutes, referenceDate: now),
                     loadFitnessStoreEffect(),
+                    loadSupplementalContextEffect(dayKey: state.snapshot.referenceDate.physiologicalDayKey(), referenceDate: now),
                     observeHealthUpdatesEffect(),
                     observeStoredDashboardEffect(goalMinutes: state.preferences.sleepGoalMinutes)
                 )
@@ -242,6 +259,19 @@ public struct AppFeature: Sendable {
                 }
                 return .none
 
+            case let .supplementalContextLoaded(planItems, patterns, nutritionLog, nutritionPlan, rollingDeficit7d, error):
+                if !planItems.isEmpty {
+                    state.today.planItems = planItems
+                }
+                state.trends.patternFindings = patterns
+                state.today.todayNutritionLog = nutritionLog
+                state.today.nutritionTargetPlan = nutritionPlan
+                state.today.nutritionRollingDeficit7d = rollingDeficit7d
+                if let error {
+                    state.today.lastError = error
+                }
+                return .none
+
             case let .fitnessStoreLoaded(templates, sessions, memories, messages, error):
                 state.templates = templates
                 state.sessions = sessions
@@ -286,7 +316,14 @@ public struct AppFeature: Sendable {
                     }
 
                 case let .openMetric(kind):
-                    state.todayPath.append(MetricDetailFeature.State(kind: kind, snapshot: state.snapshot))
+                    state.todayPath.append(
+                        MetricDetailFeature.State(
+                            kind: kind,
+                            snapshot: state.snapshot,
+                            sleepGoalMinutes: state.preferences.sleepGoalMinutes,
+                            precomputedCache: state.trends.cache(for: kind)
+                        )
+                    )
                     return .none
 
                 case let .askCoach(question):
@@ -299,6 +336,28 @@ public struct AppFeature: Sendable {
                     } catch {
                         state.today.lastError = "保存主观状态失败：\(error.localizedDescription)"
                     }
+                    return .none
+
+                case let .adoptPlanItem(item), let .dismissPlanItem(item):
+                    return .run { send in
+                        do {
+                            let proposal = try ActionProposal(
+                                kind: .adjustPlan,
+                                origin: .user,
+                                encodablePayload: AdjustPlanPayload(item: item),
+                                rationale: item.state == .adopted ? "用户采纳今日行动建议" : "用户跳过今日行动建议"
+                            )
+                            _ = try await bodySeekStoreClient.executeProposal(proposal)
+                        } catch {
+                            await send(.persistenceFailed("保存行动计划状态失败：\(error.localizedDescription)"))
+                        }
+                    }
+
+                case .openNutrition:
+                    state.nutrition = NutritionFeature.State(
+                        snapshot: state.snapshot,
+                        todayKey: state.snapshot.referenceDate.physiologicalDayKey()
+                    )
                     return .none
 
                 case .openSettings:
@@ -350,7 +409,15 @@ public struct AppFeature: Sendable {
             // MARK: - Trends & MetricDetail Delegates
 
             case let .trends(.delegate(.openMetric(kind, horizon))):
-                state.trendsPath.append(MetricDetailFeature.State(kind: kind, snapshot: state.snapshot, horizon: horizon))
+                state.trendsPath.append(
+                    MetricDetailFeature.State(
+                        kind: kind,
+                        snapshot: state.snapshot,
+                        horizon: horizon,
+                        sleepGoalMinutes: state.preferences.sleepGoalMinutes,
+                        precomputedCache: state.trends.cache(for: kind)
+                    )
+                )
                 return .none
 
             case let .todayPath(.element(id: _, action: .delegate(.askCoach(question)))),
@@ -412,6 +479,12 @@ public struct AppFeature: Sendable {
                     state.coach.templates = ExerciseCatalog.defaultTemplates
                     state.today.subjectiveFeeling = nil
                     state.today.todayCheckIn = nil
+                    state.today.planItems = []
+                    state.today.todayNutritionLog = nil
+                    state.today.nutritionTargetPlan = nil
+                    state.today.nutritionRollingDeficit7d = nil
+                    state.trends.patternFindings = []
+                    state.nutrition = nil
                     let emptySnapshot = BevelScoringEngine.computeWindow(
                         rawDays: PreviewSeedFactory.makeEmptyRawWindow(endingAt: now),
                         sleepGoalMinutes: state.preferences.sleepGoalMinutes,
@@ -476,7 +549,20 @@ public struct AppFeature: Sendable {
                     }
                 }
 
-            case .today, .workout, .trends, .coach, .todayPath, .trendsPath, .settings:
+            case let .nutrition(.presented(.delegate(delegate))):
+                switch delegate {
+                case let .nutritionDataChanged(todayLog, plan, rollingDeficit7d):
+                    state.today.todayNutritionLog = todayLog
+                    state.today.nutritionTargetPlan = plan
+                    state.today.nutritionRollingDeficit7d = rollingDeficit7d
+                    return .none
+
+                case .dismissed:
+                    state.nutrition = nil
+                    return .none
+                }
+
+            case .today, .workout, .trends, .coach, .todayPath, .trendsPath, .settings, .nutrition:
                 return .none
             }
         }
@@ -488,6 +574,9 @@ public struct AppFeature: Sendable {
         }
         .ifLet(\.$settings, action: \.settings) {
             SettingsFeature()
+        }
+        .ifLet(\.$nutrition, action: \.nutrition) {
+            NutritionFeature()
         }
     }
 
@@ -543,6 +632,83 @@ public struct AppFeature: Sendable {
                 await send(.backgroundSyncCompleted(nil))
             } catch {
                 await send(.backgroundSyncCompleted("后台同步历史健康数据失败：\(error.localizedDescription)"))
+            }
+        }
+    }
+
+    private func loadSupplementalContextEffect(dayKey: DayKey, referenceDate: Date) -> Effect<Action> {
+        let isPreview = ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard")
+        return .run { send in
+            do {
+                let storedPlan = try await bodySeekStoreClient.loadPlanItems(dayKey)
+                let findings = try await bodySeekStoreClient.loadPatternFindings(nil)
+
+                var profile = try await bodySeekStoreClient.loadNutritionProfile()
+                var plan = try await bodySeekStoreClient.loadNutritionTargetPlan()
+                var logs = try await bodySeekStoreClient.loadNutritionLogs(nil, nil)
+
+                if isPreview && profile == nil && logs.isEmpty {
+                    let seedProfile = NutritionPlanFactory.makePreviewProfile()
+                    let seedPlan = NutritionPlanFactory.makeDefaultDRIsPlan(for: seedProfile, effectiveFrom: dayKey)
+                    let seedLogs = NutritionPlanFactory.makePreviewLogs(endingAt: dayKey, bmrKcal: seedProfile.bmrKcalReference ?? 1640)
+                    let profProp = try ActionProposal(kind: .upsertNutritionProfile, origin: .system, encodablePayload: UpsertNutritionProfilePayload(profile: seedProfile))
+                    _ = try await bodySeekStoreClient.executeProposal(profProp)
+                    let planProp = try ActionProposal(kind: .commitNutritionTargets, origin: .system, encodablePayload: CommitNutritionTargetsPayload(plan: seedPlan))
+                    _ = try await bodySeekStoreClient.executeProposal(planProp)
+                    for log in seedLogs {
+                        for entry in log.entries {
+                            let mealProp = try ActionProposal(kind: .logNutritionMeal, origin: .system, encodablePayload: LogNutritionMealPayload(dayKey: log.dayKey, entry: entry, partialFields: log.dietPartialFields))
+                            _ = try await bodySeekStoreClient.executeProposal(mealProp)
+                        }
+                        if log.dietDayComplete == true {
+                            let closeProp = try ActionProposal(
+                                kind: .closeNutritionDay,
+                                origin: .system,
+                                encodablePayload: CloseNutritionDayPayload(
+                                    dayKey: log.dayKey,
+                                    markComplete: true,
+                                    sportHours: log.sportHours,
+                                    sportKcal: log.sportKcal,
+                                    steps: log.steps,
+                                    bmrKcalUsed: log.bmrKcalUsed,
+                                    reviewSummary: log.reviewSummary
+                                )
+                            )
+                            _ = try await bodySeekStoreClient.executeProposal(closeProp)
+                        }
+                    }
+                    profile = seedProfile
+                    plan = try await bodySeekStoreClient.loadNutritionTargetPlan()
+                    logs = try await bodySeekStoreClient.loadNutritionLogs(nil, nil)
+                }
+
+                let bounds = NutritionFeature.State.dateBounds(mode: .week, anchor: dayKey)
+                let summary = NutritionBoardAggregator.summarizePeriod(
+                    logs: logs,
+                    targetPlan: plan,
+                    startDayKey: bounds.start,
+                    endDayKey: bounds.end,
+                    todayKey: dayKey
+                )
+                let todayLog = logs.first(where: { $0.dayKey == dayKey })
+
+                await send(.supplementalContextLoaded(
+                    planItems: storedPlan,
+                    patterns: findings,
+                    todayNutritionLog: todayLog,
+                    nutritionTargetPlan: plan,
+                    rollingDeficit7d: summary.rollingDeficit7dKcal,
+                    error: nil
+                ))
+            } catch {
+                await send(.supplementalContextLoaded(
+                    planItems: [],
+                    patterns: [],
+                    todayNutritionLog: nil,
+                    nutritionTargetPlan: nil,
+                    rollingDeficit7d: nil,
+                    error: "读取计划与营养上下文失败：\(error.localizedDescription)"
+                ))
             }
         }
     }
@@ -603,7 +769,14 @@ public struct AppFeature: Sendable {
     ) {
         state.snapshot = snapshot
         state.today.isLoading = false
-        state.today.snapshot = snapshot
+        state.today.updateSnapshot(snapshot)
+        let hasPersistedUserDecisions = state.today.planItems.contains { $0.state != .suggested || $0.origin != .system }
+        if !hasPersistedUserDecisions {
+            state.today.planItems = TodayActionGenerator.generateDefaultPlanItems(
+                for: snapshot,
+                dayKey: snapshot.referenceDate.physiologicalDayKey()
+            )
+        }
         syncCheckInFromPreferences(into: &state)
         state.workout.snapshot = snapshot
         state.trends.updateSnapshot(snapshot, precomputedCache: precomputedCache)
@@ -611,11 +784,23 @@ public struct AppFeature: Sendable {
         if state.settings != nil {
             state.settings?.snapshot = snapshot
         }
+        if state.nutrition != nil {
+            state.nutrition?.snapshot = snapshot
+        }
+        let sleepGoal = state.preferences.sleepGoalMinutes
         for id in state.todayPath.ids {
-            state.todayPath[id: id]?.snapshot = snapshot
+            if let kind = state.todayPath[id: id]?.kind {
+                let kindCache = state.trends.cache(for: kind)
+                state.todayPath[id: id]?.sleepGoalMinutes = sleepGoal
+                state.todayPath[id: id]?.updateSnapshot(snapshot, precomputedCache: kindCache)
+            }
         }
         for id in state.trendsPath.ids {
-            state.trendsPath[id: id]?.snapshot = snapshot
+            if let kind = state.trendsPath[id: id]?.kind {
+                let kindCache = state.trends.cache(for: kind)
+                state.trendsPath[id: id]?.sleepGoalMinutes = sleepGoal
+                state.trendsPath[id: id]?.updateSnapshot(snapshot, precomputedCache: kindCache)
+            }
         }
     }
 

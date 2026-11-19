@@ -1,5 +1,15 @@
 import Foundation
 
+public struct VitalSparkPoint: Hashable, Codable, Sendable {
+    public let date: Date
+    public let value: Double?
+
+    public init(date: Date, value: Double?) {
+        self.date = date
+        self.value = value
+    }
+}
+
 public struct BaselineBand: Hashable, Codable, Sendable {
     public let lower: Double
     public let upper: Double

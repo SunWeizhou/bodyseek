@@ -25,11 +25,22 @@ public struct TrendsFeature: Sendable {
         public var selectedDate: Date?
         public var showCoverageSheet: Bool = false
         public var snapshot: BodySeekDashboardSnapshot
+        public var patternFindings: [PatternFindingRecord] = []
         public var chartCache: [TrendHorizon: [MetricKind: ChartSeriesSnapshot]]
         public var activeChartSnapshot: ChartSeriesSnapshot
         public var allMetricSnapshots: [ChartSeriesSnapshot]
         public var activeSeries: TrendSeries
         public var allMetricSeries: [TrendSeries]
+
+        public func cache(for kind: MetricKind) -> [TrendHorizon: ChartSeriesSnapshot] {
+            var map: [TrendHorizon: ChartSeriesSnapshot] = [:]
+            for h in TrendHorizon.allCases {
+                if let snap = chartCache[h]?[kind] {
+                    map[h] = snap
+                }
+            }
+            return map
+        }
 
         public init(
             snapshot: BodySeekDashboardSnapshot,

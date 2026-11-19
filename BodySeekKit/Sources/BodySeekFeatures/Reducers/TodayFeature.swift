@@ -12,32 +12,40 @@ public struct TodayFeature: Sendable {
         public var showEvidenceBreakdown: Bool = false
         public var subjectiveFeeling: Int?
         public var todayCheckIn: DailyCheckIn?
+        public var planItems: [PlanItemRecord] = []
+        public var todayNutritionLog: DailyNutritionLog?
+        public var nutritionTargetPlan: NutritionTargetPlan?
+        public var nutritionRollingDeficit7d: Double?
+        public var recentHRVSeries: [VitalSparkPoint]
+        public var recentRHRSeries: [VitalSparkPoint]
+        public var recentRespiratorySeries: [VitalSparkPoint]
+        public var recentSpO2Series: [VitalSparkPoint]
         public var lastError: String?
 
         public init(
             snapshot: BodySeekDashboardSnapshot,
-            briefingStatus: AIBriefingStatus = .idle
+            briefingStatus: AIBriefingStatus = .idle,
+            planItems: [PlanItemRecord] = []
         ) {
             self.snapshot = snapshot
             self.briefingStatus = briefingStatus
+            self.planItems = planItems
+            let recent = snapshot.historyDays.suffix(14)
+            self.recentHRVSeries = recent.map { VitalSparkPoint(date: $0.date, value: $0.raw.hrvMs) }
+            self.recentRHRSeries = recent.map { VitalSparkPoint(date: $0.date, value: $0.raw.restingHeartRateBpm) }
+            self.recentRespiratorySeries = recent.map { VitalSparkPoint(date: $0.date, value: $0.raw.respiratoryRateBrpm) }
+            self.recentSpO2Series = recent.map { VitalSparkPoint(date: $0.date, value: $0.raw.oxygenSaturationPct) }
         }
 
         public var today: DailyComputedDay { snapshot.today }
 
-        public var recentHRVSeries: [(date: Date, value: Double?)] {
-            snapshot.historyDays.suffix(14).map { ($0.date, $0.raw.hrvMs) }
-        }
-
-        public var recentRHRSeries: [(date: Date, value: Double?)] {
-            snapshot.historyDays.suffix(14).map { ($0.date, $0.raw.restingHeartRateBpm) }
-        }
-
-        public var recentRespiratorySeries: [(date: Date, value: Double?)] {
-            snapshot.historyDays.suffix(14).map { ($0.date, $0.raw.respiratoryRateBrpm) }
-        }
-
-        public var recentSpO2Series: [(date: Date, value: Double?)] {
-            snapshot.historyDays.suffix(14).map { ($0.date, $0.raw.oxygenSaturationPct) }
+        public mutating func updateSnapshot(_ newSnapshot: BodySeekDashboardSnapshot) {
+            self.snapshot = newSnapshot
+            let recent = newSnapshot.historyDays.suffix(14)
+            self.recentHRVSeries = recent.map { VitalSparkPoint(date: $0.date, value: $0.raw.hrvMs) }
+            self.recentRHRSeries = recent.map { VitalSparkPoint(date: $0.date, value: $0.raw.restingHeartRateBpm) }
+            self.recentRespiratorySeries = recent.map { VitalSparkPoint(date: $0.date, value: $0.raw.respiratoryRateBrpm) }
+            self.recentSpO2Series = recent.map { VitalSparkPoint(date: $0.date, value: $0.raw.oxygenSaturationPct) }
         }
     }
 
@@ -48,6 +56,9 @@ public struct TodayFeature: Sendable {
         case metricTapped(MetricKind)
         case askCoachTapped(String)
         case feelingSelected(Int)
+        case adoptPlanItem(UUID)
+        case dismissPlanItem(UUID)
+        case openNutritionTapped
         case openSettingsTapped
         case openCheckInTapped
         case regenerateBriefingTapped
@@ -60,6 +71,9 @@ public struct TodayFeature: Sendable {
             case openMetric(MetricKind)
             case askCoach(String)
             case saveSubjectiveFeeling(Int)
+            case adoptPlanItem(PlanItemRecord)
+            case dismissPlanItem(PlanItemRecord)
+            case openNutrition
             case openSettings
             case openCheckIn
             case regenerateBriefingRequested
@@ -90,6 +104,21 @@ public struct TodayFeature: Sendable {
             case let .feelingSelected(score):
                 state.subjectiveFeeling = score
                 return .send(.delegate(.saveSubjectiveFeeling(score)))
+
+            case let .adoptPlanItem(id):
+                guard let idx = state.planItems.firstIndex(where: { $0.id == id }) else { return .none }
+                let updated = state.planItems[idx].updatingState(.adopted)
+                state.planItems[idx] = updated
+                return .send(.delegate(.adoptPlanItem(updated)))
+
+            case let .dismissPlanItem(id):
+                guard let idx = state.planItems.firstIndex(where: { $0.id == id }) else { return .none }
+                let updated = state.planItems[idx].updatingState(.dismissed)
+                state.planItems[idx] = updated
+                return .send(.delegate(.dismissPlanItem(updated)))
+
+            case .openNutritionTapped:
+                return .send(.delegate(.openNutrition))
 
             case .openSettingsTapped:
                 return .send(.delegate(.openSettings))

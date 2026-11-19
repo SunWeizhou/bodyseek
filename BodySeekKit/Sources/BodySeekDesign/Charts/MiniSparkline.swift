@@ -20,6 +20,18 @@ public struct MiniSparkline: View {
         self.height = height
     }
 
+    public init(
+        vitalPoints: [VitalSparkPoint],
+        tint: Color,
+        baselineRange: ClosedRange<Double>? = nil,
+        height: CGFloat = 42
+    ) {
+        self.points = vitalPoints.map { ($0.date, $0.value) }
+        self.tint = tint
+        self.baselineRange = baselineRange
+        self.height = height
+    }
+
     public var body: some View {
         let sorted = points.sorted { $0.date < $1.date }
         let validValues = sorted.compactMap { pt -> Double? in

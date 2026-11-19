@@ -158,10 +158,14 @@ public struct BodySeekStoreClient: Sendable {
     public var runBackgroundBackfill: @Sendable (_ sleepGoalMinutes: Int, _ referenceDate: Date) async throws -> BackfillRunSummary?
     public var executeProposal: @Sendable (_ proposal: ActionProposal) async throws -> ActionAuditEntry
     public var loadCheckIns: @Sendable () async throws -> [DailyCheckIn] = { [] }
+    public var loadPlanItems: @Sendable (_ dayKey: DayKey) async throws -> [PlanItemRecord] = { _ in [] }
+    public var loadPatternFindings: @Sendable (_ status: PatternFindingStatus?) async throws -> [PatternFindingRecord] = { _ in [] }
     public var loadNutritionProfile: @Sendable () async throws -> NutritionProfile?
     public var loadNutritionTargetPlan: @Sendable () async throws -> NutritionTargetPlan?
     public var loadNutritionLogs: @Sendable (_ from: DayKey?, _ to: DayKey?) async throws -> [DailyNutritionLog] = { _, _ in [] }
     public var searchFoodLibrary: @Sendable (_ query: String) async throws -> [FoodLibraryItem] = { _ in [] }
+    public var seedStarterFoodLibraryIfNeeded: @Sendable () async throws -> Void
+    public var saveFoodLibraryItem: @Sendable (_ item: FoodLibraryItem) async throws -> Void
 }
 
 extension BodySeekStoreClient: DependencyKey {
@@ -257,6 +261,26 @@ extension BodySeekStoreClient: DependencyKey {
                 let repo = try await BodySeekSharedStore.shared.repository()
                 return try await repo.loadCheckIns()
             },
+            loadPlanItems: { dayKey in
+                if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard")
+                    || ProcessInfo.processInfo.arguments.contains("-velaPreviewEmptyDashboard")
+                {
+                    let (_, repo, _, _) = try await preview.resolve()
+                    return try await repo.loadPlanItems(dayKey: dayKey)
+                }
+                let repo = try await BodySeekSharedStore.shared.repository()
+                return try await repo.loadPlanItems(dayKey: dayKey)
+            },
+            loadPatternFindings: { status in
+                if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard")
+                    || ProcessInfo.processInfo.arguments.contains("-velaPreviewEmptyDashboard")
+                {
+                    let (_, repo, _, _) = try await preview.resolve()
+                    return try await repo.loadPatternFindings(status: status)
+                }
+                let repo = try await BodySeekSharedStore.shared.repository()
+                return try await repo.loadPatternFindings(status: status)
+            },
             loadNutritionProfile: {
                 if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard")
                     || ProcessInfo.processInfo.arguments.contains("-velaPreviewEmptyDashboard")
@@ -296,6 +320,28 @@ extension BodySeekStoreClient: DependencyKey {
                 }
                 let repo = try await BodySeekSharedStore.shared.repository()
                 return try await repo.searchFoodLibrary(query: query)
+            },
+            seedStarterFoodLibraryIfNeeded: {
+                if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard")
+                    || ProcessInfo.processInfo.arguments.contains("-velaPreviewEmptyDashboard")
+                {
+                    let (_, repo, _, _) = try await preview.resolve()
+                    try await repo.seedStarterFoodLibraryIfNeeded()
+                    return
+                }
+                let repo = try await BodySeekSharedStore.shared.repository()
+                try await repo.seedStarterFoodLibraryIfNeeded()
+            },
+            saveFoodLibraryItem: { item in
+                if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard")
+                    || ProcessInfo.processInfo.arguments.contains("-velaPreviewEmptyDashboard")
+                {
+                    let (_, repo, _, _) = try await preview.resolve()
+                    try await repo.saveFoodLibraryItem(item)
+                    return
+                }
+                let repo = try await BodySeekSharedStore.shared.repository()
+                try await repo.saveFoodLibraryItem(item)
             }
         )
     }()
@@ -326,6 +372,14 @@ extension BodySeekStoreClient: DependencyKey {
                 let (_, repo, _, _) = try await preview.resolve()
                 return try await repo.loadCheckIns()
             },
+            loadPlanItems: { dayKey in
+                let (_, repo, _, _) = try await preview.resolve()
+                return try await repo.loadPlanItems(dayKey: dayKey)
+            },
+            loadPatternFindings: { status in
+                let (_, repo, _, _) = try await preview.resolve()
+                return try await repo.loadPatternFindings(status: status)
+            },
             loadNutritionProfile: {
                 let (_, repo, _, _) = try await preview.resolve()
                 return try await repo.loadNutritionProfile()
@@ -341,6 +395,14 @@ extension BodySeekStoreClient: DependencyKey {
             searchFoodLibrary: { query in
                 let (_, repo, _, _) = try await preview.resolve()
                 return try await repo.searchFoodLibrary(query: query)
+            },
+            seedStarterFoodLibraryIfNeeded: {
+                let (_, repo, _, _) = try await preview.resolve()
+                try await repo.seedStarterFoodLibraryIfNeeded()
+            },
+            saveFoodLibraryItem: { item in
+                let (_, repo, _, _) = try await preview.resolve()
+                try await repo.saveFoodLibraryItem(item)
             }
         )
     }

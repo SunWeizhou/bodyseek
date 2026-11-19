@@ -38,6 +38,13 @@ public struct RootTabView: View {
             SettingsView(store: settingsStore)
         }
         .sheet(
+            item: $store.scope(state: \.nutrition, action: \.nutrition)
+        ) { nutritionStore in
+            NavigationStack {
+                NutritionBoardView(store: nutritionStore)
+            }
+        }
+        .sheet(
             isPresented: Binding(
                 get: { store.isCheckInPresented },
                 set: { store.send(.checkInPresented($0)) }

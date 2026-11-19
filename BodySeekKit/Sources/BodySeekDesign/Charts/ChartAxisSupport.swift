@@ -86,7 +86,7 @@ public enum ChartAxisSupport {
         let steps = clampedCount - 1
         for i in 0...steps {
             let fraction = Double(i) / Double(steps)
-            let easedFraction = i == steps ? 0.94 : (i == 0 ? 0.04 : fraction)
+            let easedFraction = i == steps ? 0.88 : (i == 0 ? 0.06 : fraction * 0.94)
             ticks.append(first.addingTimeInterval(totalSpan * easedFraction))
         }
         return ticks

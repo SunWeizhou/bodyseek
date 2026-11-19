@@ -20,12 +20,14 @@ public struct MetricDetailView: View {
 
     public var body: some View {
         let content = ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            LazyVStack(alignment: .leading, spacing: 16) {
                 headerCard
 
-                chartCard
+                horizonPicker
 
-                evidenceCard
+                detailBody
+
+                provenanceCard
 
                 Button {
                     store.send(.askCoachTapped)
@@ -101,120 +103,99 @@ public struct MetricDetailView: View {
         }
     }
 
-    private var chartCard: some View {
-        let series = store.series
-        let tint = BevelTheme.color(for: store.kind)
-        return BevelCard {
-            VStack(alignment: .leading, spacing: 14) {
-                Picker("时间窗口", selection: Binding(
-                    get: { store.horizon },
-                    set: { store.send(.horizonChanged($0)) }
-                )) {
-                    ForEach(TrendHorizon.allCases) { horizon in
-                        Text(horizon.title).tag(horizon)
-                    }
-                }
-                .pickerStyle(.segmented)
-
-                HStack(alignment: .firstTextBaseline) {
-                    Text(selectedPointLabel(series: series) ?? "\(store.currentScore.formattedScore) 分")
-                        .font(.title2.weight(.bold).monospacedDigit())
-                        .contentTransition(.numericText())
-                        .foregroundStyle(BevelTheme.ink)
-                    Spacer()
-                    if let median = series.median {
-                        Text("基线 \(median) · 覆盖 \(series.coveredDays)/\(series.totalDays) 天")
-                            .font(.caption)
-                            .foregroundStyle(BevelTheme.inkSecondary)
-                    } else {
-                        Text("覆盖 \(series.coveredDays)/\(series.totalDays) 天")
-                            .font(.caption)
-                            .foregroundStyle(BevelTheme.inkSecondary)
-                    }
-                }
-
-                let chartSnapshot = BevelScoringEngine.buildChartSeriesSnapshot(
-                    for: store.kind,
-                    horizon: store.horizon,
-                    days: store.snapshot.historyDays,
-                    referenceDate: store.snapshot.referenceDate
-                )
-                if store.horizon.usesRangeCapsules {
-                    RangeCapsuleChart(snapshot: chartSnapshot, tint: tint) { bucket in
-                        store.send(.selectedDateChanged(bucket?.endDate))
-                    }
-                } else {
-                    TrendLineChart(snapshot: chartSnapshot, tint: tint) { date in
-                        store.send(.selectedDateChanged(date))
-                    }
-                }
-
-                Text(series.statusSummary)
-                    .font(.caption)
-                    .foregroundStyle(BevelTheme.inkSecondary)
+    private var horizonPicker: some View {
+        Picker("时间窗口", selection: Binding(
+            get: { store.horizon },
+            set: { store.send(.horizonChanged($0)) }
+        )) {
+            ForEach(TrendHorizon.allCases) { horizon in
+                Text(horizon.title).tag(horizon)
             }
+        }
+        .pickerStyle(.segmented)
+        .accessibilityIdentifier("detail-horizon-picker")
+    }
+
+    @ViewBuilder
+    private var detailBody: some View {
+        let day = store.snapshot.today
+        let snap = store.activeChartSnapshot
+        let onSelect: @MainActor (Date?) -> Void = { date in
+            store.send(.selectedDateChanged(date))
+        }
+
+        switch store.kind {
+        case .recovery:
+            RecoveryDetailView(
+                day: day,
+                historyDays: store.snapshot.historyDays,
+                activeChartSnapshot: snap,
+                score: store.currentScore,
+                onSelectDate: onSelect
+            )
+        case .sleep:
+            SleepDetailView(
+                day: day,
+                historyDays: store.snapshot.historyDays,
+                activeChartSnapshot: snap,
+                sleepGoalMinutes: store.sleepGoalMinutes,
+                onSelectDate: onSelect
+            )
+        case .strain:
+            StrainDetailView(
+                day: day,
+                trainingLoad: store.snapshot.trainingLoad,
+                activeChartSnapshot: snap,
+                onSelectDate: onSelect
+            )
+        case .stress:
+            StressDetailView(
+                day: day,
+                activeChartSnapshot: snap,
+                onSelectDate: onSelect
+            )
+        case .energy:
+            EnergyDetailView(
+                day: day,
+                activeChartSnapshot: snap,
+                onSelectDate: onSelect
+            )
         }
     }
 
-    private var evidenceCard: some View {
+    private var provenanceCard: some View {
         let day = store.snapshot.today
+        let sourcesText = day.raw.sourceNames.isEmpty ? store.snapshot.sourceLabel : day.raw.sourceNames.joined(separator: " · ")
+        let covText = "\(store.activeChartSnapshot.coveredDays)/\(store.activeChartSnapshot.totalDays) 天"
+
         return BevelCard {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("数据依据")
+            VStack(alignment: .leading, spacing: 10) {
+                Text("L3 数据溯源与算法边界")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(BevelTheme.ink)
 
-                if store.kind == .sleep && day.raw.sleepAsleepMinutes != nil {
-                    SleepStageChart(segments: day.raw.sleepSegments, height: 158, interactive: true)
-                    Divider()
-                } else if store.kind == .stress && !day.stressTimeline.isEmpty {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("24 小时自主神经压力节律")
-                            .font(.caption)
-                            .foregroundStyle(BevelTheme.inkSecondary)
-                        IntradayBarChart(bins: day.stressTimeline, height: 112, interactive: true)
-                    }
-                    Divider()
-                } else if store.kind == .energy && !day.energyCurve.isEmpty {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("昼夜电池充放电轨迹")
-                            .font(.caption)
-                            .foregroundStyle(BevelTheme.inkSecondary)
-                        EnergyAreaChart(curve: day.energyCurve, height: 112, interactive: true)
-                    }
-                    Divider()
+                provenanceRow("算法版本", value: store.currentScore.algorithmVersion.description)
+                provenanceRow("窗口样本覆盖", value: covText)
+                provenanceRow("生理日切点", value: "\(day.dayKey.isoString)（04:00）")
+                provenanceRow("数据来源", value: sourcesText)
+                if let missingReason = store.currentScore.availability.reasonText {
+                    provenanceRow("缺口说明", value: missingReason)
                 }
-
-                evidenceRow("HRV (SDNN)", value: day.raw.hrvMs.map { "\(Int($0.rounded())) ms" } ?? "--")
-                evidenceRow("静息心率", value: day.raw.restingHeartRateBpm.map { "\(Int($0.rounded())) bpm" } ?? "--")
-                evidenceRow("睡眠时长", value: day.sleep.value != nil ? day.sleep.subtitle : "--")
-                evidenceRow("动态消耗", value: day.raw.activeEnergyKcal.map { "\(Int($0.rounded())) kcal" } ?? "--")
-                evidenceRow("锻炼时间", value: day.raw.exerciseMinutes.map { "\($0) 分钟" } ?? "--")
             }
         }
     }
 
-    private func evidenceRow(_ title: String, value: String) -> some View {
-        HStack {
+    private func provenanceRow(_ title: String, value: String) -> some View {
+        HStack(alignment: .firstTextBaseline) {
             Text(title)
-                .font(.subheadline)
+                .font(.caption)
                 .foregroundStyle(BevelTheme.inkSecondary)
             Spacer()
             Text(value)
-                .font(.subheadline.weight(.semibold).monospacedDigit())
-                .foregroundStyle(value == "--" ? BevelTheme.inkSecondary : BevelTheme.ink)
+                .font(.caption.weight(.medium).monospacedDigit())
+                .fontDesign(.rounded)
+                .foregroundStyle(BevelTheme.ink)
+                .multilineTextAlignment(.trailing)
         }
-    }
-
-    private func selectedPointLabel(series: TrendSeries) -> String? {
-        guard let selectedDate = store.selectedDate,
-              let point = series.points.min(by: {
-                  abs($0.date.timeIntervalSince(selectedDate)) < abs($1.date.timeIntervalSince(selectedDate))
-              }) else {
-            return nil
-        }
-        let f = DateFormatter()
-        f.dateFormat = "M月d日"
-        return "\(f.string(from: point.date)) · \(point.value.map { "\($0) 分" } ?? "--")"
     }
 }

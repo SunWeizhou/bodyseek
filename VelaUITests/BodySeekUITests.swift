@@ -13,6 +13,28 @@ final class BodySeekUITests: XCTestCase {
         return app
     }
 
+    private func tapTab(_ title: String, in app: XCUIApplication) {
+        if !app.tabBars.buttons[title].waitForExistence(timeout: 1.5) {
+            let collapsedPill = app.tabBars.buttons
+                .matching(NSPredicate(format: "value == '已折叠' OR value == 'collapsed'"))
+                .firstMatch
+            if collapsedPill.exists {
+                collapsedPill.tap()
+            } else if app.tabBars.buttons.firstMatch.exists {
+                app.tabBars.buttons.firstMatch.tap()
+            }
+            if !app.tabBars.buttons[title].waitForExistence(timeout: 2.0) {
+                app.swipeDown()
+                if !app.tabBars.buttons[title].exists {
+                    app.swipeDown()
+                }
+            }
+        }
+        let tab = app.tabBars.buttons[title]
+        XCTAssertTrue(tab.waitForExistence(timeout: 5), "Tab '\(title)' should exist")
+        tab.tap()
+    }
+
     func testFullV3WorkoutCoachTrendsAndRecoveryFlows() {
         let app = launchApp()
 
@@ -80,6 +102,9 @@ final class BodySeekUITests: XCTestCase {
     func testDailyCheckInSheetFlow() {
         let app = launchApp()
         let card = app.buttons["today-checkin-card"]
+        if !card.waitForExistence(timeout: 6) || !card.isHittable {
+            app.swipeUp()
+        }
         XCTAssertTrue(card.waitForExistence(timeout: 8))
         card.tap()
 
@@ -95,6 +120,64 @@ final class BodySeekUITests: XCTestCase {
         saveButton.tap()
 
         XCTAssertTrue(app.staticTexts["今日体感已记录"].waitForExistence(timeout: 6))
+    }
+
+    func testM1UIActionCardBespokeDetailsTrends3YAndNutritionBoard() {
+        let app = launchApp()
+
+        // 1. Today Action Card adopt flow
+        let actionCard = app.otherElements["today-action-card"]
+        if !actionCard.waitForExistence(timeout: 6) || !actionCard.isHittable {
+            app.swipeUp()
+        }
+        XCTAssertTrue(actionCard.waitForExistence(timeout: 6))
+        let adoptBtn = actionCard.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'today-action-adopt-'")).firstMatch
+        XCTAssertTrue(adoptBtn.waitForExistence(timeout: 4))
+        while !adoptBtn.isHittable {
+            app.swipeUp()
+        }
+        let adoptIdentifier = adoptBtn.identifier
+        adoptBtn.tap()
+        XCTAssertEqual(app.buttons[adoptIdentifier].label, "已采纳")
+
+        // 2. Bespoke Sleep & Stress detail views
+        while !app.buttons["today-score-sleep"].isHittable {
+            app.swipeDown()
+        }
+        app.buttons["today-score-sleep"].tap()
+        XCTAssertTrue(app.staticTexts["阶段构成占比"].waitForExistence(timeout: 5))
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+
+        while !app.buttons["today-card-stress"].isHittable {
+            app.swipeUp()
+        }
+        app.buttons["today-card-stress"].tap()
+        XCTAssertTrue(app.staticTexts["高压时段 vs 恢复时段"].waitForExistence(timeout: 5))
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+
+        // 3. Nutrition board sheet + meal logging flow
+        let nutritionCard = app.buttons["today-nutrition-card"]
+        while !nutritionCard.isHittable {
+            app.swipeUp()
+        }
+        nutritionCard.tap()
+        XCTAssertTrue(app.otherElements["nutrition-macro-matrix"].waitForExistence(timeout: 6))
+        app.buttons["nutrition-log-meal-button"].tap()
+
+        let foodPick = app.buttons["nutrition-food-pick-rice_cooked"]
+        XCTAssertTrue(foodPick.waitForExistence(timeout: 5))
+        foodPick.tap()
+        app.buttons["nutrition-meal-save-button"].tap()
+
+        XCTAssertTrue(app.otherElements["nutrition-selected-day-card"].waitForExistence(timeout: 5))
+        app.buttons["nutrition-done-button"].tap()
+
+        // 4. Trends 3Y capsule switch & Patterns card
+        tapTab("趋势", in: app)
+        let threeYBtn = app.buttons["trends-horizon-threeYears"]
+        XCTAssertTrue(threeYBtn.waitForExistence(timeout: 5))
+        threeYBtn.tap()
+        XCTAssertTrue(app.otherElements["trends-patterns-card"].waitForExistence(timeout: 5))
     }
 
     func testCaptureLightAndDarkScreenshotsWhenRequested() throws {
@@ -117,14 +200,42 @@ final class BodySeekUITests: XCTestCase {
 
         app.swipeUp()
         try snap("02-today-vitals")
-        app.swipeDown()
+
+        let nutritionCard = app.buttons["today-nutrition-card"]
+        if !nutritionCard.isHittable {
+            app.swipeDown()
+        }
+        while !nutritionCard.isHittable {
+            app.swipeUp()
+        }
+        nutritionCard.tap()
+        XCTAssertTrue(app.otherElements["nutrition-macro-matrix"].waitForExistence(timeout: 6))
+        try snap("06-nutrition-board")
+        app.buttons["nutrition-done-button"].tap()
+
+        while !app.buttons["today-score-recovery"].isHittable {
+            app.swipeDown()
+        }
 
         app.buttons["today-score-recovery"].tap()
         XCTAssertTrue(app.buttons["detail-ask-coach"].waitForExistence(timeout: 5))
         try snap("03-recovery-detail")
-        app.buttons["detail-ask-coach"].tap()
-        XCTAssertTrue(app.otherElements["coach-evidence-card"].waitForExistence(timeout: 5))
+        app.navigationBars.buttons.element(boundBy: 0).tap()
 
+        app.buttons["today-score-sleep"].tap()
+        XCTAssertTrue(app.staticTexts["阶段构成占比"].waitForExistence(timeout: 5))
+        try snap("04-sleep-detail")
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+
+        while !app.buttons["today-card-stress"].isHittable {
+            app.swipeUp()
+        }
+        app.buttons["today-card-stress"].tap()
+        XCTAssertTrue(app.staticTexts["高压时段 vs 恢复时段"].waitForExistence(timeout: 5))
+        try snap("05-stress-detail")
+        app.buttons["detail-ask-coach"].tap()
+
+        XCTAssertTrue(app.otherElements["coach-evidence-card"].waitForExistence(timeout: 5))
         let input = app.textViews["coach-full-input"].exists
             ? app.textViews["coach-full-input"]
             : app.textFields["coach-full-input"]
@@ -132,20 +243,17 @@ final class BodySeekUITests: XCTestCase {
         input.typeText("记住我右膝微痛，安排上肢减量课表")
         app.buttons["coach-send-button"].tap()
         _ = app.buttons["coach-proposal-save"].waitForExistence(timeout: 5)
-        try snap("04-coach")
+        try snap("10-coach")
 
-        app.tabBars.buttons["健身"].tap()
-        XCTAssertTrue(app.staticTexts["全身肌群热图（近72h负荷）"].waitForExistence(timeout: 5))
-        try snap("05-workout-musclemap")
-
-        app.swipeUp()
-        app.swipeUp()
-        try snap("06-workout-zones")
-        app.swipeDown()
-        app.swipeDown()
-
-        app.tabBars.buttons["趋势"].tap()
+        tapTab("趋势", in: app)
         XCTAssertTrue(app.buttons["trends-horizon-month"].waitForExistence(timeout: 5))
-        try snap("07-trends")
+        try snap("07-trends-month")
+
+        app.buttons["trends-horizon-threeYears"].tap()
+        try snap("08-trends-3y-capsules")
+
+        tapTab("健身", in: app)
+        XCTAssertTrue(app.staticTexts["全身肌群热图（近72h负荷）"].waitForExistence(timeout: 5))
+        try snap("09-workout-musclemap")
     }
 }

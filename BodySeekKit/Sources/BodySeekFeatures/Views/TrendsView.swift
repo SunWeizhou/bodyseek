@@ -16,14 +16,16 @@ public struct TrendsView: View {
         let activeSeries = store.activeSeries
         let horizonDays = Array(store.snapshot.historyDays.suffix(store.horizon.dayCount))
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                horizonPills
+            LazyVStack(alignment: .leading, spacing: 16) {
+                horizonPills(selected: store.horizon)
 
                 summaryCard(series: activeSeries)
 
                 interactiveChartCard(series: activeSeries)
 
                 dualAxisCard(days: horizonDays)
+
+                patternsCard
 
                 ForEach(store.allMetricSeries, id: \.kind) { series in
                     metricRowCard(series: series)
@@ -43,20 +45,21 @@ public struct TrendsView: View {
         }
     }
 
-    private var horizonPills: some View {
+    private func horizonPills(selected: TrendHorizon) -> some View {
         HStack(spacing: 8) {
             ForEach(TrendHorizon.allCases) { horizon in
-                let isSelected = store.horizon == horizon
+                let isSelected = selected == horizon
                 Button {
                     store.send(.horizonChanged(horizon))
                 } label: {
                     Text(horizon.title)
                         .font(.subheadline.weight(isSelected ? .semibold : .medium))
-                        .foregroundStyle(isSelected ? BevelTheme.ink : BevelTheme.inkSecondary)
+                        .foregroundStyle(isSelected ? BevelTheme.brand : BevelTheme.inkSecondary)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
-                        .background(isSelected ? BevelTheme.card : Color.clear, in: Capsule())
+                        .bodySeekLiquidPill(isSelected: isSelected, tint: BevelTheme.brand)
                 }
+                .id("\(horizon.rawValue)-\(isSelected)")
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("trends-horizon-\(horizon.rawValue)")
             }
@@ -194,6 +197,55 @@ public struct TrendsView: View {
                 }
             }
         }
+    }
+
+    private var patternsCard: some View {
+        let activeFindings = store.patternFindings.filter { $0.status != .dismissed }
+        return BevelCard {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Label("我的规律", systemImage: "waveform.and.magnifyingglass")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(BevelTheme.brand)
+                    Spacer()
+                    Text("统计关联 · 非因果")
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(BevelTheme.inkSecondary)
+                }
+
+                if activeFindings.isEmpty {
+                    Text("待导入 3 年历史导出报告或持续积累 ≥ 40 天样本后，将在此发布带置信区间（95% CI）与样本量的分布滞后规律。")
+                        .font(.caption)
+                        .foregroundStyle(BevelTheme.inkSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    ForEach(activeFindings.prefix(4)) { finding in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(finding.statement)
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(BevelTheme.ink)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Text(String(
+                                format: "效应 %.2f · 95%% CI [%.2f, %.2f] · n=%d · %@",
+                                finding.effect,
+                                finding.ciLow,
+                                finding.ciHigh,
+                                finding.sampleSize,
+                                finding.method
+                            ))
+                            .font(.caption2.monospacedDigit())
+                            .fontDesign(.rounded)
+                            .foregroundStyle(BevelTheme.deviationInk)
+                        }
+                        .padding(10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(BevelTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+                }
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("trends-patterns-card")
     }
 
     @ViewBuilder

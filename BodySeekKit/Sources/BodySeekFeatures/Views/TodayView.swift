@@ -18,7 +18,7 @@ public struct TodayView: View {
             BevelAmbientAura(recoveryScore: store.today.recovery.value)
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
+                LazyVStack(alignment: .leading, spacing: 14) {
                     editorialHeader
 
                     if let error = store.lastError {
@@ -31,9 +31,13 @@ public struct TodayView: View {
 
                     heroInstrumentCard
 
-                    checkInCard
+                    todayActionCard
 
                     stressAndEnergyRow
+
+                    checkInCard
+
+                    todayNutritionCard
 
                     sleepCard
 
@@ -66,6 +70,11 @@ public struct TodayView: View {
                         store.send(.openCheckInTapped)
                     } label: {
                         Label("记录今日状态", systemImage: "square.and.pencil")
+                    }
+                    Button {
+                        store.send(.openNutritionTapped)
+                    } label: {
+                        Label("记录饮食与营养", systemImage: "fork.knife")
                     }
                     Button {
                         store.send(.askCoachTapped("请解读我今天的身体恢复与睡眠状态"))
@@ -318,6 +327,163 @@ public struct TodayView: View {
         .buttonStyle(.plain)
     }
 
+    @ViewBuilder
+    private var todayActionCard: some View {
+        let visibleItems = store.planItems.filter { $0.state != .dismissed }
+        if !visibleItems.isEmpty {
+            BevelCard(padding: 14) {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Label("今日行动建议", systemImage: "checkmark.circle.trianglebadge.exclamationmark")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(BevelTheme.brand)
+                        Spacer()
+                        Text("\(visibleItems.filter { $0.state == .adopted }.count)/\(visibleItems.count) 已采纳")
+                            .font(.caption2.monospacedDigit())
+                            .fontDesign(.rounded)
+                            .foregroundStyle(BevelTheme.inkSecondary)
+                    }
+
+                    ForEach(visibleItems) { record in
+                        let item = record.decodedActionItem()
+                        let isAdopted = record.state == .adopted
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack(alignment: .top, spacing: 8) {
+                                Image(systemName: isAdopted ? "checkmark.circle.fill" : "circle.dashed")
+                                    .foregroundStyle(isAdopted ? BevelTheme.recoveryColor : BevelTheme.brand)
+                                    .font(.subheadline)
+                                    .padding(.top, 2)
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(item?.title ?? "生理执行建议")
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(BevelTheme.ink)
+                                    if let detail = item?.detail {
+                                        Text(detail)
+                                            .font(.caption)
+                                            .foregroundStyle(BevelTheme.inkSecondary)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                    }
+                                    if let basis = item?.metricBasis {
+                                        Text("依据：\(basis)")
+                                            .font(.caption2)
+                                            .foregroundStyle(BevelTheme.deviationInk)
+                                    }
+                                }
+                            }
+
+                            HStack(spacing: 8) {
+                                Spacer()
+                                if !isAdopted {
+                                    Button("跳过") {
+                                        store.send(.dismissPlanItem(record.id))
+                                    }
+                                    .font(.caption.weight(.medium))
+                                    .foregroundStyle(BevelTheme.inkSecondary)
+                                    .buttonStyle(.plain)
+                                    .accessibilityIdentifier("today-action-dismiss-\(record.id.uuidString)")
+                                }
+                                Button {
+                                    store.send(.adoptPlanItem(record.id))
+                                } label: {
+                                    Text(isAdopted ? "已采纳" : "采纳")
+                                        .font(.caption.weight(.semibold))
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 5)
+                                        .background(
+                                            isAdopted ? BevelTheme.recoveryColor.opacity(0.16) : BevelTheme.brand,
+                                            in: Capsule()
+                                        )
+                                        .foregroundStyle(isAdopted ? BevelTheme.recoveryColor : BevelTheme.onBrand)
+                                }
+                                .buttonStyle(.plain)
+                                .disabled(isAdopted)
+                                .accessibilityIdentifier("today-action-adopt-\(record.id.uuidString)")
+                            }
+                        }
+                        .padding(10)
+                        .background(BevelTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+                }
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("today-action-card")
+        }
+    }
+
+    private var todayNutritionCard: some View {
+        let log = store.todayNutritionLog
+        let todayKey = store.snapshot.referenceDate.physiologicalDayKey()
+        let validated = NutritionTargetEvaluator.validate(plan: store.nutritionTargetPlan, on: todayKey)
+        let isClosed = log?.dietDayComplete == true
+        let coreIDs = ["diet_kcal", "diet_carbs_g", "diet_protein_g", "diet_fat_g"]
+
+        return Button {
+            store.send(.openNutritionTapped)
+        } label: {
+            BevelCard(padding: 14) {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Label("每日营养与能量平衡", systemImage: "fork.knife.circle.fill")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(BevelTheme.brand)
+                        Spacer()
+                        Text(isClosed ? "已结账" : (log == nil ? "未记录" : "记录中 · 未结账"))
+                            .font(.caption2.weight(.semibold))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(
+                                (isClosed ? BevelTheme.nutritionColor(for: .met) : BevelTheme.nutritionColor(for: .unknown)).opacity(0.16),
+                                in: Capsule()
+                            )
+                            .foregroundStyle(BevelTheme.nutritionInkColor(for: isClosed ? .met : .unknown))
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(BevelTheme.inkSecondary)
+                    }
+
+                    HStack(alignment: .firstTextBaseline, spacing: 16) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("今日已记热量")
+                                .font(.caption2)
+                                .foregroundStyle(BevelTheme.inkSecondary)
+                            Text(log?.dietKcal.map { "\(Int($0.rounded())) kcal" } ?? "-- kcal")
+                                .font(.title3.weight(.bold).monospacedDigit())
+                                .fontDesign(.rounded)
+                                .foregroundStyle(BevelTheme.ink)
+                        }
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("近 7 日日均缺口")
+                                .font(.caption2)
+                                .foregroundStyle(BevelTheme.inkSecondary)
+                            Text(store.nutritionRollingDeficit7d.map { "\(Int($0.rounded())) kcal/日" } ?? "--")
+                                .font(.subheadline.weight(.semibold).monospacedDigit())
+                                .fontDesign(.rounded)
+                                .foregroundStyle(BevelTheme.ink)
+                        }
+                    }
+
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 74), spacing: 8)], alignment: .leading, spacing: 6) {
+                        ForEach(coreIDs, id: \.self) { id in
+                            let eval = NutritionTargetEvaluator.evaluate(metricID: id, log: log, validatedPlan: validated)
+                            HStack(spacing: 5) {
+                                Circle()
+                                    .fill(BevelTheme.nutritionColor(for: eval.status))
+                                    .frame(width: 8, height: 8)
+                                Text(eval.metricName.replacingOccurrences(of: "总", with: ""))
+                                    .font(.caption2)
+                                    .foregroundStyle(BevelTheme.inkSecondary)
+                                    .lineLimit(1)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("today-nutrition-card")
+    }
+
     private var checkInCard: some View {
         Button {
             store.send(.openCheckInTapped)
@@ -526,7 +692,7 @@ public struct TodayView: View {
     private func vitalCard(
         title: String,
         valueText: String,
-        points: [(date: Date, value: Double?)],
+        points: [VitalSparkPoint],
         tint: Color
     ) -> some View {
         BevelCard(padding: 14) {
@@ -536,9 +702,10 @@ public struct TodayView: View {
                     .foregroundStyle(BevelTheme.inkSecondary)
                 Text(valueText)
                     .font(.title3.weight(.semibold).monospacedDigit())
+                    .fontDesign(.rounded)
                     .contentTransition(.numericText())
                     .foregroundStyle(valueText.contains("--") ? BevelTheme.inkSecondary : BevelTheme.ink)
-                MiniSparkline(points: points, tint: tint, height: 42)
+                MiniSparkline(vitalPoints: points, tint: tint, height: 42)
             }
         }
     }

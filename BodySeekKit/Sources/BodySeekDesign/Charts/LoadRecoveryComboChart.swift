@@ -62,14 +62,17 @@ public struct LoadRecoveryComboChart: View {
                 }
 
                 Chart {
+                    let comboBarWidth = max(2.0, min(7.0, 190.0 / CGFloat(max(1, ordered.count))))
                     ForEach(ordered) { day in
                         if let strainVal = day.strain.value {
                             let isSelected = selectedDay?.dayKey == day.dayKey
                             BarMark(
                                 x: .value("日期", day.date),
-                                y: .value("负荷", strainVal)
+                                yStart: .value("底", 0),
+                                yEnd: .value("负荷", strainVal),
+                                width: .fixed(comboBarWidth)
                             )
-                            .cornerRadius(3)
+                            .cornerRadius(comboBarWidth / 2)
                             .foregroundStyle(BevelTheme.strainColor.opacity(selectedDay == nil || isSelected ? 0.34 : 0.14))
                         }
                     }

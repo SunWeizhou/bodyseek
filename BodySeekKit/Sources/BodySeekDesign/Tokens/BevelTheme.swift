@@ -144,19 +144,19 @@ public extension View {
         if #available(iOS 26.0, *) {
             self
                 .background(
-                    isSelected ? tint.opacity(0.16) : BevelTheme.card.opacity(0.85),
+                    isSelected ? tint.opacity(0.20) : BevelTheme.card,
                     in: Capsule()
                 )
                 .overlay(
                     Capsule()
                         .strokeBorder(
-                            isSelected ? tint.opacity(0.45) : BevelTheme.hairline.opacity(0.65),
-                            lineWidth: isSelected ? 1.0 : 0.5
+                            isSelected ? tint.opacity(0.70) : BevelTheme.hairline.opacity(0.75),
+                            lineWidth: isSelected ? 1.2 : 0.5
                         )
                 )
         } else {
             self
-                .background(isSelected ? tint.opacity(0.16) : BevelTheme.surfaceElevated, in: Capsule())
+                .background(isSelected ? tint.opacity(0.20) : BevelTheme.surfaceElevated, in: Capsule())
         }
         #else
         self
