@@ -1,0 +1,31 @@
+[build-system]
+requires = ["hatchling>=1.25.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "bodyseek-ml"
+version = "0.1.0"
+description = "BodySeek M4 offline HealthKit export feature pipeline, deduplication audit, and personal distributed-lag pattern analysis"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=2.0.0",
+    "pandas>=2.2.0",
+    "pyarrow>=18.0.0",
+    "scipy>=1.14.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.0",
+]
+
+[project.scripts]
+bodyseek-ml = "bodyseek_ml.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/bodyseek_ml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

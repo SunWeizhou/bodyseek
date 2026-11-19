@@ -37,5 +37,7 @@ docs/reference/bevel-3.1.4/*.mov
 *.sqlite-wal
 *.parquet
 BodySeekML/data/
+BodySeekML/.venv/
+BodySeekML/artifacts/
 .superpowers/
 __pycache__/
