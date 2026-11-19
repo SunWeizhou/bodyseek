@@ -9,6 +9,16 @@ final class BodySeekAppIntegrationTests: XCTestCase {
         var prefs = AppPreferencesState()
         prefs.sleepGoalMinutes = 480
         prefs.subjectiveFeelingsByDay["2026-11-16"] = 8
+        let checkIn = DailyCheckIn(
+            dayKey: DayKey(year: 2026, month: 11, day: 19),
+            energy: 4,
+            mood: 5,
+            stress: 2,
+            soreness: [.chest: 1, .deltoids: 2],
+            note: "卧推后略紧"
+        )
+        prefs.checkInsByDay[checkIn.dayKey.isoString] = checkIn
+        XCTAssertEqual(prefs.dominantHand, .right)
 
         try PreferencesClient.liveValue.save(prefs)
         let loaded = try PreferencesClient.liveValue.load()

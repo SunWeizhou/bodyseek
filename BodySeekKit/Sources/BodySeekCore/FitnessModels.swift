@@ -2,7 +2,7 @@ import Foundation
 
 /// Anatomical muscle group identifiers matching `MuscleMap.Muscle` raw values cleanly
 /// while keeping `BodySeekCore` dependency-free.
-public enum BodyRegionMuscle: String, CaseIterable, Identifiable, Hashable, Sendable, Codable {
+public enum BodyRegionMuscle: String, CaseIterable, Identifiable, Hashable, Sendable, Codable, CodingKeyRepresentable {
     case chest
     case upperBack = "upper-back"
     case lowerBack = "lower-back"

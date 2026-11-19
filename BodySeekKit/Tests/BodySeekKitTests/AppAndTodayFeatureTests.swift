@@ -112,4 +112,91 @@ final class AppAndTodayFeatureTests: XCTestCase {
         XCTAssertEqual(store.state.selectedTab, .workout)
         XCTAssertEqual(store.state.workout.templates.first?.title, "AI 减量上肢训练")
     }
+
+    func testDailyCheckInFlowAndPersistenceFailurePropagation() async {
+        struct WriteDeniedError: LocalizedError {
+            var errorDescription: String? { "disk full" }
+        }
+
+        let now = Date(timeIntervalSince1970: 1_760_000_000)
+        let snapshot = BevelScoringEngine.computeWindow(
+            rawDays: PreviewSeedFactory.makeRawWindow(endingAt: now, days: 14),
+            sleepGoalMinutes: 450,
+            referenceDate: now,
+            sourceLabel: "Test",
+            isAuthorized: true
+        )
+
+        let prefsBox = LockedPrefsRecorder(AppPreferencesState())
+        let savedStore = TestStore(
+            initialState: AppFeature.State(
+                hasCompletedOnboarding: true,
+                snapshot: snapshot,
+                preferences: prefsBox.value
+            )
+        ) {
+            AppFeature()
+        } withDependencies: {
+            var client = PreferencesClient.previewValue
+            client.save = { updated in prefsBox.set(updated) }
+            $0.preferencesClient = client
+            $0.healthKitClient = .previewValue
+            $0.fitnessStoreClient = .previewValue
+            $0.coachAIClient = .previewValue
+            $0.continuousClock = ImmediateClock()
+            $0.date.now = now
+        }
+        savedStore.exhaustivity = .off
+
+        await savedStore.send(.today(.openCheckInTapped))
+        await savedStore.receive(\.today.delegate.openCheckIn)
+        XCTAssertTrue(savedStore.state.isCheckInPresented)
+
+        let entry = DailyCheckIn(
+            dayKey: snapshot.referenceDate.physiologicalDayKey(),
+            recordedAt: now,
+            energy: 5,
+            mood: 4,
+            stress: 2,
+            soreness: [.upperBack: 2],
+            note: "背训练后感觉饱满"
+        )
+        await savedStore.send(.checkInSaved(entry))
+        XCTAssertFalse(savedStore.state.isCheckInPresented)
+        XCTAssertEqual(savedStore.state.today.todayCheckIn, entry)
+        XCTAssertEqual(savedStore.state.preferences.checkInsByDay[entry.dayKey.isoString], entry)
+        XCTAssertEqual(prefsBox.value.checkInsByDay[entry.dayKey.isoString], entry)
+
+        var failingClient = PreferencesClient.previewValue
+        failingClient.save = { _ in throw WriteDeniedError() }
+        let failingStore = TestStore(
+            initialState: AppFeature.State(hasCompletedOnboarding: true, snapshot: snapshot)
+        ) {
+            AppFeature()
+        } withDependencies: {
+            $0.preferencesClient = failingClient
+            $0.date.now = now
+        }
+        failingStore.exhaustivity = .off
+
+        await failingStore.send(.checkInSaved(entry))
+        XCTAssertTrue(failingStore.state.today.lastError?.contains("保存每日体感打卡失败") == true)
+    }
+}
+
+private final class LockedPrefsRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storage: AppPreferencesState
+
+    init(_ initial: AppPreferencesState) {
+        storage = initial
+    }
+
+    var value: AppPreferencesState {
+        lock.withLock { storage }
+    }
+
+    func set(_ newValue: AppPreferencesState) {
+        lock.withLock { storage = newValue }
+    }
 }

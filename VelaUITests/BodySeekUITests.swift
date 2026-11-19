@@ -77,6 +77,26 @@ final class BodySeekUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["--"].exists)
     }
 
+    func testDailyCheckInSheetFlow() {
+        let app = launchApp()
+        let card = app.buttons["today-checkin-card"]
+        XCTAssertTrue(card.waitForExistence(timeout: 8))
+        card.tap()
+
+        XCTAssertTrue(app.buttons["checkin-energy-4"].waitForExistence(timeout: 5))
+        app.buttons["checkin-energy-4"].tap()
+        app.buttons["checkin-mood-5"].tap()
+        app.buttons["checkin-stress-2"].tap()
+
+        let saveButton = app.buttons["checkin-save-button"]
+        if !saveButton.isHittable {
+            app.swipeUp()
+        }
+        saveButton.tap()
+
+        XCTAssertTrue(app.staticTexts["今日体感已记录"].waitForExistence(timeout: 6))
+    }
+
     func testCaptureLightAndDarkScreenshotsWhenRequested() throws {
         let env = ProcessInfo.processInfo.environment
         guard let outputDir = env["BODYSEEK_WALKTHROUGH_DIR"], !outputDir.isEmpty else {

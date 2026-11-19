@@ -11,6 +11,7 @@ public struct TodayFeature: Sendable {
         public var isLoading: Bool = false
         public var showEvidenceBreakdown: Bool = false
         public var subjectiveFeeling: Int?
+        public var todayCheckIn: DailyCheckIn?
         public var lastError: String?
 
         public init(

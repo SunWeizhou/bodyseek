@@ -110,6 +110,7 @@ public struct AppFeature: Sendable {
         case settings(PresentationAction<SettingsFeature.Action>)
         case checkInPresented(Bool)
         case checkInFeelingSelected(Int)
+        case checkInSaved(DailyCheckIn)
     }
 
     private enum CancelID { case healthUpdates }
@@ -144,7 +145,7 @@ public struct AppFeature: Sendable {
                 do {
                     let loaded = try preferencesClient.load()
                     state.preferences = loaded
-                    state.today.subjectiveFeeling = loaded.subjectiveFeelingsByDay[state.snapshot.referenceDate.dayKey()]
+                    syncCheckInFromPreferences(into: &state)
                 } catch {
                     state.today.lastError = "读取偏好设置失败：\(error.localizedDescription)"
                 }
@@ -356,6 +357,7 @@ public struct AppFeature: Sendable {
                     state.coach.sessions = []
                     state.coach.templates = ExerciseCatalog.defaultTemplates
                     state.today.subjectiveFeeling = nil
+                    state.today.todayCheckIn = nil
                     return loadSnapshotEffect(goalMinutes: state.preferences.sleepGoalMinutes, referenceDate: now)
 
                 case .dismissed:
@@ -372,12 +374,31 @@ public struct AppFeature: Sendable {
                 return .none
 
             case let .checkInFeelingSelected(score):
-                state.today.subjectiveFeeling = score
-                state.preferences.subjectiveFeelingsByDay[state.snapshot.referenceDate.dayKey()] = score
+                let dayKey = state.snapshot.referenceDate.physiologicalDayKey()
+                let entry = DailyCheckIn(
+                    id: state.today.todayCheckIn?.id ?? UUID(),
+                    dayKey: dayKey,
+                    recordedAt: now,
+                    energy: score,
+                    mood: state.today.todayCheckIn?.mood ?? 3,
+                    stress: state.today.todayCheckIn?.stress ?? 3,
+                    soreness: state.today.todayCheckIn?.soreness ?? [:],
+                    note: state.today.todayCheckIn?.note
+                )
+                return .send(.checkInSaved(entry))
+
+            case let .checkInSaved(entry):
+                let physKey = entry.dayKey.isoString
+                let calKey = state.snapshot.referenceDate.dayKey()
+                state.preferences.checkInsByDay[physKey] = entry
+                state.preferences.subjectiveFeelingsByDay[physKey] = entry.energy
+                state.preferences.subjectiveFeelingsByDay[calKey] = entry.energy
+                state.today.todayCheckIn = entry
+                state.today.subjectiveFeeling = entry.energy
                 do {
                     try preferencesClient.save(state.preferences)
                 } catch {
-                    state.today.lastError = "保存主观状态失败：\(error.localizedDescription)"
+                    state.today.lastError = "保存每日体感打卡失败：\(error.localizedDescription)"
                 }
                 state.isCheckInPresented = false
                 return .none
@@ -461,7 +482,7 @@ public struct AppFeature: Sendable {
         state.snapshot = snapshot
         state.today.isLoading = false
         state.today.snapshot = snapshot
-        state.today.subjectiveFeeling = state.preferences.subjectiveFeelingsByDay[snapshot.referenceDate.dayKey()]
+        syncCheckInFromPreferences(into: &state)
         state.workout.snapshot = snapshot
         state.trends.snapshot = snapshot
         state.coach.snapshot = snapshot
@@ -474,6 +495,16 @@ public struct AppFeature: Sendable {
         for id in state.trendsPath.ids {
             state.trendsPath[id: id]?.snapshot = snapshot
         }
+    }
+
+    private func syncCheckInFromPreferences(into state: inout State) {
+        let physKey = state.snapshot.referenceDate.physiologicalDayKey().isoString
+        let calKey = state.snapshot.referenceDate.dayKey()
+        let checkIn = state.preferences.checkInsByDay[physKey] ?? state.preferences.checkInsByDay[calKey]
+        state.today.todayCheckIn = checkIn
+        state.today.subjectiveFeeling = checkIn?.energy
+            ?? state.preferences.subjectiveFeelingsByDay[physKey]
+            ?? state.preferences.subjectiveFeelingsByDay[calKey]
     }
 
     private func routeToCoach(

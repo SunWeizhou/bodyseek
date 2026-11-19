@@ -30,6 +30,8 @@ public struct TodayView: View {
 
                     heroInstrumentCard
 
+                    checkInCard
+
                     stressAndEnergyRow
 
                     sleepCard
@@ -313,6 +315,52 @@ public struct TodayView: View {
             .background(BevelTheme.surfaceElevated, in: Capsule())
         }
         .buttonStyle(.plain)
+    }
+
+    private var checkInCard: some View {
+        Button {
+            store.send(.openCheckInTapped)
+        } label: {
+            BevelCard(padding: 14) {
+                HStack(spacing: 12) {
+                    Image(systemName: store.todayCheckIn == nil ? "heart.text.square" : "checkmark.seal.fill")
+                        .font(.title3)
+                        .foregroundStyle(store.todayCheckIn == nil ? BevelTheme.brand : BevelTheme.recoveryColor)
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        if let checkIn = store.todayCheckIn {
+                            Text("今日体感已记录")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(BevelTheme.ink)
+                            let sorenessText = checkIn.soreness.isEmpty ? "" : " · 酸痛 \(checkIn.soreness.count) 处"
+                            Text("精力 \(checkIn.energy)/5 · 情绪 \(checkIn.mood)/5 · 压力 \(checkIn.stress)/5\(sorenessText)")
+                                .font(.caption)
+                                .foregroundStyle(BevelTheme.inkSecondary)
+                                .lineLimit(1)
+                        } else {
+                            Text("今日体感尚未记录 · 10 秒打卡")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(BevelTheme.ink)
+                            Text("量化主观精力、情绪、压力与酸痛，持续校准个人身体模型")
+                                .font(.caption)
+                                .foregroundStyle(BevelTheme.inkSecondary)
+                                .lineLimit(1)
+                        }
+                    }
+
+                    Spacer(minLength: 8)
+
+                    Text(store.todayCheckIn == nil ? "打卡" : "修改")
+                        .font(.caption.weight(.semibold))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(BevelTheme.brandSoft, in: Capsule())
+                        .foregroundStyle(BevelTheme.brand)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("today-checkin-card")
     }
 
     @ViewBuilder

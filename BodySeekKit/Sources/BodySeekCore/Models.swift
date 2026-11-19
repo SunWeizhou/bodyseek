@@ -475,16 +475,81 @@ public struct BodySeekDashboardSnapshot: Equatable, Sendable {
     }
 }
 
+public enum DominantHand: String, CaseIterable, Codable, Hashable, Sendable {
+    case left
+    case right
+
+    public var title: String {
+        switch self {
+        case .left: "左手（持拍手）"
+        case .right: "右手（持拍手）"
+        }
+    }
+}
+
+public struct DailyCheckIn: Identifiable, Equatable, Hashable, Sendable, Codable {
+    public let id: UUID
+    public let dayKey: DayKey
+    public let recordedAt: Date
+    public var energy: Int
+    public var mood: Int
+    public var stress: Int
+    public var soreness: [BodyRegionMuscle: Int]
+    public var note: String?
+
+    public init(
+        id: UUID = UUID(),
+        dayKey: DayKey,
+        recordedAt: Date = Date(),
+        energy: Int = 3,
+        mood: Int = 3,
+        stress: Int = 3,
+        soreness: [BodyRegionMuscle: Int] = [:],
+        note: String? = nil
+    ) {
+        self.id = id
+        self.dayKey = dayKey
+        self.recordedAt = recordedAt
+        self.energy = min(5, max(1, energy))
+        self.mood = min(5, max(1, mood))
+        self.stress = min(5, max(1, stress))
+        self.soreness = soreness
+        let trimmed = note?.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.note = (trimmed?.isEmpty == false) ? trimmed : nil
+    }
+}
+
 public struct AppPreferencesState: Equatable, Sendable, Codable {
     public var sleepGoalMinutes: Int
     public var subjectiveFeelingsByDay: [String: Int]
+    public var checkInsByDay: [String: DailyCheckIn]
+    public var dominantHand: DominantHand
+
+    private enum CodingKeys: String, CodingKey {
+        case sleepGoalMinutes
+        case subjectiveFeelingsByDay
+        case checkInsByDay
+        case dominantHand
+    }
 
     public init(
         sleepGoalMinutes: Int = 450,
-        subjectiveFeelingsByDay: [String: Int] = [:]
+        subjectiveFeelingsByDay: [String: Int] = [:],
+        checkInsByDay: [String: DailyCheckIn] = [:],
+        dominantHand: DominantHand = .right
     ) {
         self.sleepGoalMinutes = sleepGoalMinutes
         self.subjectiveFeelingsByDay = subjectiveFeelingsByDay
+        self.checkInsByDay = checkInsByDay
+        self.dominantHand = dominantHand
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.sleepGoalMinutes = try container.decodeIfPresent(Int.self, forKey: .sleepGoalMinutes) ?? 450
+        self.subjectiveFeelingsByDay = try container.decodeIfPresent([String: Int].self, forKey: .subjectiveFeelingsByDay) ?? [:]
+        self.checkInsByDay = try container.decodeIfPresent([String: DailyCheckIn].self, forKey: .checkInsByDay) ?? [:]
+        self.dominantHand = try container.decodeIfPresent(DominantHand.self, forKey: .dominantHand) ?? .right
     }
 }
 

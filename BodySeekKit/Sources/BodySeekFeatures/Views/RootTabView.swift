@@ -43,11 +43,13 @@ public struct RootTabView: View {
             )
         ) {
             CheckInSheetView(
-                currentFeeling: store.today.subjectiveFeeling,
-                onSelect: { score in store.send(.checkInFeelingSelected(score)) },
+                dayKey: store.snapshot.referenceDate.physiologicalDayKey(),
+                initialCheckIn: store.today.todayCheckIn,
+                fallbackEnergy: store.today.subjectiveFeeling,
+                onSave: { checkIn in store.send(.checkInSaved(checkIn)) },
                 onDismiss: { store.send(.checkInPresented(false)) }
             )
-            .presentationDetents([.medium])
+            .presentationDetents([.medium, .large])
         }
     }
 

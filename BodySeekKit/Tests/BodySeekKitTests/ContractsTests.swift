@@ -95,4 +95,29 @@ final class ContractsTests: XCTestCase {
         XCTAssertEqual(decodedProposal.origin, .agent)
         XCTAssertEqual(decodedPayload, payload)
     }
+
+    func testDailyCheckInAndLegacyPreferencesBackwardCompatibleDecode() throws {
+        let dayKey = DayKey(year: 2026, month: 11, day: 19)
+        let entry = DailyCheckIn(
+            dayKey: dayKey,
+            recordedAt: Date(timeIntervalSince1970: 1_763_540_000),
+            energy: 4,
+            mood: 5,
+            stress: 2,
+            soreness: [.deltoids: 2, .forearm: 1],
+            note: "羽毛球后右肩轻微酸痛"
+        )
+        let encoded = try JSONEncoder().encode(entry)
+        let decoded = try JSONDecoder().decode(DailyCheckIn.self, from: encoded)
+        XCTAssertEqual(decoded, entry)
+
+        // Ensure pre-M0 preferences JSON decodes without error and gets .right + empty checkInsByDay
+        let legacyJSON = #"{"sleepGoalMinutes":465,"subjectiveFeelingsByDay":{"2026-11-16":4}}"#
+        let legacyData = try XCTUnwrap(legacyJSON.data(using: .utf8))
+        let legacyDecoded = try JSONDecoder().decode(AppPreferencesState.self, from: legacyData)
+        XCTAssertEqual(legacyDecoded.sleepGoalMinutes, 465)
+        XCTAssertEqual(legacyDecoded.subjectiveFeelingsByDay["2026-11-16"], 4)
+        XCTAssertTrue(legacyDecoded.checkInsByDay.isEmpty)
+        XCTAssertEqual(legacyDecoded.dominantHand, .right)
+    }
 }
