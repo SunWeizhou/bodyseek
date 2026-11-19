@@ -1,0 +1,488 @@
+import BodySeekCore
+import BodySeekHealth
+import ComposableArchitecture
+import Foundation
+
+@Reducer
+public struct AppFeature: Sendable {
+    public enum AppTab: Int, Equatable, Hashable, Sendable, CaseIterable {
+        case today = 0
+        case workout = 1
+        case trends = 2
+        case coach = 3
+    }
+
+    @ObservableState
+    public struct State: Equatable, Sendable {
+        public var hasCompletedOnboarding: Bool
+        public var selectedTab: AppTab = .today
+        public var snapshot: BodySeekDashboardSnapshot
+        public var preferences: AppPreferencesState
+        public var templates: [WorkoutTemplate]
+        public var sessions: [LoggedWorkoutSession]
+        public var memories: [AthleteMemoryItem]
+        public var today: TodayFeature.State
+        public var workout: WorkoutFeature.State
+        public var trends: TrendsFeature.State
+        public var coach: CoachFeature.State
+        public var todayPath = StackState<MetricDetailFeature.State>()
+        public var trendsPath = StackState<MetricDetailFeature.State>()
+        @Presents public var settings: SettingsFeature.State?
+        public var isCheckInPresented: Bool = false
+
+        public init(
+            hasCompletedOnboarding: Bool = false,
+            snapshot: BodySeekDashboardSnapshot? = nil,
+            preferences: AppPreferencesState = AppPreferencesState(),
+            templates: [WorkoutTemplate] = ExerciseCatalog.defaultTemplates,
+            sessions: [LoggedWorkoutSession] = [],
+            memories: [AthleteMemoryItem] = [],
+            arguments: [String] = ProcessInfo.processInfo.arguments
+        ) {
+            let isPreview = arguments.contains("-velaPreviewDashboard")
+            let resolvedSessions = sessions.isEmpty && isPreview ? PreviewSeedFactory.makeSampleLoggedWorkouts() : sessions
+            let initialSnapshot = snapshot ?? BevelScoringEngine.computeWindow(
+                rawDays: isPreview
+                    ? PreviewSeedFactory.makeRawWindow()
+                    : PreviewSeedFactory.makeEmptyRawWindow(),
+                sleepGoalMinutes: preferences.sleepGoalMinutes,
+                referenceDate: Date(),
+                sourceLabel: isPreview ? "示例数据" : "Apple 健康",
+                isAuthorized: isPreview
+            )
+
+            self.hasCompletedOnboarding = hasCompletedOnboarding
+                || isPreview
+                || arguments.contains("-velaPreviewEmptyDashboard")
+                || arguments.contains("-velaSkipOnboarding")
+            self.snapshot = initialSnapshot
+            self.preferences = preferences
+            self.templates = templates
+            self.sessions = resolvedSessions
+            self.memories = memories
+            self.today = TodayFeature.State(snapshot: initialSnapshot)
+            self.workout = WorkoutFeature.State(
+                snapshot: initialSnapshot,
+                templates: templates,
+                sessions: resolvedSessions
+            )
+            self.trends = TrendsFeature.State(snapshot: initialSnapshot)
+            self.coach = CoachFeature.State(
+                snapshot: initialSnapshot,
+                sessions: resolvedSessions,
+                templates: templates,
+                memories: memories
+            )
+
+            if let idx = arguments.firstIndex(of: "-velaInitialTab"),
+               arguments.indices.contains(idx + 1),
+               let rawTab = Int(arguments[idx + 1]),
+               let tab = AppTab(rawValue: rawTab) {
+                self.selectedTab = tab
+            }
+        }
+    }
+
+    public enum Action: Sendable {
+        case onAppear
+        case tabSelected(AppTab)
+        case onboardingAuthorizeTapped
+        case onboardingSkipTapped
+        case refreshRequested
+        case authorizationFinished(Bool)
+        case snapshotLoaded(BodySeekDashboardSnapshot)
+        case fitnessStoreLoaded(
+            templates: [WorkoutTemplate],
+            sessions: [LoggedWorkoutSession],
+            memories: [AthleteMemoryItem],
+            messages: [CoachMessage],
+            error: String?
+        )
+        case briefingGenerated(AIBriefingStatus)
+        case healthUpdateTick
+        case clearMetricDetailPaths
+        case today(TodayFeature.Action)
+        case workout(WorkoutFeature.Action)
+        case trends(TrendsFeature.Action)
+        case coach(CoachFeature.Action)
+        case todayPath(StackActionOf<MetricDetailFeature>)
+        case trendsPath(StackActionOf<MetricDetailFeature>)
+        case settings(PresentationAction<SettingsFeature.Action>)
+        case checkInPresented(Bool)
+        case checkInFeelingSelected(Int)
+    }
+
+    private enum CancelID { case healthUpdates }
+
+    @Dependency(\.healthKitClient) var healthKitClient
+    @Dependency(\.preferencesClient) var preferencesClient
+    @Dependency(\.fitnessStoreClient) var fitnessStoreClient
+    @Dependency(\.coachAIClient) var coachAIClient
+    @Dependency(\.date.now) var now
+
+    public init() {}
+
+    public var body: some ReducerOf<Self> {
+        Scope(state: \.today, action: \.today) {
+            TodayFeature()
+        }
+        Scope(state: \.workout, action: \.workout) {
+            WorkoutFeature()
+        }
+        Scope(state: \.trends, action: \.trends) {
+            TrendsFeature()
+        }
+        Scope(state: \.coach, action: \.coach) {
+            CoachFeature()
+        }
+
+        Reduce { state, action in
+            switch action {
+            case .onAppear:
+                if let loaded = try? preferencesClient.load() {
+                    state.preferences = loaded
+                    state.today.subjectiveFeeling = loaded.subjectiveFeelingsByDay[state.snapshot.referenceDate.dayKey()]
+                }
+                return .merge(
+                    loadSnapshotEffect(goalMinutes: state.preferences.sleepGoalMinutes, referenceDate: now),
+                    loadFitnessStoreEffect(),
+                    observeHealthUpdatesEffect()
+                )
+
+            case let .tabSelected(tab):
+                state.selectedTab = tab
+                return .none
+
+            case .onboardingAuthorizeTapped:
+                state.hasCompletedOnboarding = true
+                return .run { send in
+                    let granted = await healthKitClient.requestAuthorization()
+                    await send(.authorizationFinished(granted))
+                }
+
+            case .onboardingSkipTapped:
+                state.hasCompletedOnboarding = true
+                return .none
+
+            case .refreshRequested:
+                state.today.isLoading = true
+                return loadSnapshotEffect(goalMinutes: state.preferences.sleepGoalMinutes, referenceDate: now)
+
+            case .authorizationFinished:
+                return loadSnapshotEffect(goalMinutes: state.preferences.sleepGoalMinutes, referenceDate: now)
+
+            case let .snapshotLoaded(snapshot):
+                apply(snapshot: snapshot, to: &state)
+                guard snapshot.isAuthorized else {
+                    state.today.briefingStatus = .unconfigured(reason: "连接 Apple 健康并配置 AI 模型后生成生理简报")
+                    return .none
+                }
+                state.today.briefingStatus = .loading
+                return generateBriefingEffect(state: state)
+
+            case let .fitnessStoreLoaded(templates, sessions, memories, messages, error):
+                state.templates = templates
+                state.sessions = sessions
+                state.memories = memories
+                state.workout.templates = templates
+                state.workout.sessions = sessions
+                state.coach.templates = templates
+                state.coach.sessions = sessions
+                state.coach.memories = memories
+                if !messages.isEmpty {
+                    state.coach.messages = messages
+                }
+                if let error {
+                    state.workout.lastError = error
+                }
+                return .none
+
+            case let .briefingGenerated(status):
+                state.today.briefingStatus = status
+                return .none
+
+            case .healthUpdateTick:
+                return loadSnapshotEffect(goalMinutes: state.preferences.sleepGoalMinutes, referenceDate: now)
+
+            case .clearMetricDetailPaths:
+                state.todayPath.removeAll()
+                state.trendsPath.removeAll()
+                return .none
+
+            // MARK: - Today Delegates
+
+            case let .today(.delegate(delegate)):
+                switch delegate {
+                case .refreshRequested:
+                    state.today.isLoading = true
+                    return loadSnapshotEffect(goalMinutes: state.preferences.sleepGoalMinutes, referenceDate: now)
+
+                case .authorizationRequested:
+                    return .run { send in
+                        let granted = await healthKitClient.requestAuthorization()
+                        await send(.authorizationFinished(granted))
+                    }
+
+                case let .openMetric(kind):
+                    state.todayPath.append(MetricDetailFeature.State(kind: kind, snapshot: state.snapshot))
+                    return .none
+
+                case let .askCoach(question):
+                    return routeToCoach(question: question, state: &state)
+
+                case let .saveSubjectiveFeeling(score):
+                    state.preferences.subjectiveFeelingsByDay[state.snapshot.referenceDate.dayKey()] = score
+                    do {
+                        try preferencesClient.save(state.preferences)
+                    } catch {
+                        state.today.lastError = "保存主观状态失败：\(error.localizedDescription)"
+                    }
+                    return .none
+
+                case .openSettings:
+                    state.settings = SettingsFeature.State(
+                        snapshot: state.snapshot,
+                        preferences: state.preferences,
+                        memories: state.memories
+                    )
+                    return .none
+
+                case .openCheckIn:
+                    state.isCheckInPresented = true
+                    return .none
+
+                case .regenerateBriefingRequested:
+                    state.today.briefingStatus = .loading
+                    return generateBriefingEffect(state: state)
+                }
+
+            // MARK: - Workout Delegates
+
+            case let .workout(.delegate(delegate)):
+                switch delegate {
+                case let .sessionSaved(session):
+                    state.sessions.insert(session, at: 0)
+                    state.coach.sessions = state.sessions
+                    if session.syncedHealthKitUUID != nil {
+                        return loadSnapshotEffect(goalMinutes: state.preferences.sleepGoalMinutes, referenceDate: now)
+                    }
+                    return .none
+
+                case let .templateSaved(template):
+                    if let idx = state.templates.firstIndex(where: { $0.id == template.id }) {
+                        state.templates[idx] = template
+                    } else {
+                        state.templates.insert(template, at: 0)
+                    }
+                    state.coach.templates = state.templates
+                    return .none
+
+                case let .askCoach(question):
+                    return routeToCoach(question: question, state: &state)
+
+                case .openTrends:
+                    state.selectedTab = .trends
+                    return .none
+                }
+
+            // MARK: - Trends & MetricDetail Delegates
+
+            case let .trends(.delegate(.openMetric(kind, horizon))):
+                state.trendsPath.append(MetricDetailFeature.State(kind: kind, snapshot: state.snapshot, horizon: horizon))
+                return .none
+
+            case let .todayPath(.element(id: _, action: .delegate(.askCoach(question)))),
+                 let .trendsPath(.element(id: _, action: .delegate(.askCoach(question)))):
+                return routeToCoach(question: question, state: &state, deferPathReset: true)
+
+            // MARK: - Coach Delegates
+
+            case let .coach(.delegate(delegate)):
+                switch delegate {
+                case let .applyWorkoutProposal(proposal, startImmediately):
+                    state.selectedTab = .workout
+                    return .send(.workout(.acceptProposalTapped(proposal, startImmediately: startImmediately)))
+
+                case let .memoriesUpdated(memories):
+                    state.memories = memories
+                    if state.settings != nil {
+                        state.settings?.memories = memories
+                    }
+                    return .none
+
+                case .openSettings:
+                    state.settings = SettingsFeature.State(
+                        snapshot: state.snapshot,
+                        preferences: state.preferences,
+                        memories: state.memories
+                    )
+                    return .none
+                }
+
+            // MARK: - Settings Delegates
+
+            case let .settings(.presented(.delegate(delegate))):
+                switch delegate {
+                case .authorizationRequested:
+                    return .run { send in
+                        let granted = await healthKitClient.requestAuthorization()
+                        await send(.authorizationFinished(granted))
+                    }
+
+                case let .preferencesUpdated(updated):
+                    state.preferences = updated
+                    return loadSnapshotEffect(goalMinutes: updated.sleepGoalMinutes, referenceDate: now)
+
+                case let .memoriesUpdated(memories):
+                    state.memories = memories
+                    state.coach.memories = memories
+                    return .none
+
+                case .allDataReset:
+                    state.preferences = AppPreferencesState()
+                    state.memories = []
+                    state.sessions = []
+                    state.templates = ExerciseCatalog.defaultTemplates
+                    state.workout.sessions = []
+                    state.workout.templates = ExerciseCatalog.defaultTemplates
+                    state.coach.memories = []
+                    state.coach.sessions = []
+                    state.coach.templates = ExerciseCatalog.defaultTemplates
+                    state.today.subjectiveFeeling = nil
+                    return loadSnapshotEffect(goalMinutes: state.preferences.sleepGoalMinutes, referenceDate: now)
+
+                case .dismissed:
+                    state.settings = nil
+                    if state.snapshot.isAuthorized {
+                        state.today.briefingStatus = .loading
+                        return generateBriefingEffect(state: state)
+                    }
+                    return .none
+                }
+
+            case let .checkInPresented(presented):
+                state.isCheckInPresented = presented
+                return .none
+
+            case let .checkInFeelingSelected(score):
+                state.today.subjectiveFeeling = score
+                state.preferences.subjectiveFeelingsByDay[state.snapshot.referenceDate.dayKey()] = score
+                do {
+                    try preferencesClient.save(state.preferences)
+                } catch {
+                    state.today.lastError = "保存主观状态失败：\(error.localizedDescription)"
+                }
+                state.isCheckInPresented = false
+                return .none
+
+            case .today, .workout, .trends, .coach, .todayPath, .trendsPath, .settings:
+                return .none
+            }
+        }
+        .forEach(\.todayPath, action: \.todayPath) {
+            MetricDetailFeature()
+        }
+        .forEach(\.trendsPath, action: \.trendsPath) {
+            MetricDetailFeature()
+        }
+        .ifLet(\.$settings, action: \.settings) {
+            SettingsFeature()
+        }
+    }
+
+    private func loadSnapshotEffect(goalMinutes: Int, referenceDate: Date) -> Effect<Action> {
+        .run { send in
+            let snapshot = await healthKitClient.loadDashboardWindow(
+                days: 60,
+                sleepGoalMinutes: goalMinutes,
+                referenceDate: referenceDate
+            )
+            await send(.snapshotLoaded(snapshot))
+        }
+    }
+
+    private func loadFitnessStoreEffect() -> Effect<Action> {
+        .run { send in
+            do {
+                let templates = try await fitnessStoreClient.loadTemplates()
+                let sessions = try await fitnessStoreClient.loadSessions()
+                let memories = try await fitnessStoreClient.loadMemories()
+                let messages = try await fitnessStoreClient.loadMessages()
+                await send(.fitnessStoreLoaded(
+                    templates: templates,
+                    sessions: sessions,
+                    memories: memories,
+                    messages: messages,
+                    error: nil
+                ))
+            } catch {
+                await send(.fitnessStoreLoaded(
+                    templates: ExerciseCatalog.defaultTemplates,
+                    sessions: [],
+                    memories: [],
+                    messages: [],
+                    error: "读取本地训练仓库失败：\(error.localizedDescription)"
+                ))
+            }
+        }
+    }
+
+    private func generateBriefingEffect(state: State) -> Effect<Action> {
+        let context = AgentExecutionContext(
+            snapshot: state.snapshot,
+            sessions: state.sessions,
+            templates: state.templates,
+            memories: state.memories
+        )
+        return .run { send in
+            let status = await coachAIClient.generateBriefing(context)
+            await send(.briefingGenerated(status))
+        }
+    }
+
+    private func observeHealthUpdatesEffect() -> Effect<Action> {
+        .run { send in
+            let stream = await healthKitClient.observeUpdates()
+            for await _ in stream {
+                await send(.healthUpdateTick)
+            }
+        }
+        .cancellable(id: CancelID.healthUpdates, cancelInFlight: true)
+    }
+
+    private func apply(snapshot: BodySeekDashboardSnapshot, to state: inout State) {
+        state.snapshot = snapshot
+        state.today.isLoading = false
+        state.today.snapshot = snapshot
+        state.today.subjectiveFeeling = state.preferences.subjectiveFeelingsByDay[snapshot.referenceDate.dayKey()]
+        state.workout.snapshot = snapshot
+        state.trends.snapshot = snapshot
+        state.coach.snapshot = snapshot
+        if state.settings != nil {
+            state.settings?.snapshot = snapshot
+        }
+        for id in state.todayPath.ids {
+            state.todayPath[id: id]?.snapshot = snapshot
+        }
+        for id in state.trendsPath.ids {
+            state.trendsPath[id: id]?.snapshot = snapshot
+        }
+    }
+
+    private func routeToCoach(
+        question: String,
+        state: inout State,
+        deferPathReset: Bool = false
+    ) -> Effect<Action> {
+        state.selectedTab = .coach
+        return .merge(
+            .send(.coach(.externalPromptSubmitted(question))),
+            .run { send in
+                if deferPathReset {
+                    try? await Task.sleep(for: .milliseconds(350))
+                    await send(.clearMetricDetailPaths)
+                }
+            }
+        )
+    }
+}

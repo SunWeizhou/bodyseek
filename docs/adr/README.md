@@ -1,12 +1,10 @@
 # Architecture Decision Records (ADRs)
 
 > Status: Canonical
-> Last verified: 2026-10-06
+> Last verified: 2026-11-16
 > Scope: Vela 核心架构决策记录索引、状态与演进关系
 >
-> 现行软件仍遵守 Accepted ADR。ADR 0017 的部署底线、五项独立分数和 BodySeek/Vela 身份保持有效。Today 仍是 ADR 0012 的 3+2，不把 0012 标成被取代。Superseded 记录只供追溯。
-
-> 现行 shipping floor 与产品身份以 **ADR 0017 Accepted** 为准；ADR 0013–0016 均为 Superseded，不得再当作部署门槛或 Proposed 方向。
+> 现行软件以 **ADR 0018 Accepted** 为最新平台与 UI 基线（iOS 26.0 原生 `TabView` / Liquid Glass 壳层、Bevel 启发语义色与丰富可视化）；ADR 0017 的纯 Domain Core、`BodySeek`/`Vela` 工程身份、五项独立分数、SwiftData V3 保护与 AI/用户确认边界继续有效。Superseded 记录只供追溯。
 
 ---
 
@@ -30,4 +28,5 @@
 | [0014](0014-product-identity-and-primary-surface-labels.md) | Product Identity and Primary Surface Labels | Superseded | 被 ADR 0017 取代；工程身份仍为 Vela，BodySeek 固定为对外产品名。 |
 | [0015](0015-platform-floor-and-transition.md) | Platform Floor and Transition | Superseded | 被 ADR 0017 取代；现行 shipping floor 固定为 iOS 17 / watchOS 10。 |
 | [0016](0016-widget-scope-for-current-release.md) | Widget Scope for Current Release | Superseded | 被 ADR 0017 吸收；Widget 继续是 bounded preview，不进入当前 critical path。 |
-| [0017](0017-bodyseek-architecture-and-product-baseline-v2.md) | BodySeek Architecture and Product Baseline v2 | Accepted | BodySeek/Vela 身份、iOS 17/watchOS 10 floor、纯 Domain Core 与 PR0–PR9 分阶段迁移顺序。 |
+| [0017](0017-bodyseek-architecture-and-product-baseline-v2.md) | BodySeek Architecture and Product Baseline v2 | Superseded (by 0018 for iOS floor & UI) | 确立 BodySeek/Vela 身份、纯 Domain Core 与 PR0–PR8 迁移；iOS 17 底线由 ADR 0018 升级。 |
+| [0018](0018-ios26-native-architecture-and-bevel-visual-reset.md) | iOS 26 Native Architecture and Bevel-Inspired Visual Reset | Accepted | 升级 iOS 26.0 部署底线，采用原生 `TabView` + `TabRole.search` Coach + Liquid Glass，废除 Design D 单色限制并强化多维数据可视化。 |

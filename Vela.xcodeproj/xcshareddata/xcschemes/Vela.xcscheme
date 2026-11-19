@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "2604"
+   LastUpgradeVersion = "1430"
    version = "1.7">
    <BuildAction
       parallelizeBuildables = "YES"
       buildImplicitDependencies = "YES"
-      buildArchitectures = "Automatic">
+      runPostActionsOnFailure = "NO">
       <BuildActionEntries>
          <BuildActionEntry
             buildForTesting = "YES"
@@ -15,7 +15,7 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "0B0000050000000000000005"
+               BlueprintIdentifier = "887543FE98EDDB51C0D26FB2"
                BuildableName = "Vela.app"
                BlueprintName = "Vela"
                ReferencedContainer = "container:Vela.xcodeproj">
@@ -29,7 +29,7 @@
             buildForAnalyzing = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "0B0000170000000000000017"
+               BlueprintIdentifier = "BCCFD8D037ED6DA65F70506A"
                BuildableName = "VelaTests.xctest"
                BlueprintName = "VelaTests"
                ReferencedContainer = "container:Vela.xcodeproj">
@@ -43,7 +43,7 @@
             buildForAnalyzing = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "A11E00050000000000000005"
+               BlueprintIdentifier = "D432462B310DF536939AAD28"
                BuildableName = "VelaUITests.xctest"
                BlueprintName = "VelaUITests"
                ReferencedContainer = "container:Vela.xcodeproj">
@@ -56,30 +56,42 @@
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES"
-      shouldAutocreateTestPlan = "YES">
+      onlyGenerateCoverageForSpecifiedTargets = "NO">
+      <MacroExpansion>
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "887543FE98EDDB51C0D26FB2"
+            BuildableName = "Vela.app"
+            BlueprintName = "Vela"
+            ReferencedContainer = "container:Vela.xcodeproj">
+         </BuildableReference>
+      </MacroExpansion>
       <Testables>
          <TestableReference
             skipped = "NO"
-            parallelizable = "YES">
+            parallelizable = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "0B0000170000000000000017"
+               BlueprintIdentifier = "BCCFD8D037ED6DA65F70506A"
                BuildableName = "VelaTests.xctest"
                BlueprintName = "VelaTests"
                ReferencedContainer = "container:Vela.xcodeproj">
             </BuildableReference>
          </TestableReference>
          <TestableReference
-            skipped = "NO">
+            skipped = "NO"
+            parallelizable = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "A11E00050000000000000005"
+               BlueprintIdentifier = "D432462B310DF536939AAD28"
                BuildableName = "VelaUITests.xctest"
                BlueprintName = "VelaUITests"
                ReferencedContainer = "container:Vela.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
+      <CommandLineArguments>
+      </CommandLineArguments>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"
@@ -95,12 +107,14 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "0B0000050000000000000005"
+            BlueprintIdentifier = "887543FE98EDDB51C0D26FB2"
             BuildableName = "Vela.app"
             BlueprintName = "Vela"
             ReferencedContainer = "container:Vela.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
+      <CommandLineArguments>
+      </CommandLineArguments>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"
@@ -112,7 +126,7 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "0B0000050000000000000005"
+            BlueprintIdentifier = "887543FE98EDDB51C0D26FB2"
             BuildableName = "Vela.app"
             BlueprintName = "Vela"
             ReferencedContainer = "container:Vela.xcodeproj">
