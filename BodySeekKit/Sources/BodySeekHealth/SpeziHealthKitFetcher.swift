@@ -9,7 +9,7 @@ import SpeziHealthKit
 enum SpeziHealthKitFetcher {
     private static let logger = Logger(subsystem: "com.sunweizhou.Vela4", category: "HealthKitSync")
 
-    private static func runLogged<T: Sendable>(
+    private static func runLogged<T>(
         _ label: String,
         operation: () async throws -> T
     ) async -> T? {
@@ -76,6 +76,9 @@ enum SpeziHealthKitFetcher {
         referenceDate: Date,
         calendar: Calendar = .current
     ) async -> BodySeekDashboardSnapshot {
+        let signpost = BodySeekSignposts.shared.begin(.healthKitWindowFetch)
+        defer { BodySeekSignposts.shared.end(.healthKitWindowFetch, signpost) }
+
         let clampedDays = max(1, days)
         let refStart = calendar.startOfDay(for: referenceDate)
         let windowStart = calendar.date(byAdding: .day, value: -(clampedDays - 1), to: refStart) ?? refStart
@@ -366,13 +369,16 @@ enum SpeziHealthKitFetcher {
 
             var zones: WorkoutHeartRateZones?
             if index < 10, workout.endDate > workout.startDate {
-                if let hrSamples = await runLogged("workoutHeartRateQuery")({
-                    try await healthKit.query(
+                do {
+                    let hrSamples = try await healthKit.query(
                         .heartRate,
                         timeRange: HealthKitQueryTimeRange(workout.startDate..<workout.endDate)
                     )
-                }), !hrSamples.isEmpty {
-                    zones = computeHeartRateZones(samples: hrSamples, totalMinutes: minutes)
+                    if !hrSamples.isEmpty {
+                        zones = computeHeartRateZones(samples: hrSamples, totalMinutes: minutes)
+                    }
+                } catch {
+                    logger.error("HealthKit operation 'workoutHeartRateQuery' failed: \(error.localizedDescription, privacy: .public)")
                 }
             }
 

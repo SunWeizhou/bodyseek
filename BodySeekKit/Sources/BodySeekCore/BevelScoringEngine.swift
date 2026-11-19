@@ -11,6 +11,9 @@ public enum BevelScoringEngine {
         isAuthorized: Bool,
         calendar: Calendar = .current
     ) -> BodySeekDashboardSnapshot {
+        let signpost = BodySeekSignposts.shared.begin(.scoringComputeWindow)
+        defer { BodySeekSignposts.shared.end(.scoringComputeWindow, signpost) }
+
         let refStart = calendar.startOfDay(for: referenceDate)
         let sorted = Dictionary(
             rawDays.map { (calendar.startOfDay(for: $0.date), $0) },
@@ -132,6 +135,9 @@ public enum BevelScoringEngine {
         referenceDate: Date,
         calendar: Calendar = .current
     ) -> TrendSeries {
+        let signpost = BodySeekSignposts.shared.begin(.trendsSeriesCompute)
+        defer { BodySeekSignposts.shared.end(.trendsSeriesCompute, signpost) }
+
         let end = calendar.startOfDay(for: referenceDate)
         let start = calendar.date(byAdding: .day, value: -(horizon.dayCount - 1), to: end) ?? end
         let byDay = Dictionary(

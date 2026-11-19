@@ -305,6 +305,7 @@ public struct BevelMetricTrendChart: View {
                     onHover: { hover in
                         let nextDate = hover.map { Date(timeIntervalSince1970: $0.time) }
                         if selectedDate != nextDate {
+                            BodySeekSignposts.shared.emitEvent(.chartScrub, detail: series.kind.rawValue)
                             selectedDate = nextDate
                         }
                     }
@@ -590,6 +591,7 @@ public struct DualAxisLoadRecoveryChart: View {
                     onHover: { hover in
                         let nextDate = hover.map { Date(timeIntervalSince1970: $0.time) }
                         if selectedDate != nextDate {
+                            BodySeekSignposts.shared.emitEvent(.chartScrub, detail: "dualAxis")
                             selectedDate = nextDate
                         }
                     }

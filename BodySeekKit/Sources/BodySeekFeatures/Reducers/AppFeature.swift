@@ -140,6 +140,7 @@ public struct AppFeature: Sendable {
         Reduce { state, action in
             switch action {
             case .onAppear:
+                BodySeekSignposts.shared.beginColdStartIfNeeded()
                 do {
                     let loaded = try preferencesClient.load()
                     state.preferences = loaded
@@ -154,6 +155,7 @@ public struct AppFeature: Sendable {
                 )
 
             case let .tabSelected(tab):
+                BodySeekSignposts.shared.emitEvent(.tabSwitch, detail: "\(tab.rawValue)")
                 state.selectedTab = tab
                 return .none
 
@@ -177,6 +179,7 @@ public struct AppFeature: Sendable {
 
             case let .snapshotLoaded(snapshot):
                 apply(snapshot: snapshot, to: &state)
+                BodySeekSignposts.shared.endColdStartIfActive()
                 guard snapshot.isAuthorized else {
                     state.today.briefingStatus = .unconfigured(reason: "连接 Apple 健康并配置 AI 模型后生成生理简报")
                     return .none
