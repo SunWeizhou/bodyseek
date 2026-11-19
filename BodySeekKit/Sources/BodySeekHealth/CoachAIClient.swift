@@ -2,6 +2,7 @@ import BodySeekCore
 import Dependencies
 import DependenciesMacros
 import Foundation
+import os
 import SpeziLLM
 import SpeziLLMOpenAI
 
@@ -33,17 +34,17 @@ public struct CoachAIClient: Sendable {
     public var generateBriefing: @Sendable (_ context: AgentExecutionContext) async -> AIBriefingStatus = { _ in
         .unconfigured(reason: "连接 DeepSeek / OpenAI 接口或在支持 Apple 智能的设备开启端侧 AI 简报")
     }
-    public var loadAPIKey: @Sendable () -> String = { "" }
-    public var saveAPIKey: @Sendable (_ key: String) -> Void = { _ in }
+    public var loadAPIKey: @Sendable () throws -> String = { "" }
+    public var saveAPIKey: @Sendable (_ key: String) throws -> Void = { _ in }
     public var loadConfig: @Sendable () -> CoachAIConfig = { CoachAIConfig() }
     public var saveConfig: @Sendable (_ config: CoachAIConfig) -> Void = { _ in }
     public var testConnection: @Sendable (_ apiKey: String, _ config: CoachAIConfig) async -> String? = { _, _ in nil }
 }
 
 extension CoachAIClient: DependencyKey {
-    public static let apiKeyStorageKey = "bodyseek.coach.apiKey"
     public static let endpointStorageKey = "bodyseek.coach.endpoint"
     public static let modelStorageKey = "bodyseek.coach.model"
+    private static let logger = Logger(subsystem: "com.sunweizhou.Vela4", category: "CoachAI")
 
     public static let liveValue = CoachAIClient(
         reply: { question, context in
@@ -51,22 +52,34 @@ extension CoachAIClient: DependencyKey {
                 return await previewAgentReply(question: question, context: context)
             }
 
-            let apiKey = (UserDefaults.standard.string(forKey: apiKeyStorageKey) ?? "")
-                .trimmingCharacters(in: .whitespacesAndNewlines)
+            var keychainWarning: String?
+            let apiKey: String
+            do {
+                apiKey = try KeychainCredentialStore.live.loadAPIKey()
+            } catch {
+                logger.error("Failed reading API key from Keychain: \(error.localizedDescription, privacy: .public)")
+                keychainWarning = "读取 Keychain 凭据失败：\(error.localizedDescription)"
+                apiKey = ""
+            }
 
             #if os(iOS)
             if !apiKey.isEmpty {
                 let modelName = UserDefaults.standard.string(forKey: modelStorageKey) ?? "deepseek-chat"
                 let endpoint = UserDefaults.standard.string(forKey: endpointStorageKey) ?? "https://api.deepseek.com/v1"
-                if let runner = await MainActor.run(body: { BodySeekHealthBridgeModule.shared.currentLLMRunner }),
-                   let cloudMessage = try? await runSpeziOpenAIAgent(
-                       runner: runner,
-                       apiKey: apiKey,
-                       modelName: modelName,
-                       question: question,
-                       context: context
-                   ) {
-                    return cloudMessage
+                var speziErrorDescription: String?
+                if let runner = await MainActor.run(body: { BodySeekHealthBridgeModule.shared.currentLLMRunner }) {
+                    do {
+                        return try await runSpeziOpenAIAgent(
+                            runner: runner,
+                            apiKey: apiKey,
+                            modelName: modelName,
+                            question: question,
+                            context: context
+                        )
+                    } catch {
+                        speziErrorDescription = error.localizedDescription
+                        logger.warning("SpeziOpenAI runner failed (\(error.localizedDescription, privacy: .public)); falling back to direct OpenAI-compatible client.")
+                    }
                 }
                 do {
                     return try await runOpenAICompatibleAgent(
@@ -77,9 +90,12 @@ extension CoachAIClient: DependencyKey {
                         context: context
                     )
                 } catch {
+                    let detail = speziErrorDescription.map { "Spezi: \($0); 直连: \(error.localizedDescription)" }
+                        ?? error.localizedDescription
+                    logger.error("Cloud AI reply failed: \(detail, privacy: .public)")
                     return CoachMessage(
                         role: .assistant,
-                        text: "云端 AI 请求失败：\(error.localizedDescription)\n\n请检查设置中的 API Endpoint、模型名称与 API Key。\n客观数据参考：\(context.snapshot.today.factualSummary)",
+                        text: "云端 AI 请求失败：\(detail)\n\n请检查设置中的 API Endpoint、模型名称与 Keychain 中的 API Key。\n客观数据参考：\(context.snapshot.today.factualSummary)",
                         engineLabel: "云端连接异常",
                         evidenceMetric: inferredMetric(from: question)
                     )
@@ -87,20 +103,29 @@ extension CoachAIClient: DependencyKey {
             }
             #endif
 
+            var localFailureNote: String?
             #if canImport(FoundationModels)
             if #available(iOS 26.0, macOS 26.0, *) {
                 let model = SystemLanguageModel.default
                 if case .available = model.availability {
-                    if let localMessage = try? await runFoundationModelsAgent(
-                        model: model,
-                        question: question,
-                        context: context
-                    ) {
-                        return localMessage
+                    do {
+                        return try await runFoundationModelsAgent(
+                            model: model,
+                            question: question,
+                            context: context
+                        )
+                    } catch {
+                        localFailureNote = "端侧 Apple 智能执行失败：\(error.localizedDescription)"
+                        logger.error("FoundationModels reply failed: \(error.localizedDescription, privacy: .public)")
                     }
                 }
             }
             #endif
+
+            let extraDiagnostics = [keychainWarning, localFailureNote]
+                .compactMap { $0 }
+                .joined(separator: "\n")
+            let diagnosticBlock = extraDiagnostics.isEmpty ? "" : "\n诊断信息：\(extraDiagnostics)\n"
 
             return CoachMessage(
                 role: .assistant,
@@ -108,10 +133,10 @@ extension CoachAIClient: DependencyKey {
                 未检测到可用的 AI 模型。BodySeek 不再提供硬编码的规则文案，请你任选其一启用真 AI 驱动：
                 1. 在「设置」中填入 DeepSeek 或 OpenAI 兼容 API Key；
                 2. 在支持 Apple Intelligence 的真机上开启「Apple 智能」端侧模型。
-
+                \(diagnosticBlock)
                 客观数据参考：\(context.snapshot.today.factualSummary)
                 """,
-                engineLabel: "需要启用 AI",
+                engineLabel: extraDiagnostics.isEmpty ? "需要启用 AI" : "AI 引擎不可用",
                 evidenceMetric: inferredMetric(from: question)
             )
         },
@@ -125,22 +150,33 @@ extension CoachAIClient: DependencyKey {
             }
 
             let prompt = "基于下方提供的今日身体数据与近7天训练负荷，直接用不超过65个汉字给出一句精准、可执行的今日状态点评与训练取向建议。只输出纯中文文本，不要调用工具，不要输出任何JSON或XML标签。"
-            let apiKey = (UserDefaults.standard.string(forKey: apiKeyStorageKey) ?? "")
-                .trimmingCharacters(in: .whitespacesAndNewlines)
+            var keychainFailure: String?
+            let apiKey: String
+            do {
+                apiKey = try KeychainCredentialStore.live.loadAPIKey()
+            } catch {
+                logger.error("Failed reading API key during briefing: \(error.localizedDescription, privacy: .public)")
+                keychainFailure = "Keychain 读取失败：\(error.localizedDescription)"
+                apiKey = ""
+            }
 
             #if os(iOS)
             if !apiKey.isEmpty {
                 let modelName = UserDefaults.standard.string(forKey: modelStorageKey) ?? "deepseek-chat"
                 let endpoint = UserDefaults.standard.string(forKey: endpointStorageKey) ?? "https://api.deepseek.com/v1"
-                if let runner = await MainActor.run(body: { BodySeekHealthBridgeModule.shared.currentLLMRunner }),
-                   let msg = try? await runSpeziOpenAIAgent(
-                       runner: runner,
-                       apiKey: apiKey,
-                       modelName: modelName,
-                       question: prompt,
-                       context: context
-                   ) {
-                    return .generated(text: msg.text, engineName: modelName)
+                if let runner = await MainActor.run(body: { BodySeekHealthBridgeModule.shared.currentLLMRunner }) {
+                    do {
+                        let msg = try await runSpeziOpenAIAgent(
+                            runner: runner,
+                            apiKey: apiKey,
+                            modelName: modelName,
+                            question: prompt,
+                            context: context
+                        )
+                        return .generated(text: msg.text, engineName: modelName)
+                    } catch {
+                        logger.warning("SpeziOpenAI briefing failed (\(error.localizedDescription, privacy: .public)); falling back to direct client.")
+                    }
                 }
                 do {
                     let msg = try await runOpenAICompatibleAgent(
@@ -152,33 +188,43 @@ extension CoachAIClient: DependencyKey {
                     )
                     return .generated(text: msg.text, engineName: modelName)
                 } catch {
+                    logger.error("Cloud briefing failed: \(error.localizedDescription, privacy: .public)")
                     return .unconfigured(reason: "云端 AI 连接失败：\(error.localizedDescription)")
                 }
             }
             #endif
 
+            var localFailure: String?
             #if canImport(FoundationModels)
             if #available(iOS 26.0, macOS 26.0, *) {
                 let model = SystemLanguageModel.default
                 if case .available = model.availability {
-                    if let msg = try? await runFoundationModelsAgent(
-                        model: model,
-                        question: prompt,
-                        context: context
-                    ) {
+                    do {
+                        let msg = try await runFoundationModelsAgent(
+                            model: model,
+                            question: prompt,
+                            context: context
+                        )
                         return .generated(text: msg.text, engineName: "Apple 端侧模型")
+                    } catch {
+                        localFailure = "Apple 端侧简报生成失败：\(error.localizedDescription)"
+                        logger.error("FoundationModels briefing failed: \(error.localizedDescription, privacy: .public)")
                     }
                 }
             }
             #endif
 
+            let failureNote = [keychainFailure, localFailure].compactMap { $0 }.joined(separator: "；")
+            if !failureNote.isEmpty {
+                return .unconfigured(reason: failureNote)
+            }
             return .unconfigured(reason: "配置 DeepSeek/OpenAI Key 或启用 Apple 智能后，由 AI 实时生成今日简报与处方。")
         },
         loadAPIKey: {
-            UserDefaults.standard.string(forKey: apiKeyStorageKey) ?? ""
+            try KeychainCredentialStore.live.loadAPIKey()
         },
         saveAPIKey: { key in
-            UserDefaults.standard.set(key.trimmingCharacters(in: .whitespacesAndNewlines), forKey: apiKeyStorageKey)
+            try KeychainCredentialStore.live.saveAPIKey(key)
         },
         loadConfig: {
             CoachAIConfig(
@@ -209,8 +255,8 @@ extension CoachAIClient: DependencyKey {
                 "messages": [["role": "user", "content": "ping"]],
                 "max_tokens": 5,
             ]
-            request.httpBody = try? JSONSerialization.data(withJSONObject: body)
             do {
+                request.httpBody = try JSONSerialization.data(withJSONObject: body)
                 let (data, response) = try await URLSession.shared.data(for: request)
                 guard let http = response as? HTTPURLResponse else {
                     return "未收到有效 HTTP 响应"
@@ -221,6 +267,7 @@ extension CoachAIClient: DependencyKey {
                 let serverMsg = String(data: data.prefix(240), encoding: .utf8) ?? ""
                 return "HTTP \(http.statusCode)：\(serverMsg)"
             } catch {
+                logger.error("Connection test failed: \(error.localizedDescription, privacy: .public)")
                 return "网络请求失败：\(error.localizedDescription)"
             }
         }
@@ -394,12 +441,15 @@ extension CoachAIClient: DependencyKey {
             "<[｜|]DSML[｜|]calls>[\\s\\S]*?</[｜|]DSML[｜|]calls>",
         ]
         for pattern in patterns {
-            if let regex = try? NSRegularExpression(pattern: pattern, options: []) {
+            do {
+                let regex = try NSRegularExpression(pattern: pattern, options: [])
                 cleaned = regex.stringByReplacingMatches(
                     in: cleaned,
                     range: NSRange(cleaned.startIndex..., in: cleaned),
                     withTemplate: ""
                 )
+            } catch {
+                logger.error("Invalid regex pattern in stripLeakedToolMarkup: \(error.localizedDescription, privacy: .public)")
             }
         }
         return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -472,7 +522,13 @@ extension CoachAIClient: DependencyKey {
         context: AgentExecutionContext
     ) async -> String {
         let data = argumentsJSON.data(using: .utf8) ?? Data()
-        let args = (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
+        let args: [String: Any]
+        do {
+            args = try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
+        } catch {
+            logger.error("Tool argument JSON decode failed for \(name, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            args = [:]
+        }
         switch name {
         case "query_physiology_and_training":
             return AgentToolLogic.physiologyAndTrainingReport(context: context)

@@ -104,6 +104,7 @@ public struct WorkoutFeature: Sendable {
         case completeActiveWorkoutTapped
         case workoutPersisted(LoggedWorkoutSession, hkWarning: String?)
         case workoutPersistFailed(String)
+        case templatePersistFailed(String)
         case askCoachForMuscleTapped(BodyRegionMuscle?)
         case openTrendsTapped
         case clearStatusBanner
@@ -208,8 +209,12 @@ public struct WorkoutFeature: Sendable {
                 }
                 let templateToSave = proposal.template
                 return .run { send in
-                    try? await fitnessStoreClient.saveTemplate(templateToSave)
-                    await send(.delegate(.templateSaved(templateToSave)))
+                    do {
+                        try await fitnessStoreClient.saveTemplate(templateToSave)
+                        await send(.delegate(.templateSaved(templateToSave)))
+                    } catch {
+                        await send(.templatePersistFailed(error.localizedDescription))
+                    }
                 }
 
             case .dismissProposalTapped:
@@ -401,6 +406,10 @@ public struct WorkoutFeature: Sendable {
             case let .workoutPersistFailed(reason):
                 state.isSavingWorkout = false
                 state.lastError = "保存训练失败：\(reason)"
+                return .none
+
+            case let .templatePersistFailed(reason):
+                state.lastError = "保存训练模板失败：\(reason)"
                 return .none
 
             case let .askCoachForMuscleTapped(muscle):

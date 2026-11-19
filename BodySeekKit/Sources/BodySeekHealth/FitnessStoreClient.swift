@@ -2,6 +2,7 @@ import BodySeekCore
 import Dependencies
 import DependenciesMacros
 import Foundation
+import os
 import SwiftData
 
 // MARK: - Lean SwiftData Schema (4 domain models)
@@ -64,8 +65,19 @@ public final class StoredCoachMessage {
 
 public actor BodySeekSwiftDataBackend {
     public static let shared = BodySeekSwiftDataBackend()
+    private static let logger = Logger(subsystem: "com.sunweizhou.Vela4", category: "SwiftDataStore")
 
     private var cachedContainer: ModelContainer?
+
+    private func decodeRows<T: Decodable>(_ payloads: [Data], as type: T.Type, label: String) throws -> [T] {
+        let decoder = JSONDecoder()
+        do {
+            return try payloads.map { try decoder.decode(T.self, from: $0) }
+        } catch {
+            Self.logger.error("Failed decoding \(label, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            throw error
+        }
+    }
 
     private func container() throws -> ModelContainer {
         if let cachedContainer { return cachedContainer }
@@ -101,7 +113,7 @@ public actor BodySeekSwiftDataBackend {
             try context.save()
             return defaults
         }
-        return rows.compactMap { try? JSONDecoder().decode(WorkoutTemplate.self, from: $0.payload) }
+        return try decodeRows(rows.map(\.payload), as: WorkoutTemplate.self, label: "WorkoutTemplate")
     }
 
     public func saveTemplate(_ template: WorkoutTemplate) throws {
@@ -113,7 +125,7 @@ public actor BodySeekSwiftDataBackend {
             existing.payload = data
             existing.updatedAt = Date()
         } else {
-            let count = (try? context.fetchCount(FetchDescriptor<StoredWorkoutTemplate>())) ?? 0
+            let count = try context.fetchCount(FetchDescriptor<StoredWorkoutTemplate>())
             context.insert(StoredWorkoutTemplate(id: template.id, sortOrder: count, updatedAt: Date(), payload: data))
         }
         try context.save()
@@ -123,7 +135,7 @@ public actor BodySeekSwiftDataBackend {
         let context = ModelContext(try container())
         let desc = FetchDescriptor<StoredWorkoutSession>(sortBy: [SortDescriptor(\.completedAt, order: .reverse)])
         let rows = try context.fetch(desc)
-        return rows.compactMap { try? JSONDecoder().decode(LoggedWorkoutSession.self, from: $0.payload) }
+        return try decodeRows(rows.map(\.payload), as: LoggedWorkoutSession.self, label: "LoggedWorkoutSession")
     }
 
     public func saveSession(_ session: LoggedWorkoutSession) throws {
@@ -144,7 +156,7 @@ public actor BodySeekSwiftDataBackend {
         let context = ModelContext(try container())
         let desc = FetchDescriptor<StoredAthleteMemory>(sortBy: [SortDescriptor(\.updatedAt, order: .reverse)])
         let rows = try context.fetch(desc)
-        return rows.compactMap { try? JSONDecoder().decode(AthleteMemoryItem.self, from: $0.payload) }
+        return try decodeRows(rows.map(\.payload), as: AthleteMemoryItem.self, label: "AthleteMemoryItem")
     }
 
     public func saveMemory(_ item: AthleteMemoryItem) throws {
@@ -174,7 +186,7 @@ public actor BodySeekSwiftDataBackend {
         let context = ModelContext(try container())
         let desc = FetchDescriptor<StoredCoachMessage>(sortBy: [SortDescriptor(\.timestamp, order: .forward)])
         let rows = try context.fetch(desc)
-        return rows.compactMap { try? JSONDecoder().decode(CoachMessage.self, from: $0.payload) }
+        return try decodeRows(rows.map(\.payload), as: CoachMessage.self, label: "CoachMessage")
     }
 
     public func appendMessage(_ msg: CoachMessage) throws {

@@ -1,6 +1,7 @@
 import Dependencies
 import DependenciesMacros
 import Foundation
+import os
 import UserNotifications
 
 @DependencyClient
@@ -11,6 +12,7 @@ public struct RestTimerClient: Sendable {
 
 extension RestTimerClient: DependencyKey {
     private static let notificationID = "bodyseek.workout.rest.complete"
+    private static let logger = Logger(subsystem: "com.sunweizhou.Vela4", category: "RestTimer")
 
     public static let liveValue = RestTimerClient(
         scheduleRestCompletion: { seconds, exerciseName in
@@ -20,7 +22,13 @@ extension RestTimerClient: DependencyKey {
             }
             #if os(iOS)
             let center = UNUserNotificationCenter.current()
-            let granted = (try? await center.requestAuthorization(options: [.alert, .sound])) ?? false
+            let granted: Bool
+            do {
+                granted = try await center.requestAuthorization(options: [.alert, .sound])
+            } catch {
+                logger.error("Notification authorization failed: \(error.localizedDescription, privacy: .public)")
+                return
+            }
             guard granted, seconds > 0 else { return }
 
             center.removePendingNotificationRequests(withIdentifiers: [notificationID])
@@ -31,7 +39,11 @@ extension RestTimerClient: DependencyKey {
 
             let trigger = UNTimeIntervalNotificationTrigger(timeInterval: TimeInterval(seconds), repeats: false)
             let request = UNNotificationRequest(identifier: notificationID, content: content, trigger: trigger)
-            try? await center.add(request)
+            do {
+                try await center.add(request)
+            } catch {
+                logger.error("Failed scheduling rest timer notification: \(error.localizedDescription, privacy: .public)")
+            }
             #endif
         },
         cancelPending: {

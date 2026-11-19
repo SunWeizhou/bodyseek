@@ -36,6 +36,7 @@ public struct SettingsFeature: Sendable {
         case testConnectionFinished(String?)
         case authorizeHealthTapped
         case deleteMemoryTapped(UUID)
+        case memoryDeleteFailed(String)
         case resetAllDataTapped
         case resetFinished
         case resetFailed(String)
@@ -62,7 +63,12 @@ public struct SettingsFeature: Sendable {
         Reduce { state, action in
             switch action {
             case .onAppear:
-                state.apiKey = coachAIClient.loadAPIKey()
+                do {
+                    state.apiKey = try coachAIClient.loadAPIKey()
+                } catch {
+                    state.apiKey = ""
+                    state.statusMessage = "读取 Keychain 凭据失败：\(error.localizedDescription)"
+                }
                 state.config = coachAIClient.loadConfig()
                 return .none
 
@@ -94,10 +100,15 @@ public struct SettingsFeature: Sendable {
                     modelName: state.config.modelName.trimmingCharacters(in: .whitespacesAndNewlines)
                 )
                 state.config = normalizedConfig
-                coachAIClient.saveAPIKey(state.apiKey)
+                do {
+                    try coachAIClient.saveAPIKey(state.apiKey)
+                } catch {
+                    state.statusMessage = "保存 API Key 到 Keychain 失败：\(error.localizedDescription)"
+                    return .none
+                }
                 coachAIClient.saveConfig(normalizedConfig)
                 if state.apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    state.statusMessage = "已清空云端 Key，将优先尝试设备端侧 Apple 智能"
+                    state.statusMessage = "已清空 Keychain 中的云端 Key，将优先尝试设备端侧 Apple 智能"
                     return .none
                 }
                 state.isTestingConnection = true
@@ -125,10 +136,18 @@ public struct SettingsFeature: Sendable {
                 let updated = state.memories
                 return .merge(
                     .send(.delegate(.memoriesUpdated(updated))),
-                    .run { _ in
-                        try? await fitnessStoreClient.deleteMemory(id)
+                    .run { send in
+                        do {
+                            try await fitnessStoreClient.deleteMemory(id)
+                        } catch {
+                            await send(.memoryDeleteFailed(error.localizedDescription))
+                        }
                     }
                 )
+
+            case let .memoryDeleteFailed(reason):
+                state.statusMessage = "删除记忆失败：\(reason)"
+                return .none
 
             case .resetAllDataTapped:
                 return .run { send in

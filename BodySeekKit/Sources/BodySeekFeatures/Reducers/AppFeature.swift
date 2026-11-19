@@ -118,6 +118,7 @@ public struct AppFeature: Sendable {
     @Dependency(\.preferencesClient) var preferencesClient
     @Dependency(\.fitnessStoreClient) var fitnessStoreClient
     @Dependency(\.coachAIClient) var coachAIClient
+    @Dependency(\.continuousClock) var clock
     @Dependency(\.date.now) var now
 
     public init() {}
@@ -139,9 +140,12 @@ public struct AppFeature: Sendable {
         Reduce { state, action in
             switch action {
             case .onAppear:
-                if let loaded = try? preferencesClient.load() {
+                do {
+                    let loaded = try preferencesClient.load()
                     state.preferences = loaded
                     state.today.subjectiveFeeling = loaded.subjectiveFeelingsByDay[state.snapshot.referenceDate.dayKey()]
+                } catch {
+                    state.today.lastError = "读取偏好设置失败：\(error.localizedDescription)"
                 }
                 return .merge(
                     loadSnapshotEffect(goalMinutes: state.preferences.sleepGoalMinutes, referenceDate: now),
@@ -479,7 +483,11 @@ public struct AppFeature: Sendable {
             .send(.coach(.externalPromptSubmitted(question))),
             .run { send in
                 if deferPathReset {
-                    try? await Task.sleep(for: .milliseconds(350))
+                    do {
+                        try await clock.sleep(for: .milliseconds(350))
+                    } catch {
+                        return
+                    }
                     await send(.clearMetricDetailPaths)
                 }
             }

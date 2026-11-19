@@ -73,6 +73,7 @@ public struct CoachFeature: Sendable {
         case dismissProposalTapped(UUID)
         case memorySheetPresented(Bool)
         case deleteMemoryTapped(UUID)
+        case storeOperationFailed(String)
         case openSettingsTapped
         case delegate(Delegate)
 
@@ -135,8 +136,12 @@ public struct CoachFeature: Sendable {
                 state.lastError = nil
                 state.dismissedProposalMessageIDs.removeAll()
                 state.messages = [State.makeWelcomeMessage(snapshot: state.snapshot)]
-                return .run { _ in
-                    try? await fitnessStoreClient.clearMessages()
+                return .run { send in
+                    do {
+                        try await fitnessStoreClient.clearMessages()
+                    } catch {
+                        await send(.storeOperationFailed("清空对话历史失败：\(error.localizedDescription)"))
+                    }
                 }
 
             case let .applyProposalTapped(messageID, proposal, startImmediately):
@@ -156,10 +161,18 @@ public struct CoachFeature: Sendable {
                 let updated = state.memories
                 return .merge(
                     .send(.delegate(.memoriesUpdated(updated))),
-                    .run { _ in
-                        try? await fitnessStoreClient.deleteMemory(id)
+                    .run { send in
+                        do {
+                            try await fitnessStoreClient.deleteMemory(id)
+                        } catch {
+                            await send(.storeOperationFailed("删除长期记忆失败：\(error.localizedDescription)"))
+                        }
                     }
                 )
+
+            case let .storeOperationFailed(message):
+                state.lastError = message
+                return .none
 
             case .openSettingsTapped:
                 return .send(.delegate(.openSettings))

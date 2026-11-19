@@ -1,11 +1,25 @@
 import BodySeekCore
 import Foundation
+import os
 
 #if os(iOS)
 import HealthKit
 import SpeziHealthKit
 
 enum SpeziHealthKitFetcher {
+    private static let logger = Logger(subsystem: "com.sunweizhou.Vela4", category: "HealthKitSync")
+
+    private static func runLogged<T: Sendable>(
+        _ label: String,
+        operation: () async throws -> T
+    ) async -> T? {
+        do {
+            return try await operation()
+        } catch {
+            logger.error("HealthKit operation '\(label, privacy: .public)' failed: \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
+    }
     @MainActor
     static func requestAuthorization(using healthKit: HealthKit) async -> Bool {
         do {
@@ -71,56 +85,76 @@ enum SpeziHealthKitFetcher {
         let sleepStart = calendar.date(byAdding: .hour, value: -16, to: windowStart) ?? windowStart
         let sleepRange = HealthKitQueryTimeRange(sleepStart..<windowEnd)
 
-        async let hrvStats = try? healthKit.statisticsQuery(
-            .heartRateVariabilitySDNN,
-            aggregatedBy: [.average],
-            over: .day,
-            timeRange: queryRange
-        )
-        async let rhrStats = try? healthKit.statisticsQuery(
-            .restingHeartRate,
-            aggregatedBy: [.average],
-            over: .day,
-            timeRange: queryRange
-        )
-        async let respStats = try? healthKit.statisticsQuery(
-            .respiratoryRate,
-            aggregatedBy: [.average],
-            over: .day,
-            timeRange: queryRange
-        )
-        async let spo2Stats = try? healthKit.statisticsQuery(
-            .bloodOxygen,
-            aggregatedBy: [.average],
-            over: .day,
-            timeRange: queryRange
-        )
-        async let hrStats = try? healthKit.statisticsQuery(
-            .heartRate,
-            aggregatedBy: [.average, .max],
-            over: .day,
-            timeRange: queryRange
-        )
-        async let energyStats = try? healthKit.statisticsQuery(
-            .activeEnergyBurned,
-            aggregatedBy: [.sum],
-            over: .day,
-            timeRange: queryRange
-        )
-        async let exerciseStats = try? healthKit.statisticsQuery(
-            .appleExerciseTime,
-            aggregatedBy: [.sum],
-            over: .day,
-            timeRange: queryRange
-        )
-        async let stepStats = try? healthKit.statisticsQuery(
-            .stepCount,
-            aggregatedBy: [.sum],
-            over: .day,
-            timeRange: queryRange
-        )
-        async let sleepSamples = try? healthKit.query(.sleepAnalysis, timeRange: sleepRange)
-        async let workoutSamples = try? healthKit.query(.workout, timeRange: queryRange)
+        async let hrvStats = runLogged("hrvStatistics") {
+            try await healthKit.statisticsQuery(
+                .heartRateVariabilitySDNN,
+                aggregatedBy: [.average],
+                over: .day,
+                timeRange: queryRange
+            )
+        }
+        async let rhrStats = runLogged("rhrStatistics") {
+            try await healthKit.statisticsQuery(
+                .restingHeartRate,
+                aggregatedBy: [.average],
+                over: .day,
+                timeRange: queryRange
+            )
+        }
+        async let respStats = runLogged("respiratoryStatistics") {
+            try await healthKit.statisticsQuery(
+                .respiratoryRate,
+                aggregatedBy: [.average],
+                over: .day,
+                timeRange: queryRange
+            )
+        }
+        async let spo2Stats = runLogged("spo2Statistics") {
+            try await healthKit.statisticsQuery(
+                .bloodOxygen,
+                aggregatedBy: [.average],
+                over: .day,
+                timeRange: queryRange
+            )
+        }
+        async let hrStats = runLogged("heartRateStatistics") {
+            try await healthKit.statisticsQuery(
+                .heartRate,
+                aggregatedBy: [.average, .max],
+                over: .day,
+                timeRange: queryRange
+            )
+        }
+        async let energyStats = runLogged("activeEnergyStatistics") {
+            try await healthKit.statisticsQuery(
+                .activeEnergyBurned,
+                aggregatedBy: [.sum],
+                over: .day,
+                timeRange: queryRange
+            )
+        }
+        async let exerciseStats = runLogged("exerciseMinutesStatistics") {
+            try await healthKit.statisticsQuery(
+                .appleExerciseTime,
+                aggregatedBy: [.sum],
+                over: .day,
+                timeRange: queryRange
+            )
+        }
+        async let stepStats = runLogged("stepStatistics") {
+            try await healthKit.statisticsQuery(
+                .stepCount,
+                aggregatedBy: [.sum],
+                over: .day,
+                timeRange: queryRange
+            )
+        }
+        async let sleepSamples = runLogged("sleepAnalysisQuery") {
+            try await healthKit.query(.sleepAnalysis, timeRange: sleepRange)
+        }
+        async let workoutSamples = runLogged("workoutQuery") {
+            try await healthKit.query(.workout, timeRange: queryRange)
+        }
 
         let hrvByDay = mapAverage(await hrvStats, unit: .secondUnit(with: .milli), calendar: calendar)
         let rhrByDay = mapAverage(await rhrStats, unit: .count().unitDivided(by: .minute()), calendar: calendar)
@@ -254,7 +288,13 @@ enum SpeziHealthKitFetcher {
         calendar: Calendar
     ) -> [Date: DaySleepAggregate] {
         guard !samples.isEmpty else { return [:] }
-        let sessions = (try? samples.splitIntoSleepSessions(threshold: .minutes(60), separateBySource: true)) ?? []
+        let sessions: [SleepSession]
+        do {
+            sessions = try samples.splitIntoSleepSessions(threshold: .minutes(60), separateBySource: true)
+        } catch {
+            logger.error("splitIntoSleepSessions failed: \(error.localizedDescription, privacy: .public)")
+            sessions = []
+        }
 
         var bestByDay: [Date: SleepSession] = [:]
         for session in sessions where session.totalTimeSpentAsleep > 0 {
@@ -326,10 +366,12 @@ enum SpeziHealthKitFetcher {
 
             var zones: WorkoutHeartRateZones?
             if index < 10, workout.endDate > workout.startDate {
-                if let hrSamples = try? await healthKit.query(
-                    .heartRate,
-                    timeRange: HealthKitQueryTimeRange(workout.startDate..<workout.endDate)
-                ), !hrSamples.isEmpty {
+                if let hrSamples = await runLogged("workoutHeartRateQuery")({
+                    try await healthKit.query(
+                        .heartRate,
+                        timeRange: HealthKitQueryTimeRange(workout.startDate..<workout.endDate)
+                    )
+                }), !hrSamples.isEmpty {
                     zones = computeHeartRateZones(samples: hrSamples, totalMinutes: minutes)
                 }
             }
