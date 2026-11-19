@@ -128,4 +128,44 @@ final class BevelScoringEngineTests: XCTestCase {
         XCTAssertNil(snapshot.trainingLoad.acwrRatio)
         XCTAssertEqual(snapshot.trainingLoad.zone, .insufficientData)
     }
+
+    func testScoreV2VersionContributorsAndDeterministicReplay() {
+        let calendar = Calendar(identifier: .gregorian)
+        let now = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_760_000_000))
+        let raw = PreviewSeedFactory.makeRawWindow(endingAt: now, days: 45, calendar: calendar)
+
+        let first = BevelScoringEngine.computeWindow(
+            rawDays: raw,
+            sleepGoalMinutes: 450,
+            referenceDate: now,
+            sourceLabel: "Test",
+            isAuthorized: true,
+            calendar: calendar
+        )
+        let second = BevelScoringEngine.computeWindow(
+            rawDays: raw,
+            sleepGoalMinutes: 450,
+            referenceDate: now,
+            sourceLabel: "Test",
+            isAuthorized: true,
+            calendar: calendar
+        )
+
+        XCTAssertEqual(first.scoreAlgorithmVersion, .scoreV2)
+        XCTAssertEqual(first.today.algorithmVersion, .scoreV2)
+        XCTAssertEqual(first.today.recovery.algorithmVersion, .scoreV2)
+        XCTAssertEqual(first.today.sleep.algorithmVersion, .scoreV2)
+        XCTAssertEqual(first.today.strain.algorithmVersion, .scoreV2)
+        XCTAssertEqual(first.today.stress.algorithmVersion, .scoreV2)
+        XCTAssertEqual(first.today.energy.algorithmVersion, .scoreV2)
+
+        XCTAssertFalse(first.today.recovery.contributors.isEmpty)
+        XCTAssertFalse(first.today.sleep.contributors.isEmpty)
+        XCTAssertFalse(first.today.strain.contributors.isEmpty)
+        XCTAssertFalse(first.today.stress.contributors.isEmpty)
+        XCTAssertFalse(first.today.energy.contributors.isEmpty)
+
+        XCTAssertEqual(first.historyDays, second.historyDays)
+        XCTAssertEqual(first.trainingLoad, second.trainingLoad)
+    }
 }

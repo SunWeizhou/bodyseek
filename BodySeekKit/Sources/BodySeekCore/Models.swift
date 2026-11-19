@@ -66,6 +66,8 @@ public struct MetricScore: Equatable, Hashable, Sendable, Codable {
     public let badge: String
     public let subtitle: String
     public let baselineDelta: Int?
+    public let algorithmVersion: AlgorithmVersion
+    public let contributors: [MetricContributor]
 
     public init(
         kind: MetricKind,
@@ -73,7 +75,9 @@ public struct MetricScore: Equatable, Hashable, Sendable, Codable {
         availability: MetricAvailability,
         badge: String,
         subtitle: String,
-        baselineDelta: Int? = nil
+        baselineDelta: Int? = nil,
+        algorithmVersion: AlgorithmVersion = .scoreV2,
+        contributors: [MetricContributor] = []
     ) {
         self.kind = kind
         self.value = value
@@ -81,6 +85,8 @@ public struct MetricScore: Equatable, Hashable, Sendable, Codable {
         self.badge = badge
         self.subtitle = subtitle
         self.baselineDelta = baselineDelta
+        self.algorithmVersion = algorithmVersion
+        self.contributors = contributors
     }
 
     public var formattedScore: String {
@@ -310,6 +316,7 @@ public struct EnergyCurvePoint: Identifiable, Hashable, Sendable, Codable {
 public struct DailyComputedDay: Identifiable, Hashable, Sendable, Codable {
     public var id: Date { date }
     public let date: Date
+    public let dayKey: DayKey
     public let raw: DailyRawMetrics
     public let recovery: MetricScore
     public let sleep: MetricScore
@@ -320,9 +327,11 @@ public struct DailyComputedDay: Identifiable, Hashable, Sendable, Codable {
     public let stressTimeline: [StressTimelineBin]
     public let factualSummary: String
     public let evidenceSummary: String
+    public let algorithmVersion: AlgorithmVersion
 
     public init(
         date: Date,
+        dayKey: DayKey? = nil,
         raw: DailyRawMetrics,
         recovery: MetricScore,
         sleep: MetricScore,
@@ -332,9 +341,11 @@ public struct DailyComputedDay: Identifiable, Hashable, Sendable, Codable {
         energyCurve: [EnergyCurvePoint],
         stressTimeline: [StressTimelineBin],
         factualSummary: String,
-        evidenceSummary: String
+        evidenceSummary: String,
+        algorithmVersion: AlgorithmVersion = .scoreV2
     ) {
         self.date = date
+        self.dayKey = dayKey ?? DayKey(date: date, cutoverHour: 4)
         self.raw = raw
         self.recovery = recovery
         self.sleep = sleep
@@ -345,6 +356,7 @@ public struct DailyComputedDay: Identifiable, Hashable, Sendable, Codable {
         self.stressTimeline = stressTimeline
         self.factualSummary = factualSummary
         self.evidenceSummary = evidenceSummary
+        self.algorithmVersion = algorithmVersion
     }
 
     public func score(for kind: MetricKind) -> MetricScore {
@@ -440,6 +452,7 @@ public struct BodySeekDashboardSnapshot: Equatable, Sendable {
     public let sourceLabel: String
     public let lastUpdatedAt: Date
     public let isAuthorized: Bool
+    public let scoreAlgorithmVersion: AlgorithmVersion
 
     public init(
         referenceDate: Date,
@@ -448,7 +461,8 @@ public struct BodySeekDashboardSnapshot: Equatable, Sendable {
         trainingLoad: TrainingLoadStatus,
         sourceLabel: String,
         lastUpdatedAt: Date,
-        isAuthorized: Bool
+        isAuthorized: Bool,
+        scoreAlgorithmVersion: AlgorithmVersion = .scoreV2
     ) {
         self.referenceDate = referenceDate
         self.today = today
@@ -457,6 +471,7 @@ public struct BodySeekDashboardSnapshot: Equatable, Sendable {
         self.sourceLabel = sourceLabel
         self.lastUpdatedAt = lastUpdatedAt
         self.isAuthorized = isAuthorized
+        self.scoreAlgorithmVersion = scoreAlgorithmVersion
     }
 }
 

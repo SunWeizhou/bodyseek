@@ -57,7 +57,8 @@ public enum BevelScoringEngine {
             trainingLoad: acwr,
             sourceLabel: sourceLabel,
             lastUpdatedAt: Date(),
-            isAuthorized: isAuthorized
+            isAuthorized: isAuthorized,
+            scoreAlgorithmVersion: .scoreV2
         )
     }
 
@@ -109,6 +110,7 @@ public enum BevelScoringEngine {
 
         return DailyComputedDay(
             date: dayStart,
+            dayKey: DayKey(date: raw.date, cutoverHour: 4, timeZone: calendar.timeZone),
             raw: raw,
             recovery: recoveryScore,
             sleep: sleepScore,
@@ -118,7 +120,8 @@ public enum BevelScoringEngine {
             energyCurve: energyCurve,
             stressTimeline: stressTimeline,
             factualSummary: factual,
-            evidenceSummary: evidence
+            evidenceSummary: evidence,
+            algorithmVersion: .scoreV2
         )
     }
 
@@ -280,35 +283,99 @@ public enum BevelScoringEngine {
         var weightedSum = 0.0
         var totalWeight = 0.0
         var deltaPct: Double?
+        var contributors: [MetricContributor] = []
 
         if let hrv = raw.hrvMs {
             let component: Double
+            let deltaText: String?
+            let impact: MetricContributor.Impact
             if let base = baselineHRV, base > 1 {
                 let ratio = (hrv - base) / max(base * 0.22, 6.0)
                 component = clamp(68.0 + ratio * 22.0, min: 15, max: 99)
-                deltaPct = hrv - base
+                let diff = hrv - base
+                deltaPct = diff
+                let diffInt = Int(diff.rounded())
+                deltaText = "基线 \(Int(base.rounded())) ms（\(diffInt >= 0 ? "+" : "")\(diffInt)）"
+                impact = diff >= 3 ? .positive : (diff <= -3 ? .negative : .neutral)
             } else {
                 component = clamp(30.0 + hrv * 0.9, min: 25, max: 92)
+                deltaText = nil
+                impact = .neutral
             }
             weightedSum += component * 0.52
             totalWeight += 0.52
+            contributors.append(MetricContributor(
+                id: "recovery-hrv",
+                label: "夜间 HRV (SDNN)",
+                valueText: "\(Int(hrv.rounded())) ms",
+                baselineDeltaText: deltaText,
+                weight: 0.52,
+                impact: impact
+            ))
+        } else {
+            contributors.append(MetricContributor(
+                id: "recovery-hrv",
+                label: "夜间 HRV (SDNN)",
+                valueText: "--",
+                weight: 0.52,
+                impact: .missing
+            ))
         }
 
         if let rhr = raw.restingHeartRateBpm {
             let component: Double
+            let deltaText: String?
+            let impact: MetricContributor.Impact
             if let base = baselineRHR, base > 1 {
                 let diff = base - rhr
                 component = clamp(68.0 + (diff / 5.0) * 20.0, min: 15, max: 98)
+                let rawDiff = Int((rhr - base).rounded())
+                deltaText = "基线 \(Int(base.rounded())) bpm（\(rawDiff >= 0 ? "+" : "")\(rawDiff)）"
+                impact = rawDiff <= -2 ? .positive : (rawDiff >= 2 ? .negative : .neutral)
             } else {
                 component = clamp(105.0 - rhr * 0.6, min: 25, max: 92)
+                deltaText = nil
+                impact = .neutral
             }
             weightedSum += component * 0.30
             totalWeight += 0.30
+            contributors.append(MetricContributor(
+                id: "recovery-rhr",
+                label: "静息心率",
+                valueText: "\(Int(rhr.rounded())) bpm",
+                baselineDeltaText: deltaText,
+                weight: 0.30,
+                impact: impact
+            ))
+        } else {
+            contributors.append(MetricContributor(
+                id: "recovery-rhr",
+                label: "静息心率",
+                valueText: "--",
+                weight: 0.30,
+                impact: .missing
+            ))
         }
 
         if let sleepVal = sleepScore.value {
             weightedSum += Double(sleepVal) * 0.18
             totalWeight += 0.18
+            contributors.append(MetricContributor(
+                id: "recovery-sleep",
+                label: "昨夜睡眠支撑",
+                valueText: "\(sleepVal) 分",
+                baselineDeltaText: sleepScore.subtitle,
+                weight: 0.18,
+                impact: sleepVal >= 75 ? .positive : (sleepVal < 55 ? .negative : .neutral)
+            ))
+        } else {
+            contributors.append(MetricContributor(
+                id: "recovery-sleep",
+                label: "昨夜睡眠支撑",
+                valueText: "--",
+                weight: 0.18,
+                impact: .missing
+            ))
         }
 
         let final = Int(clamp(weightedSum / max(totalWeight, 0.01), min: 1, max: 100).rounded())
@@ -332,7 +399,9 @@ public enum BevelScoringEngine {
             availability: .available,
             badge: badge,
             subtitle: subtitle,
-            baselineDelta: deltaPct.map { Int($0.rounded()) }
+            baselineDelta: deltaPct.map { Int($0.rounded()) },
+            algorithmVersion: .scoreV2,
+            contributors: contributors
         )
     }
 
@@ -373,13 +442,40 @@ public enum BevelScoringEngine {
         let delta = baselineSleep.map { Int((Double(asleep) - $0).rounded()) }
         let badge = total >= 80 ? "睡眠充分" : (total >= 60 ? "整体平稳" : "睡得偏短")
 
+        let contributors: [MetricContributor] = [
+            MetricContributor(
+                id: "sleep-duration",
+                label: "实际睡眠时长",
+                valueText: "\(h)小时\(m)分",
+                baselineDeltaText: delta.map { "\($0 >= 0 ? "+" : "")\($0) 分钟 vs 基线" },
+                weight: 0.55,
+                impact: Double(asleep) >= target * 0.92 ? .positive : (Double(asleep) < target * 0.78 ? .negative : .neutral)
+            ),
+            MetricContributor(
+                id: "sleep-stages",
+                label: "深睡 + REM 修复比例",
+                valueText: hasStages ? "\(Int((restorativeRatio * 100).rounded()))%" : "未拆分阶段",
+                weight: 0.25,
+                impact: hasStages ? (restorativeRatio >= 0.38 ? .positive : .neutral) : .missing
+            ),
+            MetricContributor(
+                id: "sleep-efficiency",
+                label: "在床连续性",
+                valueText: "\(Int((efficiency * 100).rounded()))%",
+                weight: 0.20,
+                impact: efficiency >= 0.88 ? .positive : (efficiency < 0.78 ? .negative : .neutral)
+            ),
+        ]
+
         return MetricScore(
             kind: .sleep,
             value: total,
             availability: .available,
             badge: badge,
             subtitle: "\(h)小时\(m)分",
-            baselineDelta: delta
+            baselineDelta: delta,
+            algorithmVersion: .scoreV2,
+            contributors: contributors
         )
     }
 
@@ -430,12 +526,31 @@ public enum BevelScoringEngine {
             subtitle = "\(badge) · \(Int(kcal.rounded())) kcal"
         }
 
+        let contributors: [MetricContributor] = [
+            MetricContributor(
+                id: "strain-energy",
+                label: "动态热量消耗",
+                valueText: "\(Int(kcal.rounded())) kcal",
+                baselineDeltaText: "基线 \(Int(baselineKcal.rounded())) kcal",
+                weight: 0.68,
+                impact: kcal >= baselineKcal ? .positive : .neutral
+            ),
+            MetricContributor(
+                id: "strain-exercise",
+                label: "锻炼时长 / 课程",
+                valueText: "\(Int(exMin.rounded())) 分钟 · \(raw.workouts.count) 次",
+                impact: !raw.workouts.isEmpty || exMin >= 30 ? .positive : .neutral
+            ),
+        ]
+
         return MetricScore(
             kind: .strain,
             value: final,
             availability: .available,
             badge: badge,
-            subtitle: subtitle
+            subtitle: subtitle,
+            algorithmVersion: .scoreV2,
+            contributors: contributors
         )
     }
 
@@ -458,16 +573,37 @@ public enum BevelScoringEngine {
         let baselineRHR = median(priorDays.compactMap(\.restingHeartRateBpm)) ?? raw.restingHeartRateBpm ?? 58
 
         var components: [Double] = []
+        var contributors: [MetricContributor] = []
         if let meanHR = raw.daytimeMeanHeartRateBpm {
             let hrElevation = max(0, meanHR - baselineRHR)
             components.append(clamp((hrElevation / 32.0) * 78.0, min: 12, max: 95))
+            contributors.append(MetricContributor(
+                id: "stress-hr-elevation",
+                label: "日间心率相对静息偏离",
+                valueText: "\(Int(meanHR.rounded())) bpm",
+                baselineDeltaText: "+\(Int(hrElevation.rounded())) bpm",
+                impact: hrElevation >= 20 ? .negative : .neutral
+            ))
         }
         if let hrv = raw.hrvMs, baselineHRV > 1 {
             let drop = (baselineHRV - hrv) / baselineHRV
             components.append(clamp(44.0 + drop * 65.0, min: 12, max: 92))
+            contributors.append(MetricContributor(
+                id: "stress-hrv-drop",
+                label: "HRV 自主神经抑制",
+                valueText: "\(Int(hrv.rounded())) ms",
+                baselineDeltaText: "基线 \(Int(baselineHRV.rounded())) ms",
+                impact: drop > 0.12 ? .negative : .positive
+            ))
         }
         if let strainVal = strain.value {
             components.append(clamp(Double(strainVal) * 0.65 + 15.0, min: 10, max: 88))
+            contributors.append(MetricContributor(
+                id: "stress-strain-load",
+                label: "当日运动负荷牵引",
+                valueText: "\(strainVal) 分",
+                impact: .neutral
+            ))
         }
 
         let value = Int(clamp(components.reduce(0, +) / Double(max(components.count, 1)), min: 5, max: 98).rounded())
@@ -477,7 +613,9 @@ public enum BevelScoringEngine {
             value: value,
             availability: .available,
             badge: badge,
-            subtitle: badge
+            subtitle: badge,
+            algorithmVersion: .scoreV2,
+            contributors: contributors
         )
     }
 
@@ -507,6 +645,27 @@ public enum BevelScoringEngine {
         let current = Int(clamp(morningCharge - strainDrain - stressDrain, min: 8, max: 99).rounded())
         let morningInt = Int(morningCharge.rounded())
         let badge = current >= 65 ? "电量充足" : (current >= 38 ? "节奏均衡" : "建议省电")
+        let contributors: [MetricContributor] = [
+            MetricContributor(
+                id: "energy-morning-charge",
+                label: "晨起储备电量",
+                valueText: "\(morningInt)",
+                weight: 1.0,
+                impact: morningInt >= 70 ? .positive : .neutral
+            ),
+            MetricContributor(
+                id: "energy-strain-drain",
+                label: "活动负荷消耗",
+                valueText: "-\(Int(strainDrain.rounded()))",
+                impact: strainDrain >= 25 ? .negative : .neutral
+            ),
+            MetricContributor(
+                id: "energy-stress-drain",
+                label: "生理压力耗电",
+                valueText: "-\(Int(stressDrain.rounded()))",
+                impact: stressDrain >= 10 ? .negative : .neutral
+            ),
+        ]
 
         return MetricScore(
             kind: .energy,
@@ -514,7 +673,9 @@ public enum BevelScoringEngine {
             availability: .available,
             badge: badge,
             subtitle: "晨起 \(morningInt)",
-            baselineDelta: raw.steps != nil ? (current - morningInt) : nil
+            baselineDelta: raw.steps != nil ? (current - morningInt) : nil,
+            algorithmVersion: .scoreV2,
+            contributors: contributors
         )
     }
 

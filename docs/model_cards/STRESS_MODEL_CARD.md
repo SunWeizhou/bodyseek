@@ -1,98 +1,36 @@
 # 生理压力指标模型卡 (Physiological Stress Index Model Card)
 
-指标及算法版本：StressIndexEngine v1.0 (`ScoringAlgorithmVersions.physiologicalStress`)
-状态：工程回归已验证 / 生理有效性未验证 / 无真实皮质醇/皮电 (EDA) 临床标定
+- **指标及算法版本**：`BevelScoringEngine score-v2`（`AlgorithmVersion.scoreV2`, `score-v2@2.0.0`）
+- **实现位置**：`BodySeekKit/Sources/BodySeekCore/BevelScoringEngine.swift`（`computeStress`, `buildStressTimeline`）
+- **当前状态**：工程回归与 3 年历史回放已验证（见 [m0-score-v1-vs-v2-replay-2026-11-19.md](../validation/m0-score-v1-vs-v2-replay-2026-11-19.md)） / 临床有效性未验证 / 无皮质醇与皮电（EDA）金标准对照
 
-## 1. 用途与不适用用途
-- **适用用途**：基于可用可穿戴设备生理体征（静息心率偏离、HRV 抑制、呼吸频率偏离、夜间体温差、前夜睡眠与训练负荷），评估机体自主神经交感激活/副交感抑制的相对生理压力状态（0–100 分），提供作息减压参考。
-- **不适用用途**：**绝对严禁**作为心理焦虑症、抑郁症、精神创伤 (PTSD) 等心理疾病诊断工具；不能作为急性医疗危象（如休克、败血症、交感神经风暴）的监测指标。
+## 1. v1.0 → `score-v2` 变更摘要
+1. **严格心血管信号门控**：v1 在缺乏 HRV 与静息心率时仍凭日常负荷/睡眠债务发布压力值（在 3 年回放中多产生 `267` 天无心率压力值）；`score-v2` 强制要求至少具备 `restingHeartRateBpm`、`daytimeMeanHeartRateBpm` 或 `hrvMs` 其一，否则输出 `nil`（`.missing`）；
+2. **引入全天平均心率偏离**：纳入 `daytimeMeanHeartRateBpm - baselineRHR` 项（覆盖 `186` 个缺失 HRV/RHR 但有全天心率的日期）；
+3. **简化三分量均值**：当前使用可获得的「日间心率升高」、「HRV 相对基线抑制」、「当日 Strain 负荷」等权平均；
+4. **3 年真实回放表现（1,508 生理日）**：v1 有效 `1,307` 天、v2 有效 `1,226` 天（重合 `1,040` 天）；Bias `+0.46`（几乎无系统偏置），Pearson `r = 0.5124`，`<= 10 分` 占比 `51.4%`。
+5. **待在 M1 恢复的排除窗口**：当前 `score-v2` 日间 12 段序列仍为模拟波型且未显式渲染运动后 90 分钟 `excluded(.postWorkoutWindow)`，将在 M1-Data/UI 中恢复真实小时心率窗口与排除态渲染。
 
-## 2. 目标人群与未覆盖人群
-- **目标人群**：一般健康成年人群（18–65岁），日间处于静坐或日常非剧烈活动状态。
-- **未覆盖人群**：心血管自主神经病变、心动过速/过缓、服用精神活性或降压药物、急性发热/感染期、正在进行运动或刚刚结束剧烈运动的人群。
+## 2. 用途与不适用用途
+- **适用用途**：衡量自主神经系统相对个人基线的交感激活 / 负荷应激代理水平（0–100，越高越紧张），辅助作息调节。
+- **不适用用途**：**绝对严禁**用于焦虑症、抑郁症、精神障碍或急性医学危象诊断；不能代表主观心理压力（心理压力由 `DailyCheckIn` 单独采集）。
 
-## 3. 预测/描述的真实目标
-- **真实目标**：描述非运动稳态下，机体生理参数偏离其稳态基线的紧张程度代理指标（非心理主观压力真值）。
+## 3. 输入信号与基线
+- `daytimeMeanHeartRateBpm`（日间心率均值）、`hrvMs`（HRV SDNN）、`restingHeartRateBpm`（静息心率）、`strain.value`（同日负荷分）。
+- **个人基线**：严格使用目标日前 28 天（不含当日）HRV 与静息心率中位数。
 
-## 4. 输入类型、单位、来源、采样窗口
-- `quietHRToday`：次/分 (bpm)，日间静息心率。
-- `hrvToday`：毫秒 (ms)，日间/夜间 HRV SDNN。
-- `respRateToday`：次/分 (rpm)，静息呼吸频率。
-- `bodyTempDelta`：摄氏度偏离值 (°C)，夜间手腕温度相对个人基线差值。
-- `sleepScoreLastNight`：0–100 分，前夜睡眠评分（用于睡眠债务压力折算）。
-- `strainScoreToday`：0–100 分，当日训练负荷（用于体力负荷压力折算）。
-- `isWithinWorkoutWindow`：布尔值，是否处于训练中或训练结束 90 分钟内。
+## 4. `score-v2` 计算公式
+- 若 `restingHeartRateBpm == nil && daytimeMeanHeartRateBpm == nil && hrvMs == nil`：返回 `value = nil`（`.missing`）。
+- 可用分量集合 `components`：
+  - 日间心率升高：`clamp((max(0, meanHR - baselineRHR) / 32.0) * 78.0, 12, 95)`
+  - HRV 抑制：`clamp(44.0 + ((baselineHRV - hrv) / baselineHRV) * 65.0, 12, 92)`
+  - 运动负荷牵引：`clamp(strain * 0.65 + 15.0, 10, 88)`
+- $\text{Stress} = \text{round}(\text{clamp}(\text{mean}(\text{components}),\; 5,\; 98))$
 
-## 5. 个人基线窗口、有效天数与源/方法变化政策
-- **基线窗口**：各体征历史（21–42天）中位数与稳健样本标准差（`PersonalBaselineEngine.sampleStandardDeviation`）。
-- **有效天数门控**：历史不足 5 天时基线不稳，置信度标记为 `low`。
+## 5. 状态区间与局限性
+- **状态标签**：`>= 65`「压力偏高」、`35..<65`「负荷可控」、`< 35`「放松平稳」。
+- **已知局限**：咖啡因、高温环境、脱水、饮酒或日间身体活动均可拉高全天心率均值，单独看日均值存在运动与静坐心率混杂（将在 M1 通过小时心率聚合 + 运动后排除窗口改善）。
 
-## 6. 缺失、零值、排除窗口、异常值政策
-- **运动窗口严格排除（Post-Workout Exclusion）**：
-  - **核心护栏**：若 `isWithinWorkoutWindow == true`（即正在运动或运动后 90 分钟自主神经恢复期内），**生理压力强制排除并输出为 `nil`（显示 `--`）**；
-  - **绝对禁止将运动排除伪造为 0 压力**，并在 `reasons` 中显式注明“运动窗口及运动后 90 分钟的自主神经恢复期内，生理压力处于不可估计状态（已排除，非零压力）”。
-- **全空输入政策**：各输入全空时，输出 `nil`，置信度标记为 `low`。
-
-## 7. 时间 as-of 与输入修订政策
-- **As-of 约束**：评估时点严格对齐查询时间，不纳入未来时段体征。
-
-## 8. 公式/参数与每个参数依据
-- **各分项权重**：
-  - 静息心率压力：25%（基于 $Z_{\text{RHR}} = \frac{\text{RHR} - \text{baseline}}{\text{SD}}$）
-  - HRV 抑制压力：25%（基于 $Z_{\text{HRV}} = \frac{\text{HRV} - \text{baseline}}{\text{SD}}$，HRV 降低代表压力上升）
-  - 呼吸频率压力：15%（基于 $Z_{\text{Resp}}$）
-  - 体温升高压力：10%（基于温度正向偏离）
-  - 睡眠债务压力：15%（$100 - \text{SleepScore}$）
-  - 当日负荷压力：10%（$\text{StrainScore}$）
-- **Sigmoid 压力转化**：
-  $$S_{\text{component}} = \text{clamp}\left(50 + 50 \times \left(\frac{2}{1 + e^{-0.6 \times Z}} - 1\right), 0, 100\right)$$
-- **权重归一化汇总**：
-  $$\text{StressIndex} = \frac{\sum S_i \times W_i}{\sum W_i}$$
-
-## 9. 哪些是文献支持的概念，哪些是本产品启发式
-- **文献支持概念**：
-  - 压力状态下交感神经激活伴随静息心率增加与 HRV 迷走神经张力衰退（Thayer et al., 2012）；
-  - 运动后自主神经恢复窗（EPOC 与副交感神经复常需 60–90 分钟，Stanley et al., 2013）。
-- **本产品启发式**：
-  - 六维加权比例（25/25/15/10/15/10）；
-  - 运动后 90 分钟刚性排除窗口；
-  - 睡眠分与负荷分线性映射至压力分量。
-
-## 10. 结果刻度/方向/状态文案
-- **刻度**：0–100 分（分值越高代表生理压力负荷越大）。
-- **状态分段**：
-  - 0–25：Calm / Low（平静/低压力）
-  - 26–50：Normal / Mild（正常/轻度压力）
-  - 51–75：Elevated / Moderate（偏高/中度生理应激）
-  - 76–100：High / Severe（极高/显著应激）
-
-## 11. 数据质量与模型不确定性如何分开
-- **数据质量**：`confidence`（high/medium/low），反映生理传感器信号是否完整。
-- **免责声明**：每次计算均附带文案：“生理压力·估计：基于可用日级静息心率、HRV、呼吸、体温与昨夜睡眠的代理指标，不是心理或医疗诊断。”
-
-## 12. 已执行工程测试与结果
-- `StressIndexEngineTests.swift`：全面覆盖运动排除窗口不可估计性、各分项 Z-score 归一化、全空与单项输入降级，测试全部通过。
-
-## 13. 对照基线、留出策略与真实样本
-- **真实皮质醇/EDA 对照**：**未做（无实验室连续生化或皮电标记数据）**。
-- **工程基线**：以当前合成场景为回归基准。
-
-## 14. 实际效果/误差/校准/区间
-- **心理压力自评量表 (PSS-10) 相关性**：**未做（严禁编造）**。
-
-## 15. 已知限制与失败情境
-- 摄入咖啡因或能量饮料会导致心率上升，算法无法识别其为饮食刺激而误判为生理压力；
-- 室内环境温度过热可能导致手腕体温上升，触发体温压力分量；
-- 心理极度焦虑但无明显心血管自主神经反应时，可能漏检。
-
-## 16. 新旧版本影响/下游连锁
-- **下游消费**：传入 `EnergyBankEngine` 作为日间能量加速消耗（Drain）因子。
-- **隔离控制**：在运动窗口排除输出 `nil` 时，能量引擎不重复扣减双重压力，保证能量消耗仅由真实训练负荷驱动。
-
-## 17. 发布/回滚条件
-- **发布条件**：运动后 90 分钟排除逻辑严格生效（输出 `nil` 且理由匹配）。
-- **回滚条件**：排除失效导致运动期间压力飙升且能量异常回弹时立即回滚。
-
-## 18. 来源链接及读取日期
-- Thayer JF, et al. The heart of healthy emotional regulation: heart rate variability and neurovisceral integration. *Front Neurosci*, 2012. (读取日期: 2026-08-20)
-- Stanley J, et al. Cardiac parasympathetic reactivation following exercise: implications for training prescription. *Sports Med*, 2013. (读取日期: 2026-08-20)
+## 6. 参考文献
+- Thayer JF, et al. *Front Neurosci*, 2012.
+- Stanley J, et al. *Sports Med*, 2013.
