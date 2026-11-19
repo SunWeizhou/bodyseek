@@ -44,6 +44,7 @@ public enum MetricAvailability: Equatable, Hashable, Sendable, Codable {
     case available
     case knownZero(reason: String)
     case missing(reason: String)
+    case excluded(reason: String)
 
     public var isAvailable: Bool {
         if case .available = self { return true }
@@ -53,7 +54,7 @@ public enum MetricAvailability: Equatable, Hashable, Sendable, Codable {
     public var reasonText: String? {
         switch self {
         case .available: nil
-        case let .knownZero(reason), let .missing(reason): reason
+        case let .knownZero(reason), let .missing(reason), let .excluded(reason): reason
         }
     }
 }

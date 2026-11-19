@@ -43,7 +43,7 @@ VelaApp (Thin iOS 26 Entry Shell + Assets + Entitlements)
 
 ### 3.1 合同与真值边界（`BodySeekCore/Contracts.swift`）
 - **`DayKey`**：本地 `04:00` 生理日标识（`YYYY-MM-DD`），前向/后向跨午夜夜生活与晚睡归属同一生理日。
-- **`Observation<Value>`**：`available(Value, Provenance)`、`knownZero(reason, Provenance)`、`missing(MissingReason)`、`excluded(ExclusionReason, Provenance)` 四态贯穿采集 → 存储 → 评分 → UI → Agent 工具 → ML 缺失掩码。
+- **`HealthObservation<Value>`**：`available(Value, Provenance)`、`knownZero(reason, Provenance)`、`missing(MissingReason)`、`excluded(ExclusionReason, Provenance)` 四态贯穿采集 → 存储 → 评分 → UI → Agent 工具 → ML 缺失掩码（命名避开 Apple `Observation` 系统模块冲突）。
 - **`AlgorithmVersion`**：每个评分、合并、恢复、解析和 ML 工件均携带版本标识（`score-v2`、`recovery-heuristic-v1`、`sleep-merge-v1`、`workout-parser-v1`）。
 - **`ActionProposal`**：所有由 Agent 或解析器生成的写入（`annotateWorkout`、`commitMemory`、`retireMemory`、`adjustPlan`、`recordCheckIn`）必须先产出结构化提案，经用户确认后进入审计日志并生效。
 

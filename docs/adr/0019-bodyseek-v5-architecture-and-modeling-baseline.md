@@ -19,7 +19,7 @@ However, an engineering audit (`bodyseek_v4_review.md`) and real-device usage on
 
 ### 1. Target Unidirectional Module Architecture (`BodySeekKit` + Thin `VelaApp` Shell)
 All production logic converges onto a clean acyclic dependency graph inside `BodySeekKit` (with incremental splitting — no empty packages):
-- **`BodySeekCore`** (pure `Foundation`, runs via `swift test` on macOS): shared canonical contracts (`DayKey`, `Observation<Value>`, `Provenance`, `AlgorithmVersion`, `ActionProposal`, `MetricContributor`), deterministic `score-v2` engine (`BevelScoringEngine`), rolling baselines, TRIMP/ACWR, `recovery-heuristic-v1`, pattern findings, and shared `feature_spec` calculations.
+- **`BodySeekCore`** (pure `Foundation`, runs via `swift test` on macOS): shared canonical contracts (`DayKey`, `HealthObservation<Value>`, `Provenance`, `AlgorithmVersion`, `ActionProposal`, `MetricContributor`), deterministic `score-v2` engine (`BevelScoringEngine`), rolling baselines, TRIMP/ACWR, `recovery-heuristic-v1`, pattern findings, and shared `feature_spec` calculations. (`HealthObservation` avoids shadowing Apple's system `Observation` module under `@Model` / `@Observable`.)
 - **`BodySeekStore`** (split in M1): GRDB 7 SQLite database (`DatabaseMigrator`), typed tables & foreign keys, `ActionAuditLog`, precomputed `ReadModel` / `ChartSeriesSnapshot` via `ValueObservation`.
 - **`BodySeekHealth`**: `SpeziHealthKit` adapter, `SyncEngine` actor with `HKAnchoredObjectQuery` incremental sync + 3s debounce, resumable 3-year monthly backfill, `sleepMergePolicy` overlap dedup, and `KeychainService` credential storage.
 - **`BodySeekAgent`** (split in M3 when removing `SpeziLLM`): lightweight `OpenAICompatibleClient` (`URLSession` + `Codable`) + Apple `FoundationModels` with explicit degradation logging (never `try?`), task-oriented read tools, proposal generators, numeric provenance validator, 3-tier memory, and evaluation harness.
@@ -27,7 +27,7 @@ All production logic converges onto a clean acyclic dependency graph inside `Bod
 - **`BodySeekFeatures`**: TCA Reducers + L1/L2/L3 depth Views (`Today`, `Workout`, `Trends`, `Coach`, `Settings`) with zero derived calculations in View body or Reducer state.
 
 ### 2. Data Truth, Time Cutover & Versioning Invariants
-- **Four-state truth**: `Observation<Value>` carries `.available`, `.knownZero`, `.missing`, and `.excluded`, propagated from HealthKit → GRDB → `BodySeekCore` → `BodySeekChart` → Coach tools → ML missingness masks.
+- **Four-state truth**: `HealthObservation<Value>` carries `.available`, `.knownZero`, `.missing`, and `.excluded`, propagated from HealthKit → GRDB → `BodySeekCore` → `BodySeekChart` → Coach tools → ML missingness masks.
 - **Physiological `DayKey`**: Defaults to `04:00` local time cutover (`year-month-day`), paired with UTC timestamps and `TimeZone` metadata.
 - **Algorithm versioning**: Every scoring, sleep-merge, muscle-recovery, NL-parser, and ML artifact carries explicit `AlgorithmVersion`; changes require replay comparison in `docs/validation/` and updated model cards.
 - **No swallowed errors**: Persistence, Keychain, HealthKit, network, and model execution paths never use silent `try?`; failures surface to logs and visible UI state.
