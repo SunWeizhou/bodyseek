@@ -64,6 +64,20 @@ public struct DayKey: Hashable, Codable, Sendable, Comparable, CustomStringConve
         return calendar.date(from: comps) ?? Date(timeIntervalSince1970: 0)
     }
 
+    public static func fromCalendarDay(_ date: Date, calendar: Calendar = .current) -> DayKey {
+        let comps = calendar.dateComponents([.year, .month, .day], from: date)
+        return DayKey(
+            year: comps.year ?? 1970,
+            month: comps.month ?? 1,
+            day: comps.day ?? 1
+        )
+    }
+
+    public func calendarDayStart(calendar: Calendar = .current) -> Date {
+        let comps = DateComponents(year: year, month: month, day: day, hour: 0, minute: 0, second: 0)
+        return calendar.date(from: comps) ?? Date(timeIntervalSince1970: 0)
+    }
+
     public static func < (lhs: DayKey, rhs: DayKey) -> Bool {
         if lhs.year != rhs.year { return lhs.year < rhs.year }
         if lhs.month != rhs.month { return lhs.month < rhs.month }

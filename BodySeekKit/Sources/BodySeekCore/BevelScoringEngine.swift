@@ -15,26 +15,23 @@ public enum BevelScoringEngine {
         defer { BodySeekSignposts.shared.end(.scoringComputeWindow, signpost) }
 
         let refStart = calendar.startOfDay(for: referenceDate)
-        let sorted = Dictionary(
-            rawDays.map { (calendar.startOfDay(for: $0.date), $0) },
-            uniquingKeysWith: { _, latest in latest }
-        )
-        .values
-        .sorted { $0.date < $1.date }
+        let entries = normalizedEntries(from: rawDays, calendar: calendar)
 
         var computed: [DailyComputedDay] = []
-        computed.reserveCapacity(sorted.count)
+        computed.reserveCapacity(entries.count)
 
-        for raw in sorted {
-            let dayStart = calendar.startOfDay(for: raw.date)
-            let baselineStart = calendar.date(byAdding: .day, value: -28, to: dayStart) ?? dayStart
-            let priorDays = sorted.filter { item in
-                let d = calendar.startOfDay(for: item.date)
-                return d >= baselineStart && d < dayStart
+        // Two-pointer O(N) sliding 28-day causal window (excludes target day and future days).
+        var leftIndex = 0
+        for index in entries.indices {
+            let entry = entries[index]
+            let baselineStart = calendar.date(byAdding: .day, value: -28, to: entry.dayStart) ?? entry.dayStart
+            while leftIndex < index && entries[leftIndex].dayStart < baselineStart {
+                leftIndex += 1
             }
+            let priorDays = entries[leftIndex..<index].map(\.raw)
             computed.append(
                 scoreDay(
-                    raw,
+                    entry.raw,
                     priorDays: priorDays,
                     sleepGoalMinutes: sleepGoalMinutes,
                     calendar: calendar
@@ -63,6 +60,108 @@ public enum BevelScoringEngine {
             isAuthorized: isAuthorized,
             scoreAlgorithmVersion: .scoreV2
         )
+    }
+
+    /// Incrementally recomputes only days causally affected by `dirtyDayKeys` (day d and [d, d + 28d]),
+    /// reusing untouched `score-v2` cached days to guarantee deterministic parity with `computeWindow`.
+    public static func recomputeIncremental(
+        existingByDayKey: [DayKey: DailyComputedDay],
+        allRawDays: [DailyRawMetrics],
+        dirtyDayKeys: Set<DayKey>,
+        sleepGoalMinutes: Int,
+        referenceDate: Date,
+        sourceLabel: String,
+        isAuthorized: Bool,
+        calendar: Calendar = .current
+    ) -> BodySeekDashboardSnapshot {
+        let signpost = BodySeekSignposts.shared.begin(.scoringComputeWindow)
+        defer { BodySeekSignposts.shared.end(.scoringComputeWindow, signpost) }
+
+        let refStart = calendar.startOfDay(for: referenceDate)
+        let entries = normalizedEntries(from: allRawDays, calendar: calendar)
+        let dirtyStarts = dirtyDayKeys.map { $0.calendarDayStart(calendar: calendar) }
+
+        var computed: [DailyComputedDay] = []
+        computed.reserveCapacity(entries.count)
+
+        var leftIndex = 0
+        for index in entries.indices {
+            let entry = entries[index]
+            let baselineStart = calendar.date(byAdding: .day, value: -28, to: entry.dayStart) ?? entry.dayStart
+            while leftIndex < index && entries[leftIndex].dayStart < baselineStart {
+                leftIndex += 1
+            }
+
+            let entryKeyStart = entry.dayKey.calendarDayStart(calendar: calendar)
+            let isDirtyAffected = dirtyStarts.contains { dirtyStart in
+                let delta = calendar.dateComponents([.day], from: dirtyStart, to: entryKeyStart).day ?? -1
+                return (0...28).contains(delta)
+            }
+
+            if !isDirtyAffected,
+               let cached = existingByDayKey[entry.dayKey],
+               cached.algorithmVersion == .scoreV2,
+               cached.raw == entry.raw
+            {
+                computed.append(cached)
+            } else {
+                let priorDays = entries[leftIndex..<index].map(\.raw)
+                computed.append(
+                    scoreDay(
+                        entry.raw,
+                        priorDays: priorDays,
+                        sleepGoalMinutes: sleepGoalMinutes,
+                        calendar: calendar
+                    )
+                )
+            }
+        }
+
+        let today = computed.last { calendar.isDate($0.date, inSameDayAs: refStart) }
+            ?? computed.last
+            ?? scoreDay(
+                DailyRawMetrics(date: refStart, hasAuthorizedHealthData: isAuthorized),
+                priorDays: [],
+                sleepGoalMinutes: sleepGoalMinutes,
+                calendar: calendar
+            )
+
+        let acwr = computeACWR(computedDays: computed, referenceDate: refStart, calendar: calendar)
+
+        return BodySeekDashboardSnapshot(
+            referenceDate: refStart,
+            today: today,
+            historyDays: computed,
+            trainingLoad: acwr,
+            sourceLabel: sourceLabel,
+            lastUpdatedAt: Date(),
+            isAuthorized: isAuthorized,
+            scoreAlgorithmVersion: .scoreV2
+        )
+    }
+
+    private struct NormalizedRawEntry {
+        let dayStart: Date
+        let dayKey: DayKey
+        let raw: DailyRawMetrics
+    }
+
+    private static func normalizedEntries(
+        from rawDays: [DailyRawMetrics],
+        calendar: Calendar
+    ) -> [NormalizedRawEntry] {
+        var deduplicated: [Date: DailyRawMetrics] = [:]
+        deduplicated.reserveCapacity(rawDays.count)
+        for item in rawDays {
+            let dayStart = calendar.startOfDay(for: item.date)
+            deduplicated[dayStart] = item
+        }
+        return deduplicated
+            .map { dayStart, raw in
+                let key = raw.dayKey ?? DayKey(date: raw.date, cutoverHour: 4, timeZone: calendar.timeZone)
+                return NormalizedRawEntry(dayStart: dayStart, dayKey: key, raw: raw)
+            }
+            .sorted { $0.dayStart < $1.dayStart }
     }
 
     public static func scoreDay(
@@ -113,7 +212,7 @@ public enum BevelScoringEngine {
 
         return DailyComputedDay(
             date: dayStart,
-            dayKey: DayKey(date: raw.date, cutoverHour: 4, timeZone: calendar.timeZone),
+            dayKey: raw.dayKey ?? DayKey(date: raw.date, cutoverHour: 4, timeZone: calendar.timeZone),
             raw: raw,
             recovery: recoveryScore,
             sleep: sleepScore,
@@ -135,9 +234,66 @@ public enum BevelScoringEngine {
         referenceDate: Date,
         calendar: Calendar = .current
     ) -> TrendSeries {
+        buildChartSeriesSnapshot(
+            for: kind,
+            horizon: horizon,
+            days: days,
+            referenceDate: referenceDate,
+            calendar: calendar
+        ).toLegacyTrendSeries()
+    }
+
+    public static func buildAllChartSnapshots(
+        days: [DailyComputedDay],
+        referenceDate: Date,
+        calendar: Calendar = .current
+    ) -> [TrendHorizon: [MetricKind: ChartSeriesSnapshot]] {
         let signpost = BodySeekSignposts.shared.begin(.trendsSeriesCompute)
         defer { BodySeekSignposts.shared.end(.trendsSeriesCompute, signpost) }
 
+        var byHorizon: [TrendHorizon: [MetricKind: ChartSeriesSnapshot]] = [:]
+        for horizon in TrendHorizon.allCases {
+            var byKind: [MetricKind: ChartSeriesSnapshot] = [:]
+            for kind in MetricKind.allCases {
+                byKind[kind] = buildChartSeriesSnapshotInternal(
+                    for: kind,
+                    horizon: horizon,
+                    days: days,
+                    referenceDate: referenceDate,
+                    calendar: calendar
+                )
+            }
+            byHorizon[horizon] = byKind
+        }
+        return byHorizon
+    }
+
+    public static func buildChartSeriesSnapshot(
+        for kind: MetricKind,
+        horizon: TrendHorizon,
+        days: [DailyComputedDay],
+        referenceDate: Date,
+        calendar: Calendar = .current
+    ) -> ChartSeriesSnapshot {
+        let signpost = BodySeekSignposts.shared.begin(.trendsSeriesCompute)
+        defer { BodySeekSignposts.shared.end(.trendsSeriesCompute, signpost) }
+
+        return buildChartSeriesSnapshotInternal(
+            for: kind,
+            horizon: horizon,
+            days: days,
+            referenceDate: referenceDate,
+            calendar: calendar
+        )
+    }
+
+    private static func buildChartSeriesSnapshotInternal(
+        for kind: MetricKind,
+        horizon: TrendHorizon,
+        days: [DailyComputedDay],
+        referenceDate: Date,
+        calendar: Calendar
+    ) -> ChartSeriesSnapshot {
         let end = calendar.startOfDay(for: referenceDate)
         let start = calendar.date(byAdding: .day, value: -(horizon.dayCount - 1), to: end) ?? end
         let byDay = Dictionary(
@@ -145,29 +301,39 @@ public enum BevelScoringEngine {
             uniquingKeysWith: { _, latest in latest }
         )
 
-        var points: [TrendPoint] = []
-        points.reserveCapacity(horizon.dayCount)
+        var rawPoints: [(dayKey: DayKey, date: Date, value: Double?, availability: MetricAvailability)] = []
+        rawPoints.reserveCapacity(horizon.dayCount)
 
         for offset in 0..<horizon.dayCount {
             guard let date = calendar.date(byAdding: .day, value: offset, to: start) else { continue }
             if let computed = byDay[date] {
-                let s = computed.score(for: kind)
-                points.append(TrendPoint(date: date, value: s.value, availability: s.availability))
+                let score = computed.score(for: kind)
+                rawPoints.append((
+                    dayKey: computed.dayKey,
+                    date: date,
+                    value: score.value.map(Double.init),
+                    availability: score.availability
+                ))
             } else {
-                points.append(TrendPoint(date: date, value: nil, availability: .missing(reason: "当天无数据")))
+                rawPoints.append((
+                    dayKey: DayKey.fromCalendarDay(date, calendar: calendar),
+                    date: date,
+                    value: nil,
+                    availability: .missing(reason: "当天无数据")
+                ))
             }
         }
 
-        let validValues = points.compactMap(\.value).map(Double.init)
-        let baselineRange: ClosedRange<Double>? = if validValues.count >= 5,
+        let validValues = rawPoints.compactMap(\.value)
+        let baselineBand: BaselineBand? = if validValues.count >= 5,
             let q25 = percentile(validValues, 0.25),
             let q75 = percentile(validValues, 0.75) {
-            q25...max(q25 + 1, q75)
+            BaselineBand(lower: q25, upper: max(q25 + 1, q75))
         } else {
             nil
         }
 
-        let medianVal = percentile(validValues, 0.5).map { Int($0.rounded()) }
+        let medianValue = percentile(validValues, 0.5)
         let delta: Int? = if validValues.count >= 6 {
             {
                 let mid = validValues.count / 2
@@ -198,17 +364,118 @@ public enum BevelScoringEngine {
             status = "已积累 \(coveredDays)/\(horizon.dayCount) 天有效样本。"
         }
 
-        return TrendSeries(
+        let dailyPoints = rawPoints.map { pt in
+            ChartPointSnapshot(
+                dayKey: pt.dayKey,
+                date: pt.date,
+                value: pt.value,
+                baselineLow: baselineBand?.lower,
+                baselineHigh: baselineBand?.upper,
+                availability: pt.availability
+            )
+        }
+
+        let capsules = buildCapsules(
+            from: dailyPoints,
+            horizon: horizon,
+            calendar: calendar
+        )
+
+        return ChartSeriesSnapshot(
             kind: kind,
             horizon: horizon,
-            points: points,
-            baselineRange: baselineRange,
+            referenceDayKey: DayKey.fromCalendarDay(end, calendar: calendar),
+            dailyPoints: dailyPoints,
+            capsules: capsules,
+            baselineBand: baselineBand,
+            medianValue: medianValue,
+            halfDelta: delta,
             coveredDays: coveredDays,
             totalDays: horizon.dayCount,
-            median: medianVal,
-            deltaFromFirstHalf: delta,
-            statusSummary: status
+            statusSummary: status,
+            algorithmVersion: .scoreV2
         )
+    }
+
+    private static func buildCapsules(
+        from points: [ChartPointSnapshot],
+        horizon: TrendHorizon,
+        calendar: Calendar
+    ) -> [RangeCapsuleBucket] {
+        guard horizon.usesRangeCapsules else { return [] }
+
+        struct BucketAccumulator {
+            let id: String
+            let label: String
+            var points: [ChartPointSnapshot] = []
+        }
+
+        var order: [String] = []
+        var grouped: [String: BucketAccumulator] = [:]
+
+        for pt in points {
+            let key: String
+            let label: String
+            switch horizon {
+            case .sixMonths:
+                let year = calendar.component(.yearForWeekOfYear, from: pt.date)
+                let week = calendar.component(.weekOfYear, from: pt.date)
+                key = String(format: "%04d-W%02d", year, week)
+                let month = calendar.component(.month, from: pt.date)
+                let day = calendar.component(.day, from: pt.date)
+                label = "\(month)/\(day)"
+            case .threeYears:
+                let year = calendar.component(.year, from: pt.date)
+                let month = calendar.component(.month, from: pt.date)
+                key = String(format: "%04d-%02d", year, month)
+                label = "\(year % 100)/\(month)月"
+            case .week, .month:
+                continue
+            }
+
+            if grouped[key] == nil {
+                order.append(key)
+                grouped[key] = BucketAccumulator(id: key, label: label)
+            }
+            grouped[key]?.points.append(pt)
+        }
+
+        var buckets: [RangeCapsuleBucket] = []
+        buckets.reserveCapacity(order.count)
+
+        for key in order {
+            guard let acc = grouped[key], let first = acc.points.first, let last = acc.points.last else {
+                continue
+            }
+            let values = acc.points.compactMap(\.value)
+            guard let minVal = values.min(),
+                  let maxVal = values.max(),
+                  let p25 = percentile(values, 0.25),
+                  let med = percentile(values, 0.50),
+                  let p75 = percentile(values, 0.75)
+            else {
+                continue
+            }
+            buckets.append(
+                RangeCapsuleBucket(
+                    id: acc.id,
+                    label: acc.label,
+                    startDayKey: first.dayKey,
+                    endDayKey: last.dayKey,
+                    startDate: first.date,
+                    endDate: last.date,
+                    min: minVal,
+                    p25: p25,
+                    median: med,
+                    p75: p75,
+                    max: maxVal,
+                    sampleCount: values.count,
+                    totalDays: acc.points.count
+                )
+            )
+        }
+
+        return buckets
     }
 
     /// Calculates 7-day Acute vs 28-day Chronic Workload Ratio (ACWR) from strain scores + Watch TRIMP.

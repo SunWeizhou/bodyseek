@@ -168,4 +168,94 @@ final class BevelScoringEngineTests: XCTestCase {
         XCTAssertEqual(first.historyDays, second.historyDays)
         XCTAssertEqual(first.trainingLoad, second.trainingLoad)
     }
+
+    func testIncrementalRecomputeMatchesFullComputeAnd3YearCapsules() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Shanghai"))
+        let now = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_763_500_000))
+        let baseRaw = PreviewSeedFactory.makeRawWindow(endingAt: now, days: 180, calendar: calendar)
+
+        let baselineSnap = BevelScoringEngine.computeWindow(
+            rawDays: baseRaw,
+            sleepGoalMinutes: 450,
+            referenceDate: now,
+            sourceLabel: "Base",
+            isAuthorized: true,
+            calendar: calendar
+        )
+
+        // Mutate 2 days in the middle and mark only those 2 dayKeys dirty.
+        var mutatedRaw = baseRaw
+        let idx1 = 60
+        let idx2 = 120
+        mutatedRaw[idx1].hrvMs = 32
+        mutatedRaw[idx1].sleepAsleepMinutes = 290
+        mutatedRaw[idx2].hrvMs = 95
+        mutatedRaw[idx2].restingHeartRateBpm = 48
+
+        let dirtyKeys: Set<DayKey> = [
+            try XCTUnwrap(mutatedRaw[idx1].dayKey),
+            try XCTUnwrap(mutatedRaw[idx2].dayKey),
+        ]
+        let existingByKey = Dictionary(
+            uniqueKeysWithValues: baselineSnap.historyDays.map { ($0.dayKey, $0) }
+        )
+
+        let incrementalSnap = BevelScoringEngine.recomputeIncremental(
+            existingByDayKey: existingByKey,
+            allRawDays: mutatedRaw,
+            dirtyDayKeys: dirtyKeys,
+            sleepGoalMinutes: 450,
+            referenceDate: now,
+            sourceLabel: "Inc",
+            isAuthorized: true,
+            calendar: calendar
+        )
+
+        let fullSnap = BevelScoringEngine.computeWindow(
+            rawDays: mutatedRaw,
+            sleepGoalMinutes: 450,
+            referenceDate: now,
+            sourceLabel: "Full",
+            isAuthorized: true,
+            calendar: calendar
+        )
+
+        XCTAssertEqual(incrementalSnap.historyDays, fullSnap.historyDays)
+        XCTAssertEqual(incrementalSnap.trainingLoad, fullSnap.trainingLoad)
+
+        // Pre-mutation days (< idx1) stay untouched vs baselineSnap (causal zero future leakage).
+        XCTAssertEqual(incrementalSnap.historyDays[idx1 - 1], baselineSnap.historyDays[idx1 - 1])
+
+        // 6m weekly capsules & 3y monthly capsules + TrendHorizon.threeYears == 1095
+        XCTAssertEqual(TrendHorizon.threeYears.dayCount, 1095)
+        let sixMonthChart = BevelScoringEngine.buildChartSeriesSnapshot(
+            for: .recovery,
+            horizon: .sixMonths,
+            days: fullSnap.historyDays,
+            referenceDate: now,
+            calendar: calendar
+        )
+        XCTAssertFalse(sixMonthChart.capsules.isEmpty)
+        XCTAssertEqual(sixMonthChart.totalDays, 180)
+
+        let threeYearRaw = PreviewSeedFactory.makeRawWindow(endingAt: now, days: 1095, calendar: calendar)
+        let threeYearSnap = BevelScoringEngine.computeWindow(
+            rawDays: threeYearRaw,
+            sleepGoalMinutes: 450,
+            referenceDate: now,
+            sourceLabel: "3Y",
+            isAuthorized: true,
+            calendar: calendar
+        )
+        let threeYearChart = BevelScoringEngine.buildChartSeriesSnapshot(
+            for: .recovery,
+            horizon: .threeYears,
+            days: threeYearSnap.historyDays,
+            referenceDate: now,
+            calendar: calendar
+        )
+        XCTAssertEqual(threeYearChart.totalDays, 1095)
+        XCTAssertGreaterThanOrEqual(threeYearChart.capsules.count, 35)
+    }
 }

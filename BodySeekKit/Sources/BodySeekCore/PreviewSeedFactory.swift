@@ -121,7 +121,8 @@ public enum PreviewSeedFactory {
                     daytimeMeanHeartRateBpm: meanHR,
                     daytimeMaxHeartRateBpm: meanHR + 45,
                     hasAuthorizedHealthData: true,
-                    sourceNames: ["Apple Watch (示例数据)"]
+                    sourceNames: ["Apple Watch (示例数据)"],
+                    dayKey: DayKey.fromCalendarDay(date, calendar: calendar)
                 )
             )
         }

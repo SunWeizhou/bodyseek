@@ -10,6 +10,7 @@ let package = Package(
     ],
     products: [
         .library(name: "BodySeekCore", targets: ["BodySeekCore"]),
+        .library(name: "BodySeekStore", targets: ["BodySeekStore"]),
         .library(name: "BodySeekHealth", targets: ["BodySeekHealth"]),
         .library(name: "BodySeekFeatures", targets: ["BodySeekFeatures"]),
     ],
@@ -62,6 +63,10 @@ let package = Package(
             url: "https://github.com/ParthJadhav/liveline-swift.git",
             from: "0.6.1"
         ),
+        .package(
+            url: "https://github.com/groue/GRDB.swift.git",
+            from: "7.0.0"
+        ),
     ],
     targets: [
         .target(
@@ -69,9 +74,17 @@ let package = Package(
             dependencies: []
         ),
         .target(
+            name: "BodySeekStore",
+            dependencies: [
+                "BodySeekCore",
+                .product(name: "GRDB", package: "GRDB.swift"),
+            ]
+        ),
+        .target(
             name: "BodySeekHealth",
             dependencies: [
                 "BodySeekCore",
+                "BodySeekStore",
                 .product(name: "Dependencies", package: "swift-dependencies"),
                 .product(name: "DependenciesMacros", package: "swift-dependencies"),
                 .product(name: "HTTPTypes", package: "swift-http-types"),
@@ -87,6 +100,7 @@ let package = Package(
             name: "BodySeekFeatures",
             dependencies: [
                 "BodySeekCore",
+                "BodySeekStore",
                 "BodySeekHealth",
                 .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
                 .product(name: "Dependencies", package: "swift-dependencies"),
@@ -103,6 +117,7 @@ let package = Package(
             name: "BodySeekKitTests",
             dependencies: [
                 "BodySeekCore",
+                "BodySeekStore",
                 "BodySeekHealth",
                 "BodySeekFeatures",
                 .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),

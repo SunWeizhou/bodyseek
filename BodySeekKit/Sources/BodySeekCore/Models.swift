@@ -175,7 +175,23 @@ public struct WorkoutSummary: Identifiable, Hashable, Sendable, Codable {
     public let activeEnergyKcal: Double
     public let averageHeartRate: Double?
     public let effortScore: Double?
+    public let estimatedEffortScore: Double?
+    public let healthKitUUID: UUID?
     public let heartRateZones: WorkoutHeartRateZones?
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case activityName
+        case symbolName
+        case startDate
+        case durationMinutes
+        case activeEnergyKcal
+        case averageHeartRate
+        case effortScore
+        case estimatedEffortScore
+        case healthKitUUID
+        case heartRateZones
+    }
 
     public init(
         id: UUID = UUID(),
@@ -186,7 +202,9 @@ public struct WorkoutSummary: Identifiable, Hashable, Sendable, Codable {
         activeEnergyKcal: Double,
         averageHeartRate: Double? = nil,
         effortScore: Double? = nil,
-        heartRateZones: WorkoutHeartRateZones? = nil
+        heartRateZones: WorkoutHeartRateZones? = nil,
+        estimatedEffortScore: Double? = nil,
+        healthKitUUID: UUID? = nil
     ) {
         self.id = id
         self.activityName = activityName
@@ -196,18 +214,41 @@ public struct WorkoutSummary: Identifiable, Hashable, Sendable, Codable {
         self.activeEnergyKcal = activeEnergyKcal
         self.averageHeartRate = averageHeartRate
         self.effortScore = effortScore
+        self.estimatedEffortScore = estimatedEffortScore
+        self.healthKitUUID = healthKitUUID
         self.heartRateZones = heartRateZones
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        activityName = try c.decode(String.self, forKey: .activityName)
+        symbolName = try c.decode(String.self, forKey: .symbolName)
+        startDate = try c.decode(Date.self, forKey: .startDate)
+        durationMinutes = try c.decode(Int.self, forKey: .durationMinutes)
+        activeEnergyKcal = try c.decode(Double.self, forKey: .activeEnergyKcal)
+        averageHeartRate = try c.decodeIfPresent(Double.self, forKey: .averageHeartRate)
+        effortScore = try c.decodeIfPresent(Double.self, forKey: .effortScore)
+        estimatedEffortScore = try c.decodeIfPresent(Double.self, forKey: .estimatedEffortScore)
+        healthKitUUID = try c.decodeIfPresent(UUID.self, forKey: .healthKitUUID)
+        heartRateZones = try c.decodeIfPresent(WorkoutHeartRateZones.self, forKey: .heartRateZones)
     }
 }
 
 public struct DailyRawMetrics: Identifiable, Hashable, Sendable, Codable {
     public var id: Date { date }
     public let date: Date
+    public var dayKey: DayKey?
     public var hrvMs: Double?
     public var restingHeartRateBpm: Double?
     public var respiratoryRateBrpm: Double?
     public var wristTempDeltaC: Double?
     public var oxygenSaturationPct: Double?
+    public var walkingHeartRateAvgBpm: Double?
+    public var vo2MaxMlKgMin: Double?
+    public var heartRateRecovery1MinBpm: Double?
+    public var bodyMassKg: Double?
+    public var physicalEffortKcalPerKgHr: Double?
 
     public var sleepAsleepMinutes: Int?
     public var sleepInBedMinutes: Int?
@@ -228,6 +269,38 @@ public struct DailyRawMetrics: Identifiable, Hashable, Sendable, Codable {
     public var daytimeMaxHeartRateBpm: Double?
     public var hasAuthorizedHealthData: Bool
     public var sourceNames: [String]
+
+    private enum CodingKeys: String, CodingKey {
+        case date
+        case dayKey
+        case hrvMs
+        case restingHeartRateBpm
+        case respiratoryRateBrpm
+        case wristTempDeltaC
+        case oxygenSaturationPct
+        case walkingHeartRateAvgBpm
+        case vo2MaxMlKgMin
+        case heartRateRecovery1MinBpm
+        case bodyMassKg
+        case physicalEffortKcalPerKgHr
+        case sleepAsleepMinutes
+        case sleepInBedMinutes
+        case deepMinutes
+        case remMinutes
+        case coreMinutes
+        case awakeMinutes
+        case sleepStart
+        case sleepEnd
+        case sleepSegments
+        case activeEnergyKcal
+        case exerciseMinutes
+        case steps
+        case workouts
+        case daytimeMeanHeartRateBpm
+        case daytimeMaxHeartRateBpm
+        case hasAuthorizedHealthData
+        case sourceNames
+    }
 
     public init(
         date: Date,
@@ -252,14 +325,26 @@ public struct DailyRawMetrics: Identifiable, Hashable, Sendable, Codable {
         daytimeMeanHeartRateBpm: Double? = nil,
         daytimeMaxHeartRateBpm: Double? = nil,
         hasAuthorizedHealthData: Bool = true,
-        sourceNames: [String] = []
+        sourceNames: [String] = [],
+        dayKey: DayKey? = nil,
+        walkingHeartRateAvgBpm: Double? = nil,
+        vo2MaxMlKgMin: Double? = nil,
+        heartRateRecovery1MinBpm: Double? = nil,
+        bodyMassKg: Double? = nil,
+        physicalEffortKcalPerKgHr: Double? = nil
     ) {
         self.date = date
+        self.dayKey = dayKey
         self.hrvMs = hrvMs
         self.restingHeartRateBpm = restingHeartRateBpm
         self.respiratoryRateBrpm = respiratoryRateBrpm
         self.wristTempDeltaC = wristTempDeltaC
         self.oxygenSaturationPct = oxygenSaturationPct
+        self.walkingHeartRateAvgBpm = walkingHeartRateAvgBpm
+        self.vo2MaxMlKgMin = vo2MaxMlKgMin
+        self.heartRateRecovery1MinBpm = heartRateRecovery1MinBpm
+        self.bodyMassKg = bodyMassKg
+        self.physicalEffortKcalPerKgHr = physicalEffortKcalPerKgHr
         self.sleepAsleepMinutes = sleepAsleepMinutes
         self.sleepInBedMinutes = sleepInBedMinutes
         self.deepMinutes = deepMinutes
@@ -277,6 +362,39 @@ public struct DailyRawMetrics: Identifiable, Hashable, Sendable, Codable {
         self.daytimeMaxHeartRateBpm = daytimeMaxHeartRateBpm
         self.hasAuthorizedHealthData = hasAuthorizedHealthData
         self.sourceNames = sourceNames
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        date = try c.decode(Date.self, forKey: .date)
+        dayKey = try c.decodeIfPresent(DayKey.self, forKey: .dayKey)
+        hrvMs = try c.decodeIfPresent(Double.self, forKey: .hrvMs)
+        restingHeartRateBpm = try c.decodeIfPresent(Double.self, forKey: .restingHeartRateBpm)
+        respiratoryRateBrpm = try c.decodeIfPresent(Double.self, forKey: .respiratoryRateBrpm)
+        wristTempDeltaC = try c.decodeIfPresent(Double.self, forKey: .wristTempDeltaC)
+        oxygenSaturationPct = try c.decodeIfPresent(Double.self, forKey: .oxygenSaturationPct)
+        walkingHeartRateAvgBpm = try c.decodeIfPresent(Double.self, forKey: .walkingHeartRateAvgBpm)
+        vo2MaxMlKgMin = try c.decodeIfPresent(Double.self, forKey: .vo2MaxMlKgMin)
+        heartRateRecovery1MinBpm = try c.decodeIfPresent(Double.self, forKey: .heartRateRecovery1MinBpm)
+        bodyMassKg = try c.decodeIfPresent(Double.self, forKey: .bodyMassKg)
+        physicalEffortKcalPerKgHr = try c.decodeIfPresent(Double.self, forKey: .physicalEffortKcalPerKgHr)
+        sleepAsleepMinutes = try c.decodeIfPresent(Int.self, forKey: .sleepAsleepMinutes)
+        sleepInBedMinutes = try c.decodeIfPresent(Int.self, forKey: .sleepInBedMinutes)
+        deepMinutes = try c.decodeIfPresent(Int.self, forKey: .deepMinutes)
+        remMinutes = try c.decodeIfPresent(Int.self, forKey: .remMinutes)
+        coreMinutes = try c.decodeIfPresent(Int.self, forKey: .coreMinutes)
+        awakeMinutes = try c.decodeIfPresent(Int.self, forKey: .awakeMinutes)
+        sleepStart = try c.decodeIfPresent(Date.self, forKey: .sleepStart)
+        sleepEnd = try c.decodeIfPresent(Date.self, forKey: .sleepEnd)
+        sleepSegments = try c.decodeIfPresent([SleepStageSegment].self, forKey: .sleepSegments) ?? []
+        activeEnergyKcal = try c.decodeIfPresent(Double.self, forKey: .activeEnergyKcal)
+        exerciseMinutes = try c.decodeIfPresent(Int.self, forKey: .exerciseMinutes)
+        steps = try c.decodeIfPresent(Int.self, forKey: .steps)
+        workouts = try c.decodeIfPresent([WorkoutSummary].self, forKey: .workouts) ?? []
+        daytimeMeanHeartRateBpm = try c.decodeIfPresent(Double.self, forKey: .daytimeMeanHeartRateBpm)
+        daytimeMaxHeartRateBpm = try c.decodeIfPresent(Double.self, forKey: .daytimeMaxHeartRateBpm)
+        hasAuthorizedHealthData = try c.decodeIfPresent(Bool.self, forKey: .hasAuthorizedHealthData) ?? true
+        sourceNames = try c.decodeIfPresent([String].self, forKey: .sourceNames) ?? []
     }
 }
 
@@ -392,7 +510,14 @@ public enum TrendHorizon: String, CaseIterable, Identifiable, Hashable, Sendable
         case .week: 7
         case .month: 30
         case .sixMonths: 180
-        case .threeYears: 365
+        case .threeYears: 1095
+        }
+    }
+
+    public var usesRangeCapsules: Bool {
+        switch self {
+        case .week, .month: false
+        case .sixMonths, .threeYears: true
         }
     }
 }
