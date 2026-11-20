@@ -51,8 +51,10 @@ public enum PreviewSeedFactory {
             var workouts: [WorkoutSummary] = []
             if offset == 0 {
                 let runStart = calendar.date(bySettingHour: 7, minute: 30, second: 0, of: date) ?? date
+                let runUUID = deterministicWorkoutUUID(slot: 0)
                 workouts.append(
                     WorkoutSummary(
+                        id: runUUID,
                         activityName: "户外跑步 · Apple Watch",
                         symbolName: "figure.run",
                         startDate: runStart,
@@ -67,15 +69,70 @@ public enum PreviewSeedFactory {
                             zone4Minutes: 6,
                             zone5Minutes: 1,
                             maxHeartRate: 174
-                        )
+                        ),
+                        estimatedEffortScore: 7.0,
+                        healthKitUUID: runUUID
+                    )
+                )
+            } else if offset == -1 {
+                let strengthStart = calendar.date(bySettingHour: 18, minute: 30, second: 0, of: date) ?? date
+                let strengthUUID = deterministicWorkoutUUID(slot: 1)
+                workouts.append(
+                    WorkoutSummary(
+                        id: strengthUUID,
+                        activityName: "传统力量训练 · Apple Watch",
+                        symbolName: "dumbbell.fill",
+                        startDate: strengthStart,
+                        durationMinutes: 48,
+                        activeEnergyKcal: 285,
+                        averageHeartRate: 131,
+                        effortScore: 8.0,
+                        heartRateZones: WorkoutHeartRateZones(
+                            zone1Minutes: 10,
+                            zone2Minutes: 20,
+                            zone3Minutes: 13,
+                            zone4Minutes: 5,
+                            zone5Minutes: 0,
+                            maxHeartRate: 161
+                        ),
+                        estimatedEffortScore: 7.2,
+                        healthKitUUID: strengthUUID
+                    )
+                )
+            } else if offset == -2 {
+                let badStart = calendar.date(bySettingHour: 19, minute: 15, second: 0, of: date) ?? date
+                let badUUID = deterministicWorkoutUUID(slot: 2)
+                workouts.append(
+                    WorkoutSummary(
+                        id: badUUID,
+                        activityName: "羽毛球 · Apple Watch",
+                        symbolName: "figure.badminton",
+                        startDate: badStart,
+                        durationMinutes: 62,
+                        activeEnergyKcal: 468,
+                        averageHeartRate: 144,
+                        effortScore: nil,
+                        heartRateZones: WorkoutHeartRateZones(
+                            zone1Minutes: 8,
+                            zone2Minutes: 19,
+                            zone3Minutes: 22,
+                            zone4Minutes: 11,
+                            zone5Minutes: 2,
+                            maxHeartRate: 177
+                        ),
+                        estimatedEffortScore: 7.6,
+                        healthKitUUID: badUUID
                     )
                 )
             } else if dayIndex % 3 == 0 {
                 let stStart = calendar.date(bySettingHour: 18, minute: 15, second: 0, of: date) ?? date
                 let z2 = max(8, exerciseMin / 2)
                 let z3 = max(4, exerciseMin / 3)
+                let slot = max(3, -offset)
+                let stUUID = deterministicWorkoutUUID(slot: slot)
                 workouts.append(
                     WorkoutSummary(
+                        id: stUUID,
                         activityName: "力量训练 · Apple Watch",
                         symbolName: "dumbbell.fill",
                         startDate: stStart,
@@ -90,7 +147,9 @@ public enum PreviewSeedFactory {
                             zone4Minutes: 3,
                             zone5Minutes: 0,
                             maxHeartRate: 162
-                        )
+                        ),
+                        estimatedEffortScore: 6.5,
+                        healthKitUUID: stUUID
                     )
                 )
             }
@@ -228,5 +287,11 @@ public enum PreviewSeedFactory {
             seg(.rem, rem2),
             seg(.core, core4),
         ]
+    }
+
+    public static func deterministicWorkoutUUID(slot: Int) -> UUID {
+        let clamped = max(0, min(999_999_999_999, slot))
+        let hex = String(format: "%012d", clamped)
+        return UUID(uuidString: "00000000-0000-4000-8000-\(hex)") ?? UUID()
     }
 }

@@ -166,6 +166,11 @@ public struct BodySeekStoreClient: Sendable {
     public var searchFoodLibrary: @Sendable (_ query: String) async throws -> [FoodLibraryItem] = { _ in [] }
     public var seedStarterFoodLibraryIfNeeded: @Sendable () async throws -> Void
     public var saveFoodLibraryItem: @Sendable (_ item: FoodLibraryItem) async throws -> Void
+    public var loadStoredWorkouts: @Sendable (_ limit: Int?) async throws -> [StoredWorkoutRecord] = { _ in [] }
+    public var upsertStoredWorkouts: @Sendable (_ workouts: [StoredWorkoutRecord], _ symbolByUUID: [String: String]) async throws -> Void
+    public var loadWorkoutAnnotations: @Sendable (_ workoutUUID: String?) async throws -> [WorkoutAnnotationRecord] = { _ in [] }
+    public var loadAllMuscleLoads: @Sendable (_ since: Date?) async throws -> [WorkoutMuscleLoadRecord] = { _ in [] }
+    public var applyAutoWorkoutAttribution: @Sendable (_ workoutUUID: String, _ loads: [WorkoutMuscleLoadRecord]) async throws -> Bool = { _, _ in false }
 }
 
 extension BodySeekStoreClient: DependencyKey {
@@ -333,18 +338,41 @@ extension BodySeekStoreClient: DependencyKey {
                 try await repo.seedStarterFoodLibraryIfNeeded()
             },
             saveFoodLibraryItem: { item in
-                if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard")
-                    || ProcessInfo.processInfo.arguments.contains("-velaPreviewEmptyDashboard")
-                {
-                    let (_, repo, _, _) = try await preview.resolve()
-                    try await repo.saveFoodLibraryItem(item)
-                    return
-                }
-                let repo = try await BodySeekSharedStore.shared.repository()
+                let repo = try await liveOrPreviewRepo(preview: preview)
                 try await repo.saveFoodLibraryItem(item)
+            },
+            loadStoredWorkouts: { limit in
+                let repo = try await liveOrPreviewRepo(preview: preview)
+                return try await repo.loadWorkouts(limit: limit)
+            },
+            upsertStoredWorkouts: { workouts, symbolByUUID in
+                let repo = try await liveOrPreviewRepo(preview: preview)
+                try await repo.upsertWorkouts(workouts, symbolByUUID: symbolByUUID)
+            },
+            loadWorkoutAnnotations: { workoutUUID in
+                let repo = try await liveOrPreviewRepo(preview: preview)
+                return try await repo.loadWorkoutAnnotations(workoutUUID: workoutUUID)
+            },
+            loadAllMuscleLoads: { since in
+                let repo = try await liveOrPreviewRepo(preview: preview)
+                return try await repo.loadAllMuscleLoads(since: since)
+            },
+            applyAutoWorkoutAttribution: { workoutUUID, loads in
+                let repo = try await liveOrPreviewRepo(preview: preview)
+                return try await repo.applyAutoWorkoutAttribution(workoutUUID: workoutUUID, loads: loads)
             }
         )
     }()
+
+    private static func liveOrPreviewRepo(preview: PreviewGRDBContainer) async throws -> BodySeekRepository {
+        if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard")
+            || ProcessInfo.processInfo.arguments.contains("-velaPreviewEmptyDashboard")
+        {
+            let (_, repo, _, _) = try await preview.resolve()
+            return repo
+        }
+        return try await BodySeekSharedStore.shared.repository()
+    }
 
     public static let previewValue: BodySeekStoreClient = makeInMemoryClient()
 
@@ -403,6 +431,26 @@ extension BodySeekStoreClient: DependencyKey {
             saveFoodLibraryItem: { item in
                 let (_, repo, _, _) = try await preview.resolve()
                 try await repo.saveFoodLibraryItem(item)
+            },
+            loadStoredWorkouts: { limit in
+                let (_, repo, _, _) = try await preview.resolve()
+                return try await repo.loadWorkouts(limit: limit)
+            },
+            upsertStoredWorkouts: { workouts, symbolByUUID in
+                let (_, repo, _, _) = try await preview.resolve()
+                try await repo.upsertWorkouts(workouts, symbolByUUID: symbolByUUID)
+            },
+            loadWorkoutAnnotations: { workoutUUID in
+                let (_, repo, _, _) = try await preview.resolve()
+                return try await repo.loadWorkoutAnnotations(workoutUUID: workoutUUID)
+            },
+            loadAllMuscleLoads: { since in
+                let (_, repo, _, _) = try await preview.resolve()
+                return try await repo.loadAllMuscleLoads(since: since)
+            },
+            applyAutoWorkoutAttribution: { workoutUUID, loads in
+                let (_, repo, _, _) = try await preview.resolve()
+                return try await repo.applyAutoWorkoutAttribution(workoutUUID: workoutUUID, loads: loads)
             }
         )
     }

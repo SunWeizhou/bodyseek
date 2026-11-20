@@ -1416,6 +1416,140 @@ public final class BodySeekRepository: Sendable {
         }
     }
 
+    public func loadAllMuscleLoads(since: Date? = nil) async throws -> [WorkoutMuscleLoadRecord] {
+        try await database.writer.read { db in
+            let rows: [Row]
+            if let since {
+                rows = try Row.fetchAll(
+                    db,
+                    sql: """
+                    SELECT l.workout_uuid, l.muscle_id, l.role, l.load, l.algorithm_version
+                    FROM workout_muscle_load l
+                    JOIN workout w ON w.hk_uuid = l.workout_uuid
+                    WHERE w.end >= ?
+                    ORDER BY w.end DESC
+                    """,
+                    arguments: [since.timeIntervalSince1970]
+                )
+            } else {
+                rows = try Row.fetchAll(
+                    db,
+                    sql: "SELECT workout_uuid, muscle_id, role, load, algorithm_version FROM workout_muscle_load"
+                )
+            }
+            return rows.compactMap { row in
+                guard let muscle = BodyRegionMuscle(rawValue: row["muscle_id"]),
+                      let role = MuscleLoadRole(rawValue: row["role"])
+                else {
+                    return nil
+                }
+                let verParts = (row["algorithm_version"] as String).split(separator: "@", maxSplits: 1)
+                let version = AlgorithmVersion(
+                    id: String(verParts.first ?? "recovery-heuristic-v1"),
+                    semver: verParts.count > 1 ? String(verParts[1]) : "1.0.0"
+                )
+                return WorkoutMuscleLoadRecord(
+                    workoutUUID: row["workout_uuid"],
+                    muscle: muscle,
+                    role: role,
+                    load: row["load"],
+                    algorithmVersion: version
+                )
+            }
+        }
+    }
+
+    public func loadWorkoutAnnotations(workoutUUID: String? = nil) async throws -> [WorkoutAnnotationRecord] {
+        try await database.writer.read { db in
+            let rows: [Row]
+            if let workoutUUID {
+                rows = try Row.fetchAll(
+                    db,
+                    sql: """
+                    SELECT id, workout_uuid, raw_text, parser_version, confirmed_at
+                    FROM workout_annotation
+                    WHERE workout_uuid = ?
+                    ORDER BY confirmed_at DESC
+                    """,
+                    arguments: [workoutUUID]
+                )
+            } else {
+                rows = try Row.fetchAll(
+                    db,
+                    sql: """
+                    SELECT id, workout_uuid, raw_text, parser_version, confirmed_at
+                    FROM workout_annotation
+                    ORDER BY confirmed_at DESC
+                    """
+                )
+            }
+            return rows.compactMap { row in
+                guard let id = UUID(uuidString: row["id"]) else { return nil }
+                let versionParts = (row["parser_version"] as String).split(separator: "@", maxSplits: 1)
+                let version = AlgorithmVersion(
+                    id: String(versionParts.first ?? "workout-parser-v1"),
+                    semver: versionParts.count > 1 ? String(versionParts[1]) : "1.0.0"
+                )
+                let confirmedEpoch: Double? = row["confirmed_at"]
+                return WorkoutAnnotationRecord(
+                    id: id,
+                    workoutUUID: row["workout_uuid"],
+                    rawText: row["raw_text"],
+                    parserVersion: version,
+                    confirmedAt: confirmedEpoch.map(Date.init(timeIntervalSince1970:))
+                )
+            }
+        }
+    }
+
+    @discardableResult
+    public func applyAutoWorkoutAttribution(
+        workoutUUID: String,
+        loads: [WorkoutMuscleLoadRecord]
+    ) async throws -> Bool {
+        try await database.writer.write { db in
+            guard let row = try Row.fetchOne(
+                db,
+                sql: "SELECT review_state FROM workout WHERE hk_uuid = ?",
+                arguments: [workoutUUID]
+            ) else {
+                return false
+            }
+            let currentState: String = row["review_state"]
+            guard currentState == WorkoutReviewState.unreviewed.rawValue
+                    || currentState == WorkoutReviewState.autoAttributed.rawValue
+            else {
+                // Never overwrite user-annotated or skipped workouts on dominant-hand change
+                return false
+            }
+
+            try db.execute(
+                sql: "DELETE FROM workout_muscle_load WHERE workout_uuid = ?",
+                arguments: [workoutUUID]
+            )
+            for item in loads {
+                try db.execute(
+                    sql: """
+                    INSERT INTO workout_muscle_load (workout_uuid, muscle_id, role, load, algorithm_version)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    arguments: [
+                        workoutUUID,
+                        item.muscle.rawValue,
+                        item.role.rawValue,
+                        item.load,
+                        item.algorithmVersion.description,
+                    ]
+                )
+            }
+            try db.execute(
+                sql: "UPDATE workout SET review_state = ? WHERE hk_uuid = ?",
+                arguments: [WorkoutReviewState.autoAttributed.rawValue, workoutUUID]
+            )
+            return true
+        }
+    }
+
     // MARK: - Nutrition Sub-System (Profile, Targets, Food Library, Daily Logs)
 
     public func saveNutritionProfile(_ profile: NutritionProfile) async throws {
