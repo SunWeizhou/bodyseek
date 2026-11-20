@@ -125,6 +125,8 @@ jobs:
             -configuration Debug \
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath build/DerivedData \
+            -skipMacroValidation \
+            -skipPackagePluginValidation \
             CODE_SIGNING_ALLOWED=NO \
             clean build
 
@@ -147,6 +149,8 @@ jobs:
             -testLanguage zh \
             -testRegion CN \
             -only-testing:VelaTests \
+            -skipMacroValidation \
+            -skipPackagePluginValidation \
             CODE_SIGNING_ALLOWED=NO
 
       - name: Run iOS UI smoke tests
@@ -165,7 +169,9 @@ jobs:
             -resultBundlePath build/UISmokeTests.xcresult \
             -testLanguage zh \
             -testRegion CN \
-            -only-testing:VelaUITests
+            -only-testing:VelaUITests \
+            -skipMacroValidation \
+            -skipPackagePluginValidation
 
       - name: Coverage summary (report-only)
         if: always()
