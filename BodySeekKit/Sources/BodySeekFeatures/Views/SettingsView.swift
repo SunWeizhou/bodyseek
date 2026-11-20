@@ -23,7 +23,7 @@ public struct SettingsView: View {
                     .foregroundStyle(BevelTheme.brand)
                 }
 
-                Section("睡眠与评估目标") {
+                Section("睡眠与运动习惯") {
                     Stepper(
                         value: Binding(
                             get: { store.preferences.sleepGoalMinutes },
@@ -34,6 +34,23 @@ public struct SettingsView: View {
                     ) {
                         let hours = Double(store.preferences.sleepGoalMinutes) / 60.0
                         LabeledContent("每日睡眠目标", value: String(format: "%.2f 小时", hours))
+                    }
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("持拍手 / 惯用手（羽毛球等单侧归因）")
+                            .font(.subheadline)
+                        Picker(
+                            "持拍手",
+                            selection: Binding(
+                                get: { store.preferences.dominantHand },
+                                set: { store.send(.dominantHandChanged($0)) }
+                            )
+                        ) {
+                            Text("右手").tag(DominantHand.right)
+                            Text("左手").tag(DominantHand.left)
+                        }
+                        .pickerStyle(.segmented)
+                        .accessibilityIdentifier("settings-dominant-hand-picker")
                     }
                 }
 

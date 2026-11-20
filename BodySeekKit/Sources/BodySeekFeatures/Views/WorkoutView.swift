@@ -14,7 +14,7 @@ public struct WorkoutView: View {
 
     public var body: some View {
         ScrollView {
-            VStack(spacing: 16) {
+            LazyVStack(alignment: .leading, spacing: 16) {
                 if let error = store.lastError {
                     bannerCard(text: error, tint: BevelTheme.dangerColor, icon: "exclamationmark.triangle.fill")
                 } else if let status = store.statusMessage {
@@ -25,29 +25,62 @@ public struct WorkoutView: View {
                     proposalCard(proposal)
                 }
 
+                if !store.unreviewedWorkouts.isEmpty {
+                    reviewInboxSection
+                }
+
                 acwrCard
                 muscleHeatmapCard
-                templatesSection
-                exerciseCatalogSection
-                watchWorkoutsSection
-                loggedSessionsSection
+                watchArchiveSection
+                manualSupplementarySection
             }
             .padding(.horizontal, 16)
             .padding(.top, 12)
             .padding(.bottom, 28)
         }
-        .background(BevelTheme.canvas)
+        .background(BevelTheme.canvas.ignoresSafeArea())
         .navigationTitle("健身")
         .toolbar {
             ToolbarItem(placement: .bodyseekTrailing) {
                 Button {
                     store.send(.startQuickEmptyTapped)
                 } label: {
-                    Label("自由记录", systemImage: "plus.circle.fill")
-                        .font(.subheadline.weight(.semibold))
+                    Label("手动补录", systemImage: "plus.circle")
+                        .font(.subheadline.weight(.medium))
                 }
                 .accessibilityIdentifier("workout.quickStart")
             }
+        }
+        .onAppear {
+            store.send(.onAppear)
+        }
+        .sheet(
+            isPresented: Binding(
+                get: { store.reviewDraft != nil },
+                set: { presented in
+                    if !presented {
+                        store.send(.dismissReviewSheet)
+                    }
+                }
+            )
+        ) {
+            WorkoutReviewSheetView(store: store)
+        }
+        .sheet(
+            item: Binding(
+                get: { store.inspectedMuscleForRecovery },
+                set: { store.send(.inspectMuscleRecovery($0)) }
+            )
+        ) { muscle in
+            MuscleRecoveryDetailSheet(store: store, muscle: muscle)
+        }
+        .sheet(
+            item: Binding(
+                get: { store.inspectedWorkoutDetail },
+                set: { store.send(.inspectWorkoutDetail($0)) }
+            )
+        ) { workout in
+            WorkoutDetailSheetView(store: store, workout: workout)
         }
         .sheet(
             isPresented: Binding(
@@ -162,6 +195,76 @@ public struct WorkoutView: View {
         }
     }
 
+    private var reviewInboxSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label("待复盘 Inbox (\(store.unreviewedWorkouts.count))", systemImage: "tray.and.arrow.down.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(BevelTheme.strainColor)
+                Spacer()
+                Text("手表力量记录 · 练后一句话标定")
+                    .font(.caption2)
+                    .foregroundStyle(BevelTheme.inkSecondary)
+            }
+            .padding(.horizontal, 4)
+
+            ForEach(store.unreviewedWorkouts.prefix(3)) { workout in
+                let durationMin = max(1, Int((workout.end.timeIntervalSince(workout.start) / 60).rounded()))
+                BevelCard(padding: 14) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(workout.type)
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(BevelTheme.ink)
+                                Text("\(workout.start, format: .dateTime.month().day().hour().minute()) · \(durationMin) 分钟 · \(Int(workout.energy.rounded())) kcal")
+                                    .font(.caption)
+                                    .foregroundStyle(BevelTheme.inkSecondary)
+                            }
+                            Spacer()
+                            Text("待复盘")
+                                .font(.caption2.weight(.semibold))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(BevelTheme.strainColor.opacity(0.14), in: Capsule())
+                                .foregroundStyle(BevelTheme.strainColor)
+                        }
+
+                        HStack(spacing: 10) {
+                            Button {
+                                store.send(.openReviewTapped(workout))
+                            } label: {
+                                Label("一句话复盘", systemImage: "text.bubble.fill")
+                                    .font(.caption.weight(.semibold))
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 9)
+                                    .background(BevelTheme.brand, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                    .foregroundStyle(BevelTheme.onBrand)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("workout-inbox-review-\(workout.hkUUID)")
+
+                            Button {
+                                store.send(.skipReviewTapped(workout))
+                            } label: {
+                                Text("跳过")
+                                    .font(.caption.weight(.medium))
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 9)
+                                    .background(BevelTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                    .foregroundStyle(BevelTheme.inkSecondary)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("workout-inbox-skip-\(workout.hkUUID)")
+                        }
+                    }
+                }
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("workout-review-inbox")
+    }
+
     private var acwrCard: some View {
         let load = store.snapshot.trainingLoad
         let zoneTint: Color = switch load.zone {
@@ -215,13 +318,12 @@ public struct WorkoutView: View {
                     }
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("近7天力量容量")
+                        Text("系统恢复调节")
                             .font(.caption2)
                             .foregroundStyle(BevelTheme.inkSecondary)
-                        Text("\(Int(store.weeklyVolumeKg.rounded())) kg")
+                        Text(String(format: "α %.2f", store.recoverySnapshot.systemicFactor.alpha))
                             .font(.headline.monospacedDigit())
                             .foregroundStyle(BevelTheme.ink)
-                            .contentTransition(.numericText())
                     }
 
                     Spacer()
@@ -266,10 +368,18 @@ public struct WorkoutView: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("全身肌群热图（近72h负荷）")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(BevelTheme.ink)
-                        Text("点击任意肌群可筛选动作或发起专项训练")
+                        HStack(spacing: 6) {
+                            Text("全身肌群恢复热图")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(BevelTheme.ink)
+                            Text("启发式估计")
+                                .font(.caption2.weight(.semibold))
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 2)
+                                .background(BevelTheme.surfaceElevated, in: Capsule())
+                                .foregroundStyle(BevelTheme.inkSecondary)
+                        }
+                        Text("点击任意肌群查看预计就绪时间与刺激来源")
                             .font(.caption)
                             .foregroundStyle(BevelTheme.inkSecondary)
                     }
@@ -304,18 +414,21 @@ public struct WorkoutView: View {
 
                     VStack(alignment: .leading, spacing: 10) {
                         if let muscle = store.selectedMuscle {
-                            let loadPct = Int(((store.muscleLoadLast72h[muscle] ?? 0) * 100).rounded())
+                            let est = store.recoverySnapshot.estimate(for: muscle)
                             Text(muscle.title)
                                 .font(.headline)
                                 .foregroundStyle(BevelTheme.ink)
-                            Text("72h 负荷指数 \(loadPct)% · 匹配 \(store.filteredExercises.count) 个动作")
-                                .font(.caption)
+                            Text("预计恢复 \(est.recoveryPercent)%（启发式估计）")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(est.isReadyForPrimaryWork ? BevelTheme.recoveryColor : BevelTheme.strainColor)
+                            Text(est.readyETADescription)
+                                .font(.caption2)
                                 .foregroundStyle(BevelTheme.inkSecondary)
 
                             Button {
-                                store.send(.startMuscleTargetedWorkoutTapped(muscle))
+                                store.send(.inspectMuscleRecovery(muscle))
                             } label: {
-                                Label("开始\(muscle.title)专项", systemImage: "play.fill")
+                                Label("查看\(muscle.title)恢复详情", systemImage: "chart.bar.doc.horizontal")
                                     .font(.caption.weight(.semibold))
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 8)
@@ -323,6 +436,7 @@ public struct WorkoutView: View {
                                     .foregroundStyle(BevelTheme.onBrand)
                             }
                             .buttonStyle(.plain)
+                            .accessibilityIdentifier("workout-muscle-recovery-detail")
 
                             Button {
                                 store.send(.muscleSelected(nil))
@@ -333,29 +447,33 @@ public struct WorkoutView: View {
                             }
                             .buttonStyle(.plain)
                         } else {
-                            Text("近期重点受力")
+                            Text("主要受累肌群恢复度（启发式估计）")
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(BevelTheme.inkSecondary)
-                            if store.loadedMusclesRanked.isEmpty {
-                                Text("近 72 小时暂无已记录的力量训练负荷，可点击任意肌肉预览动作。")
+                            let ranked = store.recoverySnapshot.rankedByFatigue
+                            if ranked.isEmpty {
+                                Text("近 7 天暂无显著肌群疲劳记录，点击身体部位可查看参数说明。")
                                     .font(.caption)
                                     .foregroundStyle(BevelTheme.inkSecondary)
                             } else {
-                                ForEach(store.loadedMusclesRanked.prefix(5), id: \.muscle) { entry in
+                                ForEach(ranked.prefix(5)) { est in
                                     Button {
-                                        store.send(.muscleSelected(entry.muscle))
+                                        store.send(.inspectMuscleRecovery(est.muscle))
                                     } label: {
                                         HStack {
-                                            Text(entry.muscle.title)
+                                            Text(est.muscle.title)
                                                 .font(.caption)
                                                 .foregroundStyle(BevelTheme.ink)
                                             Spacer()
-                                            Text("\(Int((entry.load * 100).rounded()))%")
+                                            Text("\(est.recoveryPercent)%")
                                                 .font(.caption.weight(.semibold).monospacedDigit())
-                                                .foregroundStyle(entry.load > 0.65 ? BevelTheme.strainColor : BevelTheme.brand)
+                                                .foregroundStyle(est.isReadyForPrimaryWork ? BevelTheme.recoveryColor : BevelTheme.strainColor)
                                         }
+                                        .padding(.vertical, 4)
+                                        .contentShape(Rectangle())
                                     }
                                     .buttonStyle(.plain)
+                                    .accessibilityIdentifier("workout-muscle-rank-\(est.muscle.rawValue)")
                                 }
                             }
                         }
@@ -378,10 +496,10 @@ public struct WorkoutView: View {
                 }
 
                 HStack(spacing: 12) {
-                    legendDot(color: BevelTheme.scoreTrack, label: "待激活")
-                    legendDot(color: BevelTheme.brand.opacity(0.65), label: "适度刺激")
-                    legendDot(color: BevelTheme.energyColor, label: "中等负荷")
-                    legendDot(color: BevelTheme.strainColor, label: "需优先恢复")
+                    legendDot(color: BevelTheme.scoreTrack, label: "已充分恢复")
+                    legendDot(color: BevelTheme.brand.opacity(0.65), label: "轻度残留")
+                    legendDot(color: BevelTheme.energyColor, label: "中等疲劳")
+                    legendDot(color: BevelTheme.strainColor, label: "建议休整")
                 }
             }
         }
@@ -401,9 +519,120 @@ public struct WorkoutView: View {
             .padding(.horizontal, 4)
     }
 
+    private var watchArchiveSection: some View {
+        let items = Array(store.archiveWorkouts.prefix(6))
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                sectionHeader("Apple Watch 训练档案与归因")
+                Spacer()
+                Text("手打 / Apple 估算分离展示")
+                    .font(.caption2)
+                    .foregroundStyle(BevelTheme.inkSecondary)
+            }
+
+            if items.isEmpty {
+                BevelCard {
+                    Text("近 30 天暂无同步自 Apple Watch 的体能训练记录。使用手表自带「体能训练」完成后，记录将自动进入档案或待复盘 Inbox。")
+                        .font(.footnote)
+                        .foregroundStyle(BevelTheme.inkSecondary)
+                }
+            } else {
+                ForEach(items) { workout in
+                    let durationMin = max(1, Int((workout.end.timeIntervalSince(workout.start) / 60).rounded()))
+                    let workoutLoads = store.muscleLoads.filter { $0.workoutUUID == workout.hkUUID }
+                    Button {
+                        store.send(.inspectWorkoutDetail(workout))
+                    } label: {
+                        BevelCard(padding: 14) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack {
+                                    Text(workout.type)
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(BevelTheme.ink)
+                                    Spacer()
+                                    reviewBadge(workout.reviewState)
+                                }
+
+                                HStack(spacing: 12) {
+                                    Text(workout.start, format: .dateTime.month().day().hour().minute())
+                                    Text("\(durationMin) 分钟")
+                                    Text("\(Int(workout.energy.rounded())) kcal")
+                                    if let hr = workout.avgHR {
+                                        Text("均心率 \(Int(hr.rounded()))")
+                                    }
+                                }
+                                .font(.caption)
+                                .foregroundStyle(BevelTheme.inkSecondary)
+
+                                HStack(spacing: 8) {
+                                    if let effortUser = workout.effortUser {
+                                        Text(String(format: "手打用力 %.1f", effortUser))
+                                            .font(.caption2.weight(.semibold))
+                                            .padding(.horizontal, 7)
+                                            .padding(.vertical, 2)
+                                            .background(BevelTheme.strainColor.opacity(0.14), in: Capsule())
+                                            .foregroundStyle(BevelTheme.strainColor)
+                                    }
+                                    if let effortEst = workout.effortEstimated {
+                                        Text(String(format: "Apple估算 %.1f", effortEst))
+                                            .font(.caption2)
+                                            .padding(.horizontal, 7)
+                                            .padding(.vertical, 2)
+                                            .background(BevelTheme.surfaceElevated, in: Capsule())
+                                            .foregroundStyle(BevelTheme.inkSecondary)
+                                    }
+                                    if !workoutLoads.isEmpty {
+                                        Text(workoutLoads.filter { $0.role == .primary }.map(\.muscle.title).joined(separator: "·"))
+                                            .font(.caption2)
+                                            .foregroundStyle(BevelTheme.brand)
+                                            .lineLimit(1)
+                                    }
+                                }
+
+                                if let zones = workout.zones, zones.totalZoneMinutes > 0 {
+                                    ZoneBar(zones: zones, showsTrimp: true)
+                                }
+                            }
+                        }
+                        .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("workout-archive-row-\(workout.hkUUID)")
+                }
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("workout-archive-section")
+    }
+
+    private func reviewBadge(_ state: WorkoutReviewState) -> some View {
+        let (title, tint): (String, Color) = switch state {
+        case .unreviewed: ("待复盘", BevelTheme.strainColor)
+        case .autoAttributed: ("自动归因", BevelTheme.sleepColor)
+        case .annotated: ("已复盘", BevelTheme.recoveryColor)
+        case .skipped: ("已跳过", BevelTheme.inkSecondary)
+        }
+        return Text(title)
+            .font(.caption2.weight(.semibold))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(tint.opacity(0.14), in: Capsule())
+            .foregroundStyle(tint)
+    }
+
+    // MARK: - Supplemental Manual Entry (Demoted Below Watch-First Archive)
+
+    private var manualSupplementarySection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            templatesSection
+            exerciseCatalogSection
+            loggedSessionsSection
+        }
+    }
+
     private var templatesSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            sectionHeader("训练方案与分化")
+            sectionHeader("辅助训练方案与手动补录入口")
 
             ForEach(store.templates) { template in
                 BevelCard(padding: 14) {
@@ -509,63 +738,19 @@ public struct WorkoutView: View {
         }
     }
 
-    private var watchWorkoutsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            sectionHeader("Apple Watch 训练与心率分区")
-
-            if store.recentHealthWorkouts.isEmpty {
-                BevelCard {
-                    Text("近 14 天暂无同步自 Apple Watch 的体能训练记录。在手表或本页面完成一次训练后，心率 Z1–Z5 分区、TRIMP 与 Effort 分数将在此呈现。")
-                        .font(.footnote)
-                        .foregroundStyle(BevelTheme.inkSecondary)
-                }
-            } else {
-                ForEach(store.recentHealthWorkouts.prefix(4)) { workout in
-                    BevelCard(padding: 14) {
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Label(workout.activityName, systemImage: workout.symbolName)
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(BevelTheme.ink)
-                                Spacer()
-                                if let effort = workout.effortScore {
-                                    Text(String(format: "努力度 %.1f", effort))
-                                        .font(.caption2.weight(.semibold))
-                                        .padding(.horizontal, 8)
-                                        .padding(.vertical, 3)
-                                        .background(BevelTheme.strainColor.opacity(0.14), in: Capsule())
-                                        .foregroundStyle(BevelTheme.strainColor)
-                                }
-                            }
-
-                            HStack(spacing: 12) {
-                                Text(workout.startDate, format: .dateTime.month().day().hour().minute())
-                                Text("\(workout.durationMinutes) 分钟")
-                                Text("\(Int(workout.activeEnergyKcal.rounded())) kcal")
-                                if let hr = workout.averageHeartRate {
-                                    Text("均心率 \(Int(hr.rounded()))")
-                                }
-                            }
-                            .font(.caption)
-                            .foregroundStyle(BevelTheme.inkSecondary)
-
-                            if let zones = workout.heartRateZones, zones.totalZoneMinutes > 0 {
-                                ZoneBar(zones: zones, showsTrimp: true)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     private var loggedSessionsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            sectionHeader("力量训练记录")
+            HStack {
+                sectionHeader("手动补录组次历史")
+                Spacer()
+                Text("近7日容量 \(Int(store.weeklyVolumeKg.rounded())) kg")
+                    .font(.caption2)
+                    .foregroundStyle(BevelTheme.inkSecondary)
+            }
 
             if store.sessions.isEmpty {
                 BevelCard {
-                    Text("尚未记录力量组次。点击上方任意训练方案的「开练」即可记录重量、次数并写回 Apple 健康。")
+                    Text("日常无需在训练中手动记组次；若需补录重量细节，可通过右上角「手动补录」或上方方案开练。")
                         .font(.footnote)
                         .foregroundStyle(BevelTheme.inkSecondary)
                 }

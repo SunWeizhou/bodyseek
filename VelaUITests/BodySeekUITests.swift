@@ -180,6 +180,49 @@ final class BodySeekUITests: XCTestCase {
         XCTAssertTrue(app.otherElements["trends-patterns-card"].waitForExistence(timeout: 5))
     }
 
+    func testM2WatchFirstReviewInboxMuscleRecoveryAndArchive() {
+        let app = launchApp(extraArguments: ["-velaPreviewDashboard", "-velaInitialTab", "1"])
+
+        // 1. Inbox shows yesterday's unreviewed Watch strength workout
+        let inbox = app.otherElements["workout-review-inbox"]
+        XCTAssertTrue(inbox.waitForExistence(timeout: 8))
+        let reviewBtn = app.buttons["workout-inbox-review-00000000-0000-4000-8000-000000000001"]
+        XCTAssertTrue(reviewBtn.waitForExistence(timeout: 5))
+        reviewBtn.tap()
+
+        // 2. Tap quick review phrase chip & confirm card -> writes annotation + 14d constraint memory
+        let chip0 = app.buttons["workout-review-chip-0"]
+        XCTAssertTrue(chip0.waitForExistence(timeout: 5))
+        chip0.tap()
+
+        XCTAssertTrue(app.staticTexts["身体信号 → 自动创建 14 天约束记忆"].waitForExistence(timeout: 5))
+        let confirmBtn = app.buttons["workout-review-confirm"]
+        if !confirmBtn.isHittable {
+            app.swipeUp()
+        }
+        confirmBtn.tap()
+
+        // 3. MuscleMap ranked recovery row opens MuscleRecoveryDetailSheet ("启发式估计")
+        let chestRow = app.buttons["workout-muscle-rank-chest"]
+        XCTAssertTrue(chestRow.waitForExistence(timeout: 6))
+        chestRow.tap()
+
+        XCTAssertTrue(app.staticTexts["muscle-recovery-eta-text"].waitForExistence(timeout: 6))
+        XCTAssertTrue(app.staticTexts["muscle-recovery-heuristic-badge"].exists)
+        app.buttons["muscle-recovery-done"].tap()
+
+        // 4. Watch archive row opens WorkoutDetailSheetView with annotated state & separated efforts
+        let archiveRow = app.buttons["workout-archive-row-00000000-0000-4000-8000-000000000001"]
+        while !archiveRow.exists || !archiveRow.isHittable {
+            app.swipeUp()
+        }
+        archiveRow.tap()
+        XCTAssertTrue(app.staticTexts["用户主观用力 (EffortUser)"].waitForExistence(timeout: 6))
+        XCTAssertTrue(app.staticTexts["Apple 系统估算 (Estimated)"].exists)
+        XCTAssertTrue(app.staticTexts["已复盘"].exists)
+        app.buttons["workout-detail-done"].tap()
+    }
+
     func testCaptureLightAndDarkScreenshotsWhenRequested() throws {
         let env = ProcessInfo.processInfo.environment
         guard let outputDir = env["BODYSEEK_WALKTHROUGH_DIR"], !outputDir.isEmpty else {
@@ -253,7 +296,7 @@ final class BodySeekUITests: XCTestCase {
         try snap("08-trends-3y-capsules")
 
         tapTab("健身", in: app)
-        XCTAssertTrue(app.staticTexts["全身肌群热图（近72h负荷）"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["全身肌群恢复热图"].waitForExistence(timeout: 5))
         try snap("09-workout-musclemap")
     }
 }

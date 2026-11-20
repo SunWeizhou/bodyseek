@@ -29,6 +29,7 @@ public struct SettingsFeature: Sendable {
     public enum Action: Equatable, Sendable {
         case onAppear
         case sleepGoalChanged(Int)
+        case dominantHandChanged(DominantHand)
         case apiKeyChanged(String)
         case endpointChanged(String)
         case modelNameChanged(String)
@@ -79,6 +80,16 @@ public struct SettingsFeature: Sendable {
                     return .send(.delegate(.preferencesUpdated(state.preferences)))
                 } catch {
                     state.statusMessage = "保存睡眠目标失败：\(error.localizedDescription)"
+                    return .none
+                }
+
+            case let .dominantHandChanged(hand):
+                state.preferences.dominantHand = hand
+                do {
+                    try preferencesClient.save(state.preferences)
+                    return .send(.delegate(.preferencesUpdated(state.preferences)))
+                } catch {
+                    state.statusMessage = "保存持拍手设置失败：\(error.localizedDescription)"
                     return .none
                 }
 

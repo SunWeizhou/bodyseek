@@ -15,6 +15,43 @@ public enum BodySideOption: String, CaseIterable, Equatable, Hashable, Sendable 
     }
 }
 
+public struct WorkoutReviewDraft: Equatable, Sendable {
+    public let workout: StoredWorkoutRecord
+    public var inputText: String
+    public var proposal: WorkoutAnnotationProposal?
+    public var primaryMuscles: [BodyRegionMuscle]
+    public var secondaryMuscles: [BodyRegionMuscle]
+    public var rpe: Int
+    public var exercises: [String]
+    public var bodySignals: [WorkoutBodySignal]
+    public var isParsing: Bool = false
+    public var isSaving: Bool = false
+
+    public init(
+        workout: StoredWorkoutRecord,
+        inputText: String = "",
+        proposal: WorkoutAnnotationProposal? = nil,
+        primaryMuscles: [BodyRegionMuscle] = [.chest],
+        secondaryMuscles: [BodyRegionMuscle] = [],
+        rpe: Int = 7,
+        exercises: [String] = [],
+        bodySignals: [WorkoutBodySignal] = [],
+        isParsing: Bool = false,
+        isSaving: Bool = false
+    ) {
+        self.workout = workout
+        self.inputText = inputText
+        self.proposal = proposal
+        self.primaryMuscles = primaryMuscles
+        self.secondaryMuscles = secondaryMuscles
+        self.rpe = min(10, max(1, rpe))
+        self.exercises = exercises
+        self.bodySignals = bodySignals
+        self.isParsing = isParsing
+        self.isSaving = isSaving
+    }
+}
+
 @Reducer
 public struct WorkoutFeature: Sendable {
     @ObservableState
@@ -22,6 +59,15 @@ public struct WorkoutFeature: Sendable {
         public var snapshot: BodySeekDashboardSnapshot
         public var templates: [WorkoutTemplate] = []
         public var sessions: [LoggedWorkoutSession] = []
+        public var dominantHand: DominantHand = .right
+        public var sleepGoalMinutes: Int = 450
+        public var storedWorkouts: [StoredWorkoutRecord] = []
+        public var annotationsByWorkoutUUID: [String: WorkoutAnnotationRecord] = [:]
+        public var muscleLoads: [WorkoutMuscleLoadRecord] = []
+        public var recoverySnapshot: MuscleRecoverySnapshot = .empty
+        public var reviewDraft: WorkoutReviewDraft?
+        public var inspectedMuscleForRecovery: BodyRegionMuscle?
+        public var inspectedWorkoutDetail: StoredWorkoutRecord?
         public var selectedBodySide: BodySideOption = .front
         public var selectedMuscle: BodyRegionMuscle?
         public var pendingProposal: WorkoutProposal?
@@ -34,31 +80,91 @@ public struct WorkoutFeature: Sendable {
         public init(
             snapshot: BodySeekDashboardSnapshot,
             templates: [WorkoutTemplate] = ExerciseCatalog.defaultTemplates,
-            sessions: [LoggedWorkoutSession] = []
+            sessions: [LoggedWorkoutSession] = [],
+            dominantHand: DominantHand = .right,
+            sleepGoalMinutes: Int = 450
         ) {
             self.snapshot = snapshot
             self.templates = templates
             self.sessions = sessions
+            self.dominantHand = dominantHand
+            self.sleepGoalMinutes = sleepGoalMinutes
+            self.storedWorkouts = Self.storedRecords(from: snapshot.historyDays)
+            self.recoverySnapshot = MuscleRecoveryEngine.compute(
+                asOf: snapshot.referenceDate,
+                storedWorkouts: self.storedWorkouts,
+                muscleLoads: [],
+                manualSessions: sessions,
+                historyDays: snapshot.historyDays,
+                sleepGoalMinutes: sleepGoalMinutes,
+                dominantHand: dominantHand
+            )
+        }
+
+        public static func storedRecords(from historyDays: [DailyComputedDay]) -> [StoredWorkoutRecord] {
+            var seen = Set<String>()
+            var out: [StoredWorkoutRecord] = []
+            for day in historyDays.suffix(30) {
+                for w in day.raw.workouts {
+                    let uuid = (w.healthKitUUID ?? w.id).uuidString
+                    guard seen.insert(uuid).inserted else { continue }
+                    let end = w.startDate.addingTimeInterval(Double(max(1, w.durationMinutes)) * 60.0)
+                    out.append(
+                        StoredWorkoutRecord(
+                            hkUUID: uuid,
+                            type: w.activityName,
+                            start: w.startDate,
+                            end: end,
+                            energy: w.activeEnergyKcal,
+                            avgHR: w.averageHeartRate,
+                            zones: w.heartRateZones,
+                            effortUser: w.effortScore,
+                            effortEstimated: w.estimatedEffortScore,
+                            reviewState: .unreviewed
+                        )
+                    )
+                }
+            }
+            return out.sorted { $0.start > $1.start }
+        }
+
+        public mutating func recomputeRecoverySnapshot() {
+            recoverySnapshot = MuscleRecoveryEngine.compute(
+                asOf: snapshot.referenceDate,
+                storedWorkouts: storedWorkouts,
+                muscleLoads: muscleLoads,
+                manualSessions: sessions,
+                historyDays: snapshot.historyDays,
+                sleepGoalMinutes: sleepGoalMinutes,
+                dominantHand: dominantHand
+            )
+        }
+
+        public var unreviewedWorkouts: [StoredWorkoutRecord] {
+            let cutoff = snapshot.referenceDate.addingTimeInterval(-14 * 86_400)
+            return storedWorkouts
+                .filter { w in
+                    w.end >= cutoff
+                        && w.reviewState == .unreviewed
+                        && WorkoutAutoAttributor.isStrengthWorkout(type: w.type)
+                }
+                .sorted { $0.start > $1.start }
+        }
+
+        public var archiveWorkouts: [StoredWorkoutRecord] {
+            let cutoff = snapshot.referenceDate.addingTimeInterval(-30 * 86_400)
+            return storedWorkouts
+                .filter { $0.end >= cutoff }
+                .sorted { $0.start > $1.start }
         }
 
         public var muscleLoadLast72h: [BodyRegionMuscle: Double] {
-            let cutoff = snapshot.referenceDate.addingTimeInterval(-72 * 3600)
-            var combined: [BodyRegionMuscle: Double] = [:]
-            for session in sessions where session.completedAt >= cutoff {
-                let elapsedHours = max(0, snapshot.referenceDate.timeIntervalSince(session.completedAt) / 3600)
-                let decay = max(0.35, 1.0 - (elapsedHours / 96.0))
-                for (muscle, intensity) in session.muscleLoadIntensities {
-                    combined[muscle, default: 0] += intensity * decay
-                }
-            }
-            return combined.mapValues { min(1.0, $0) }
+            recoverySnapshot.heatmapFatigueIntensities
         }
 
         public var loadedMusclesRanked: [(muscle: BodyRegionMuscle, load: Double)] {
-            muscleLoadLast72h
-                .filter { $0.value >= 0.08 }
-                .sorted { $0.value > $1.value }
-                .map { ($0.key, $0.value) }
+            recoverySnapshot.rankedByFatigue
+                .map { ($0.muscle, $0.fatigueIntensityForHeatmap) }
         }
 
         public var filteredExercises: [ExerciseDefinition] {
@@ -82,6 +188,35 @@ public struct WorkoutFeature: Sendable {
     }
 
     public enum Action: Equatable, Sendable {
+        case onAppear
+        case syncWatchWorkouts
+        case watchWorkoutsLoaded(
+            workouts: [StoredWorkoutRecord],
+            annotations: [WorkoutAnnotationRecord],
+            loads: [WorkoutMuscleLoadRecord]
+        )
+        case watchSyncFailed(String)
+        case openReviewTapped(StoredWorkoutRecord)
+        case dismissReviewSheet
+        case reviewTextChanged(String)
+        case parseReviewTapped
+        case reviewParsed(WorkoutAnnotationProposal)
+        case toggleMuscleInDraft(BodyRegionMuscle)
+        case addMuscleToDraft(BodyRegionMuscle, asPrimary: Bool)
+        case removeMuscleFromDraft(BodyRegionMuscle)
+        case reviewRPEChanged(Int)
+        case toggleBodySignalMemory(UUID)
+        case confirmReviewTapped
+        case reviewPersisted(
+            workouts: [StoredWorkoutRecord],
+            annotations: [WorkoutAnnotationRecord],
+            loads: [WorkoutMuscleLoadRecord],
+            committedMemories: [AthleteMemoryItem]
+        )
+        case reviewPersistFailed(String)
+        case skipReviewTapped(StoredWorkoutRecord)
+        case inspectMuscleRecovery(BodyRegionMuscle?)
+        case inspectWorkoutDetail(StoredWorkoutRecord?)
         case bodySideChanged(BodySideOption)
         case muscleSelected(BodyRegionMuscle?)
         case startTemplateTapped(WorkoutTemplate)
@@ -114,6 +249,7 @@ public struct WorkoutFeature: Sendable {
         public enum Delegate: Equatable, Sendable {
             case sessionSaved(LoggedWorkoutSession)
             case templateSaved(WorkoutTemplate)
+            case memoryCommitted(AthleteMemoryItem)
             case askCoach(String)
             case openTrends
         }
@@ -123,6 +259,8 @@ public struct WorkoutFeature: Sendable {
         case restTimer
     }
 
+    @Dependency(\.bodySeekStoreClient) var bodySeekStoreClient
+    @Dependency(\.workoutReviewParserClient) var workoutReviewParserClient
     @Dependency(\.fitnessStoreClient) var fitnessStoreClient
     @Dependency(\.healthKitClient) var healthKitClient
     @Dependency(\.restTimerClient) var restTimerClient
@@ -135,6 +273,293 @@ public struct WorkoutFeature: Sendable {
     public var body: some ReducerOf<Self> {
         Reduce { state, action in
             switch action {
+            case .onAppear, .syncWatchWorkouts:
+                return syncWatchWorkoutsEffect(
+                    historyDays: state.snapshot.historyDays,
+                    asOf: state.snapshot.referenceDate,
+                    dominantHand: state.dominantHand
+                )
+
+            case let .watchWorkoutsLoaded(workouts, annotations, loads):
+                if !workouts.isEmpty {
+                    state.storedWorkouts = workouts
+                }
+                var map: [String: WorkoutAnnotationRecord] = [:]
+                for ann in annotations where map[ann.workoutUUID] == nil {
+                    map[ann.workoutUUID] = ann
+                }
+                state.annotationsByWorkoutUUID = map
+                state.muscleLoads = loads
+                state.recomputeRecoverySnapshot()
+                return .none
+
+            case let .watchSyncFailed(reason):
+                state.lastError = reason
+                return .none
+
+            case let .openReviewTapped(workout):
+                let existingText = state.annotationsByWorkoutUUID[workout.hkUUID]?.rawText ?? ""
+                let existingLoads = state.muscleLoads.filter { $0.workoutUUID == workout.hkUUID }
+                let existingPrimary = existingLoads.filter { $0.role == .primary }.map(\.muscle)
+                let existingSecondary = existingLoads.filter { $0.role != .primary }.map(\.muscle)
+                let defaultRPE = Int((workout.effortUser ?? workout.effortEstimated ?? 7).rounded())
+                state.reviewDraft = WorkoutReviewDraft(
+                    workout: workout,
+                    inputText: existingText,
+                    proposal: nil,
+                    primaryMuscles: existingPrimary.isEmpty ? [.chest] : existingPrimary,
+                    secondaryMuscles: existingSecondary,
+                    rpe: min(10, max(1, defaultRPE)),
+                    exercises: [],
+                    bodySignals: []
+                )
+                return .none
+
+            case .dismissReviewSheet:
+                state.reviewDraft = nil
+                return .none
+
+            case let .reviewTextChanged(text):
+                state.reviewDraft?.inputText = text
+                return .none
+
+            case .parseReviewTapped:
+                guard var draft = state.reviewDraft else { return .none }
+                let text = draft.inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !text.isEmpty else {
+                    state.lastError = "请先输入或口述一句训练内容再解析"
+                    return .none
+                }
+                draft.isParsing = true
+                state.reviewDraft = draft
+                state.lastError = nil
+                return .run { send in
+                    let proposal = await workoutReviewParserClient.parse(text)
+                    await send(.reviewParsed(proposal))
+                }
+
+            case let .reviewParsed(proposal):
+                guard var draft = state.reviewDraft else { return .none }
+                draft.isParsing = false
+                draft.proposal = proposal
+                if !proposal.primaryMuscles.isEmpty {
+                    draft.primaryMuscles = proposal.primaryMuscles
+                }
+                draft.secondaryMuscles = proposal.secondaryMuscles
+                if let parsedRPE = proposal.rpe {
+                    draft.rpe = min(10, max(1, parsedRPE))
+                }
+                draft.exercises = proposal.exercises
+                draft.bodySignals = proposal.bodySignals
+                state.reviewDraft = draft
+                return .none
+
+            case let .toggleMuscleInDraft(muscle):
+                guard var draft = state.reviewDraft else { return .none }
+                if draft.primaryMuscles.contains(muscle) {
+                    draft.primaryMuscles.removeAll { $0 == muscle }
+                    if !draft.secondaryMuscles.contains(muscle) {
+                        draft.secondaryMuscles.append(muscle)
+                    }
+                } else if draft.secondaryMuscles.contains(muscle) {
+                    draft.secondaryMuscles.removeAll { $0 == muscle }
+                    draft.primaryMuscles.append(muscle)
+                } else {
+                    draft.primaryMuscles.append(muscle)
+                }
+                state.reviewDraft = draft
+                return .none
+
+            case let .addMuscleToDraft(muscle, asPrimary):
+                guard var draft = state.reviewDraft else { return .none }
+                draft.primaryMuscles.removeAll { $0 == muscle }
+                draft.secondaryMuscles.removeAll { $0 == muscle }
+                if asPrimary {
+                    draft.primaryMuscles.append(muscle)
+                } else {
+                    draft.secondaryMuscles.append(muscle)
+                }
+                state.reviewDraft = draft
+                return .none
+
+            case let .removeMuscleFromDraft(muscle):
+                guard var draft = state.reviewDraft else { return .none }
+                draft.primaryMuscles.removeAll { $0 == muscle }
+                draft.secondaryMuscles.removeAll { $0 == muscle }
+                state.reviewDraft = draft
+                return .none
+
+            case let .reviewRPEChanged(rpe):
+                state.reviewDraft?.rpe = min(10, max(1, rpe))
+                return .none
+
+            case let .toggleBodySignalMemory(signalID):
+                guard var draft = state.reviewDraft else { return .none }
+                if let idx = draft.bodySignals.firstIndex(where: { $0.id == signalID }) {
+                    draft.bodySignals[idx].includeAsMemory.toggle()
+                    state.reviewDraft = draft
+                }
+                return .none
+
+            case .confirmReviewTapped:
+                guard var draft = state.reviewDraft, !draft.isSaving else { return .none }
+                if draft.primaryMuscles.isEmpty && draft.secondaryMuscles.isEmpty {
+                    state.lastError = "请至少保留一个主受刺激肌群后再确认"
+                    return .none
+                }
+                draft.isSaving = true
+                state.reviewDraft = draft
+                state.lastError = nil
+
+                let capturedDraft = draft
+                let referenceNow = now
+                let durationMin = max(10, Int((capturedDraft.workout.end.timeIntervalSince(capturedDraft.workout.start) / 60).rounded()))
+                let loads = WorkoutLoadBuilder.buildMuscleLoads(
+                    workoutUUID: capturedDraft.workout.hkUUID,
+                    durationMinutes: durationMin,
+                    primaryMuscles: capturedDraft.primaryMuscles,
+                    secondaryMuscles: capturedDraft.secondaryMuscles,
+                    rpe: capturedDraft.rpe
+                )
+                let rawTextToSave: String = {
+                    let trimmed = capturedDraft.inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !trimmed.isEmpty { return trimmed }
+                    let names = (capturedDraft.primaryMuscles + capturedDraft.secondaryMuscles).map(\.title).joined(separator: "、")
+                    return "确认肌群：\(names)（RPE \(capturedDraft.rpe)）"
+                }()
+
+                return .run { send in
+                    do {
+                        try await bodySeekStoreClient.upsertStoredWorkouts(
+                            [capturedDraft.workout],
+                            [capturedDraft.workout.hkUUID: "dumbbell.fill"]
+                        )
+                        let annotatePayload = AnnotateWorkoutPayload(
+                            workoutUUID: capturedDraft.workout.hkUUID,
+                            rawText: rawTextToSave,
+                            parserVersion: .workoutParserV1,
+                            muscleLoads: loads,
+                            reviewState: .annotated
+                        )
+                        let proposal = try ActionProposal(
+                            kind: .annotateWorkout,
+                            origin: .user,
+                            encodablePayload: annotatePayload,
+                            rationale: "用户确认 Watch 训练一句话复盘"
+                        )
+                        _ = try await bodySeekStoreClient.executeProposal(proposal)
+
+                        var committedMemories: [AthleteMemoryItem] = []
+                        for signal in capturedDraft.bodySignals where signal.includeAsMemory {
+                            let expiry = referenceNow.addingTimeInterval(Double(signal.defaultExpiryDays) * 86_400)
+                            let memRecord = TieredMemoryRecord(
+                                tier: .activeConstraint,
+                                content: signal.suggestedConstraint,
+                                scopeJSON: #"{"source":"workout_review"}"#,
+                                confidence: 0.90,
+                                expiresAt: expiry,
+                                confirmedAt: referenceNow
+                            )
+                            let memProposal = try ActionProposal(
+                                kind: .commitMemory,
+                                origin: .user,
+                                encodablePayload: CommitMemoryPayload(memory: memRecord),
+                                rationale: "练后身体不适信号自动转为 14 天活跃约束"
+                            )
+                            _ = try await bodySeekStoreClient.executeProposal(memProposal)
+                            committedMemories.append(
+                                AthleteMemoryItem(
+                                    id: memRecord.id,
+                                    category: .injury,
+                                    content: signal.suggestedConstraint,
+                                    updatedAt: referenceNow
+                                )
+                            )
+                        }
+
+                        let reloadedWorkouts = try await bodySeekStoreClient.loadStoredWorkouts(120)
+                        let reloadedAnnotations = try await bodySeekStoreClient.loadWorkoutAnnotations(nil)
+                        let reloadedLoads = try await bodySeekStoreClient.loadAllMuscleLoads(referenceNow.addingTimeInterval(-14 * 86_400))
+                        await send(.reviewPersisted(
+                            workouts: reloadedWorkouts,
+                            annotations: reloadedAnnotations,
+                            loads: reloadedLoads,
+                            committedMemories: committedMemories
+                        ))
+                    } catch {
+                        await send(.reviewPersistFailed(error.localizedDescription))
+                    }
+                }
+
+            case let .reviewPersisted(workouts, annotations, loads, committedMemories):
+                state.reviewDraft = nil
+                if !workouts.isEmpty {
+                    state.storedWorkouts = workouts
+                }
+                var map: [String: WorkoutAnnotationRecord] = [:]
+                for ann in annotations where map[ann.workoutUUID] == nil {
+                    map[ann.workoutUUID] = ann
+                }
+                state.annotationsByWorkoutUUID = map
+                state.muscleLoads = loads
+                state.recomputeRecoverySnapshot()
+                if !committedMemories.isEmpty {
+                    state.statusMessage = "已更新肌群恢复估计，并写入 \(committedMemories.count) 条 14 天身体约束记忆"
+                    return .merge(
+                        committedMemories.map { .send(.delegate(.memoryCommitted($0))) }
+                    )
+                } else {
+                    state.statusMessage = "已确认训练复盘并更新肌群恢复（启发式估计）"
+                    return .none
+                }
+
+            case let .reviewPersistFailed(reason):
+                state.reviewDraft?.isSaving = false
+                state.lastError = "保存训练复盘失败：\(reason)"
+                return .none
+
+            case let .skipReviewTapped(workout):
+                let referenceNow = now
+                return .run { send in
+                    do {
+                        try await bodySeekStoreClient.upsertStoredWorkouts(
+                            [workout],
+                            [workout.hkUUID: "dumbbell.fill"]
+                        )
+                        let skipPayload = AnnotateWorkoutPayload(
+                            workoutUUID: workout.hkUUID,
+                            rawText: "用户跳过本次复盘",
+                            parserVersion: .workoutParserV1,
+                            muscleLoads: [],
+                            reviewState: .skipped
+                        )
+                        let proposal = try ActionProposal(
+                            kind: .annotateWorkout,
+                            origin: .user,
+                            encodablePayload: skipPayload,
+                            rationale: "用户跳过 Watch 力量训练复盘"
+                        )
+                        _ = try await bodySeekStoreClient.executeProposal(proposal)
+                        let reloadedWorkouts = try await bodySeekStoreClient.loadStoredWorkouts(120)
+                        let reloadedAnnotations = try await bodySeekStoreClient.loadWorkoutAnnotations(nil)
+                        let reloadedLoads = try await bodySeekStoreClient.loadAllMuscleLoads(referenceNow.addingTimeInterval(-14 * 86_400))
+                        await send(.watchWorkoutsLoaded(
+                            workouts: reloadedWorkouts,
+                            annotations: reloadedAnnotations,
+                            loads: reloadedLoads
+                        ))
+                    } catch {
+                        await send(.reviewPersistFailed(error.localizedDescription))
+                    }
+                }
+
+            case let .inspectMuscleRecovery(muscle):
+                state.inspectedMuscleForRecovery = muscle
+                return .none
+
+            case let .inspectWorkoutDetail(workout):
+                state.inspectedWorkoutDetail = workout
+                return .none
             case let .bodySideChanged(side):
                 state.selectedBodySide = side
                 return .none
@@ -396,6 +821,7 @@ public struct WorkoutFeature: Sendable {
                 state.activeWorkout = nil
                 state.isExercisePickerPresented = false
                 state.sessions.insert(session, at: 0)
+                state.recomputeRecoverySnapshot()
                 if let hkWarning {
                     state.statusMessage = "训练已保存到 BodySeek；\(hkWarning)"
                 } else {
@@ -428,6 +854,48 @@ public struct WorkoutFeature: Sendable {
 
             case .delegate:
                 return .none
+            }
+        }
+    }
+
+    private func syncWatchWorkoutsEffect(
+        historyDays: [DailyComputedDay],
+        asOf: Date,
+        dominantHand: DominantHand
+    ) -> Effect<Action> {
+        let seedRecords = State.storedRecords(from: historyDays)
+        var symbolMap: [String: String] = [:]
+        for day in historyDays.suffix(30) {
+            for w in day.raw.workouts {
+                let uuid = (w.healthKitUUID ?? w.id).uuidString
+                symbolMap[uuid] = w.symbolName
+            }
+        }
+        let immutableSymbols = symbolMap
+        let sinceDate = asOf.addingTimeInterval(-14 * 86_400)
+        return .run { send in
+            do {
+                if !seedRecords.isEmpty {
+                    try await bodySeekStoreClient.upsertStoredWorkouts(seedRecords, immutableSymbols)
+                }
+                let existing = try await bodySeekStoreClient.loadStoredWorkouts(120)
+                for workout in existing where workout.end >= sinceDate {
+                    if workout.reviewState == .unreviewed || workout.reviewState == .autoAttributed,
+                       let auto = WorkoutAutoAttributor.autoAttribute(workout: workout, dominantHand: dominantHand)
+                    {
+                        _ = try await bodySeekStoreClient.applyAutoWorkoutAttribution(workout.hkUUID, auto.loads)
+                    }
+                }
+                let finalWorkouts = try await bodySeekStoreClient.loadStoredWorkouts(120)
+                let annotations = try await bodySeekStoreClient.loadWorkoutAnnotations(nil)
+                let loads = try await bodySeekStoreClient.loadAllMuscleLoads(sinceDate)
+                await send(.watchWorkoutsLoaded(
+                    workouts: finalWorkouts,
+                    annotations: annotations,
+                    loads: loads
+                ))
+            } catch {
+                await send(.watchSyncFailed("同步 Watch 训练与肌群归因失败：\(error.localizedDescription)"))
             }
         }
     }

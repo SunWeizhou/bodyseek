@@ -72,7 +72,9 @@ public struct AppFeature: Sendable {
             self.workout = WorkoutFeature.State(
                 snapshot: initialSnapshot,
                 templates: templates,
-                sessions: resolvedSessions
+                sessions: resolvedSessions,
+                dominantHand: preferences.dominantHand,
+                sleepGoalMinutes: preferences.sleepGoalMinutes
             )
             self.trends = TrendsFeature.State(snapshot: initialSnapshot)
             self.coach = CoachFeature.State(
@@ -169,6 +171,9 @@ public struct AppFeature: Sendable {
                 do {
                     let loaded = try preferencesClient.load()
                     state.preferences = loaded
+                    state.workout.dominantHand = loaded.dominantHand
+                    state.workout.sleepGoalMinutes = loaded.sleepGoalMinutes
+                    state.workout.recomputeRecoverySnapshot()
                     syncCheckInFromPreferences(into: &state)
                 } catch {
                     state.today.lastError = "读取偏好设置失败：\(error.localizedDescription)"
@@ -178,6 +183,7 @@ public struct AppFeature: Sendable {
                     loadSnapshotEffect(goalMinutes: state.preferences.sleepGoalMinutes, referenceDate: now),
                     loadFitnessStoreEffect(),
                     loadSupplementalContextEffect(dayKey: state.snapshot.referenceDate.physiologicalDayKey(), referenceDate: now),
+                    .send(.workout(.onAppear)),
                     observeHealthUpdatesEffect(),
                     observeStoredDashboardEffect(goalMinutes: state.preferences.sleepGoalMinutes)
                 )
@@ -246,7 +252,8 @@ public struct AppFeature: Sendable {
                 state.today.briefingStatus = .loading
                 return .merge(
                     generateBriefingEffect(state: state),
-                    triggerBackgroundBackfillEffect(goalMinutes: state.preferences.sleepGoalMinutes, referenceDate: now)
+                    triggerBackgroundBackfillEffect(goalMinutes: state.preferences.sleepGoalMinutes, referenceDate: now),
+                    .send(.workout(.syncWatchWorkouts))
                 )
 
             case let .persistenceFailed(message):
@@ -384,6 +391,7 @@ public struct AppFeature: Sendable {
                 case let .sessionSaved(session):
                     state.sessions.insert(session, at: 0)
                     state.coach.sessions = state.sessions
+                    state.workout.recomputeRecoverySnapshot()
                     if session.syncedHealthKitUUID != nil {
                         return loadSnapshotEffect(goalMinutes: state.preferences.sleepGoalMinutes, referenceDate: now)
                     }
@@ -396,6 +404,13 @@ public struct AppFeature: Sendable {
                         state.templates.insert(template, at: 0)
                     }
                     state.coach.templates = state.templates
+                    return .none
+
+                case let .memoryCommitted(item):
+                    state.memories.insert(item, at: 0)
+                    let updatedMemories = state.memories
+                    state.coach.memories = updatedMemories
+                    state.settings?.memories = updatedMemories
                     return .none
 
                 case let .askCoach(question):
@@ -459,7 +474,16 @@ public struct AppFeature: Sendable {
                     }
 
                 case let .preferencesUpdated(updated):
+                    let handChanged = state.preferences.dominantHand != updated.dominantHand
                     state.preferences = updated
+                    state.workout.dominantHand = updated.dominantHand
+                    state.workout.sleepGoalMinutes = updated.sleepGoalMinutes
+                    if handChanged {
+                        return .merge(
+                            loadSnapshotEffect(goalMinutes: updated.sleepGoalMinutes, referenceDate: now),
+                            .send(.workout(.syncWatchWorkouts))
+                        )
+                    }
                     return loadSnapshotEffect(goalMinutes: updated.sleepGoalMinutes, referenceDate: now)
 
                 case let .memoriesUpdated(memories):
@@ -474,6 +498,15 @@ public struct AppFeature: Sendable {
                     state.templates = ExerciseCatalog.defaultTemplates
                     state.workout.sessions = []
                     state.workout.templates = ExerciseCatalog.defaultTemplates
+                    state.workout.storedWorkouts = []
+                    state.workout.annotationsByWorkoutUUID = [:]
+                    state.workout.muscleLoads = []
+                    state.workout.reviewDraft = nil
+                    state.workout.inspectedMuscleForRecovery = nil
+                    state.workout.inspectedWorkoutDetail = nil
+                    state.workout.dominantHand = .right
+                    state.workout.sleepGoalMinutes = state.preferences.sleepGoalMinutes
+                    state.workout.recomputeRecoverySnapshot()
                     state.coach.memories = []
                     state.coach.sessions = []
                     state.coach.templates = ExerciseCatalog.defaultTemplates
@@ -779,6 +812,12 @@ public struct AppFeature: Sendable {
         }
         syncCheckInFromPreferences(into: &state)
         state.workout.snapshot = snapshot
+        state.workout.dominantHand = state.preferences.dominantHand
+        state.workout.sleepGoalMinutes = state.preferences.sleepGoalMinutes
+        if state.workout.storedWorkouts.isEmpty && !snapshot.historyDays.isEmpty {
+            state.workout.storedWorkouts = WorkoutFeature.State.storedRecords(from: snapshot.historyDays)
+        }
+        state.workout.recomputeRecoverySnapshot()
         state.trends.updateSnapshot(snapshot, precomputedCache: precomputedCache)
         state.coach.snapshot = snapshot
         if state.settings != nil {
