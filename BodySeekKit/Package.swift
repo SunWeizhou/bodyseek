@@ -1,6 +1,9 @@
 // swift-tools-version: 6.0
 import PackageDescription
 
+// CI 门禁：第一方模块的编译警告按错误处理，第三方依赖不受影响。
+let warningsAsErrors: [SwiftSetting] = [.unsafeFlags(["-warnings-as-errors"])]
+
 let package = Package(
     name: "BodySeekKit",
     defaultLocalization: "zh-Hans",
@@ -61,7 +64,8 @@ let package = Package(
             resources: [
                 .copy("Resources/personal_forecaster_v1_spec.json"),
                 .copy("Resources/BodySeekPersonalForecasterV1.mlpackage"),
-            ]
+            ],
+            swiftSettings: warningsAsErrors
         ),
         .target(
             name: "BodySeekDesign",
@@ -69,14 +73,16 @@ let package = Package(
                 "BodySeekCore",
                 .product(name: "SleepChartKit", package: "SleepChartKit"),
             ],
-            resources: [.copy("Resources/SleepChartKit-LICENSE.txt")]
+            resources: [.copy("Resources/SleepChartKit-LICENSE.txt")],
+            swiftSettings: warningsAsErrors
         ),
         .target(
             name: "BodySeekStore",
             dependencies: [
                 "BodySeekCore",
                 .product(name: "GRDB", package: "GRDB.swift"),
-            ]
+            ],
+            swiftSettings: warningsAsErrors
         ),
         .target(
             name: "BodySeekHealth",
@@ -88,7 +94,8 @@ let package = Package(
                 .product(name: "Spezi", package: "Spezi"),
                 .product(name: "SpeziFoundation", package: "SpeziFoundation"),
                 .product(name: "SpeziHealthKit", package: "SpeziHealthKit"),
-            ]
+            ],
+            swiftSettings: warningsAsErrors
         ),
         .target(
             name: "BodySeekAgent",
@@ -98,7 +105,8 @@ let package = Package(
                 "BodySeekHealth",
                 .product(name: "Dependencies", package: "swift-dependencies"),
                 .product(name: "DependenciesMacros", package: "swift-dependencies"),
-            ]
+            ],
+            swiftSettings: warningsAsErrors
         ),
         .target(
             name: "BodySeekFeatures",
@@ -114,7 +122,8 @@ let package = Package(
                 .product(name: "Textual", package: "textual"),
                 .product(name: "Spezi", package: "Spezi"),
                 .product(name: "SpeziHealthKit", package: "SpeziHealthKit"),
-            ]
+            ],
+            swiftSettings: warningsAsErrors
         ),
         .testTarget(
             name: "BodySeekKitTests",
@@ -130,7 +139,8 @@ let package = Package(
             ],
             resources: [
                 .copy("Fixtures"),
-            ]
+            ],
+            swiftSettings: warningsAsErrors
         ),
         .testTarget(
             name: "BodySeekAgentEvals",
@@ -140,7 +150,8 @@ let package = Package(
                 "BodySeekHealth",
                 "BodySeekAgent",
                 .product(name: "Dependencies", package: "swift-dependencies"),
-            ]
+            ],
+            swiftSettings: warningsAsErrors
         ),
     ]
 )

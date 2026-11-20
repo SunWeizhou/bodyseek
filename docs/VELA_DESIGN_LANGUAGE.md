@@ -36,7 +36,7 @@ BodySeek 不再手搓“自定义黑白网页壳”，而是以 **Apple iOS 26 �
 | **Stress（压力）** | `#E11D48` | `#FB7185` | 压力仪表、日内分时压力曲线 |
 | **Energy（能量）** | `#D97706` | `#FBBF24` | 能量电量槽、充放电走势 |
 
-> 所有在浅色/深色表面用于正文文本的状态色（`textColor(for:)` 与 `deviationInk`）必须继续通过 `scripts/check_contrast.py`（WCAG AA ≥ 4.5:1）静态门禁。
+> 所有在浅色/深色表面用于正文文本的 token（`ink`、`inkSecondary`、`deviationInk`、`brand`）必须继续通过 `scripts/check_contrast.py`（WCAG AA ≥ 4.5:1）静态门禁。
 
 ---
 

@@ -77,16 +77,11 @@ jobs:
           xcrun simctl list runtimes || true
           echo "============================================="
 
-      - name: Run BodySeekDomain tests
+      - name: Run BodySeekKit tests
         shell: bash
-        run: swift test --package-path BodySeekDomain
+        run: swift test --package-path BodySeekKit
 
-      - name: Schema version guard
-        shell: bash
-        run: |
-          python3 scripts/schema_fingerprint.py --check
-
-      - name: Contrast guard (textColor >= 4.5:1)
+      - name: Contrast guard (text tokens >= 4.5:1)
         shell: bash
         run: |
           python3 scripts/check_contrast.py
@@ -122,9 +117,8 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          # SWIFT_TREAT_WARNINGS_AS_ERRORS and GCC_TREAT_WARNINGS_AS_ERRORS are codified
-          # in Vela.xcodeproj on all first-party targets. Do not pass them via CLI overrides
-          # to avoid conflicting with SPM package dependencies (e.g. SentryCppHelper -suppress-warnings).
+          # BodySeekKit 的第一方 target 在 Package.swift 中启用 -warnings-as-errors。
+          # 不通过 CLI 覆盖该设置，避免把 SPM 依赖（如 Spezi）的警告也升级为错误。
           xcodebuild \
             -project Vela.xcodeproj \
             -scheme Vela \

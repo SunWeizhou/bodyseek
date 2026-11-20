@@ -4,6 +4,13 @@ import Foundation
 import XCTest
 
 final class BodySeekStoreTests: XCTestCase {
+    func testMigrationIdentifiersAreStable() {
+        XCTAssertEqual(
+            BodySeekDatabase.migrator.migrations,
+            ["v1_initial_schema", "v2_nutrition_schema", "v3_allow_unknown_meal_portions"]
+        )
+    }
+
     func testSchemaV1CreatesAllFifteenV5TablesAndFTSTriggers() async throws {
         let db = try BodySeekDatabase.inMemory()
         // Re-running migrator on an already-migrated DB must be idempotent.

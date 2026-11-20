@@ -16,19 +16,19 @@
 
 首次克隆、工具链检查、模拟器构建和测试命令见 [新开发者接手步骤](docs/collaboration/ONBOARDING.md)。测试数量与通过状态以目标提交的实际结果为准。
 
-CI 配置见 [`.github/workflows/quality.yml`](.github/workflows/quality.yml)：包含 schema 守卫、对比度检查、构建、iOS 单测、UI 冒烟和后端测试。固定字体与 SwiftLint 为 report-only；配置存在不等于本次 GitHub 运行已经通过。
+CI 配置见 [`.github/workflows/quality.yml`](.github/workflows/quality.yml)：包含 BodySeekKit 测试、对比度门禁、warnings-as-errors 构建、iOS 单测、UI 冒烟和后端测试。固定字体与 SwiftLint 为 report-only；配置存在不等于本次 GitHub 运行已经通过。
 
 ## 常用脚本
 
 | 脚本 | 用途 |
 | :--- | :--- |
-| `scripts/schema_fingerprint.py --check` | SwiftData 模型图守卫（CI 门禁；模型变更时按错误提示做版本提升） |
-| `scripts/schema_fingerprint.py --emit-frozen` | 重新生成 `VelaSchemaV3Frozen.swift` 冻结快照 |
+| `scripts/check_contrast.py` | BevelTheme 文字 token 对画布的 WCAG AA 对比度门禁 |
+| `scripts/check_fixed_fonts.py` | 固定字号扫描（report-only，追踪 Dynamic Type 清理） |
 | `scripts/audit_design_tokens.sh` | 设计 Token 审计 |
 
 ## 文档地图
 
-- `docs/PRD.md` — 产品规格（四大 Tab、北极星 Trusted Health Brief Day）
+- `docs/PRD.md` — 产品规格（五个一级表面：今日 / 健身 / 营养 / 趋势 / Coach）
 - `CONTEXT.md` — 领域术语表（唯一权威）
 - `docs/TECH_ARCHITECTURE.md` — 技术架构与数据流
 - `docs/adr/` — 架构决策记录（以 README 中的 Accepted 为当前依据；Superseded 仅供追溯）
