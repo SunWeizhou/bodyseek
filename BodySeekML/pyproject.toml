@@ -7,12 +7,16 @@ name = "bodyseek-ml"
 version = "0.1.0"
 description = "BodySeek M4 offline HealthKit export feature pipeline, deduplication audit, and personal distributed-lag pattern analysis"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.13"
 dependencies = [
-    "numpy>=2.0.0",
+    "numpy>=1.26.0,<2.2.0",
     "pandas>=2.2.0",
-    "pyarrow>=18.0.0",
-    "scipy>=1.14.0",
+    "pyarrow>=17.0.0",
+    "scipy>=1.13.0",
+    "scikit-learn>=1.5.0",
+    "lightgbm>=4.5.0",
+    "torch>=2.4.0",
+    "coremltools>=8.0",
 ]
 
 [dependency-groups]

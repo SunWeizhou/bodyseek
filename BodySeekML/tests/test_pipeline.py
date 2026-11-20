@@ -255,3 +255,80 @@ def test_exposure_builders_have_zero_future_leakage() -> None:
         arm_mut = spec.builder(df_mutated)[:cutoff]
         assert np.array_equal(arm_full, arm_mut), f"Future leakage detected in {spec.exposure_id}"
 
+
+def _make_synthetic_multi_month_features(months: int = 18) -> pd.DataFrame:
+    rng = np.random.default_rng(314)
+    start = date(2024, 1, 1)
+    n_days = months * 30
+    rows = []
+    hrv = 48.0
+    rhr = 57.0
+    for i in range(n_days):
+        day = start + timedelta(days=i)
+        workout_min = 45.0 if (i % 3 == 0) else 0.0
+        sleep_min = 440.0 if (i % 4 != 0) else 350.0
+        sleep_eff = 0.94 if (i % 4 != 0) else 0.86
+        hrv = float(np.clip(0.55 * hrv + 0.45 * (42.0 + 0.03 * (sleep_min - 400.0) - 0.05 * workout_min) + rng.normal(0, 3.0), 25.0, 90.0))
+        rhr = float(np.clip(0.5 * rhr + 0.5 * (58.0 - 0.02 * (hrv - 45.0)) + rng.normal(0, 1.5), 45.0, 75.0))
+        rows.append(
+            {
+                "day_key": day.isoformat(),
+                "hrv_sdnn_ms": hrv if (i % 9 != 0) else np.nan,
+                "resting_hr_bpm": rhr if (i % 11 != 0) else np.nan,
+                "sleep_total_min": sleep_min if (i % 7 != 0) else np.nan,
+                "sleep_efficiency": sleep_eff if (i % 7 != 0) else np.nan,
+                "sleep_deep_min": 65.0 if (i % 7 != 0) else np.nan,
+                "sleep_rem_min": 90.0 if (i % 7 != 0) else np.nan,
+                "active_energy_kcal": 450.0 + workout_min * 7.0,
+                "workout_duration_min": workout_min,
+                "effort_user_mean": 7.5 if workout_min > 0 and i % 2 == 0 else np.nan,
+                "effort_estimated_mean": 6.5 if workout_min > 0 and i % 2 == 1 else np.nan,
+                "eating_context_state": "missing",
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def test_supervised_features_have_zero_future_leakage() -> None:
+    from bodyseek_ml.forecasting import FEATURE_COLUMNS, build_supervised_dataset
+
+    df = _make_synthetic_multi_month_features(months=4)
+    cutoff = 60
+    df_mut = df.copy()
+    df_mut.loc[cutoff:, "hrv_sdnn_ms"] = 140.0
+    df_mut.loc[cutoff:, "resting_hr_bpm"] = 88.0
+    df_mut.loc[cutoff:, "sleep_efficiency"] = 0.60
+    df_mut.loc[cutoff:, "active_energy_kcal"] = 2800.0
+
+    sup_full = build_supervised_dataset(df).iloc[:cutoff][list(FEATURE_COLUMNS)]
+    sup_mut = build_supervised_dataset(df_mut).iloc[:cutoff][list(FEATURE_COLUMNS)]
+    pd.testing.assert_frame_equal(sup_full, sup_mut)
+    assert (sup_full["eating_context_mask0"] == 0.0).all()
+
+
+def test_m4b_m4c_and_coreml_export_parity_end_to_end(tmp_path: Path) -> None:
+    from bodyseek_ml.coreml_export import fit_and_export_coreml
+    from bodyseek_ml.deep_models import render_m4c_report, run_m4c_comparison
+    from bodyseek_ml.forecasting import render_m4b_report, run_m4b_walk_forward
+
+    df = _make_synthetic_multi_month_features(months=18)
+    m4b = run_m4b_walk_forward(df, initial_months=10)
+    assert "hrv_sdnn_ms" in m4b["targets"]
+    assert m4b["targets"]["hrv_sdnn_ms"]["models"]["Ridge"]["fold_count"] >= 4
+    assert m4b["targets"]["hrv_sdnn_ms"]["models"]["Ridge"]["coverage_80"] > 0.4
+
+    m4c = run_m4c_comparison(df, m4b, initial_months=10, epochs=6)
+    assert "MaskedTCN" in m4c["targets"]["hrv_sdnn_ms"]["deep_models"]
+    assert "PatchTSTLite" in m4c["targets"]["hrv_sdnn_ms"]["deep_models"]
+
+    docs_dir = tmp_path / "docs"
+    kit_dir = tmp_path / "BodySeekKit"
+    render_m4b_report(m4b, docs_dir / "validation" / "m4b.md")
+    render_m4c_report(m4c, docs_dir / "validation" / "m4c.md")
+    export_info = fit_and_export_coreml(df, m4b, m4c, kit_dir=kit_dir, docs_dir=docs_dir)
+
+    assert Path(export_info["mlpackage_path"]).exists()
+    assert Path(export_info["spec_path"]).exists()
+    assert Path(export_info["golden_path"]).exists()
+    assert export_info["max_python_coreml_rel_err"] <= 1e-4
+
