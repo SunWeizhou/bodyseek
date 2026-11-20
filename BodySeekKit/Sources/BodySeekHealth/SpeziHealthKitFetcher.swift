@@ -184,6 +184,7 @@ enum SpeziHealthKitFetcher {
             || !sleepByDay.isEmpty
             || !kcalByDay.isEmpty
             || !stepsByDay.isEmpty
+            || !fetchedWorkouts.isEmpty
 
         var rawDays: [DailyRawMetrics] = []
         rawDays.reserveCapacity(clampedDays)
@@ -222,7 +223,7 @@ enum SpeziHealthKitFetcher {
         return BevelScoringEngine.computeWindow(
             rawDays: rawDays,
             sleepGoalMinutes: sleepGoalMinutes,
-            referenceDate: refStart,
+            referenceDate: referenceDate,
             sourceLabel: "Apple 健康 · SpeziHealthKit",
             isAuthorized: isPrompted || hasAnyData,
             calendar: calendar
@@ -393,7 +394,9 @@ enum SpeziHealthKitFetcher {
                     activeEnergyKcal: kcal,
                     averageHeartRate: avgHR,
                     effortScore: effort,
-                    heartRateZones: zones
+                    heartRateZones: zones,
+                    healthKitUUID: workout.uuid,
+                    recordedEndDate: workout.endDate
                 )
             )
         }

@@ -205,6 +205,7 @@ extension BodySeekStoreClient: DependencyKey {
                     return AsyncThrowingStream { $0.finish() }
                 }
                 do {
+                    _ = try await BodySeekSharedStore.shared.ensureLegacyMigratedIfNeeded()
                     let readModel = try await BodySeekSharedStore.shared.readModel()
                     return readModel.observeDashboard(
                         sleepGoalMinutes: goalMinutes,

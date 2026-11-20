@@ -243,6 +243,7 @@ public struct ActionProposal: Identifiable, Hashable, Codable, Sendable {
         case upsertNutritionProfile
         case commitNutritionTargets
         case logNutritionMeal
+        case logNutritionMeals
         case closeNutritionDay
     }
 

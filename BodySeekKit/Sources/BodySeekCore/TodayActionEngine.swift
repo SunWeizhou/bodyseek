@@ -93,7 +93,7 @@ public enum TodayActionGenerator {
         guard snapshot.isAuthorized else {
             let onboardingAction = TodayActionItem(
                 id: deterministicUUID(dayKey: dayKey, slot: "auth"),
-                title: "连接 Apple 健康建立基线",
+                title: "连接 Apple 健康",
                 detail: "授权读取 HRV、睡眠分期与 Apple Watch 心率训练后，自动生成每日训练与恢复行动建议。",
                 category: .recoveryAction,
                 metricBasis: "尚未授权健康数据源",
@@ -112,7 +112,7 @@ public enum TodayActionGenerator {
                 let basis = load.acwrRatio.map { String(format: "恢复 %d · ACWR %.2f", rec, $0) } ?? "恢复 \(rec)"
                 actions.append(TodayActionItem(
                     id: deterministicUUID(dayKey: dayKey, slot: "training"),
-                    title: "可安排主强度课或技术对抗",
+                    title: "今天可以安排强度训练",
                     detail: "当前恢复储备充沛且负荷未过载，适合开展核心复合动作或高质量技术训练，注意保留 1–2 次余力。",
                     category: .trainingFocus,
                     metricBasis: basis,
@@ -122,7 +122,7 @@ public enum TodayActionGenerator {
                 let basis = load.acwrRatio.map { String(format: "恢复 %d · ACWR %.2f", rec, $0) } ?? "恢复 \(rec)"
                 actions.append(TodayActionItem(
                     id: deterministicUUID(dayKey: dayKey, slot: "training"),
-                    title: "今日切换减量 / 主动恢复日",
+                    title: "今天减量，留时间恢复",
                     detail: "恢复偏低或急性负荷高于长期均值，建议控制在 Z1–Z2 低强度有氧与柔韧拉伸，避免高冲击大重量。",
                     category: .trainingFocus,
                     metricBasis: basis,
@@ -132,7 +132,7 @@ public enum TodayActionGenerator {
                 let basis = load.acwrRatio.map { String(format: "恢复 %d · ACWR %.2f", rec, $0) } ?? "恢复 \(rec)"
                 actions.append(TodayActionItem(
                     id: deterministicUUID(dayKey: dayKey, slot: "training"),
-                    title: "维持中等容量技术巩固",
+                    title: "保持中等训练量，专注动作",
                     detail: "状态平稳，可完成常规分化的动作节奏与控制训练，结束后留意次日晨起静息心率变化。",
                     category: .trainingFocus,
                     metricBasis: basis,
@@ -156,7 +156,7 @@ public enum TodayActionGenerator {
             } else {
                 actions.append(TodayActionItem(
                     id: deterministicUUID(dayKey: dayKey, slot: "sleep"),
-                    title: "保持固定入睡与起床节律",
+                    title: "按平时时间睡觉和起床",
                     detail: String(format: "昨夜睡眠 %.1f 小时处于良性区间，维持 ±30 分钟内作息波动最有利于 HRV 稳定。", hours),
                     category: .sleepWindow,
                     metricBasis: String(format: "昨夜睡眠 %.1f 小时", hours),
@@ -169,7 +169,7 @@ public enum TodayActionGenerator {
         if let stress = today.stress.value, stress >= 65 {
             actions.append(TodayActionItem(
                 id: deterministicUUID(dayKey: dayKey, slot: "stress"),
-                title: "加入 10 分钟呼吸放松与降压走步",
+                title: "留 10 分钟散步或放松",
                 detail: "日间自主神经压力偏高，训练后或晚间安排 10 分钟慢呼气/散步有助于副交感神经回升。",
                 category: .recoveryAction,
                 metricBasis: "今日压力 \(stress)",
@@ -178,7 +178,7 @@ public enum TodayActionGenerator {
         } else {
             actions.append(TodayActionItem(
                 id: deterministicUUID(dayKey: dayKey, slot: "checkin"),
-                title: "10 秒睡前主观反馈校验",
+                title: "睡前记录精力和酸痛",
                 detail: "记录今日精力与局部酸痛度，帮助模型区分生理曲线与真实主观疲劳差异。",
                 category: .recoveryAction,
                 metricBasis: "主客观闭环校准",

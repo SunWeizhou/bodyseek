@@ -1,5 +1,5 @@
 {
-  "originHash" : "9e07b00507fcb48c0325430d074864b45551ffc30108ef170996b1b4b3ab8e5d",
+  "originHash" : "f63b6a3c519ba5611219f612e55b4a6a72564bbcc4f5585d56db7da8ce77840d",
   "pins" : [
     {
       "identity" : "combine-schedulers",
@@ -26,6 +26,15 @@
       "state" : {
         "revision" : "3aa662bd5147463b20d523f95d74e1a12c7c8b2e",
         "version" : "1.9.0"
+      }
+    },
+    {
+      "identity" : "sleepchartkit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/DanielJamesTronca/SleepChartKit.git",
+      "state" : {
+        "revision" : "0c1077bd035f05e912e64a34ec0c9de5b0b142d0",
+        "version" : "1.2.0"
       }
     },
     {
@@ -224,6 +233,24 @@
       "state" : {
         "revision" : "79e4b74a295b6eb74a8b585e3a39d29e70c1dbd1",
         "version" : "603.0.2"
+      }
+    },
+    {
+      "identity" : "swiftui-math",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/gonzalezreal/swiftui-math",
+      "state" : {
+        "revision" : "0b5c2cfaaec8d6193db206f675048eeb5ce95f71",
+        "version" : "0.1.0"
+      }
+    },
+    {
+      "identity" : "textual",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/gonzalezreal/textual.git",
+      "state" : {
+        "revision" : "01b51875a5406eefc95f52a058cb059e7bc94dc4",
+        "version" : "0.5.0"
       }
     },
     {

@@ -4,6 +4,27 @@ import Foundation
 import XCTest
 
 final class MuscleRecoveryEngineTests: XCTestCase {
+    func testLinkedManualWorkoutFillsMissingMusclesWithoutDoubleCountingExistingLoads() {
+        let now = Date(timeIntervalSince1970: 1_760_500_000)
+        let start = now.addingTimeInterval(-3600)
+        let end = now.addingTimeInterval(-600)
+        let workout = StoredWorkoutRecord(hkUUID: "watch-1", type: "力量训练", start: start, end: end,
+                                           energy: 180, reviewState: .annotated)
+        let exercise = LoggedExerciseRecord(exerciseID: "barbell-bench-press", sets: [
+            .init(setIndex: 0, weightKg: 60, reps: 8, isCompleted: true),
+        ])
+        let session = LoggedWorkoutSession(title: "卧推", startedAt: start, completedAt: end,
+                                           exercises: [exercise], rpe: 7, estimatedCalories: 180,
+                                           syncedHealthKitUUID: "WATCH-1")
+        let existing = WorkoutMuscleLoadRecord(workoutUUID: workout.hkUUID, muscle: .triceps,
+                                               role: .secondary, load: 0.3)
+        let result = MuscleRecoveryEngine.compute(asOf: now, storedWorkouts: [workout],
+                                                  muscleLoads: [existing], manualSessions: [session])
+        XCTAssertLessThan(result.estimate(for: .chest).recoveryRatio, 1)
+        let importedOnly = MuscleRecoveryEngine.compute(asOf: now, storedWorkouts: [workout], muscleLoads: [existing])
+        XCTAssertEqual(result.estimate(for: .triceps).recoveryRatio, importedOnly.estimate(for: .triceps).recoveryRatio)
+    }
+
     func testExponentialRecoveryRemainsStrictlyPositiveUnderHeavyStackedLoads() {
         let asOf = Date(timeIntervalSince1970: 1_760_500_000)
         let w1 = StoredWorkoutRecord(

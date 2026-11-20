@@ -45,6 +45,14 @@ let package = Package(
             url: "https://github.com/groue/GRDB.swift.git",
             from: "7.0.0"
         ),
+        .package(
+            url: "https://github.com/gonzalezreal/textual.git",
+            exact: "0.5.0"
+        ),
+        .package(
+            url: "https://github.com/DanielJamesTronca/SleepChartKit.git",
+            exact: "1.2.0"
+        ),
     ],
     targets: [
         .target(
@@ -59,7 +67,9 @@ let package = Package(
             name: "BodySeekDesign",
             dependencies: [
                 "BodySeekCore",
-            ]
+                .product(name: "SleepChartKit", package: "SleepChartKit"),
+            ],
+            resources: [.copy("Resources/SleepChartKit-LICENSE.txt")]
         ),
         .target(
             name: "BodySeekStore",
@@ -101,6 +111,7 @@ let package = Package(
                 .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
                 .product(name: "Dependencies", package: "swift-dependencies"),
                 .product(name: "MuscleMap", package: "MuscleMap"),
+                .product(name: "Textual", package: "textual"),
                 .product(name: "Spezi", package: "Spezi"),
                 .product(name: "SpeziHealthKit", package: "SpeziHealthKit"),
             ]

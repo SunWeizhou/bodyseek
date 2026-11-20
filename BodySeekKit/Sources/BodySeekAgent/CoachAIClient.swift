@@ -59,6 +59,8 @@ public enum CoachAgentOrchestrator {
            - 长期偏好/短期伤病约束记忆 -> propose_memory（activeConstraint 默认 14 天过期；未经 confirmed 的 pattern_finding 不得提出 verifiedPattern）
            - 手表力量训练一句话标定 -> propose_workout_annotation
         6. 绝对不要输出 <tool_call>、<|DSML|> 等 XML 或内部标签，直接用简洁克制的中文回复。
+        7. 按工具提供的日期范围与单位比较。历史训练标注中的「今天」「昨天」以该条训练的 dayKey 为准。把用户确认记录、设备记录、估算和建议分开写。饮食未完成时只谈已记录部分，缺失日不计作零。
+        8. 先用一小段话回答问题。信息较多时用 Markdown 小标题和短列表分段，只在需要比较多项数据时使用简短表格。
 
         与本轮对话相关的已激活三层记忆：
         \(memoryLines)
@@ -207,7 +209,9 @@ public enum CoachAgentOrchestrator {
         if wantsWorkout {
             parts.append("已结合肌群启发式估计状态生成待确认处方卡")
         }
-        let rawReply = "已调用工具核实四态观测（\((todayJSON.isEmpty ? "" : context.snapshot.today.dayKey.isoString))）：\n" + parts.joined(separator: "；") + "。"
+        let date = todayJSON.isEmpty ? "" : "（\(today.dayKey.isoString)）"
+        let observations = parts.map { "- \($0)" }.joined(separator: "\n")
+        let rawReply = "## 身体状态简报\n\n已调用工具核实四态观测\(date)。\n\n\(observations)"
 
         let toolOutputs = await context.effects.toolOutputs
         let toolsInvoked = await context.effects.toolsInvoked
@@ -273,6 +277,9 @@ public struct CoachAIClient: Sendable {
     }
     public var generateBriefing: @Sendable (_ context: AgentExecutionContext) async -> AIBriefingStatus = { _ in
         .unconfigured(reason: "连接 DeepSeek / OpenAI 兼容接口或在支持 Apple 智能的设备开启端侧模型")
+    }
+    public var analyzeMeal: @Sendable (_ text: String, _ jpeg: Data?) async throws -> [MealDraftCandidate] = { _, _ in
+        throw MealDraftAnalysisError.unconfigured
     }
     public var loadAPIKey: @Sendable () throws -> String = { "" }
     public var saveAPIKey: @Sendable (_ key: String) throws -> Void = { _ in }
@@ -367,14 +374,19 @@ extension CoachAIClient: DependencyKey {
             generateBriefing: { context in
                 let isPreview = ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard")
                 if isPreview {
-                    let day = context.snapshot.today
                     return .generated(
-                        text: "示例简报：今日恢复 \(day.recovery.formattedScore)，近 7 天负荷比 \(context.snapshot.trainingLoad.acwrRatio.map { String(format: "%.2f", $0) } ?? "--")（\(context.snapshot.trainingLoad.zone.title)），建议按中等 RPE 完成训练。",
+                        text: "今天练到还有余力就好，不必加量。",
                         engineName: "预览模式"
                     )
                 }
 
-                let prompt = "基于提供的今日四态身体数据与近7天训练负荷，直接用不超过65个汉字给出一句精准、克制、非因果夸大的今日状态点评与训练取向建议。只输出纯中文文本。"
+                let prompt = """
+                为今日看板下面的 AI 建议写一句纯中文，最多 45 字。
+                今日日期为 \(context.asOf.physiologicalDayKey().isoString)。先核实今日数据与近 7 天训练。
+                按训练记录的 dayKey 区分日期，历史记录不得当作今天完成的训练。只给一个今天能做的行动，用日常说法。
+                不加标题和列表，不重复看板分数，不用 HRV、ACWR、RPE 等缩写。
+                如果数据不足以给建议，说清缺什么。有证据表明无需调整时，直接说可维持原计划。
+                """
                 let apiKey: String
                 do {
                     apiKey = try KeychainCredentialStore.live.loadAPIKey()
@@ -429,18 +441,35 @@ extension CoachAIClient: DependencyKey {
                     return .unconfigured(reason: reason)
                 }
             },
+            analyzeMeal: { text, jpeg in
+                if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard") {
+                    return [
+                        .init(name: "白米饭", amount: 150, unit: "g", meal: .lunch),
+                        .init(name: "水煮蛋", amount: 100, unit: "g", meal: .breakfast,
+                              reportedPortion: "2 个", isEstimatedPortion: true),
+                        .init(name: "燕麦", amount: 20, unit: "g", meal: .breakfast,
+                              reportedPortion: "2 勺", isEstimatedPortion: true),
+                        .init(name: "火锅", amount: nil, unit: nil, meal: .dinner,
+                              reportedPortion: "人均 ¥120"),
+                        .init(name: "少甜混合果汁", amount: 1_000, unit: "ml", meal: .dinner,
+                              reportedPortion: "1 L"),
+                        .init(name: "浓缩咖啡", amount: nil, unit: nil, meal: .snack,
+                              reportedPortion: "4 份单份浓缩"),
+                    ]
+                }
+                let key = try KeychainCredentialStore.live.loadAPIKey()
+                let config = storedConfiguration()
+                return try await httpClient.analyzeMeal(
+                    endpointURL: config.endpointURL, apiKey: key, modelName: config.modelName, input: text, jpeg: jpeg
+                )
+            },
             loadAPIKey: {
                 try KeychainCredentialStore.live.loadAPIKey()
             },
             saveAPIKey: { key in
                 try KeychainCredentialStore.live.saveAPIKey(key)
             },
-            loadConfig: {
-                CoachAIConfig(
-                    endpointURL: UserDefaults.standard.string(forKey: endpointStorageKey) ?? "https://api.deepseek.com/v1",
-                    modelName: UserDefaults.standard.string(forKey: modelStorageKey) ?? "deepseek-chat"
-                )
-            },
+            loadConfig: { storedConfiguration() },
             saveConfig: { config in
                 UserDefaults.standard.set(config.endpointURL, forKey: endpointStorageKey)
                 UserDefaults.standard.set(config.modelName, forKey: modelStorageKey)
@@ -458,15 +487,25 @@ extension CoachAIClient: DependencyKey {
         )
     }()
 
+    private static func storedConfiguration() -> CoachAIConfig {
+        CoachAIConfig(
+            endpointURL: UserDefaults.standard.string(forKey: endpointStorageKey) ?? "https://api.deepseek.com/v1",
+            modelName: UserDefaults.standard.string(forKey: modelStorageKey) ?? "deepseek-chat"
+        )
+    }
+
     public static let previewValue = CoachAIClient(
         reply: { question, context in
             await CoachAgentOrchestrator.runPreviewFixture(question: question, context: context)
         },
-        generateBriefing: { context in
+        generateBriefing: { _ in
             .generated(
-                text: "示例简报：恢复 \(context.snapshot.today.recovery.formattedScore)，ACWR 处于\(context.snapshot.trainingLoad.zone.title)，适合维持力量刺激。",
+                text: "今天练到还有余力就好，不必加量。",
                 engineName: "预览模式"
             )
+        },
+        analyzeMeal: { _, _ in
+            [.init(name: "白米饭", amount: 150, unit: "g"), .init(name: "鸡蛋", amount: nil, unit: nil)]
         },
         loadAPIKey: { "" },
         saveAPIKey: { _ in },
@@ -518,6 +557,8 @@ extension CoachAIClient: DependencyKey {
             FMTodayContextTool(context: context),
             FMWorkoutsAndMusclesTool(context: context),
             FMSleepDetailTool(context: context),
+            FMMetricTrendTool(context: context),
+            FMEatingContextTool(context: context),
             FMProposeMemoryTool(context: context),
             FMProposePlanTool(context: context),
         ]
@@ -617,6 +658,44 @@ private struct FMSleepDetailTool: Tool {
     func call(arguments: Arguments) async throws -> String {
         let json = arguments.day == "today" ? "{}" : "{\"day\":\"\(arguments.day)\"}"
         return await CoachToolRegistry.execute(name: "get_sleep_detail", argumentsJSON: json, context: context)
+    }
+}
+
+@available(iOS 26.0, macOS 26.0, *)
+private struct FMMetricTrendTool: Tool {
+    let name = "get_metric_trend"
+    let description = "查询指标随时间的变化与数据覆盖"
+    let context: AgentExecutionContext
+
+    @Generable
+    struct Arguments {
+        @Guide(description: "recovery, sleep, strain, stress, energy")
+        var metric: String
+        @Guide(description: "7d, 30d, 6m, 3y")
+        var horizon: String
+    }
+
+    func call(arguments: Arguments) async throws -> String {
+        let json = try JSONEncoder().encode(["metric": arguments.metric, "horizon": arguments.horizon])
+        return await CoachToolRegistry.execute(name: name, argumentsJSON: String(decoding: json, as: UTF8.self),
+                                               context: context)
+    }
+}
+
+@available(iOS 26.0, macOS 26.0, *)
+private struct FMEatingContextTool: Tool {
+    let name = "get_eating_context"
+    let description = "查询近期饮食摄入、采用的营养目标、估算与缺项"
+    let context: AgentExecutionContext
+
+    @Generable
+    struct Arguments {
+        @Guide(description: "回看天数，1 到 30")
+        var days: Int
+    }
+
+    func call(arguments: Arguments) async throws -> String {
+        await CoachToolRegistry.execute(name: name, argumentsJSON: "{\"days\":\(arguments.days)}", context: context)
     }
 }
 

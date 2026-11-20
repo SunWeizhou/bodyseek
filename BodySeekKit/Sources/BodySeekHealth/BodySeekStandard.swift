@@ -12,7 +12,7 @@ public final actor BodySeekStandard: Standard, HealthKitConstraint {
 
     public func updates() -> AsyncStream<Void> {
         let id = UUID()
-        return AsyncStream { continuation in
+        return AsyncStream(bufferingPolicy: .bufferingNewest(1)) { continuation in
             continuations[id] = continuation
             continuation.onTermination = { [weak self] _ in
                 Task { await self?.removeContinuation(id) }
@@ -107,6 +107,7 @@ public final class BodySeekHealthBridgeModule: Module, @unchecked Sendable {
         healthKit
     }
 
+    @MainActor
     public func updateStream() async -> AsyncStream<Void> {
         if let standardRef {
             return await standardRef.updates()

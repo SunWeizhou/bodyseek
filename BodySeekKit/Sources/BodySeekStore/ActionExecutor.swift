@@ -110,27 +110,46 @@ public final class ActionExecutor: Sendable {
                     try BodySeekRepository.saveNutritionTargetPlanSync(db: db, plan: payload.plan)
                     affectedIDs = [payload.plan.id.uuidString, payload.plan.targetVersion]
 
-                case .logNutritionMeal:
-                    let payload = try proposal.decodePayload(LogNutritionMealPayload.self)
-                    var log = try BodySeekRepository.loadDailyNutritionLogSync(db: db, dayKey: payload.dayKey)
-                        ?? DailyNutritionLog(dayKey: payload.dayKey)
-                    if let idx = log.entries.firstIndex(where: { $0.id == payload.entry.id }) {
-                        log.entries[idx] = payload.entry
+                case .logNutritionMeal, .logNutritionMeals:
+                    let dayKey: DayKey
+                    let entries: [MealEntry]
+                    let fields: [String]
+                    let note: String?
+                    if proposal.kind == .logNutritionMeal {
+                        let payload = try proposal.decodePayload(LogNutritionMealPayload.self)
+                        dayKey = payload.dayKey
+                        entries = [payload.entry]
+                        fields = payload.partialFields
+                        note = payload.note
                     } else {
-                        log.entries.append(payload.entry)
+                        let payload = try proposal.decodePayload(LogNutritionMealsPayload.self)
+                        dayKey = payload.dayKey
+                        entries = payload.entries
+                        fields = entries.filter {
+                            $0.kcal == nil || $0.proteinG == nil || $0.carbsG == nil || $0.fatG == nil
+                        }.map { $0.mealType.rawValue }
+                        note = nil
                     }
-                    if !payload.partialFields.isEmpty {
-                        var set = Set(log.dietPartialFields)
-                        for f in payload.partialFields { set.insert(f) }
-                        log.dietPartialFields = set.sorted()
+                    guard !entries.isEmpty, entries.allSatisfy({ $0.dayKey == dayKey }) else {
+                        throw BodySeekDatabaseError.invalidProposalPayload(kind: proposal.kind)
                     }
-                    if let note = payload.note, !note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    var log = try BodySeekRepository.loadDailyNutritionLogSync(db: db, dayKey: dayKey)
+                        ?? DailyNutritionLog(dayKey: dayKey)
+                    for entry in entries {
+                        if let idx = log.entries.firstIndex(where: { $0.id == entry.id }) {
+                            log.entries[idx] = entry
+                        } else {
+                            log.entries.append(entry)
+                        }
+                    }
+                    log.dietPartialFields = Set(log.dietPartialFields).union(fields).sorted()
+                    if let note, !note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         log.notes.append(note)
                     }
                     log.updatedAt = now
                     log.recalculateTotals()
                     try BodySeekRepository.saveDailyNutritionLogSync(db: db, log: log)
-                    affectedIDs = [payload.dayKey.isoString, payload.entry.id.uuidString]
+                    affectedIDs = [dayKey.isoString] + entries.map { $0.id.uuidString }
 
                 case .closeNutritionDay:
                     let payload = try proposal.decodePayload(CloseNutritionDayPayload.self)

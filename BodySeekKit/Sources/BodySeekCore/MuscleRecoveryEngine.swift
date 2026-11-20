@@ -446,13 +446,13 @@ public enum MuscleRecoveryEngine {
 
         var workoutByUUID: [String: StoredWorkoutRecord] = [:]
         for w in storedWorkouts where w.end <= asOf {
-            workoutByUUID[w.hkUUID] = w
+            workoutByUUID[w.hkUUID.lowercased()] = w
         }
 
         // Group persisted DB loads by workoutUUID
         var loadsByWorkoutUUID: [String: [WorkoutMuscleLoadRecord]] = [:]
         for record in muscleLoads {
-            loadsByWorkoutUUID[record.workoutUUID, default: []].append(record)
+            loadsByWorkoutUUID[record.workoutUUID.lowercased(), default: []].append(record)
         }
 
         var eventsByMuscle: [BodyRegionMuscle: [MuscleLoadEvent]] = [:]
@@ -461,9 +461,9 @@ public enum MuscleRecoveryEngine {
         var representedUUIDs = Set<String>()
         for workout in workoutByUUID.values {
             guard asOf.timeIntervalSince(workout.end) <= lookbackWindowHours else { continue }
-            representedUUIDs.insert(workout.hkUUID)
+            representedUUIDs.insert(workout.hkUUID.lowercased())
 
-            if let dbLoads = loadsByWorkoutUUID[workout.hkUUID], !dbLoads.isEmpty {
+            if let dbLoads = loadsByWorkoutUUID[workout.hkUUID.lowercased()], !dbLoads.isEmpty {
                 for rec in dbLoads where rec.load > 0 {
                     let event = MuscleLoadEvent(
                         workoutUUID: workout.hkUUID,
@@ -504,8 +504,8 @@ public enum MuscleRecoveryEngine {
         for day in historyDays {
             for summary in day.raw.workouts {
                 let uuid = (summary.healthKitUUID ?? summary.id).uuidString
-                guard !representedUUIDs.contains(uuid) else { continue }
-                let end = summary.startDate.addingTimeInterval(Double(max(1, summary.durationMinutes)) * 60.0)
+                guard !representedUUIDs.contains(uuid.lowercased()) else { continue }
+                let end = summary.endDate
                 guard end <= asOf, asOf.timeIntervalSince(end) <= lookbackWindowHours else { continue }
                 let stored = StoredWorkoutRecord(
                     hkUUID: uuid,
@@ -520,7 +520,7 @@ public enum MuscleRecoveryEngine {
                     reviewState: .unreviewed
                 )
                 if let auto = WorkoutAutoAttributor.autoAttribute(workout: stored, dominantHand: dominantHand) {
-                    representedUUIDs.insert(uuid)
+                    representedUUIDs.insert(uuid.lowercased())
                     for rec in auto.loads where rec.load > 0 {
                         eventsByMuscle[rec.muscle, default: []].append(
                             MuscleLoadEvent(
@@ -538,20 +538,21 @@ public enum MuscleRecoveryEngine {
             }
         }
 
-        // 3. Supplemental manual LoggedWorkoutSessions (avoid double-counting synced Watch UUIDs)
+        // A linked manual session can fill muscles the imported record does not cover.
         for session in manualSessions {
-            if let synced = session.syncedHealthKitUUID,
-               loadsByWorkoutUUID[synced] != nil
-            {
-                continue
-            }
             guard session.completedAt <= asOf,
                   asOf.timeIntervalSince(session.completedAt) <= lookbackWindowHours
             else { continue }
             for (muscle, intensity) in session.muscleLoadIntensities where intensity > 0 {
+                let workoutUUID = session.syncedHealthKitUUID ?? session.id.uuidString
+                if eventsByMuscle[muscle]?.contains(where: {
+                    $0.workoutUUID.caseInsensitiveCompare(workoutUUID) == .orderedSame
+                }) == true {
+                    continue
+                }
                 eventsByMuscle[muscle, default: []].append(
                     MuscleLoadEvent(
-                        workoutUUID: session.id.uuidString,
+                        workoutUUID: workoutUUID,
                         workoutTitle: session.title,
                         completedAt: session.completedAt,
                         muscle: muscle,

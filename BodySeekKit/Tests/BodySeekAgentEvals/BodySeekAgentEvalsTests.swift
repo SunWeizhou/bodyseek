@@ -83,8 +83,8 @@ final class BodySeekAgentEvalsTests: XCTestCase {
             StoredWorkoutRecord(
                 hkUUID: "EVAL-STR-1",
                 type: "传统力量训练 · Apple Watch",
-                start: Self.now.addingTimeInterval(-3600 * 20),
-                end: Self.now.addingTimeInterval(-3600 * 19),
+                start: Self.now.physiologicalDayKey().addingDays(-1).startDate().addingTimeInterval(10 * 3600),
+                end: Self.now.physiologicalDayKey().addingDays(-1).startDate().addingTimeInterval(11 * 3600),
                 energy: 320,
                 avgHR: 132,
                 effortUser: 8.0,
@@ -197,7 +197,7 @@ final class BodySeekAgentEvalsTests: XCTestCase {
                             ? #"{"tier":"verifiedPattern","content":"私自写入未确认规律"}"#
                             : #"{"tier":"activeConstraint","category":"injury","expiresDays":14,"content":"右肩前束微痛，减少大重量推举"}"#
                     case "propose_workout_annotation":
-                        #"{"rawText":"今天练胸，杠铃卧推 4 组，RPE 8"}"#
+                        #"{"rawText":"昨天练胸，杠铃卧推 4 组，RPE 8"}"#
                     default:
                         "{}"
                     }

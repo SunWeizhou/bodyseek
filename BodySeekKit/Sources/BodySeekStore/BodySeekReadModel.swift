@@ -240,11 +240,11 @@ public final class BodySeekReadModel: Sendable {
     }
 
     private struct DigestEnvelope: Encodable {
+        let referenceDay: DayKey
         let today: DailyComputedDay
         let historyDays: [DailyComputedDay]
         let trainingLoad: TrainingLoadStatus
         let isAuthorized: Bool
-        let sourceLabel: String
     }
 
     public static func computeDigest(snapshot: BodySeekDashboardSnapshot) throws -> String {
@@ -252,11 +252,11 @@ public final class BodySeekReadModel: Sendable {
         encoder.outputFormatting = [.sortedKeys]
         encoder.dateEncodingStrategy = .millisecondsSince1970
         let payload = DigestEnvelope(
+            referenceDay: snapshot.referenceDate.physiologicalDayKey(),
             today: snapshot.today,
             historyDays: snapshot.historyDays,
             trainingLoad: snapshot.trainingLoad,
-            isAuthorized: snapshot.isAuthorized,
-            sourceLabel: snapshot.sourceLabel
+            isAuthorized: snapshot.isAuthorized
         )
         let data = try encoder.encode(payload)
         let hash = SHA256.hash(data: data)

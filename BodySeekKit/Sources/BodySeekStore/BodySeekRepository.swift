@@ -485,7 +485,7 @@ public final class BodySeekRepository: Sendable {
                     } else {
                         nil
                     }
-                    let end = workout.startDate.addingTimeInterval(Double(max(1, workout.durationMinutes)) * 60.0)
+                    let end = workout.endDate
                     try db.execute(
                         sql: """
                         INSERT INTO workout (
@@ -655,7 +655,8 @@ public final class BodySeekRepository: Sendable {
                     effortScore: row["effort_user"],
                     heartRateZones: zones,
                     estimatedEffortScore: row["effort_estimated"],
-                    healthKitUUID: UUID(uuidString: uuidString)
+                    healthKitUUID: UUID(uuidString: uuidString),
+                    recordedEndDate: end
                 )
             )
         }

@@ -181,7 +181,26 @@ public enum NutritionCatalog {
     }
 
     /// Official traceable food entries seeded from verified public nutrition tables (MEXT 8th Rev 2023 / USDA).
-    public static let starterFoodItems: [FoodLibraryItem] = [
+    public static let commonMealFoodItems: [FoodLibraryItem] = [
+        FoodLibraryItem(
+            foodID: "oats_plain_dry", name: "燕麦片（原味干重）",
+            aliases: ["燕麦", "燕麦片", "原味燕麦"], category: "谷物", stateDescription: "未冲泡、无添加",
+            dataKind: "官方成分表", energyKcalPer100: 350, carbsGPer100: 69.1,
+            proteinGPer100: 13.7, fatGPer100: 5.7, fiberGPer100: 9.4,
+            sourceName: "日本食品标准成分表（八订）增补2023，01004",
+            sourceURL: "https://fooddb.mext.go.jp/details/details.pl?ITEM_NO=1_01004_7"
+        ),
+        FoodLibraryItem(
+            foodID: "potato_fries_generic", name: "炸薯条（通用参考）",
+            aliases: ["薯条", "炸薯条"], category: "薯类", stateDescription: "油炸冷冻薯条，成分随品牌与做法变化",
+            dataKind: "官方成分表", energyKcalPer100: 229, carbsGPer100: 32.4,
+            proteinGPer100: 2.9, fatGPer100: 10.6, fiberGPer100: 3.1,
+            sourceName: "日本食品标准成分表（八订）增补2023，02020",
+            sourceURL: "https://fooddb.mext.go.jp/details/details.pl?ITEM_NO=2_02020_7"
+        ),
+    ]
+
+    public static let starterFoodItems: [FoodLibraryItem] = commonMealFoodItems + [
         FoodLibraryItem(
             foodID: "rice_cooked",
             name: "白米饭（熟）",
@@ -700,7 +719,8 @@ public enum NutritionTargetEvaluator {
             descriptor.isPendingForm ? "口径待核对，暂不评价" : "待设置目标"
         }
 
-        let isDayComplete = log?.dietDayComplete == true
+        let hasPartialMeals = log?.dietPartialFields.isEmpty == false
+        let isDayComplete = log?.dietDayComplete == true && !hasPartialMeals
         let isConfirmed = log?.healthConfirmedFields.contains(metricID) == true
         let rawAmount = log?.rawValue(forMetricID: metricID)
 
@@ -766,9 +786,9 @@ public enum NutritionTargetEvaluator {
                 displayUnit: displayUnit,
                 rawUnit: descriptor.rawUnit,
                 status: .unknown,
-                reason: "当天未收尾",
+                reason: hasPartialMeals ? "有餐食的营养记录不完整" : "当天未收尾",
                 targetSummary: targetLabel,
-                isDayComplete: false,
+                isDayComplete: isDayComplete,
                 isConfirmed: isConfirmed
             )
         }
@@ -941,10 +961,12 @@ public struct FoodLibraryItem: Identifiable, Hashable, Codable, Sendable {
         portionAmount: Double,
         portionDescription: String? = nil,
         isEstimated: Bool = false,
-        recordedAt: Date = Date()
+        recordedAt: Date = Date(),
+        id: UUID = UUID()
     ) -> MealEntry {
         let ratio = max(0, portionAmount) / max(1.0, basisAmount)
         return MealEntry(
+            id: id,
             dayKey: dayKey,
             mealType: mealType,
             foodID: foodID,
@@ -986,13 +1008,28 @@ public enum MealType: String, CaseIterable, Hashable, Codable, Sendable {
     }
 }
 
+public struct MealEnergyEstimate: Hashable, Codable, Sendable {
+    public let lowerKcal: Double
+    public let upperKcal: Double
+    public let assumptions: String
+
+    public init(lowerKcal: Double, upperKcal: Double, assumptions: String) {
+        self.lowerKcal = lowerKcal
+        self.upperKcal = upperKcal
+        self.assumptions = assumptions
+    }
+
+    public var midpointKcal: Double { ((lowerKcal + upperKcal) / 2).rounded() }
+    public var displayRange: String { "\(lowerKcal.formatted(.number.precision(.fractionLength(0))))–\(upperKcal.formatted(.number.precision(.fractionLength(0)))) kcal" }
+}
+
 public struct MealEntry: Identifiable, Hashable, Codable, Sendable {
     public let id: UUID
     public let dayKey: DayKey
     public var mealType: MealType
     public var foodID: String?
     public var foodName: String
-    public var portionAmount: Double
+    public var portionAmount: Double?
     public var portionUnit: String
     public var portionDescription: String
     public var kcal: Double?
@@ -1007,6 +1044,7 @@ public struct MealEntry: Identifiable, Hashable, Codable, Sendable {
     public var minerals: [String: Double]
     public var isEstimated: Bool
     public var estimationNote: String?
+    public var energyEstimate: MealEnergyEstimate?
     public var recordedAt: Date
 
     public init(
@@ -1015,7 +1053,7 @@ public struct MealEntry: Identifiable, Hashable, Codable, Sendable {
         mealType: MealType,
         foodID: String? = nil,
         foodName: String,
-        portionAmount: Double,
+        portionAmount: Double?,
         portionUnit: String,
         portionDescription: String? = nil,
         kcal: Double? = nil,
@@ -1039,7 +1077,7 @@ public struct MealEntry: Identifiable, Hashable, Codable, Sendable {
         self.foodName = foodName
         self.portionAmount = portionAmount
         self.portionUnit = portionUnit
-        self.portionDescription = portionDescription ?? "\(Int(portionAmount.rounded()))\(portionUnit)"
+        self.portionDescription = portionDescription ?? portionAmount.map { "\(Int($0.rounded()))\(portionUnit)" } ?? "份量待补"
         self.kcal = kcal
         self.carbsG = carbsG
         self.proteinG = proteinG
@@ -1187,6 +1225,7 @@ public struct DailyNutritionLog: Identifiable, Hashable, Codable, Sendable {
     /// Computes energy surplus ONLY when intake is closed (`dietDayComplete == true`) and both BMR & active expenditure exist.
     public mutating func recalculateSurplus() {
         guard dietDayComplete == true,
+              dietPartialFields.isEmpty,
               let intake = dietKcal,
               let bmr = bmrKcalUsed,
               let active = sportKcal,
@@ -1376,7 +1415,9 @@ public enum NutritionBoardAggregator {
             }
         }
 
-        let surpluses = relevantLogs.compactMap { $0.value.dietDayComplete == true ? $0.value.calorieSurplusKcal : nil }
+        let surpluses = relevantLogs.compactMap { _, log in
+            log.dietDayComplete == true && log.dietPartialFields.isEmpty ? log.calorieSurplusKcal : nil
+        }
         let deficit7d: Double? = surpluses.count >= 3
             ? -(surpluses.suffix(7).reduce(0, +) / Double(min(7, surpluses.count)))
             : nil
@@ -1515,6 +1556,16 @@ public struct UpsertNutritionProfilePayload: Hashable, Codable, Sendable {
 public struct CommitNutritionTargetsPayload: Hashable, Codable, Sendable {
     public let plan: NutritionTargetPlan
     public init(plan: NutritionTargetPlan) { self.plan = plan }
+}
+
+public struct LogNutritionMealsPayload: Hashable, Codable, Sendable {
+    public let dayKey: DayKey
+    public let entries: [MealEntry]
+
+    public init(dayKey: DayKey, entries: [MealEntry]) {
+        self.dayKey = dayKey
+        self.entries = entries
+    }
 }
 
 public struct LogNutritionMealPayload: Hashable, Codable, Sendable {

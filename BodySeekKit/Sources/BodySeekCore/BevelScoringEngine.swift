@@ -51,7 +51,7 @@ public enum BevelScoringEngine {
         let acwr = computeACWR(computedDays: computed, referenceDate: refStart, calendar: calendar)
 
         return BodySeekDashboardSnapshot(
-            referenceDate: refStart,
+            referenceDate: referenceDate,
             today: today,
             historyDays: computed,
             trainingLoad: acwr,
@@ -129,7 +129,7 @@ public enum BevelScoringEngine {
         let acwr = computeACWR(computedDays: computed, referenceDate: refStart, calendar: calendar)
 
         return BodySeekDashboardSnapshot(
-            referenceDate: refStart,
+            referenceDate: referenceDate,
             today: today,
             historyDays: computed,
             trainingLoad: acwr,

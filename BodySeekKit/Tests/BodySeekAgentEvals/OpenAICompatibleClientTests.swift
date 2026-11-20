@@ -1,4 +1,4 @@
-import BodySeekAgent
+@testable import BodySeekAgent
 import BodySeekCore
 import BodySeekStore
 import Foundation
@@ -64,6 +64,140 @@ private final actor MockAgentTransport: AgentHTTPTransport {
 }
 
 final class OpenAICompatibleClientTests: XCTestCase {
+    func testMealDraftSurvivesUnexpectedOptionalFields() throws {
+        let items = try MealDraftAnalysis.decode("""
+        ```json
+        {"items":[{"name":"水煮蛋","meal":"早餐","amount":"100","unit":"克"},
+        {"name":"火锅","meal":"晚餐","amount":"未知","energyEstimate":{"lowerKcal":"约500","upperKcal":900}},
+        {"name":"桑葚混合果汁","meal":"dinner","amount":1,"unit":"L",
+         "energyEstimate":{"lowerKcal":"250","upperKcal":"500","assumptions":"按一升果汁估算"}}]}
+        ```
+        """)
+        XCTAssertEqual(items.map(\.meal), [.breakfast, .dinner, .dinner])
+        XCTAssertEqual(items.map(\.amount), [100, nil, 1000])
+        XCTAssertNil(items[1].energyEstimate)
+        XCTAssertEqual(items[2].energyEstimate?.midpointKcal, 375)
+    }
+
+    func testMealRequestRetriesAfterTruncatedOutput() async throws {
+        let transport = MockAgentTransport(steps: [
+            .data(statusCode: 200, body: #"{"choices":[{"finish_reason":"length","message":{"role":"assistant","content":null}}]}"#),
+            .data(statusCode: 200, body: #"{"choices":[{"message":{"role":"assistant","content":"{\"items\":[{\"name\":\"火锅\",\"meal\":\"dinner\"}]}"}}]}"#),
+        ])
+        let client = OpenAICompatibleClient(transport: transport)
+        let items = try await client.analyzeMeal(endpointURL: "https://api.example.com/v1", apiKey: "mock",
+                                                modelName: "mock", input: "晚上吃了火锅", jpeg: nil)
+        XCTAssertEqual(items.first?.name, "火锅")
+        let requestCount = await transport.recordedRequestCount()
+        XCTAssertEqual(requestCount, 2)
+    }
+
+    func testMealDraftSupportsScenarioEstimatesWithoutWeightAndRejectsInvalidRanges() throws {
+        let items = try MealDraftAnalysis.decode("""
+            {"items":[
+              {"name":"火锅","meal":"dinner","reportedPortion":"人均120元","energyEstimate":{"lowerKcal":550,"upperKcal":1050,"assumptions":"按个人夹取食材和蘸料估算，饮品另计"}},
+              {"name":"混合果汁","meal":"dinner","amount":1000,"unit":"mL","energyEstimate":{"lowerKcal":250,"upperKcal":550,"assumptions":"按每100mL 25–55 kcal估算"}},
+              {"name":"其他饮品","energyEstimate":{"lowerKcal":300,"upperKcal":100,"assumptions":"无效区间"}}
+            ]}
+            """)
+        XCTAssertNil(items[0].amount)
+        XCTAssertEqual(items[0].reportedPortion, "人均120元")
+        XCTAssertEqual(items[0].energyEstimate?.midpointKcal, 800)
+        XCTAssertEqual(items[1].amount, 1000)
+        XCTAssertEqual(items[1].energyEstimate?.upperKcal, 550)
+        XCTAssertNil(items[2].energyEstimate)
+    }
+
+    func testAllDayMealDraftKeepsMealsAndUnscaledPortionDescriptions() async throws {
+        let input = "下午吃了脆皮鸡腿和一包薯条，晚上吃火锅人均120，还喝了1升少甜桑葚混合果汁。早上两个水煮蛋、两勺燕麦和一包豆浆粉。上午一杯胶囊黑咖啡，下午四份单份浓缩。"
+        let reply = """
+            {"items":[
+              {"name":"水煮蛋","meal":"breakfast","reportedPortion":"两个","amount":100,"unit":"g","isEstimatedPortion":true},
+              {"name":"燕麦","meal":"breakfast","reportedPortion":"两勺","amount":20,"unit":"g","isEstimatedPortion":true},
+              {"name":"豆浆粉","meal":"breakfast","reportedPortion":"一包","amount":null},
+              {"name":"脆皮鸡腿","meal":"lunch","catalogSearchName":" 炸鸡腿 ","amount":null},
+              {"name":"薯条","meal":"lunch","reportedPortion":"一包","amount":null},
+              {"name":"火锅","meal":"dinner","reportedPortion":"人均120元","amount":null},
+              {"name":"少甜桑葚混合果汁","meal":"dinner","reportedPortion":"1升","amount":1000,"unit":"mL","isEstimatedPortion":false},
+              {"name":"胶囊黑咖啡","meal":"snack","reportedPortion":"一杯","amount":null},
+              {"name":"浓缩咖啡","meal":"snack","reportedPortion":"四份单份浓缩","amount":null}
+            ]}
+            """
+        let envelope = try JSONSerialization.data(withJSONObject: ["choices": [["message": ["role": "assistant", "content": reply]]]])
+        let mock = MockAgentTransport(steps: [.data(statusCode: 200, body: String(decoding: envelope, as: UTF8.self))])
+        let client = OpenAICompatibleClient(transport: mock, payloadRecorder: AgentPayloadRecorder())
+        let decoded = try await client.analyzeMeal(endpointURL: "https://api.example.com/v1", apiKey: "test",
+                                                   modelName: "test-model", input: input, jpeg: nil)
+        XCTAssertEqual(decoded.map(\.meal), [.breakfast, .breakfast, .breakfast, .lunch, .lunch, .dinner, .dinner, .snack, .snack])
+        XCTAssertTrue(decoded[0].isEstimatedPortion == true)
+        XCTAssertEqual(decoded[3].catalogSearchName, "炸鸡腿")
+        XCTAssertNil(decoded[5].amount)
+        XCTAssertEqual(decoded[5].reportedPortion, "人均120元")
+        XCTAssertEqual(decoded[6].amount, 1000)
+        XCTAssertEqual(decoded[6].unit, "ml")
+        XCTAssertEqual(decoded[7].reportedPortion, "一杯")
+        XCTAssertEqual(decoded[8].reportedPortion, "四份单份浓缩")
+        let request = await mock.lastRequest()
+        let body = try XCTUnwrap(request?.httpBody)
+        let payload = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: Any])
+        let messages = try XCTUnwrap(payload["messages"] as? [[String: Any]])
+        XCTAssertEqual(messages.last?["content"] as? String, input)
+    }
+
+    func testWorkoutAnnotationBindsToTheRequestedDay() async {
+        let day = DayKey(year: 2026, month: 11, day: 20)
+        let now = day.startDate().addingTimeInterval(12 * 3600)
+        let snapshot = sampleContext(referenceDate: now.addingTimeInterval(-7_200)).snapshot
+        let start = now.addingTimeInterval(-3600)
+        let chest = StoredWorkoutRecord(hkUUID: "chest-today", type: "力量训练", start: start,
+                                         end: start.addingTimeInterval(1800), energy: 180)
+        let legs = StoredWorkoutRecord(hkUUID: "legs-yesterday", type: "力量训练",
+                                        start: start.addingTimeInterval(-86_400),
+                                        end: start.addingTimeInterval(-84_600), energy: 260)
+        let mismatch = AgentExecutionContext(snapshot: snapshot, storedWorkouts: [legs, chest], asOf: now)
+        _ = await CoachToolRegistry.execute(name: "propose_workout_annotation",
+            argumentsJSON: #"{"rawText":"今天练胸","workoutUUID":"legs-yesterday"}"#, context: mismatch)
+        let rejected = await mismatch.effects.workoutAnnotationProposal
+        XCTAssertNil(rejected)
+
+        let correct = AgentExecutionContext(snapshot: snapshot, storedWorkouts: [legs, chest], asOf: now)
+        _ = await CoachToolRegistry.execute(name: "propose_workout_annotation",
+            argumentsJSON: #"{"rawText":"今天练胸"}"#, context: correct)
+        let proposed = await correct.effects.workoutAnnotationProposal
+        XCTAssertEqual(proposed?.workoutUUID, chest.hkUUID)
+        XCTAssertTrue(proposed?.muscleLoads.contains(where: { $0.muscle == .chest }) == true)
+    }
+
+    func testMealPhotoUsesConfiguredEndpointAndOmitsPrivateContentFromAudit() async throws {
+        let output = #"{"choices":[{"message":{"role":"assistant","content":"{\"items\":[{\"name\":\"白米饭\",\"amount\":150,\"unit\":\"g\"},{\"name\":\"鸡蛋\",\"amount\":2,\"unit\":\"个\"}]}"}}]}"#
+        let transport = MockAgentTransport(steps: [.data(statusCode: 200, body: output)])
+        let recorder = AgentPayloadRecorder()
+        let client = OpenAICompatibleClient(transport: transport, payloadRecorder: recorder)
+        let photo = Data([0xff, 0xd8, 0xff, 0xd9])
+        let text = "我的午饭，白米饭 150 克"
+        let items = try await client.analyzeMeal(endpointURL: "https://api.example.com/v1", apiKey: "test",
+                                                 modelName: "vision-model", input: text, jpeg: photo)
+        XCTAssertEqual(items.map(\.name), ["白米饭", "鸡蛋"])
+        XCTAssertEqual(items.first?.amount, 150)
+        XCTAssertNil(items.last?.amount)
+
+        let requestValue = await transport.lastRequest()
+        let request = try XCTUnwrap(requestValue)
+        XCTAssertEqual(request.url?.absoluteString, "https://api.example.com/v1/chat/completions")
+        let body = try XCTUnwrap(request.httpBody)
+        let payload = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: Any])
+        XCTAssertEqual(payload["model"] as? String, "vision-model")
+        let messages = try XCTUnwrap(payload["messages"] as? [[String: Any]])
+        let parts = try XCTUnwrap(messages.last?["content"] as? [[String: Any]])
+        XCTAssertEqual(parts.first?["text"] as? String, text)
+        let image = parts.last?["image_url"] as? [String: Any]
+        XCTAssertEqual(image?["url"] as? String, "data:image/jpeg;base64,\(photo.base64EncodedString())")
+        let auditRecord = await recorder.latest()
+        let audit = try XCTUnwrap(auditRecord)
+        XCTAssertFalse(audit.redactedRequestJSON.contains(text))
+        XCTAssertFalse(audit.redactedRequestJSON.contains(photo.base64EncodedString()))
+    }
+
     private func sampleContext(referenceDate: Date = Date(timeIntervalSince1970: 1_760_500_000)) -> AgentExecutionContext {
         let rawDays = PreviewSeedFactory.makeRawWindow(endingAt: referenceDate, days: 35)
         let snapshot = BevelScoringEngine.computeWindow(
@@ -82,6 +216,40 @@ final class OpenAICompatibleClientTests: XCTestCase {
         XCTAssertEqual(EndpointURLNormalizer.normalizeBaseURL("https://api.deepseek.com/v1/chat/completions")?.absoluteString, "https://api.deepseek.com/v1")
         XCTAssertEqual(EndpointURLNormalizer.normalizeBaseURL("https://proxy.example.com/chat/completions/")?.absoluteString, "https://proxy.example.com")
         XCTAssertNil(EndpointURLNormalizer.normalizeBaseURL("   "))
+    }
+
+    func testWorkoutEvidenceMergesLinkedSessionAndPreservesManualOnlySession() async throws {
+        let context = sampleContext()
+        let now = context.snapshot.referenceDate
+        let start = now.addingTimeInterval(-3_600)
+        let end = now.addingTimeInterval(-1_800)
+        let id = "BA03E536-EB3C-4D3C-84F2-D1EC95635A61"
+        let imported = StoredWorkoutRecord(hkUUID: id, type: "力量训练", start: start, end: end,
+                                           energy: 220, avgHR: 124)
+        let linked = LoggedWorkoutSession(title: "补录训练组", startedAt: start, completedAt: end,
+                                           exercises: [], rpe: 7, estimatedCalories: 220,
+                                           syncedHealthKitUUID: id.lowercased())
+        let manual = LoggedWorkoutSession(title: "手动训练", startedAt: start, completedAt: end,
+                                           exercises: [], rpe: 5, estimatedCalories: 90)
+        let future = LoggedWorkoutSession(title: "未来训练", startedAt: now.addingTimeInterval(60),
+                                           completedAt: now.addingTimeInterval(1_800),
+                                           exercises: [], rpe: 6, estimatedCalories: 150)
+        let json = await CoachToolRegistry.execute(
+            name: "get_workouts_and_muscles", argumentsJSON: #"{"days":7}"#,
+            context: AgentExecutionContext(snapshot: context.snapshot, sessions: [linked, manual, future],
+                                           storedWorkouts: [imported])
+        )
+        let envelope = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+        XCTAssertEqual(envelope["ontologyVersion"] as? String, "bodyseek-evidence-v1")
+        XCTAssertNil(envelope["coverage"])
+        let data = try XCTUnwrap(envelope["data"] as? [String: Any])
+        let workouts = try XCTUnwrap(data["workouts"] as? [[String: Any]])
+        XCTAssertEqual(workouts.count, 2)
+        let watchRecord = try XCTUnwrap(workouts.first { $0["uuid"] as? String == id })
+        XCTAssertEqual(watchRecord["manualSessionID"] as? String, linked.id.uuidString)
+        XCTAssertEqual(watchRecord["avgHR"] as? Double, 124)
+        XCTAssertEqual(watchRecord["effortUser"] as? Double, 7)
+        XCTAssertEqual(workouts.first { $0["source"] as? String == "manual" }?["uuid"] as? String, manual.id.uuidString)
     }
 
     func testDeepSeekSSEStreamAssemblesSplitToolCallsAndRunsMultiTurnLoop() async throws {

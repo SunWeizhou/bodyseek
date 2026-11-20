@@ -405,6 +405,37 @@ public final class BodySeekDatabase: Sendable {
             """)
         }
 
+        migrator.registerMigration("v3_allow_unknown_meal_portions") { db in
+            try db.rename(table: "meal_entry", to: "meal_entry_required_portion")
+            try db.execute(sql: """
+                CREATE TABLE meal_entry (
+                    id TEXT PRIMARY KEY,
+                    day_key TEXT NOT NULL REFERENCES daily_nutrition_log(day_key) ON DELETE CASCADE,
+                    meal_type TEXT NOT NULL,
+                    food_id TEXT,
+                    food_name TEXT NOT NULL,
+                    portion_amount DOUBLE,
+                    portion_unit TEXT NOT NULL,
+                    kcal DOUBLE,
+                    payload_json TEXT NOT NULL,
+                    recorded_at DOUBLE NOT NULL
+                )
+                """)
+            try db.execute(sql: """
+                INSERT INTO meal_entry
+                SELECT id, day_key, meal_type, food_id, food_name, portion_amount, portion_unit, kcal, payload_json, recorded_at
+                FROM meal_entry_required_portion
+                """)
+            try db.drop(table: "meal_entry_required_portion")
+            try db.create(index: "idx_meal_entry_day", on: "meal_entry", columns: ["day_key", "recorded_at"])
+            let existingIDs = try Set(String.fetchAll(db, sql: "SELECT food_id FROM food_library_item"))
+            if !existingIDs.isEmpty {
+                for item in NutritionCatalog.commonMealFoodItems where !existingIDs.contains(item.foodID) {
+                    try BodySeekRepository.saveFoodLibraryItemSync(db: db, item: item, updatedAt: Date().timeIntervalSince1970)
+                }
+            }
+        }
+
         return migrator
     }
 }

@@ -1,9 +1,83 @@
 import BodySeekCore
 import BodySeekStore
 import Foundation
+import GRDB
 import XCTest
 
 final class NutritionEngineTests: XCTestCase {
+    func testMealPortionMigrationPreservesExistingEntries() throws {
+        let queue = try DatabaseQueue()
+        let migrator = BodySeekDatabase.migrator
+        try migrator.migrate(queue, upTo: "v2_nutrition_schema")
+        try queue.write { db in
+            try db.execute(sql: """
+                INSERT INTO daily_nutrition_log(day_key, payload_json, updated_at)
+                VALUES ('2026-11-20', '{}', 1)
+                """)
+            try db.execute(sql: """
+                INSERT INTO meal_entry(id, day_key, meal_type, food_name, portion_amount, portion_unit, payload_json, recorded_at)
+                VALUES ('existing', '2026-11-20', 'breakfast', '鸡蛋', 50, 'g', '{}', 1)
+                """)
+        }
+        try migrator.migrate(queue)
+        let portion = try queue.read { db in
+            try Double.fetchOne(db, sql: "SELECT portion_amount FROM meal_entry WHERE id = 'existing'")
+        }
+        XCTAssertEqual(portion, 50)
+    }
+
+    func testConfirmedMealDraftSavesAtomicallyAndCanBeRetriedWithoutDuplicates() async throws {
+        let database = try BodySeekDatabase.inMemory()
+        let repo = BodySeekRepository(database: database)
+        let executor = ActionExecutor(database: database)
+        let day = DayKey(year: 2026, month: 11, day: 20)
+        let otherDay = day.addingDays(1)
+        let rice = FoodLibraryItem(foodID: "rice", name: "白米饭", energyKcalPer100: 120,
+                                   carbsGPer100: 26, proteinGPer100: 2, fatGPer100: 1)
+        let matched = rice.makeMealEntry(dayKey: day, mealType: .lunch, portionAmount: 150, isEstimated: true)
+        let unmatched = MealEntry(dayKey: day, mealType: .dinner, foodName: "火锅",
+                                  portionAmount: nil, portionUnit: "g", portionDescription: "份量待补", isEstimated: true)
+        let wrongDay = rice.makeMealEntry(dayKey: otherDay, mealType: .lunch, portionAmount: 100)
+
+        func proposal(_ entries: [MealEntry]) throws -> ActionProposal {
+            try ActionProposal(kind: .logNutritionMeals, origin: .user,
+                               encodablePayload: LogNutritionMealsPayload(dayKey: day, entries: entries))
+        }
+
+        do {
+            _ = try await executor.execute(proposal([matched, wrongDay]))
+            XCTFail("Entries on different dates should reject the entire draft")
+        } catch BodySeekDatabaseError.invalidProposalPayload(.logNutritionMeals) {}
+        let before = try await repo.loadNutritionLogs(from: day, to: otherDay)
+        XCTAssertTrue(before.isEmpty)
+
+        _ = try await executor.execute(proposal([matched, unmatched]))
+        _ = try await executor.execute(proposal([matched, unmatched]))
+        let after = try await repo.loadNutritionLogs(from: day, to: otherDay)
+        let saved = try XCTUnwrap(after.first)
+        XCTAssertEqual(saved.entries.map(\.id), [matched.id, unmatched.id])
+        XCTAssertEqual(saved.dietKcal, 180)
+        XCTAssertNil(saved.entries.last?.kcal)
+        XCTAssertNil(saved.entries.last?.portionAmount)
+        XCTAssertEqual(saved.entries.last?.portionDescription, "份量待补")
+        XCTAssertEqual(saved.dietPartialFields, [MealType.dinner.rawValue])
+
+        _ = try await executor.execute(ActionProposal(
+            kind: .closeNutritionDay, origin: .user,
+            encodablePayload: CloseNutritionDayPayload(
+                dayKey: day, markComplete: true, sportKcal: 240, bmrKcalUsed: 1_500
+            )
+        ))
+        let closedLogs = try await repo.loadNutritionLogs(from: day, to: day)
+        let closed = try XCTUnwrap(closedLogs.first)
+        XCTAssertTrue(closed.dietDayComplete == true)
+        XCTAssertNil(closed.calorieSurplusKcal)
+        let reading = NutritionTargetEvaluator.evaluate(metricID: "diet_kcal", log: closed,
+                                                         validatedPlan: NutritionTargetEvaluator.validate(plan: nil, on: day))
+        XCTAssertEqual(reading.status, .unknown)
+        XCTAssertFalse(reading.isDayComplete)
+    }
+
     func testTargetValidationRejectsDuplicatesMismatchedUnitsAndRestrictedSpecialFormUL() {
         let today = DayKey(year: 2026, month: 11, day: 19)
 

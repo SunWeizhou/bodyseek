@@ -33,6 +33,7 @@ public actor AgentCapturedSideEffects: Sendable {
 
 public struct AgentExecutionContext: Sendable {
     public let snapshot: BodySeekDashboardSnapshot
+    public let asOf: Date
     public let sessions: [LoggedWorkoutSession]
     public let templates: [WorkoutTemplate]
     public let memories: [AthleteMemoryItem]
@@ -65,9 +66,11 @@ public struct AgentExecutionContext: Sendable {
         checkIns: [DailyCheckIn] = [],
         dominantHand: DominantHand = .right,
         sleepGoalMinutes: Int = 450,
+        asOf: Date? = nil,
         effects: AgentCapturedSideEffects = AgentCapturedSideEffects()
     ) {
         self.snapshot = snapshot
+        self.asOf = asOf ?? snapshot.referenceDate
         self.sessions = sessions
         self.templates = templates
         self.memories = memories
@@ -95,7 +98,7 @@ public struct AgentExecutionContext: Sendable {
         snapshot.historyDays.flatMap { day in
             day.raw.workouts.map { summary in
                 let uuid = (summary.healthKitUUID ?? summary.id).uuidString
-                let end = summary.startDate.addingTimeInterval(Double(max(1, summary.durationMinutes)) * 60.0)
+                let end = summary.endDate
                 return StoredWorkoutRecord(
                     hkUUID: uuid,
                     type: summary.activityName,
@@ -116,9 +119,10 @@ public struct AgentExecutionContext: Sendable {
 // MARK: - 4-State Tool Response Envelope
 
 private struct ToolEnvelope<Payload: Encodable>: Encodable {
+    let ontologyVersion = "bodyseek-evidence-v1"
     let tool: String
     let state: String
-    let coverage: Double
+    let coverage: Double?
     let reason: String?
     let algorithmVersion: String
     let data: Payload
@@ -237,11 +241,11 @@ public enum CoachToolRegistry {
         )),
         OpenAIToolDefinition(function: OpenAIFunctionDefinition(
             name: "propose_workout_annotation",
-            description: "解析用户的一句话训练描述并生成待确认的 Watch 训练肌群标注提案，不直接修改数据库。",
+            description: "解析用户的一句话训练描述并生成待确认的 Watch 肌群标注提案。保留用户所说的训练日期。",
             parameters: OpenAIToolParametersObject(
                 properties: [
                     "rawText": OpenAIToolParameterSchema(type: "string", description: "用户描述今天练了什么与感受的一句话"),
-                    "workoutUUID": OpenAIToolParameterSchema(type: "string", description: "可选Watch训练UUID；省略则匹配最近待复盘力量训练"),
+                    "workoutUUID": OpenAIToolParameterSchema(type: "string", description: "可选 Watch 训练 UUID。省略时按描述中的日期匹配，未说明日期时只查今天。"),
                 ],
                 required: ["rawText"]
             )
@@ -402,6 +406,9 @@ public enum CoachToolRegistry {
         struct TrendPayload: Encodable {
             let metric: String
             let horizon: String
+            let startDayKey: String?
+            let endDayKey: String?
+            let unit: String
             let coveredDays: Int
             let totalDays: Int
             let median: Int?
@@ -468,6 +475,9 @@ public enum CoachToolRegistry {
             data: TrendPayload(
                 metric: kind.rawValue,
                 horizon: horizon.title,
+                startDayKey: slice.first?.dayKey.isoString,
+                endDayKey: slice.last?.dayKey.isoString,
+                unit: "score_0_100",
                 coveredDays: vals.count,
                 totalDays: total,
                 median: median,
@@ -490,15 +500,19 @@ public enum CoachToolRegistry {
     ) -> String {
         struct WorkoutItem: Encodable {
             let uuid: String
+            let source: String
+            let manualSessionID: String?
             let type: String
             let dayKey: String
             let durationMinutes: Int
-            let energyKcal: Int
+            let energyKcal: Int?
+            let estimatedEnergyKcal: Int?
             let avgHR: Double?
             let effortUser: Double?
             let effortEstimated: Double?
             let reviewState: String
             let annotationText: String?
+            let manualVolumeKg: Double?
         }
         struct MuscleItem: Encodable {
             let muscleID: String
@@ -510,6 +524,9 @@ public enum CoachToolRegistry {
         }
         struct WorkoutsAndMusclesPayload: Encodable {
             let windowDays: Int
+            let startDayKey: String
+            let endDayKey: String
+            let workoutCount: Int
             let estimationLabel: String
             let systemicAlpha: Double
             let systemicSummary: String
@@ -518,11 +535,19 @@ public enum CoachToolRegistry {
         }
 
         let clampedDays = min(90, max(1, days))
-        let dayEnd = max(context.snapshot.referenceDate, context.snapshot.today.dayKey.startDate().addingTimeInterval(86_400))
-        let cutoff = dayEnd.addingTimeInterval(-Double(clampedDays) * 86_400)
-        let recentWorkouts = context.storedWorkouts
-            .filter { $0.end >= cutoff && $0.end <= dayEnd }
-            .sorted { $0.start > $1.start }
+        let dayEnd = context.asOf
+        let endDay = dayEnd.physiologicalDayKey()
+        let startDay = endDay.addingDays(1 - clampedDays)
+        let recentWorkouts = context.storedWorkouts.filter {
+            $0.start.physiologicalDayKey() >= startDay && $0.end <= dayEnd
+        }
+        let manual = context.sessions.filter {
+            $0.startedAt.physiologicalDayKey() >= startDay && $0.completedAt <= dayEnd
+        }
+        let linked = Dictionary(grouping: manual.compactMap { session in
+            session.syncedHealthKitUUID.map { ($0.lowercased(), session) }
+        }, by: { $0.0 })
+        let importedIDs = Set(recentWorkouts.map { $0.hkUUID.lowercased() })
 
         let recSnap = MuscleRecoveryEngine.compute(
             asOf: dayEnd,
@@ -551,37 +576,56 @@ public enum CoachToolRegistry {
             )
         }
 
-        let workoutItems = recentWorkouts.prefix(8).map { w in
-            WorkoutItem(
+        let importedItems: [(Date, WorkoutItem)] = recentWorkouts.map { w in
+            let supplement = linked[w.hkUUID.lowercased()]?.first?.1
+            return (w.start, WorkoutItem(
                 uuid: w.hkUUID,
+                source: "healthkit",
+                manualSessionID: supplement?.id.uuidString,
                 type: w.type,
                 dayKey: w.start.physiologicalDayKey().isoString,
                 durationMinutes: max(1, Int((w.end.timeIntervalSince(w.start) / 60).rounded())),
-                energyKcal: Int(w.energy.rounded()),
+                energyKcal: supplement == nil ? Int(w.energy.rounded()) : nil,
+                estimatedEnergyKcal: supplement.map { Int($0.estimatedCalories.rounded()) },
                 avgHR: w.avgHR,
-                effortUser: w.effortUser,
+                effortUser: w.effortUser ?? supplement.map { Double($0.rpe) },
                 effortEstimated: w.effortEstimated,
                 reviewState: w.reviewState.rawValue,
-                annotationText: context.annotationsByWorkoutUUID[w.hkUUID]?.rawText
-            )
+                annotationText: context.annotationsByWorkoutUUID[w.hkUUID]?.rawText,
+                manualVolumeKg: supplement?.totalVolumeKg
+            ))
         }
-
-        let stateStr = recentWorkouts.isEmpty && recSnap.rankedByFatigue.isEmpty ? "knownZero" : "available"
-        let reasonStr = recentWorkouts.isEmpty ? "近 \(clampedDays) 天无手表或手动训练记录" : nil
+        let manualItems: [(Date, WorkoutItem)] = manual.filter { session in
+            !(session.syncedHealthKitUUID.map { importedIDs.contains($0.lowercased()) } ?? false)
+        }.map { session in
+            (session.startedAt, WorkoutItem(
+                uuid: session.id.uuidString, source: "manual", manualSessionID: session.id.uuidString,
+                type: session.title, dayKey: session.startedAt.physiologicalDayKey().isoString,
+                durationMinutes: session.durationMinutes, energyKcal: nil,
+                estimatedEnergyKcal: Int(session.estimatedCalories.rounded()), avgHR: nil,
+                effortUser: Double(session.rpe), effortEstimated: nil,
+                reviewState: "manual", annotationText: session.notes.isEmpty ? nil : session.notes,
+                manualVolumeKg: session.totalVolumeKg
+            ))
+        }
+        let workoutItems = (importedItems + manualItems).sorted { $0.0 > $1.0 }.prefix(8).map(\.1)
 
         return encodeEnvelope(
             tool: "get_workouts_and_muscles",
-            state: stateStr,
-            coverage: 1.0,
-            reason: reasonStr,
+            state: workoutItems.isEmpty ? "missing" : "available",
+            coverage: nil,
+            reason: workoutItems.isEmpty ? "未读取到这段时间的训练，无法判断是否训练" : nil,
             algorithmVersion: AlgorithmVersion.recoveryHeuristicV1.description,
             data: WorkoutsAndMusclesPayload(
                 windowDays: clampedDays,
+                startDayKey: startDay.isoString,
+                endDayKey: endDay.isoString,
+                workoutCount: importedItems.count + manualItems.count,
                 estimationLabel: "全身及局部肌群恢复百分比均为启发式估计，仅供参考",
                 systemicAlpha: (recSnap.systemicFactor.alpha * 100).rounded() / 100,
                 systemicSummary: recSnap.systemicFactor.summary,
                 workouts: workoutItems,
-                muscleEstimates: filteredMuscles
+                muscleEstimates: workoutItems.isEmpty ? [] : filteredMuscles
             )
         )
     }
@@ -827,6 +871,9 @@ public enum CoachToolRegistry {
         struct DayNutritionSummary: Encodable {
             let dayKey: String
             let mealCount: Int
+            let estimatedEntryCount: Int
+            let partialFields: [String]
+            let evidenceKey: String
             let kcal: Double?
             let proteinG: Double?
             let carbsG: Double?
@@ -838,15 +885,26 @@ public enum CoachToolRegistry {
         }
         struct EatingPayload: Encodable {
             let targetPlanVersion: String?
+            let targetEffectiveFrom: String?
+            let targets: [NutritionTargetItem]
             let trackedDays: Int
+            let completedDays: Int
+            let startDayKey: String
+            let endDayKey: String
             let logs: [DayNutritionSummary]
         }
 
         let clampedDays = min(30, max(1, days))
+        let end = context.snapshot.referenceDate.physiologicalDayKey()
+        let start = end.addingDays(1 - clampedDays)
         let recent = context.nutritionLogs
-            .sorted { $0.dayKey > $1.dayKey }
-            .prefix(clampedDays)
+            .filter { $0.dayKey >= start && $0.dayKey <= end }
             .filter { !$0.entries.isEmpty || $0.dietKcal != nil || $0.dietWaterMl != nil }
+            .sorted { $0.dayKey > $1.dayKey }
+        let targetPlan = context.nutritionTargetPlan
+        let validated = NutritionTargetEvaluator.validate(plan: targetPlan, on: end)
+        let targetIDs = ["diet_kcal", "diet_protein_g", "diet_carbs_g", "diet_fat_g", "diet_fiber_g", "diet_water_ml"]
+        let targets = validated.isActive ? targetIDs.compactMap { validated.validAdoptedItems[$0] } : []
 
         guard !recent.isEmpty else {
             return encodeEnvelope(
@@ -855,8 +913,10 @@ public enum CoachToolRegistry {
                 coverage: 0.0,
                 reason: "近 \(clampedDays) 天尚未记录饮食或饮水数据",
                 data: EatingPayload(
-                    targetPlanVersion: context.nutritionTargetPlan?.targetVersion,
-                    trackedDays: 0,
+                    targetPlanVersion: validated.isActive ? targetPlan?.targetVersion : nil,
+                    targetEffectiveFrom: validated.isActive ? targetPlan?.effectiveFrom?.isoString : nil,
+                    targets: targets,
+                    trackedDays: 0, completedDays: 0, startDayKey: start.isoString, endDayKey: end.isoString,
                     logs: []
                 )
             )
@@ -866,6 +926,9 @@ public enum CoachToolRegistry {
             DayNutritionSummary(
                 dayKey: log.dayKey.isoString,
                 mealCount: log.entries.count,
+                estimatedEntryCount: log.entries.filter(\.isEstimated).count,
+                partialFields: log.dietPartialFields,
+                evidenceKey: "nutrition_day:\(log.dayKey.isoString)",
                 kcal: log.dietKcal,
                 proteinG: log.dietProteinG,
                 carbsG: log.dietCarbsG,
@@ -873,7 +936,8 @@ public enum CoachToolRegistry {
                 fiberG: log.dietFiberG,
                 waterMl: log.dietWaterMl,
                 complete: log.dietDayComplete ?? false,
-                calorieSurplusKcal: log.calorieSurplusKcal
+                calorieSurplusKcal: log.dietDayComplete == true && log.dietPartialFields.isEmpty
+                    ? log.calorieSurplusKcal : nil
             )
         }
         return encodeEnvelope(
@@ -883,8 +947,12 @@ public enum CoachToolRegistry {
             reason: nil,
             algorithmVersion: "nutrition-v1",
             data: EatingPayload(
-                targetPlanVersion: context.nutritionTargetPlan?.targetVersion,
+                targetPlanVersion: validated.isActive ? targetPlan?.targetVersion : nil,
+                targetEffectiveFrom: validated.isActive ? targetPlan?.effectiveFrom?.isoString : nil,
+                targets: targets,
                 trackedDays: items.count,
+                completedDays: items.filter { $0.complete && $0.partialFields.isEmpty }.count,
+                startDayKey: start.isoString, endDayKey: end.isoString,
                 logs: items
             )
         )
@@ -1160,16 +1228,30 @@ public enum CoachToolRegistry {
             return encodeEnvelope(tool: "propose_workout_annotation", state: "missing", coverage: 0, reason: "复盘描述为空", data: ["status": "rejected"])
         }
 
+        let referenceDate = context.asOf
+        let today = referenceDate.physiologicalDayKey()
+        let mentionsToday = cleaned.contains("今天") || cleaned.contains("今日")
+        let mentionsYesterday = cleaned.contains("昨天") || cleaned.contains("昨日")
+        guard !(mentionsToday && mentionsYesterday) else {
+            return encodeEnvelope(tool: "propose_workout_annotation", state: "missing", coverage: 0,
+                                  reason: "请指定要复盘的那一条训练", data: ["status": "ambiguous"])
+        }
+        let day = mentionsYesterday ? today.addingDays(-1) : today
+        let completed = context.storedWorkouts.filter { $0.end <= referenceDate }
+        let matching = completed.filter {
+            $0.start.physiologicalDayKey() == day && WorkoutAutoAttributor.isStrengthWorkout(type: $0.type)
+        }
         let target: StoredWorkoutRecord?
         if let uuid = workoutUUID, !uuid.isEmpty {
-            target = context.storedWorkouts.first(where: { $0.hkUUID == uuid })
+            let candidates = mentionsToday || mentionsYesterday ? matching : completed
+            target = candidates.first { $0.hkUUID.caseInsensitiveCompare(uuid) == .orderedSame }
         } else {
-            target = context.storedWorkouts.first(where: { $0.reviewState == .unreviewed })
-                ?? context.storedWorkouts.first
+            target = matching.count == 1 ? matching.first : nil
         }
 
         guard let workout = target else {
-            return encodeEnvelope(tool: "propose_workout_annotation", state: "missing", coverage: 0, reason: "当前没有可标注的 Apple Watch 训练记录", data: ["status": "missing"])
+            return encodeEnvelope(tool: "propose_workout_annotation", state: "missing", coverage: 0,
+                                  reason: "无法按日期唯一定位训练，请先在健身页选择对应记录", data: ["status": "missing"])
         }
 
         let parsed = ChineseWorkoutLexiconParser.parse(cleaned)
@@ -1194,6 +1276,7 @@ public enum CoachToolRegistry {
             let status: String
             let workoutUUID: String
             let workoutTitle: String
+            let dayKey: String
             let primaryMuscles: [String]
             let rpe: Int?
         }
@@ -1206,6 +1289,7 @@ public enum CoachToolRegistry {
                 status: "pending_user_confirmation",
                 workoutUUID: workout.hkUUID,
                 workoutTitle: workout.type,
+                dayKey: workout.start.physiologicalDayKey().isoString,
                 primaryMuscles: parsed.primaryMuscles.map(\.title),
                 rpe: parsed.rpe
             )
@@ -1272,7 +1356,7 @@ public enum CoachToolRegistry {
     private static func encodeEnvelope<Payload: Encodable>(
         tool: String,
         state: String,
-        coverage: Double,
+        coverage: Double?,
         reason: String?,
         algorithmVersion: String = "v1",
         data: Payload

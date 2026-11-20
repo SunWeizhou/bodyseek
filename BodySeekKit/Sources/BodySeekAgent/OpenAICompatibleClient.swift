@@ -310,6 +310,7 @@ public struct OpenAIChatMessage: Equatable, Hashable, Sendable, Codable {
     public let toolCalls: [OpenAIToolCall]?
     public let toolCallID: String?
     public let name: String?
+    let imageDataURL: String?
 
     private enum CodingKeys: String, CodingKey {
         case role
@@ -317,6 +318,13 @@ public struct OpenAIChatMessage: Equatable, Hashable, Sendable, Codable {
         case toolCalls = "tool_calls"
         case toolCallID = "tool_call_id"
         case name
+    }
+
+    private struct ContentPart: Codable {
+        struct ImageURL: Codable { let url: String }
+        let type: String
+        let text: String?
+        let image_url: ImageURL?
     }
 
     public init(
@@ -331,6 +339,48 @@ public struct OpenAIChatMessage: Equatable, Hashable, Sendable, Codable {
         self.toolCalls = toolCalls
         self.toolCallID = toolCallID
         self.name = name
+        self.imageDataURL = nil
+    }
+
+    init(mealText: String, jpeg: Data) {
+        role = "user"
+        content = mealText
+        toolCalls = nil
+        toolCallID = nil
+        name = nil
+        imageDataURL = "data:image/jpeg;base64," + jpeg.base64EncodedString()
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        role = try container.decode(String.self, forKey: .role)
+        toolCalls = try container.decodeIfPresent([OpenAIToolCall].self, forKey: .toolCalls)
+        toolCallID = try container.decodeIfPresent(String.self, forKey: .toolCallID)
+        name = try container.decodeIfPresent(String.self, forKey: .name)
+        do {
+            content = try container.decodeIfPresent(String.self, forKey: .content)
+            imageDataURL = nil
+        } catch DecodingError.typeMismatch {
+            let parts = try container.decode([ContentPart].self, forKey: .content)
+            content = parts.first { $0.type == "text" }?.text
+            imageDataURL = parts.first { $0.type == "image_url" }?.image_url?.url
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(role, forKey: .role)
+        try container.encodeIfPresent(toolCalls, forKey: .toolCalls)
+        try container.encodeIfPresent(toolCallID, forKey: .toolCallID)
+        try container.encodeIfPresent(name, forKey: .name)
+        if let imageDataURL {
+            try container.encode([
+                ContentPart(type: "text", text: content ?? "", image_url: nil),
+                ContentPart(type: "image_url", text: nil, image_url: .init(url: imageDataURL)),
+            ], forKey: .content)
+        } else {
+            try container.encodeIfPresent(content, forKey: .content)
+        }
     }
 }
 
@@ -638,6 +688,64 @@ public struct OpenAICompatibleClient: Sendable {
         } catch {
             Self.logger.error("Connection test failed: \(error.localizedDescription, privacy: .public)")
             return "网络请求失败：\(error.localizedDescription)"
+        }
+    }
+
+    func analyzeMeal(endpointURL: String, apiKey: String, modelName: String,
+                     input: String, jpeg: Data?) async throws -> [MealDraftCandidate] {
+        guard let url = EndpointURLNormalizer.normalizeBaseURL(endpointURL),
+              url.scheme?.lowercased() == "https", url.host != nil,
+              !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              !modelName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else { throw MealDraftAnalysisError.unconfigured }
+
+        if let jpeg, jpeg.isEmpty || jpeg.count > 2_000_000 { throw MealDraftAnalysisError.imageTooLarge }
+        let text = input.isEmpty ? "请识别我选中的这一餐。" : input
+        let user = jpeg.map { OpenAIChatMessage(mealText: text, jpeg: $0) }
+            ?? OpenAIChatMessage(role: "user", content: text)
+        let chatURL = url.appendingPathComponent("chat/completions")
+        // Keep the disclosure record useful without storing the meal text or image bytes.
+        await payloadRecorder.record(.init(
+            sentAt: Date(), endpointURL: chatURL.absoluteString, modelName: modelName, messageCount: 2,
+            toolNames: [], redactedRequestJSON: jpeg == nil ? #"{"mealInput":"[文字已省略]"}"# : #"{"mealInput":"[图片和文字已省略]"}"#
+        ))
+        do {
+            for attempt in 0...1 {
+                let instructions = attempt == 0 ? MealDraftAnalysis.instructions
+                    : MealDraftAnalysis.instructions + "\n上次回复无法读取。仅输出紧凑的 JSON 对象，根字段为 items。食物名优先，无法填的字段用 null。先完整闭合 JSON。"
+                let payload = OpenAIChatRequest(
+                    model: modelName, messages: [.init(role: "system", content: instructions), user],
+                    maxTokens: attempt == 0 ? 2_800 : 6_144, stream: false
+                )
+                let request = try buildURLRequest(url: chatURL, apiKey: apiKey, payload: payload)
+                do {
+                    let result = try await executeDataWithRetry(request: request)
+                    try Task.checkCancellation()
+                    return try MealDraftAnalysis.decode(result.text)
+                } catch MealDraftAnalysisError.invalidReply where attempt == 0 {
+                    try Task.checkCancellation()
+                } catch OpenAICompatibleClientError.decodingFailure(_) where attempt == 0 {
+                    try Task.checkCancellation()
+                }
+            }
+            throw MealDraftAnalysisError.invalidReply
+        } catch let error as MealDraftAnalysisError {
+            throw error
+        } catch let error as OpenAICompatibleClientError {
+            try Task.checkCancellation()
+            switch error {
+            case .httpStatus(401, _), .httpStatus(403, _):
+                throw MealDraftAnalysisError.unconfigured
+            case .httpStatus(400, _) where jpeg != nil, .httpStatus(422, _) where jpeg != nil:
+                throw MealDraftAnalysisError.incompatibleModel
+            case .decodingFailure:
+                throw MealDraftAnalysisError.invalidReply
+            default:
+                throw MealDraftAnalysisError.serviceUnavailable
+            }
+        } catch {
+            try Task.checkCancellation()
+            throw MealDraftAnalysisError.invalidReply
         }
     }
 

@@ -171,6 +171,7 @@ public struct WorkoutSummary: Identifiable, Hashable, Sendable, Codable {
     public let activityName: String
     public let symbolName: String
     public let startDate: Date
+    public let recordedEndDate: Date?
     public let durationMinutes: Int
     public let activeEnergyKcal: Double
     public let averageHeartRate: Double?
@@ -179,11 +180,16 @@ public struct WorkoutSummary: Identifiable, Hashable, Sendable, Codable {
     public let healthKitUUID: UUID?
     public let heartRateZones: WorkoutHeartRateZones?
 
+    public var endDate: Date {
+        recordedEndDate ?? startDate.addingTimeInterval(Double(max(1, durationMinutes)) * 60)
+    }
+
     private enum CodingKeys: String, CodingKey {
         case id
         case activityName
         case symbolName
         case startDate
+        case recordedEndDate
         case durationMinutes
         case activeEnergyKcal
         case averageHeartRate
@@ -204,12 +210,14 @@ public struct WorkoutSummary: Identifiable, Hashable, Sendable, Codable {
         effortScore: Double? = nil,
         heartRateZones: WorkoutHeartRateZones? = nil,
         estimatedEffortScore: Double? = nil,
-        healthKitUUID: UUID? = nil
+        healthKitUUID: UUID? = nil,
+        recordedEndDate: Date? = nil
     ) {
         self.id = id
         self.activityName = activityName
         self.symbolName = symbolName
         self.startDate = startDate
+        self.recordedEndDate = recordedEndDate
         self.durationMinutes = durationMinutes
         self.activeEnergyKcal = activeEnergyKcal
         self.averageHeartRate = averageHeartRate
@@ -225,6 +233,7 @@ public struct WorkoutSummary: Identifiable, Hashable, Sendable, Codable {
         activityName = try c.decode(String.self, forKey: .activityName)
         symbolName = try c.decode(String.self, forKey: .symbolName)
         startDate = try c.decode(Date.self, forKey: .startDate)
+        recordedEndDate = try c.decodeIfPresent(Date.self, forKey: .recordedEndDate)
         durationMinutes = try c.decode(Int.self, forKey: .durationMinutes)
         activeEnergyKcal = try c.decode(Double.self, forKey: .activeEnergyKcal)
         averageHeartRate = try c.decodeIfPresent(Double.self, forKey: .averageHeartRate)
