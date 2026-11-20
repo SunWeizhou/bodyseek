@@ -114,18 +114,7 @@ public struct RangeCapsuleChart: View {
                         }
                     }
                 }
-                .chartXAxis {
-                    AxisMarks(values: xAxisValues) { value in
-                        AxisValueLabel(centered: true, collisionResolution: .disabled) {
-                            if let d = value.as(Date.self) {
-                                Text(ChartAxisSupport.formatAxisDate(d, horizon: snapshot.horizon))
-                                    .font(.caption2.monospacedDigit())
-                                    .fontDesign(.rounded)
-                                    .foregroundStyle(BevelTheme.inkSecondary)
-                            }
-                        }
-                    }
-                }
+                .chartXAxis(.hidden)
                 .chartOverlay { proxy in
                     GeometryReader { geometry in
                         Rectangle()
@@ -156,6 +145,8 @@ public struct RangeCapsuleChart: View {
                         yRange: 0...100
                     )
                 )
+
+                axisFooter(domain: domain)
             }
         }
     }
@@ -184,17 +175,6 @@ public struct RangeCapsuleChart: View {
         }
     }
 
-    private var xAxisValues: AxisMarkValues {
-        switch snapshot.horizon {
-        case .threeYears:
-            .stride(by: .year)
-        case .sixMonths:
-            .stride(by: .month, count: 2)
-        case .week, .month:
-            .automatic(desiredCount: 4)
-        }
-    }
-
     /// Keep the horizon's full time axis even when only part of it has data.
     /// Without this, Swift Charts shrinks the axis to the buckets that exist.
     private func xDomain(buckets: [RangeCapsuleBucket]) -> ClosedRange<Date> {
@@ -209,6 +189,25 @@ public struct RangeCapsuleChart: View {
             return now.addingTimeInterval(-86_400)...now
         }
         return first...last
+    }
+
+    /// Swift Charts drops trailing axis labels when the domain is much wider than the
+    /// data, so render the horizon's start / middle / end labels ourselves.
+    private func axisFooter(domain: ClosedRange<Date>) -> some View {
+        let middle = domain.lowerBound.addingTimeInterval(
+            domain.upperBound.timeIntervalSince(domain.lowerBound) / 2.0
+        )
+        return HStack(spacing: 0) {
+            Text(ChartAxisSupport.formatAxisDate(domain.lowerBound, horizon: snapshot.horizon))
+            Spacer(minLength: 8)
+            Text(ChartAxisSupport.formatAxisDate(middle, horizon: snapshot.horizon))
+            Spacer(minLength: 8)
+            Text(ChartAxisSupport.formatAxisDate(domain.upperBound, horizon: snapshot.horizon))
+        }
+        .font(.caption2.monospacedDigit())
+        .fontDesign(.rounded)
+        .foregroundStyle(BevelTheme.inkSecondary)
+        .accessibilityHidden(true)
     }
 
     private func headerStrings(buckets: [RangeCapsuleBucket]) -> (primary: String, secondary: String) {
