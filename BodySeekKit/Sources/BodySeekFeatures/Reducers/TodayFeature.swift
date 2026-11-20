@@ -1,3 +1,4 @@
+import BodySeekAgent
 import BodySeekCore
 import ComposableArchitecture
 import Foundation
@@ -13,6 +14,8 @@ public struct TodayFeature: Sendable {
         public var subjectiveFeeling: Int?
         public var todayCheckIn: DailyCheckIn?
         public var planItems: [PlanItemRecord] = []
+        public var proactiveInsights: [ProactiveInsight] = []
+        public var dismissedInsightIDs: Set<String> = []
         public var todayNutritionLog: DailyNutritionLog?
         public var nutritionTargetPlan: NutritionTargetPlan?
         public var nutritionRollingDeficit7d: Double?
@@ -62,6 +65,8 @@ public struct TodayFeature: Sendable {
         case openSettingsTapped
         case openCheckInTapped
         case regenerateBriefingTapped
+        case proactiveInsightActionTapped(ProactiveInsight)
+        case dismissProactiveInsightTapped(String)
         case delegate(Delegate)
 
         @CasePathable
@@ -76,6 +81,8 @@ public struct TodayFeature: Sendable {
             case openNutrition
             case openSettings
             case openCheckIn
+            case openWorkoutInbox
+            case proactiveInsightDismissed(String)
             case regenerateBriefingRequested
         }
     }
@@ -128,6 +135,19 @@ public struct TodayFeature: Sendable {
 
             case .regenerateBriefingTapped:
                 return .send(.delegate(.regenerateBriefingRequested))
+
+            case let .proactiveInsightActionTapped(insight):
+                switch insight.route {
+                case let .askCoach(prompt):
+                    return .send(.delegate(.askCoach(prompt)))
+                case .openWorkoutInbox:
+                    return .send(.delegate(.openWorkoutInbox))
+                }
+
+            case let .dismissProactiveInsightTapped(id):
+                state.dismissedInsightIDs.insert(id)
+                state.proactiveInsights.removeAll { $0.id == id }
+                return .send(.delegate(.proactiveInsightDismissed(id)))
 
             case .delegate:
                 return .none

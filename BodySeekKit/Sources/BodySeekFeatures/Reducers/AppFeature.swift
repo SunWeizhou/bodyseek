@@ -23,6 +23,7 @@ public struct AppFeature: Sendable {
         public var templates: [WorkoutTemplate]
         public var sessions: [LoggedWorkoutSession]
         public var memories: [AthleteMemoryItem]
+        public var tieredMemories: [TieredMemoryRecord]
         public var today: TodayFeature.State
         public var workout: WorkoutFeature.State
         public var trends: TrendsFeature.State
@@ -63,27 +64,41 @@ public struct AppFeature: Sendable {
             self.templates = templates
             self.sessions = resolvedSessions
             self.memories = memories
-            self.today = TodayFeature.State(
+            let bridgedMemories = MemoryContextSelector.bridgeFromLegacy(memories)
+            self.tieredMemories = bridgedMemories
+            var initialToday = TodayFeature.State(
                 snapshot: initialSnapshot,
                 planItems: TodayActionGenerator.generateDefaultPlanItems(
                     for: initialSnapshot,
                     dayKey: initialSnapshot.referenceDate.physiologicalDayKey()
                 )
             )
-            self.workout = WorkoutFeature.State(
+            let initialWorkout = WorkoutFeature.State(
                 snapshot: initialSnapshot,
                 templates: templates,
                 sessions: resolvedSessions,
                 dominantHand: preferences.dominantHand,
                 sleepGoalMinutes: preferences.sleepGoalMinutes
             )
+            initialToday.proactiveInsights = ProactiveInsightEngine.generate(
+                snapshot: initialSnapshot,
+                storedWorkouts: initialWorkout.storedWorkouts,
+                enabled: preferences.proactiveInsightsEnabled
+            )
+            self.today = initialToday
+            self.workout = initialWorkout
             self.trends = TrendsFeature.State(snapshot: initialSnapshot)
-            self.coach = CoachFeature.State(
+            var initialCoach = CoachFeature.State(
                 snapshot: initialSnapshot,
                 sessions: resolvedSessions,
                 templates: templates,
-                memories: memories
+                memories: memories,
+                tieredMemories: bridgedMemories
             )
+            initialCoach.storedWorkouts = initialWorkout.storedWorkouts
+            initialCoach.dominantHand = preferences.dominantHand
+            initialCoach.sleepGoalMinutes = preferences.sleepGoalMinutes
+            self.coach = initialCoach
 
             if let idx = arguments.firstIndex(of: "-velaInitialTab"),
                arguments.indices.contains(idx + 1),
@@ -110,6 +125,8 @@ public struct AppFeature: Sendable {
             patterns: [PatternFindingRecord],
             todayNutritionLog: DailyNutritionLog?,
             nutritionTargetPlan: NutritionTargetPlan?,
+            nutritionLogs: [DailyNutritionLog],
+            checkIns: [DailyCheckIn],
             rollingDeficit7d: Double?,
             error: String?
         )
@@ -117,6 +134,7 @@ public struct AppFeature: Sendable {
             templates: [WorkoutTemplate],
             sessions: [LoggedWorkoutSession],
             memories: [AthleteMemoryItem],
+            tieredMemories: [TieredMemoryRecord],
             messages: [CoachMessage],
             error: String?
         )
@@ -267,7 +285,7 @@ public struct AppFeature: Sendable {
                 }
                 return .none
 
-            case let .supplementalContextLoaded(planItems, patterns, nutritionLog, nutritionPlan, rollingDeficit7d, error):
+            case let .supplementalContextLoaded(planItems, patterns, nutritionLog, nutritionPlan, nutritionLogs, checkIns, rollingDeficit7d, error):
                 if !planItems.isEmpty {
                     state.today.planItems = planItems
                 }
@@ -275,20 +293,30 @@ public struct AppFeature: Sendable {
                 state.today.todayNutritionLog = nutritionLog
                 state.today.nutritionTargetPlan = nutritionPlan
                 state.today.nutritionRollingDeficit7d = rollingDeficit7d
+                state.coach.patternFindings = patterns
+                state.coach.todayNutritionLog = nutritionLog
+                state.coach.nutritionTargetPlan = nutritionPlan
+                state.coach.nutritionLogs = nutritionLogs
+                state.coach.checkIns = checkIns
                 if let error {
                     state.today.lastError = error
                 }
                 return .none
 
-            case let .fitnessStoreLoaded(templates, sessions, memories, messages, error):
+            case let .fitnessStoreLoaded(templates, sessions, memories, tieredMemories, messages, error):
                 state.templates = templates
                 state.sessions = sessions
                 state.memories = memories
+                let resolvedTiered = tieredMemories.isEmpty && !memories.isEmpty
+                    ? MemoryContextSelector.bridgeFromLegacy(memories)
+                    : tieredMemories
+                state.tieredMemories = resolvedTiered
                 state.workout.templates = templates
                 state.workout.sessions = sessions
                 state.coach.templates = templates
                 state.coach.sessions = sessions
                 state.coach.memories = memories
+                state.coach.tieredMemories = resolvedTiered
                 if !messages.isEmpty {
                     state.coach.messages = messages
                 }
@@ -372,12 +400,20 @@ public struct AppFeature: Sendable {
                     state.settings = SettingsFeature.State(
                         snapshot: state.snapshot,
                         preferences: state.preferences,
-                        memories: state.memories
+                        memories: state.memories,
+                        tieredMemories: state.tieredMemories
                     )
                     return .none
 
                 case .openCheckIn:
                     state.isCheckInPresented = true
+                    return .none
+
+                case .openWorkoutInbox:
+                    state.selectedTab = .workout
+                    return .none
+
+                case .proactiveInsightDismissed:
                     return .none
 
                 case .regenerateBriefingRequested:
@@ -386,6 +422,10 @@ public struct AppFeature: Sendable {
                 }
 
             // MARK: - Workout Delegates
+
+            case .workout(.watchWorkoutsLoaded), .workout(.reviewPersisted):
+                syncWorkoutContextToCoachAndInsights(&state)
+                return .none
 
             case let .workout(.delegate(delegate)):
                 switch delegate {
@@ -409,9 +449,14 @@ public struct AppFeature: Sendable {
 
                 case let .memoryCommitted(item):
                     state.memories.insert(item, at: 0)
+                    let bridged = MemoryContextSelector.bridgeFromLegacy([item])
+                    state.tieredMemories.insert(contentsOf: bridged, at: 0)
                     let updatedMemories = state.memories
+                    let updatedTiered = state.tieredMemories
                     state.coach.memories = updatedMemories
+                    state.coach.tieredMemories = updatedTiered
                     state.settings?.memories = updatedMemories
+                    state.settings?.tieredMemories = updatedTiered
                     return .none
 
                 case let .askCoach(question):
@@ -450,16 +495,27 @@ public struct AppFeature: Sendable {
 
                 case let .memoriesUpdated(memories):
                     state.memories = memories
-                    if state.settings != nil {
-                        state.settings?.memories = memories
-                    }
+                    state.settings?.memories = memories
                     return .none
+
+                case let .tieredMemoriesUpdated(tiered):
+                    state.tieredMemories = tiered
+                    state.settings?.tieredMemories = tiered
+                    return .none
+
+                case let .patternFindingsUpdated(findings):
+                    state.trends.patternFindings = findings
+                    return .none
+
+                case .workoutAnnotationCommitted:
+                    return .send(.workout(.onAppear))
 
                 case .openSettings:
                     state.settings = SettingsFeature.State(
                         snapshot: state.snapshot,
                         preferences: state.preferences,
-                        memories: state.memories
+                        memories: state.memories,
+                        tieredMemories: state.tieredMemories
                     )
                     return .none
                 }
@@ -479,6 +535,9 @@ public struct AppFeature: Sendable {
                     state.preferences = updated
                     state.workout.dominantHand = updated.dominantHand
                     state.workout.sleepGoalMinutes = updated.sleepGoalMinutes
+                    state.coach.dominantHand = updated.dominantHand
+                    state.coach.sleepGoalMinutes = updated.sleepGoalMinutes
+                    syncWorkoutContextToCoachAndInsights(&state)
                     if handChanged {
                         return .merge(
                             loadSnapshotEffect(goalMinutes: updated.sleepGoalMinutes, referenceDate: now),
@@ -489,12 +548,18 @@ public struct AppFeature: Sendable {
 
                 case let .memoriesUpdated(memories):
                     state.memories = memories
+                    let activeIDs = Set(memories.map(\.id))
+                    let pruned = state.tieredMemories.filter { $0.tier == .verifiedPattern || activeIDs.contains($0.id) }
+                    state.tieredMemories = pruned
                     state.coach.memories = memories
+                    state.coach.tieredMemories = pruned
+                    state.settings?.tieredMemories = pruned
                     return .none
 
                 case .allDataReset:
                     state.preferences = AppPreferencesState()
                     state.memories = []
+                    state.tieredMemories = []
                     state.sessions = []
                     state.templates = ExerciseCatalog.defaultTemplates
                     state.workout.sessions = []
@@ -509,8 +574,14 @@ public struct AppFeature: Sendable {
                     state.workout.sleepGoalMinutes = state.preferences.sleepGoalMinutes
                     state.workout.recomputeRecoverySnapshot()
                     state.coach.memories = []
+                    state.coach.tieredMemories = []
                     state.coach.sessions = []
                     state.coach.templates = ExerciseCatalog.defaultTemplates
+                    state.coach.patternFindings = []
+                    state.coach.nutritionLogs = []
+                    state.coach.todayNutritionLog = nil
+                    state.coach.checkIns = []
+                    state.today.dismissedInsightIDs = []
                     state.today.subjectiveFeeling = nil
                     state.today.todayCheckIn = nil
                     state.today.planItems = []
@@ -725,12 +796,15 @@ public struct AppFeature: Sendable {
                     todayKey: dayKey
                 )
                 let todayLog = logs.first(where: { $0.dayKey == dayKey })
+                let checkIns = try await bodySeekStoreClient.loadCheckIns()
 
                 await send(.supplementalContextLoaded(
                     planItems: storedPlan,
                     patterns: findings,
                     todayNutritionLog: todayLog,
                     nutritionTargetPlan: plan,
+                    nutritionLogs: logs,
+                    checkIns: checkIns,
                     rollingDeficit7d: summary.rollingDeficit7dKcal,
                     error: nil
                 ))
@@ -740,6 +814,8 @@ public struct AppFeature: Sendable {
                     patterns: [],
                     todayNutritionLog: nil,
                     nutritionTargetPlan: nil,
+                    nutritionLogs: [],
+                    checkIns: [],
                     rollingDeficit7d: nil,
                     error: "读取计划与营养上下文失败：\(error.localizedDescription)"
                 ))
@@ -753,11 +829,13 @@ public struct AppFeature: Sendable {
                 let templates = try await fitnessStoreClient.loadTemplates()
                 let sessions = try await fitnessStoreClient.loadSessions()
                 let memories = try await fitnessStoreClient.loadMemories()
+                let tieredMemories = try await bodySeekStoreClient.loadTieredMemories(false)
                 let messages = try await fitnessStoreClient.loadMessages()
                 await send(.fitnessStoreLoaded(
                     templates: templates,
                     sessions: sessions,
                     memories: memories,
+                    tieredMemories: tieredMemories,
                     messages: messages,
                     error: nil
                 ))
@@ -766,6 +844,7 @@ public struct AppFeature: Sendable {
                     templates: ExerciseCatalog.defaultTemplates,
                     sessions: [],
                     memories: [],
+                    tieredMemories: [],
                     messages: [],
                     error: "读取本地训练仓库失败：\(error.localizedDescription)"
                 ))
@@ -778,7 +857,18 @@ public struct AppFeature: Sendable {
             snapshot: state.snapshot,
             sessions: state.sessions,
             templates: state.templates,
-            memories: state.memories
+            memories: state.memories,
+            tieredMemories: state.tieredMemories,
+            storedWorkouts: state.workout.storedWorkouts,
+            annotationsByWorkoutUUID: state.workout.annotationsByWorkoutUUID,
+            muscleLoads: state.workout.muscleLoads,
+            patternFindings: state.trends.patternFindings,
+            todayNutritionLog: state.today.todayNutritionLog,
+            nutritionTargetPlan: state.today.nutritionTargetPlan,
+            nutritionLogs: state.coach.nutritionLogs,
+            checkIns: state.coach.checkIns,
+            dominantHand: state.preferences.dominantHand,
+            sleepGoalMinutes: state.preferences.sleepGoalMinutes
         )
         return .run { send in
             let status = await coachAIClient.generateBriefing(context)
@@ -821,12 +911,9 @@ public struct AppFeature: Sendable {
         state.workout.recomputeRecoverySnapshot()
         state.trends.updateSnapshot(snapshot, precomputedCache: precomputedCache)
         state.coach.snapshot = snapshot
-        if state.settings != nil {
-            state.settings?.snapshot = snapshot
-        }
-        if state.nutrition != nil {
-            state.nutrition?.snapshot = snapshot
-        }
+        syncWorkoutContextToCoachAndInsights(&state)
+        state.settings?.snapshot = snapshot
+        state.nutrition?.snapshot = snapshot
         let sleepGoal = state.preferences.sleepGoalMinutes
         for id in state.todayPath.ids {
             if let kind = state.todayPath[id: id]?.kind {
@@ -842,6 +929,23 @@ public struct AppFeature: Sendable {
                 state.trendsPath[id: id]?.updateSnapshot(snapshot, precomputedCache: kindCache)
             }
         }
+    }
+
+    private func syncWorkoutContextToCoachAndInsights(_ state: inout State) {
+        let workouts = state.workout.storedWorkouts
+        let annotations = state.workout.annotationsByWorkoutUUID
+        let loads = state.workout.muscleLoads
+        state.coach.storedWorkouts = workouts
+        state.coach.annotationsByWorkoutUUID = annotations
+        state.coach.muscleLoads = loads
+        state.coach.dominantHand = state.preferences.dominantHand
+        state.coach.sleepGoalMinutes = state.preferences.sleepGoalMinutes
+        state.today.proactiveInsights = ProactiveInsightEngine.generate(
+            snapshot: state.snapshot,
+            storedWorkouts: workouts,
+            enabled: state.preferences.proactiveInsightsEnabled,
+            dismissedIDs: state.today.dismissedInsightIDs
+        )
     }
 
     private func syncCheckInFromPreferences(into state: inout State) {

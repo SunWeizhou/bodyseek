@@ -1,3 +1,4 @@
+import BodySeekAgent
 import BodySeekCore
 import BodySeekDesign
 import ComposableArchitecture
@@ -35,7 +36,7 @@ public struct CoachView: View {
                             HStack(spacing: 8) {
                                 ProgressView()
                                     .controlSize(.small)
-                                Text("智能体正在调用健康与训练工具…")
+                                Text("智能体正在调用四态工具与记忆检索…")
                                     .font(.caption)
                                     .foregroundStyle(BevelTheme.inkSecondary)
                             }
@@ -76,12 +77,12 @@ public struct CoachView: View {
                     Button {
                         store.send(.memorySheetPresented(true))
                     } label: {
-                        Label("长期记忆管理 (\(store.memories.count))", systemImage: "brain.head.profile")
+                        Label("三层记忆管理 (\(store.state.activeTieredMemories().count))", systemImage: "brain.head.profile")
                     }
                     Button {
                         store.send(.openSettingsTapped)
                     } label: {
-                        Label("AI 接口与设置", systemImage: "gearshape")
+                        Label("AI 接口与隐私设置", systemImage: "gearshape")
                     }
                     Button {
                         store.send(.newConversationTapped)
@@ -100,25 +101,26 @@ public struct CoachView: View {
                 set: { store.send(.memorySheetPresented($0)) }
             )
         ) {
-            memorySheet
+            CoachMemorySheetView(store: store)
         }
     }
 
     private var memoryStripBar: some View {
-        Button {
+        let activeMemories = store.state.activeTieredMemories()
+        return Button {
             store.send(.memorySheetPresented(true))
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: "brain.head.profile")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(BevelTheme.brand)
-                if let first = store.memories.first {
-                    Text("已记住 \(store.memories.count) 条：\(first.content)")
+                if let first = activeMemories.first {
+                    Text("已激活 \(activeMemories.count) 条三层记忆：[\(first.tier.titleLabel)] \(first.content)")
                         .font(.caption)
                         .foregroundStyle(BevelTheme.ink)
                         .lineLimit(1)
                 } else {
-                    Text("尚无长期记忆 · 对话提及伤病或习惯将自动记忆")
+                    Text("尚无长期记忆 · 提及伤病或习惯时可确认写入")
                         .font(.caption)
                         .foregroundStyle(BevelTheme.inkSecondary)
                         .lineLimit(1)
@@ -131,6 +133,7 @@ public struct CoachView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
             .background(BevelTheme.card.opacity(0.85))
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("coach-memory-strip")
@@ -163,15 +166,15 @@ public struct CoachView: View {
                             .background(BevelTheme.brandSoft, in: Capsule())
                             .foregroundStyle(BevelTheme.brand)
                     }
-                }
-
-                if let memoryNote = msg.memorySavedNote {
-                    Label(memoryNote, systemImage: "brain.head.profile")
-                        .font(.caption)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(BevelTheme.brandSoft, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                        .foregroundStyle(BevelTheme.brand)
+                    if !msg.unverifiedNumbers.isEmpty {
+                        Text("含未核实数字")
+                            .font(.caption2.weight(.semibold))
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 2)
+                            .background(BevelTheme.dangerColor.opacity(0.14), in: Capsule())
+                            .foregroundStyle(BevelTheme.dangerColor)
+                            .accessibilityIdentifier("coach-unverified-badge")
+                    }
                 }
 
                 Text(msg.text)
@@ -179,15 +182,145 @@ public struct CoachView: View {
                     .foregroundStyle(BevelTheme.ink)
                     .fixedSize(horizontal: false, vertical: true)
 
+                if let memProposal = msg.memoryProposal,
+                   !store.dismissedMemoryProposalMessageIDs.contains(msg.id)
+                {
+                    memoryProposalCard(memProposal, messageID: msg.id)
+                }
+
+                if let annotationProposal = msg.workoutAnnotationProposal,
+                   !store.dismissedAnnotationProposalMessageIDs.contains(msg.id)
+                {
+                    workoutAnnotationProposalCard(annotationProposal, messageID: msg.id)
+                }
+
                 if let metric = msg.evidenceMetric {
                     evidenceSparklineCard(for: metric)
                 }
 
-                if let proposal = msg.workoutProposal, !store.dismissedProposalMessageIDs.contains(msg.id) {
+                if let proposal = msg.workoutProposal,
+                   !store.dismissedProposalMessageIDs.contains(msg.id)
+                {
                     workoutProposalCard(proposal, messageID: msg.id)
                 }
             }
         }
+    }
+
+    private func memoryProposalCard(_ memory: TieredMemoryRecord, messageID: UUID) -> some View {
+        let isCommitted = store.confirmedMemoryProposalMessageIDs.contains(messageID)
+        return BevelCard(padding: 12) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Label("记忆提案 · 需你确认写入", systemImage: "brain.head.profile")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(BevelTheme.brand)
+                    Spacer()
+                    Text(memory.tier.titleLabel)
+                        .font(.caption2.weight(.semibold))
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2)
+                        .background(BevelTheme.surfaceElevated, in: Capsule())
+                        .foregroundStyle(BevelTheme.inkSecondary)
+                }
+
+                Text(memory.content)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(BevelTheme.ink)
+
+                if let exp = memory.expiresAt {
+                    let days = max(1, Int((exp.timeIntervalSince(memory.confirmedAt ?? Date()) / 86_400).rounded()))
+                    Text("到期规则：将在 \(days) 天后自动失效（不长期污染计划）")
+                        .font(.caption2)
+                        .foregroundStyle(BevelTheme.inkSecondary)
+                }
+
+                if isCommitted {
+                    Label("已确认写入 \(memory.tier.titleLabel)", systemImage: "checkmark.circle.fill")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(BevelTheme.recoveryColor)
+                } else {
+                    HStack(spacing: 10) {
+                        Button {
+                            store.send(.confirmMemoryProposalTapped(messageID: messageID, memory: memory))
+                        } label: {
+                            Text("确认写入记忆")
+                                .font(.caption.weight(.semibold))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
+                                .background(BevelTheme.brand, in: Capsule())
+                                .foregroundStyle(BevelTheme.onBrand)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("coach-memory-proposal-confirm")
+
+                        Button {
+                            store.send(.dismissMemoryProposalTapped(messageID))
+                        } label: {
+                            Text("暂不保存")
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(BevelTheme.inkSecondary)
+                                .padding(.horizontal, 10)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("coach-memory-proposal-dismiss")
+                    }
+                }
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("coach-memory-proposal-card")
+    }
+
+    private func workoutAnnotationProposalCard(_ proposal: CoachWorkoutAnnotationProposal, messageID: UUID) -> some View {
+        let isCommitted = store.confirmedAnnotationProposalMessageIDs.contains(messageID)
+        return BevelCard(padding: 12) {
+            VStack(alignment: .leading, spacing: 8) {
+                Label("Watch 训练复盘标注提案 · 需确认", systemImage: "text.bubble.fill")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(BevelTheme.strainColor)
+
+                Text("\(proposal.workoutTitle) ← “\(proposal.rawText)”")
+                    .font(.caption)
+                    .foregroundStyle(BevelTheme.ink)
+
+                Text("主肌群：\(proposal.proposal.primaryMuscles.map(\.title).joined(separator: "、"))" + (proposal.proposal.rpe.map { " · RPE \($0)" } ?? ""))
+                    .font(.caption2)
+                    .foregroundStyle(BevelTheme.inkSecondary)
+
+                if isCommitted {
+                    Label("已确认标注并更新肌群恢复（启发式）", systemImage: "checkmark.circle.fill")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(BevelTheme.recoveryColor)
+                } else {
+                    HStack(spacing: 10) {
+                        Button {
+                            store.send(.confirmAnnotationProposalTapped(messageID: messageID, proposal: proposal))
+                        } label: {
+                            Text("确认写入训练档案")
+                                .font(.caption.weight(.semibold))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
+                                .background(BevelTheme.brand, in: Capsule())
+                                .foregroundStyle(BevelTheme.onBrand)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("coach-annotation-proposal-confirm")
+
+                        Button {
+                            store.send(.dismissAnnotationProposalTapped(messageID))
+                        } label: {
+                            Text("忽略")
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(BevelTheme.inkSecondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("coach-annotation-proposal-card")
     }
 
     private func evidenceSparklineCard(for kind: MetricKind) -> some View {
@@ -357,42 +490,5 @@ public struct CoachView: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
         .background(BevelTheme.canvas)
-    }
-
-    private var memorySheet: some View {
-        NavigationStack {
-            List {
-                if store.memories.isEmpty {
-                    Text("尚无已存储的长期记忆。当你在对话中说明「左肩不适」「习惯清晨训练」等情况时，AI 会自动记录到这里。")
-                        .font(.footnote)
-                        .foregroundStyle(BevelTheme.inkSecondary)
-                } else {
-                    ForEach(store.memories) { item in
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(item.category.title)
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(BevelTheme.brand)
-                            Text(item.content)
-                                .font(.subheadline)
-                                .foregroundStyle(BevelTheme.ink)
-                        }
-                        .swipeActions {
-                            Button("删除", role: .destructive) {
-                                store.send(.deleteMemoryTapped(item.id))
-                            }
-                        }
-                    }
-                }
-            }
-            .navigationTitle("长期记忆")
-            .bodyseekNavigationBarInline()
-            .toolbar {
-                ToolbarItem(placement: .bodyseekTrailing) {
-                    Button("完成") {
-                        store.send(.memorySheetPresented(false))
-                    }
-                }
-            }
-        }
     }
 }

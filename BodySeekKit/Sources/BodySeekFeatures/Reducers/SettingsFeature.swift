@@ -11,19 +11,24 @@ public struct SettingsFeature: Sendable {
         public var snapshot: BodySeekDashboardSnapshot
         public var preferences: AppPreferencesState
         public var memories: [AthleteMemoryItem]
+        public var tieredMemories: [TieredMemoryRecord]
         public var apiKey: String = ""
         public var config: CoachAIConfig = CoachAIConfig()
         public var isTestingConnection: Bool = false
+        public var showPrivacyPayloadSheet: Bool = false
+        public var lastOutboundPayload: AgentOutboundPayloadSnapshot?
         public var statusMessage: String?
 
         public init(
             snapshot: BodySeekDashboardSnapshot,
             preferences: AppPreferencesState,
-            memories: [AthleteMemoryItem] = []
+            memories: [AthleteMemoryItem] = [],
+            tieredMemories: [TieredMemoryRecord] = []
         ) {
             self.snapshot = snapshot
             self.preferences = preferences
             self.memories = memories
+            self.tieredMemories = tieredMemories
         }
     }
 
@@ -31,11 +36,14 @@ public struct SettingsFeature: Sendable {
         case onAppear
         case sleepGoalChanged(Int)
         case dominantHandChanged(DominantHand)
+        case proactiveInsightsToggled(Bool)
         case apiKeyChanged(String)
         case endpointChanged(String)
         case modelNameChanged(String)
         case saveAIConfigTapped
         case testConnectionFinished(String?)
+        case privacyPayloadSheetPresented(Bool)
+        case privacyPayloadLoaded(AgentOutboundPayloadSnapshot?)
         case authorizeHealthTapped
         case deleteMemoryTapped(UUID)
         case memoryDeleteFailed(String)
@@ -93,6 +101,28 @@ public struct SettingsFeature: Sendable {
                     state.statusMessage = "保存持拍手设置失败：\(error.localizedDescription)"
                     return .none
                 }
+
+            case let .proactiveInsightsToggled(enabled):
+                state.preferences.proactiveInsightsEnabled = enabled
+                do {
+                    try preferencesClient.save(state.preferences)
+                    return .send(.delegate(.preferencesUpdated(state.preferences)))
+                } catch {
+                    state.statusMessage = "保存主动洞察开关失败：\(error.localizedDescription)"
+                    return .none
+                }
+
+            case let .privacyPayloadSheetPresented(presented):
+                state.showPrivacyPayloadSheet = presented
+                guard presented else { return .none }
+                return .run { send in
+                    let payload = await coachAIClient.lastOutboundPayload()
+                    await send(.privacyPayloadLoaded(payload))
+                }
+
+            case let .privacyPayloadLoaded(snapshot):
+                state.lastOutboundPayload = snapshot
+                return .none
 
             case let .apiKeyChanged(key):
                 state.apiKey = key

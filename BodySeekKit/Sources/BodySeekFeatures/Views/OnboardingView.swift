@@ -23,7 +23,7 @@ public struct OnboardingView: View {
                     Text("BodySeek")
                         .font(.largeTitle.weight(.bold))
                         .foregroundStyle(BevelTheme.ink)
-                    Text("结合 Apple 健康、SpeziHealthKit 与 AI 智能体工具链，把你的恢复、肌群负荷、睡眠与力量训练融合成同一套日常系统。")
+                    Text("结合 Apple 健康、SpeziHealthKit 与四态 AI 智能体工具链，把你的恢复、肌群负荷、睡眠与力量训练融合成同一套日常系统。")
                         .font(.body)
                         .foregroundStyle(BevelTheme.inkSecondary)
                 }

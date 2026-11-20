@@ -8,7 +8,6 @@ public actor AgentCapturedSideEffects: Sendable {
     public private(set) var workoutProposal: WorkoutProposal?
     public private(set) var memoryProposal: TieredMemoryRecord?
     public private(set) var workoutAnnotationProposal: CoachWorkoutAnnotationProposal?
-    public private(set) var savedMemories: [AthleteMemoryItem] = []
     public private(set) var toolOutputs: [String] = []
     public private(set) var toolsInvoked: [String] = []
 
@@ -24,11 +23,6 @@ public actor AgentCapturedSideEffects: Sendable {
 
     public func recordWorkoutAnnotationProposal(_ proposal: CoachWorkoutAnnotationProposal) {
         workoutAnnotationProposal = proposal
-    }
-
-    /// Transitional test hook for pre-M3 UI compatibility; cleared when Step B2 migrates CoachFeature UI.
-    public func recordMemory(_ memory: AthleteMemoryItem) {
-        savedMemories.append(memory)
     }
 
     public func recordToolInvocation(name: String, output: String) {

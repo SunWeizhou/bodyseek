@@ -1,3 +1,4 @@
+import BodySeekAgent
 import BodySeekCore
 import BodySeekDesign
 import ComposableArchitecture
@@ -30,6 +31,10 @@ public struct TodayView: View {
                     }
 
                     heroInstrumentCard
+
+                    if !store.proactiveInsights.isEmpty {
+                        proactiveInsightsSection
+                    }
 
                     todayActionCard
 
@@ -276,6 +281,63 @@ public struct TodayView: View {
                 .buttonStyle(.plain)
             }
         }
+    }
+
+    private var proactiveInsightsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Label("主动洞察（每日最多 2 条）", systemImage: "sparkles.rectangle.stack")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(BevelTheme.brand)
+                Spacer()
+            }
+            .padding(.horizontal, 4)
+
+            ForEach(store.proactiveInsights.prefix(2)) { insight in
+                BevelCard(padding: 12) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text(insight.badge)
+                                .font(.caption2.weight(.semibold))
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 2)
+                                .background(BevelTheme.brandSoft, in: Capsule())
+                                .foregroundStyle(BevelTheme.brand)
+                            Text(insight.title)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(BevelTheme.ink)
+                            Spacer()
+                            Button {
+                                store.send(.dismissProactiveInsightTapped(insight.id))
+                            } label: {
+                                Image(systemName: "xmark")
+                                    .font(.caption2.weight(.semibold))
+                                    .foregroundStyle(BevelTheme.inkSecondary)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("today-insight-dismiss-\(insight.kind.rawValue)")
+                        }
+
+                        Text(insight.body)
+                            .font(.caption)
+                            .foregroundStyle(BevelTheme.inkSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        Button {
+                            store.send(.proactiveInsightActionTapped(insight))
+                        } label: {
+                            Text(insight.ctaTitle)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(BevelTheme.brand)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("today-insight-cta-\(insight.kind.rawValue)")
+                    }
+                }
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("today-proactive-insights")
     }
 
     @ViewBuilder

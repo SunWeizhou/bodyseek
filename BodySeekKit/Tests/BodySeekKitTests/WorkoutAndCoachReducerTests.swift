@@ -99,7 +99,7 @@ final class WorkoutAndCoachReducerTests: XCTestCase {
         XCTAssertNotNil(store.state.activeWorkout)
     }
 
-    func testCoachAgentUpdatesMemoriesAndEmitsProposal() async {
+    func testCoachAgentUpdatesMemoriesAndEmitsProposal() async throws {
         let now = Date(timeIntervalSince1970: 1_760_000_000)
         let snapshot = BevelScoringEngine.computeWindow(
             rawDays: PreviewSeedFactory.makeRawWindow(endingAt: now, days: 14),
@@ -108,17 +108,22 @@ final class WorkoutAndCoachReducerTests: XCTestCase {
             sourceLabel: "示例数据",
             isAuthorized: true
         )
-        let newMemory = AthleteMemoryItem(
+        let pendingMem = TieredMemoryRecord(
             id: UUID(uuidString: "00000000-0000-0000-0000-000000000050")!,
-            category: .injury,
+            tier: .activeConstraint,
             content: "右膝微痛，减免大重量深蹲",
-            updatedAt: now
+            scopeJSON: #"{"category":"injury"}"#,
+            confidence: 0.95,
+            expiresAt: now.addingTimeInterval(14 * 86_400),
+            confirmedAt: now
         )
         let proposal = WorkoutProposal(
             id: UUID(uuidString: "00000000-0000-0000-0000-000000000051")!,
             template: ExerciseCatalog.defaultTemplates[0],
             rationale: "优先安排上肢推力训练"
         )
+        let replyID = UUID(uuidString: "00000000-0000-0000-0000-000000000052")!
+        let storeClient = BodySeekStoreClient.previewValue
 
         let store = TestStore(
             initialState: CoachFeature.State(snapshot: snapshot)
@@ -126,20 +131,23 @@ final class WorkoutAndCoachReducerTests: XCTestCase {
             CoachFeature()
         } withDependencies: {
             $0.coachAIClient.reply = { _, context in
-                await context.effects.recordMemory(newMemory)
+                await context.effects.recordMemoryProposal(pendingMem)
                 await context.effects.recordProposal(proposal)
                 return CoachMessage(
-                    id: UUID(uuidString: "00000000-0000-0000-0000-000000000052")!,
+                    id: replyID,
                     role: .assistant,
-                    text: "已记住右膝状态并生成上肢替代课表。",
+                    text: "已整理右膝限制提案与上肢替代课表，请确认后写入。",
                     engineLabel: "Test AI",
                     timestamp: now,
                     evidenceMetric: .recovery,
                     workoutProposal: proposal,
-                    memorySavedNote: "已记录伤病"
+                    memorySavedNote: "待你确认记忆",
+                    memoryProposal: pendingMem,
+                    toolsInvoked: ["get_today_context", "propose_memory", "propose_plan_change"]
                 )
             }
             $0.fitnessStoreClient = .previewValue
+            $0.bodySeekStoreClient = storeClient
             $0.uuid = .incrementing
             $0.date.now = now
         }
@@ -147,11 +155,108 @@ final class WorkoutAndCoachReducerTests: XCTestCase {
 
         await store.send(.quickPromptTapped("记住右膝痛，帮我排上肢课表"))
         await store.receive(\.aiReplyReceived)
+
+        // Confirm-to-write invariant: NOTHING is saved until user confirms the proposal card!
+        XCTAssertTrue(store.state.memories.isEmpty)
+        XCTAssertTrue(store.state.tieredMemories.isEmpty)
+        let preAudit = try await storeClient.loadActionAuditEntries(10)
+        XCTAssertTrue(preAudit.isEmpty)
+        XCTAssertEqual(store.state.messages.last?.workoutProposal?.template.title, proposal.template.title)
+        XCTAssertEqual(store.state.messages.last?.memoryProposal?.content, "右膝微痛，减免大重量深蹲")
+
+        await store.send(.confirmMemoryProposalTapped(messageID: replyID, memory: pendingMem))
+        await store.receive(\.memoryProposalCommitted)
+        await store.receive(\.delegate.tieredMemoriesUpdated)
         await store.receive(\.delegate.memoriesUpdated)
 
-        XCTAssertEqual(store.state.memories.count, 1)
+        XCTAssertEqual(store.state.tieredMemories.count, 1)
         XCTAssertEqual(store.state.memories.first?.content, "右膝微痛，减免大重量深蹲")
-        XCTAssertEqual(store.state.messages.last?.workoutProposal?.template.title, proposal.template.title)
+
+        let persistedMemories = try await storeClient.loadTieredMemories(false)
+        XCTAssertEqual(persistedMemories.count, 1)
+        let postAudit = try await storeClient.loadActionAuditEntries(10)
+        XCTAssertEqual(postAudit.count, 1)
+        XCTAssertEqual(postAudit.first?.origin, .agent)
+        XCTAssertEqual(postAudit.first?.decision, .applied)
+
+        // Retiring the memory writes an audit entry and removes it from active list
+        await store.send(.retireTieredMemoryTapped(pendingMem.id))
+        let afterRetireActive = try await storeClient.loadTieredMemories(false)
+        XCTAssertTrue(afterRetireActive.isEmpty)
+        let auditCountAfterRetire = try await storeClient.loadActionAuditEntries(10).count
+        XCTAssertEqual(auditCountAfterRetire, 2)
+    }
+
+    func testCoachCandidatePatternPromotionAndTodayProactiveInsights() async throws {
+        let now = Date(timeIntervalSince1970: 1_760_000_000)
+        let snapshot = BevelScoringEngine.computeWindow(
+            rawDays: PreviewSeedFactory.makeRawWindow(endingAt: now, days: 21),
+            sleepGoalMinutes: 450,
+            referenceDate: now,
+            sourceLabel: "示例数据",
+            isAuthorized: true
+        )
+        let candidate = PatternFindingRecord(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000888")!,
+            statement: "23:30 前入睡与次日 HRV 较高相关",
+            effect: 5.5,
+            ciLow: 2.0,
+            ciHigh: 9.0,
+            sampleSize: 90,
+            method: "FDR",
+            modelVersion: "v1",
+            status: .candidate
+        )
+        let storeClient = BodySeekStoreClient.previewValue
+        try await storeClient.savePatternFinding(candidate)
+
+        var initialCoachState = CoachFeature.State(snapshot: snapshot)
+        initialCoachState.patternFindings = [candidate]
+
+        let coachStore = TestStore(initialState: initialCoachState) {
+            CoachFeature()
+        } withDependencies: {
+            $0.bodySeekStoreClient = storeClient
+            $0.fitnessStoreClient = .previewValue
+            $0.date.now = now
+            $0.uuid = .incrementing
+        }
+        coachStore.exhaustivity = .off
+
+        await coachStore.send(.confirmCandidatePatternTapped(candidate))
+        await coachStore.receive(\.candidatePatternConfirmed)
+
+        XCTAssertEqual(coachStore.state.patternFindings.first?.status, .confirmed)
+        XCTAssertEqual(coachStore.state.tieredMemories.first?.tier, .verifiedPattern)
+        let verifiedMems = try await storeClient.loadTieredMemories(false)
+        XCTAssertEqual(verifiedMems.first?.tier, .verifiedPattern)
+
+        // Proactive insight dismissal & toggle behavior on AppFeature
+        let appStore = TestStore(
+            initialState: AppFeature.State(
+                hasCompletedOnboarding: true,
+                snapshot: snapshot,
+                arguments: ["-velaPreviewDashboard"]
+            )
+        ) {
+            AppFeature()
+        } withDependencies: {
+            $0.healthKitClient = .previewValue
+            $0.preferencesClient = .previewValue
+            $0.fitnessStoreClient = .previewValue
+            $0.bodySeekStoreClient = .previewValue
+            $0.coachAIClient = .previewValue
+            $0.continuousClock = ImmediateClock()
+            $0.date.now = now
+        }
+        appStore.exhaustivity = .off
+
+        XCTAssertLessThanOrEqual(appStore.state.today.proactiveInsights.count, 2)
+        if let firstInsight = appStore.state.today.proactiveInsights.first {
+            let beforeCount = appStore.state.today.proactiveInsights.count
+            await appStore.send(.today(.dismissProactiveInsightTapped(firstInsight.id)))
+            XCTAssertEqual(appStore.state.today.proactiveInsights.count, beforeCount - 1)
+        }
     }
 
     func testWatchFirstReviewInboxParsesCommits14DayMemoryAndUpdatesMuscleRecovery() async {

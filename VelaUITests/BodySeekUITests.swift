@@ -223,6 +223,62 @@ final class BodySeekUITests: XCTestCase {
         app.buttons["workout-detail-done"].tap()
     }
 
+    func testM3CoachProposalsTieredMemoryProactiveInsightsAndPrivacyViewer() {
+        let app = launchApp()
+
+        // 1. Today shows bounded Proactive Insights card (<= 2/day)
+        let insightsContainer = app.otherElements["today-proactive-insights"]
+        XCTAssertTrue(insightsContainer.waitForExistence(timeout: 8))
+
+        // 2. Navigate to Coach, send injury + workout query -> confirm memory proposal -> verify 3-tier memory sheet
+        tapTab("问身体", in: app)
+        let input = app.textViews["coach-full-input"].exists
+            ? app.textViews["coach-full-input"]
+            : app.textFields["coach-full-input"]
+        XCTAssertTrue(input.waitForExistence(timeout: 5))
+        input.tap()
+        input.typeText("记住我右肩前束微痛，帮我排一份减量上肢课表")
+        app.buttons["coach-send-button"].tap()
+
+        // Confirm-to-write memory proposal card must appear before strip turns active
+        let confirmMemBtn = app.buttons["coach-memory-proposal-confirm"].firstMatch
+        XCTAssertTrue(confirmMemBtn.waitForExistence(timeout: 6))
+        confirmMemBtn.tap()
+
+        XCTAssertTrue(app.staticTexts["已确认写入 短期约束"].waitForExistence(timeout: 5))
+
+        let memoryStrip = app.buttons["coach-memory-strip"]
+        XCTAssertTrue(memoryStrip.waitForExistence(timeout: 5))
+        memoryStrip.tap()
+
+        XCTAssertTrue(app.staticTexts["三层长期记忆管理"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["短期约束"].exists)
+        app.buttons["coach-memory-sheet-done"].tap()
+
+        // 3. Settings proactive insights toggle & privacy outbound payload viewer sheet
+        tapTab("今日", in: app)
+        let settingsBtn = app.buttons["settings-button"]
+        XCTAssertTrue(settingsBtn.waitForExistence(timeout: 5))
+        settingsBtn.tap()
+
+        let proactiveSwitch = app.switches["settings-proactive-insights-toggle"]
+        while !proactiveSwitch.exists || !proactiveSwitch.isHittable {
+            app.swipeUp()
+        }
+        proactiveSwitch.tap()
+
+        let privacyBtn = app.buttons["settings-privacy-payload-button"]
+        if !privacyBtn.isHittable {
+            app.swipeUp()
+        }
+        XCTAssertTrue(privacyBtn.waitForExistence(timeout: 5))
+        privacyBtn.tap()
+
+        XCTAssertTrue(app.otherElements["settings-privacy-payload-sheet"].waitForExistence(timeout: 5))
+        app.buttons["settings-privacy-payload-close"].tap()
+        app.buttons["settings-done-button"].tap()
+    }
+
     func testCaptureLightAndDarkScreenshotsWhenRequested() throws {
         let env = ProcessInfo.processInfo.environment
         guard let outputDir = env["BODYSEEK_WALKTHROUGH_DIR"], !outputDir.isEmpty else {

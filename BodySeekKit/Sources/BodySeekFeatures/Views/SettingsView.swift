@@ -1,3 +1,4 @@
+import BodySeekAgent
 import BodySeekCore
 import BodySeekDesign
 import ComposableArchitecture
@@ -95,17 +96,56 @@ public struct SettingsView: View {
                     }
                     .disabled(store.isTestingConnection)
                     .foregroundStyle(BevelTheme.brand)
+
+                    Toggle(
+                        "主动洞察（每日最多 2 条）",
+                        isOn: Binding(
+                            get: { store.preferences.proactiveInsightsEnabled },
+                            set: { store.send(.proactiveInsightsToggled($0)) }
+                        )
+                    )
+                    .accessibilityIdentifier("settings-proactive-insights-toggle")
+
+                    Button {
+                        store.send(.privacyPayloadSheetPresented(true))
+                    } label: {
+                        Label("查看最近发往云端 AI 的数据", systemImage: "eye.trianglebadge.exclamationmark")
+                    }
+                    .foregroundStyle(BevelTheme.ink)
+                    .accessibilityIdentifier("settings-privacy-payload-button")
                 } header: {
-                    Text("AI 智能体引擎（SpeziLLM / Apple Intelligence）")
+                    Text("AI 智能体引擎（自研 OpenAI 兼容客户端 / Apple 智能）")
                 } footer: {
-                    Text("填入 DeepSeek 等 OpenAI 兼容接口后可启用云端工具调用；留空时，支持 Apple 智能的 iOS 26 设备将自动启用端侧 FoundationModels 智能体。")
+                    Text("填入 DeepSeek 等 OpenAI 兼容接口后可启用云端四态工具调用；留空时，支持 Apple 智能的 iOS 26 设备将自动启用端侧 FoundationModels 智能体。")
                 }
 
-                Section("智能体长期记忆 (\(store.memories.count))") {
-                    if store.memories.isEmpty {
+                Section("三层长期记忆 (\(store.tieredMemories.isEmpty ? store.memories.count : store.tieredMemories.filter { $0.isActive() }.count))") {
+                    if store.tieredMemories.isEmpty && store.memories.isEmpty {
                         Text("暂无已保存的伤病或训练习惯记忆。")
                             .font(.footnote)
                             .foregroundStyle(BevelTheme.inkSecondary)
+                    } else if !store.tieredMemories.isEmpty {
+                        ForEach(store.tieredMemories.filter { $0.isActive() }) { record in
+                            VStack(alignment: .leading, spacing: 3) {
+                                HStack {
+                                    Text(record.tier.titleLabel)
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(BevelTheme.brand)
+                                    if let exp = record.expiresAt {
+                                        Text("· 截至 \(exp.formatted(.dateTime.month().day()))")
+                                            .font(.caption2)
+                                            .foregroundStyle(BevelTheme.inkSecondary)
+                                    }
+                                }
+                                Text(record.content)
+                                    .font(.footnote)
+                            }
+                            .swipeActions {
+                                Button("删除", role: .destructive) {
+                                    store.send(.deleteMemoryTapped(record.id))
+                                }
+                            }
+                        }
                     } else {
                         ForEach(store.memories) { mem in
                             VStack(alignment: .leading, spacing: 3) {
@@ -154,6 +194,64 @@ public struct SettingsView: View {
             .onAppear {
                 store.send(.onAppear)
             }
+            .sheet(
+                isPresented: Binding(
+                    get: { store.showPrivacyPayloadSheet },
+                    set: { store.send(.privacyPayloadSheetPresented($0)) }
+                )
+            ) {
+                privacyPayloadSheet
+            }
         }
+    }
+
+    private var privacyPayloadSheet: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("API Key 仅保留在 Keychain 与 HTTP Authorization 请求头，不会写入外发对话 JSON。以下为最近一次发往云端模型的完整请求脱敏快照：")
+                        .font(.caption)
+                        .foregroundStyle(BevelTheme.inkSecondary)
+
+                    if let snap = store.lastOutboundPayload {
+                        BevelCard(padding: 12) {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("Endpoint: \(snap.endpointURL)")
+                                    .font(.caption2.monospaced())
+                                Text("Model: \(snap.modelName) · Messages: \(snap.messageCount)")
+                                    .font(.caption2.monospaced())
+                                Text("Tools: \(snap.toolNames.joined(separator: ", "))")
+                                    .font(.caption2)
+                                    .foregroundStyle(BevelTheme.brand)
+                                Divider()
+                                Text(snap.redactedRequestJSON)
+                                    .font(.caption2.monospaced())
+                                    .textSelection(.enabled)
+                            }
+                        }
+                    } else {
+                        BevelCard(padding: 14) {
+                            Text("本次应用会话尚未向云端 AI 发送任何数据。预览模式或端侧 Apple Intelligence 模式下不会外发健康 JSON。")
+                                .font(.footnote)
+                                .foregroundStyle(BevelTheme.inkSecondary)
+                        }
+                    }
+                }
+                .padding(16)
+            }
+            .background(BevelTheme.canvas.ignoresSafeArea())
+            .navigationTitle("外发云端 AI 数据预览")
+            .bodyseekNavigationBarInline()
+            .toolbar {
+                ToolbarItem(placement: .bodyseekTrailing) {
+                    Button("关闭") {
+                        store.send(.privacyPayloadSheetPresented(false))
+                    }
+                    .accessibilityIdentifier("settings-privacy-payload-close")
+                }
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("settings-privacy-payload-sheet")
     }
 }
