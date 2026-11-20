@@ -3,7 +3,7 @@
 - 分支：`codex/ui/ios26-native-bodyseek`
 - 关联提交：
   - Commit 1（`[M2][CORE-STORE]`）：`d8771ad2`（Watch-First 肌群恢复启发式引擎、自动归因、一句话复盘解析器与 55 例评测集）
-  - Commit 2（`[M2][UI]`）：待提交（以 `d8771ad2` 为基线，本文档记录完整代码树的验证结果）
+  - Commit 2（`[M2][UI]`）：`81da15e2`（以 `d8771ad2` 为基线，本文档记录完整代码树的验证结果）
 - 环境：Apple M5 Pro / SwiftPM Debug + iOS Simulator `iPhone 17 Pro` (`3BB779BD-022F-4E60-A3BB-70DC5A0BF987`) + `generic/platform=iOS`
 
 ---
@@ -22,7 +22,7 @@
    - `BodySeekKit/Sources/BodySeekStore/BodySeekRepository.swift` & `BodySeekKit/Sources/BodySeekHealth/{BodySeekStoreClient,WorkoutReviewParserClient}.swift`：
      - 新增 `loadAllMuscleLoads`、`loadWorkoutAnnotations`、`applyAutoWorkoutAttribution` 与 `WorkoutReviewParserClient`（`FoundationModels` `@Generable` → `ChineseWorkoutLexiconParser` 显式日志降级，零 `try?`）。
 
-2. **Commit 2（`[M2][UI]`，当前工作树）**
+2. **Commit 2（`[M2][UI]`）：`81da15e2`**
    - **Watch-First 健身主页 (`BodySeekKit/Sources/BodySeekFeatures/{Reducers/WorkoutFeature.swift,Views/WorkoutView.swift}`)**：
      - `LazyVStack` 布局按「待复盘 Inbox (`workout-review-inbox`) → ACWR 负荷卡 → 全身肌群恢复热图 (`启发式估计`) → Apple Watch 训练档案与归因 (`workout-archive-section`) → 降权手动补录与模板」排序；
      - 主观 `effortUser` 与系统估算 `effortEstimated` 分离展示，不混合覆盖；
@@ -70,8 +70,8 @@
 
 1. `grep -rn 'try?' BodySeekKit/Sources/`
    - 退出码：`1`（**0 处匹配**）
-2. `grep -rn 'Liveline\|SleepChartKit\|repeatForever' BodySeekKit/Sources/`
-   - 退出码：`1`（**0 处匹配**）
+2. `grep -rn 'Liveline\|repeatForever' BodySeekKit/Sources/` 与 `grep -rn 'SleepChartKit' BodySeekKit/Sources/`
+   - 前者 **0 处匹配**；后者仅 `BodySeekDesign/Charts/SleepStageChart.swift` 3 处（`BodySeekFeatures` 层 0 处，允许范围见 `docs/design/chart-grammar.md`）
 3. `grep -rn 'import Charts' BodySeekKit/Sources/BodySeekFeatures/`
    - 退出码：`1`（**0 处匹配**）
 4. `git diff --check`

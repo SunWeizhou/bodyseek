@@ -65,7 +65,7 @@ VelaApp (Thin iOS 26 Entry Shell + Assets + Entitlements)
   - $\alpha$ 仅读取**前一晚**睡眠与 HRV 基线偏离，不读取当天恢复分。
 
 ### 3.4 体验与 Agent 层（M1-UI / M2 / M3）
-- **一级导航**：`今日`（含承接 ADR 0007/0008 的今日行动卡与 `DailyCheckIn` 打卡）、`健身`（Watch-First 待复盘 Inbox + 肌群恢复热图 + ACWR 轮转）、`趋势`（7d/30d/6m/3y + 我的规律 + N-of-1 实验）、`.search` `问身体`。
+- **一级导航**：`今日`（五项读数与今日行动卡 + `DailyCheckIn` 打卡）、`健身`（Watch-First 待复盘 Inbox + 肌群恢复热图 + ACWR 轮转）、`营养`（餐次、AI 记饮食草稿与周/月看板）、`趋势`（7d/30d/6m/3y + 我的规律 + N-of-1 实验）、尾部 `.search` 入口的 `Coach`。
 - **图表规范**：M1-UI 起在 `docs/design/chart-grammar.md` 下以统一组件族 `BodySeekChart`（纯 Apple `Swift Charts`）重构全部图表，选中态隔离在局部 `@State`，性能埋点由 `PerformanceSignposts` (`os_signpost`) 追踪并在 iPhone 16 Pro Release 包验证。
 - **Coach Agent**：M3 移除 `SpeziLLM` 与 OpenAPI 生成链，使用自研轻量 `OpenAICompatibleClient` + 端侧 `FoundationModels`、任务型工具、`find_similar_days` 历史相似日、数字溯源后置核验与 30 题评测集 `BodySeekAgentEvals`。
 - **个人建模（`BodySeekML/`）**：Mac 本地 Python (`uv`) 基于 Walk-Forward 时间序列切分先评测 Persistence / Ridge / Banister / LightGBM 基线，再研究 Masked TCN / PatchTST-Lite，通过显著性检验并完成双端特征一致性测试后以 Core ML 上机。

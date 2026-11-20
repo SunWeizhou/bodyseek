@@ -1,7 +1,7 @@
 # 0017. BodySeek architecture and product baseline v2
 
 ## Status
-Accepted
+Superseded by [ADR 0018](0018-ios26-native-architecture-and-bevel-visual-reset.md)（iOS 26 原生壳层与部署底线）与 [ADR 0019](0019-bodyseek-v5-architecture-and-modeling-baseline.md)（BodySeekKit / GRDB / Agent / 个人建模基线）。本文件保留 2026-11-16 的历史决策与迁移顺序；平台底线、持久化与模块边界以 0018/0019 为准。
 
 ## Context
 

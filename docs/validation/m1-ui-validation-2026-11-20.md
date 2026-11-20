@@ -4,15 +4,15 @@
 
 - 分支：`codex/ui/ios26-native-bodyseek`
 - 关联提交：
-  - Phase A（`[M1-UI][DESIGN]`）：`0bbf6ce8`（`BodySeekDesign` 拆分、`docs/design/chart-grammar.md`、`BodySeekChart` 8 类原生组件族、移除 `liveline-swift` 与 `SleepChartKit`）
-  - Phase B（`[M1-UI][VIEWS]`）：待提交（本文档记录最终代码树的全量验证结果）
+  - Phase A（`[M1-UI][DESIGN]`）：`0bbf6ce8`（`BodySeekDesign` 拆分、`docs/design/chart-grammar.md`、`BodySeekChart` 8 类原生组件族、移除 `liveline-swift`）
+  - Phase B（`[M1-UI][VIEWS]`）：`3f34382a`（今日行动卡、五项详情、趋势胶囊与营养看板）
 - 环境：Apple M5 Pro / Xcode 27.1 (`27A9275`) / Swift 6.4 / iPhone 17 Pro 模拟器 (`3BB779BD-022F-4E60-A3BB-70DC5A0BF987`)
 
 ## 1. M1-UI 交付范围摘要
 
 1. **Phase A：设计系统独立与原生 `BodySeekChart` 组件族 (`0bbf6ce8`)**
    - 依据 `docs/design/chart-grammar.md` 拆分独立模块 `BodySeekDesign`（在 `BodySeekKit/Package.swift` 与 `project.yml` 挂载，重新生成 `Vela.xcodeproj`）。
-   - 彻底移除第三方包装 `liveline-swift` 与 `SleepChartKit`，同步清除 `BevelAmbientAura` 的常驻 `.repeatForever` 循环动画。
+   - 移除第三方包装 `liveline-swift`，同步清除 `BevelAmbientAura` 的常驻 `.repeatForever` 循环动画。`SleepChartKit` 于当晚 `6b207556` 因睡眠摘要复用重新引入（仅 `BodySeekDesign`，见文末补记）。
    - 在 `BodySeekKit/Sources/BodySeekDesign/Charts/` 构建 8 类原生图表组件：`TrendLineChart`、`RangeCapsuleChart`、`SleepStageChart`、`IntradayBarChart`、`EnergyAreaChart`、`LoadRecoveryComboChart`、`ZoneBar`、`MiniSparkline`，统一通过 `ChartAxisSupport` 显式计算最多 4 个起止对称 X 轴刻度，并落实四态真值（`available` / `knownZero` / `missing` 真实断线 / `excluded` 斜纹带）、`BodySeekMotion.standard` 与 `AXChartDescriptorRepresentable` 无障碍支持。
    - 在 `BodySeekKit/Tests/BodySeekKitTests/BodySeekChartTests.swift` 增加 48 组 `ImageRenderer` 矩阵测试（8 类图表 × `{normal, sparse, empty, extreme, ax5, dark}`）及架构边界静态扫描。
 
@@ -55,8 +55,8 @@
 
 1. `grep -rn "try?" BodySeekKit/Sources/`
    - 结果：退出码 `1`（**`0` 处匹配**，无隐式吞错）。
-2. `grep -rn "Liveline\|SleepChartKit\|repeatForever" BodySeekKit/Sources/`
-   - 结果：退出码 `1`（**`0` 处匹配**，旧库与常驻循环动画已清零）。
+2. `grep -rn "Liveline\|repeatForever" BodySeekKit/Sources/` 与 `grep -rn "SleepChartKit" BodySeekKit/Sources/`
+   - 前者 **`0` 处匹配**；后者仅 `BodySeekDesign/Charts/SleepStageChart.swift` **3 处**，`BodySeekFeatures` 层 0 处（允许范围见 `docs/design/chart-grammar.md`）。
 3. `grep -rn "import Charts" BodySeekKit/Sources/BodySeekFeatures/`
    - 结果：退出码 `1`（**`0` 处匹配**，Features 层无直接 Swift Charts 调用）。
 4. `swift test --package-path BodySeekKit`（Debug）
@@ -131,3 +131,9 @@
 - 取消独立大字版，停止大字版的专项布局与验收。标准版使用单套 UI，文字随 iOS 系统设置。当前发布验收以 iPhone 17 Pro、iOS 26.5 和默认字号为基线。
 - 基线 `ed7ab2c2`，工作区含既有修改。Vela Debug 的 `xcodebuild test -project Vela.xcodeproj -scheme Vela -destination 'id=3BB779BD-022F-4E60-A3BB-70DC5A0BF987' -parallel-testing-enabled NO -skipMacroValidation -skipPackagePluginValidation -disableAutomaticPackageResolution -resultBundlePath /tmp/bodyseek-nov20-standard.xcresult` 退出码 0。4 项 iOS 集成测试和 10 项 UI 测试通过。只在提供截图目录时运行的批量截图用例按预期跳过。
 - 已核对默认字号的 Coach 欢迎页、回复与证据卡，以及全天饮食草稿。截图和肌群复盘详情附件见 `/tmp/bodyseek-nov20-standard-attachments/manifest.json`。
+
+## 2026-11-20 补记：SleepChartKit 复用与文档更正
+
+- `0bbf6ce8` 当时确实移除了 `liveline-swift` 与 `SleepChartKit` 依赖。当晚 `6b207556` 为睡眠摘要引入 `SleepChartKit 1.2.0`：连续片段走上游 `SleepTimelineGraph`，交互、缺测与重叠仍走原生 Canvas；`BodySeekDesign` 保留许可资源，`BodySeekFeatures` 不直接依赖。
+- 因此第 1 节原「彻底移除 SleepChartKit」与第 4 节原 grep 门禁已按当前代码更正。图表规范同步更新于 `docs/design/chart-grammar.md`，取舍依据见 `docs/design/chart-reuse-evaluation-2026-11-20.md`。
+- 当前门禁：`grep SleepChartKit BodySeekKit/Sources` 只命中 `BodySeekDesign/Charts/SleepStageChart.swift`；`grep Liveline` 与 `grep repeatForever` 仍为 0。

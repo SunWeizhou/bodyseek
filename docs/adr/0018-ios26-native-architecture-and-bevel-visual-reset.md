@@ -1,7 +1,7 @@
 # 0018. iOS 26 Native Architecture and Bevel-Inspired Visual Reset
 
 ## Status
-Accepted
+Partially superseded by [ADR 0019](0019-bodyseek-v5-architecture-and-modeling-baseline.md)（SwiftData V3 / 32 模型与模块命名部分）。iOS 26.0 部署底线、原生 `TabView` / Liquid Glass 壳层与五域语义色继续有效。
 
 ## Context
 
