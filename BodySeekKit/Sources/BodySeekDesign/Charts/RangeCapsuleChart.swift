@@ -38,8 +38,7 @@ public struct RangeCapsuleChart: View {
                 height: height
             )
         } else {
-            let bucketDates = buckets.map(midpointDate(for:))
-            let tickDates = ChartAxisSupport.explicitTickDates(from: bucketDates, maxTicks: 4)
+            let domain = xDomain(buckets: buckets)
             let capsuleWidth = max(4.0, min(11.0, 210.0 / CGFloat(max(1, buckets.count))))
             let header = headerStrings(buckets: buckets)
 
@@ -99,6 +98,7 @@ public struct RangeCapsuleChart: View {
                         .foregroundStyle(isSelected ? BevelTheme.ink : tint)
                     }
                 }
+                .chartXScale(domain: domain)
                 .chartYScale(domain: 0...100)
                 .chartYAxis {
                     AxisMarks(position: .trailing, values: [0, 50, 100]) { value in
@@ -115,8 +115,8 @@ public struct RangeCapsuleChart: View {
                     }
                 }
                 .chartXAxis {
-                    AxisMarks(values: tickDates) { value in
-                        AxisValueLabel(centered: true) {
+                    AxisMarks(values: xAxisValues) { value in
+                        AxisValueLabel(centered: true, collisionResolution: .disabled) {
                             if let d = value.as(Date.self) {
                                 Text(ChartAxisSupport.formatAxisDate(d, horizon: snapshot.horizon))
                                     .font(.caption2.monospacedDigit())
@@ -182,6 +182,33 @@ public struct RangeCapsuleChart: View {
             BodySeekSignposts.shared.emitEvent(.chartScrub, detail: "\(snapshot.kind.rawValue)-capsule")
             onSelectBucket?(nearest)
         }
+    }
+
+    private var xAxisValues: AxisMarkValues {
+        switch snapshot.horizon {
+        case .threeYears:
+            .stride(by: .year)
+        case .sixMonths:
+            .stride(by: .month, count: 2)
+        case .week, .month:
+            .automatic(desiredCount: 4)
+        }
+    }
+
+    /// Keep the horizon's full time axis even when only part of it has data.
+    /// Without this, Swift Charts shrinks the axis to the buckets that exist.
+    private func xDomain(buckets: [RangeCapsuleBucket]) -> ClosedRange<Date> {
+        if let first = snapshot.dailyPoints.first?.date,
+           let last = snapshot.dailyPoints.last?.date,
+           first < last {
+            return first...last
+        }
+        let dates = buckets.flatMap { [$0.startDate, $0.endDate] }
+        guard let first = dates.min(), let last = dates.max(), first < last else {
+            let now = Date()
+            return now.addingTimeInterval(-86_400)...now
+        }
+        return first...last
     }
 
     private func headerStrings(buckets: [RangeCapsuleBucket]) -> (primary: String, secondary: String) {

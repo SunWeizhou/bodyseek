@@ -28,6 +28,16 @@ public extension View {
         #endif
     }
 
+    /// iOS 26 的滚动边缘效果；没有它时，滚动内容会直接压在导航标题下面。
+    @ViewBuilder
+    func bodyseekScrollEdgeEffect() -> some View {
+        #if os(iOS)
+        self.scrollEdgeEffectStyle(.hard, for: .top)
+        #else
+        self
+        #endif
+    }
+
     @ViewBuilder
     func bodyseekTransparentNavigationBar() -> some View {
         #if os(iOS)

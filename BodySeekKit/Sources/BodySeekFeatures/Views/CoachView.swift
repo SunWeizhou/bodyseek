@@ -21,70 +21,73 @@ public struct CoachView: View {
     }
 
     public var body: some View {
-        VStack(spacing: 0) {
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 20) {
+                    if store.isAtWelcome {
+                        welcomePanel
+                            .id(ScrollTarget.welcome)
+                    } else {
+                        ForEach(store.messages) { msg in
+                            messageRow(msg)
+                                .id(msg.id)
+                        }
+                        if store.isSending {
+                            ProgressView("Coach 正在回复…")
+                                .controlSize(.small)
+                                .font(.footnote)
+                                .foregroundStyle(BevelTheme.inkSecondary)
+                                .padding(.vertical, 8)
+                        }
+                    }
+                    Color.clear.frame(height: 1)
+                        .accessibilityHidden(true)
+                        .id(ScrollTarget.latest)
+                }
+                .padding(.horizontal, 18)
+                .padding(.vertical, 14)
+                .frame(maxWidth: 680)
+                .frame(maxWidth: .infinity)
+            }
+            .defaultScrollAnchor(store.isAtWelcome ? .top : .bottom, for: .initialOffset)
+            .scrollDismissesKeyboard(.interactively)
+            .bodyseekScrollEdgeEffect()
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                geometry.contentSize.height - geometry.visibleRect.maxY < 100
+            } action: { _, nearLatest in
+                isNearLatest = nearLatest
+            }
+            .onChange(of: store.messages.last?.id) { _, _ in
+                if store.isAtWelcome {
+                    scroll(to: ScrollTarget.welcome, anchor: .top, using: proxy)
+                } else if let last = store.messages.last, last.role == .user {
+                    scroll(to: ScrollTarget.latest, anchor: .bottom, using: proxy)
+                } else if let last = store.messages.last, isNearLatest {
+                    scroll(to: last.id, anchor: .top, using: proxy)
+                }
+            }
+            .overlay(alignment: .bottomTrailing) {
+                if !isNearLatest && !store.isAtWelcome {
+                    Button("回到底部", systemImage: "arrow.down") {
+                        scroll(to: ScrollTarget.latest, anchor: .bottom, using: proxy)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .padding(.trailing, 18)
+                    .padding(.bottom, 8)
+                    .accessibilityIdentifier("coach-jump-to-latest")
+                }
+            }
+        }
+        .safeAreaInset(edge: .top, spacing: 0) {
             if let err = store.lastError {
                 Text(err)
                     .font(.caption)
                     .foregroundStyle(BevelTheme.dangerColor)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 6)
-            }
-
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 20) {
-                        if store.isAtWelcome {
-                            welcomePanel
-                                .id(ScrollTarget.welcome)
-                        } else {
-                            ForEach(store.messages) { msg in
-                                messageRow(msg)
-                                    .id(msg.id)
-                            }
-                            if store.isSending {
-                                ProgressView("Coach 正在回复…")
-                                    .controlSize(.small)
-                                    .font(.footnote)
-                                    .foregroundStyle(BevelTheme.inkSecondary)
-                                    .padding(.vertical, 8)
-                            }
-                        }
-                        Color.clear.frame(height: 1)
-                            .accessibilityHidden(true)
-                            .id(ScrollTarget.latest)
-                    }
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 14)
-                    .frame(maxWidth: 680)
-                    .frame(maxWidth: .infinity)
-                }
-                .defaultScrollAnchor(store.isAtWelcome ? .top : .bottom, for: .initialOffset)
-                .scrollDismissesKeyboard(.interactively)
-                .onScrollGeometryChange(for: Bool.self) { geometry in
-                    geometry.contentSize.height - geometry.visibleRect.maxY < 100
-                } action: { _, nearLatest in
-                    isNearLatest = nearLatest
-                }
-                .onChange(of: store.messages.last?.id) { _, _ in
-                    if store.isAtWelcome {
-                        scroll(to: ScrollTarget.welcome, anchor: .top, using: proxy)
-                    } else if let last = store.messages.last, last.role == .user {
-                        scroll(to: ScrollTarget.latest, anchor: .bottom, using: proxy)
-                    } else if let last = store.messages.last, isNearLatest {
-                        scroll(to: last.id, anchor: .top, using: proxy)
-                    }
-                }
-                .overlay(alignment: .bottomTrailing) {
-                    if !isNearLatest && !store.isAtWelcome {
-                        Button("回到底部", systemImage: "arrow.down") {
-                            scroll(to: ScrollTarget.latest, anchor: .bottom, using: proxy)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .padding(.trailing, 18)
-                        .padding(.bottom, 8)
-                        .accessibilityIdentifier("coach-jump-to-latest")
-                    }
-                }
+                    .background(BevelTheme.canvas)
+                    .accessibilityIdentifier("coach-error-banner")
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
