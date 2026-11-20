@@ -9,6 +9,9 @@ public enum PreviewSeedFactory {
         calendar: Calendar = .current
     ) -> [DailyRawMetrics] {
         let refStart = calendar.startOfDay(for: referenceDate)
+        // Use the physiological day of the reference instant, not the calendar day of
+        // each seeded midnight timestamp: at 00:00–03:59 those two differ by one day.
+        let refKey = DayKey(date: referenceDate, cutoverHour: 4, timeZone: calendar.timeZone)
         var result: [DailyRawMetrics] = []
         result.reserveCapacity(days)
 
@@ -181,7 +184,7 @@ public enum PreviewSeedFactory {
                     daytimeMaxHeartRateBpm: meanHR + 45,
                     hasAuthorizedHealthData: true,
                     sourceNames: ["Apple Watch (示例数据)"],
-                    dayKey: DayKey.fromCalendarDay(date, calendar: calendar)
+                    dayKey: refKey.addingDays(offset)
                 )
             )
         }
@@ -249,7 +252,13 @@ public enum PreviewSeedFactory {
         endingAt referenceDate: Date = Date(),
         calendar: Calendar = .current
     ) -> [DailyRawMetrics] {
-        [DailyRawMetrics(date: calendar.startOfDay(for: referenceDate), hasAuthorizedHealthData: false)]
+        [
+            DailyRawMetrics(
+                date: calendar.startOfDay(for: referenceDate),
+                hasAuthorizedHealthData: false,
+                dayKey: DayKey(date: referenceDate, cutoverHour: 4, timeZone: calendar.timeZone)
+            ),
+        ]
     }
 
     private static func buildSampleSleepSegments(
