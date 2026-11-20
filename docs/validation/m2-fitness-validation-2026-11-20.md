@@ -4,7 +4,7 @@
 - 关联提交：
   - Commit 1（`[M2][CORE-STORE]`）：`d8771ad2`（Watch-First 肌群恢复启发式引擎、自动归因、一句话复盘解析器与 55 例评测集）
   - Commit 2（`[M2][UI]`）：`81da15e2`（以 `d8771ad2` 为基线，本文档记录完整代码树的验证结果）
-- 环境：Apple M5 Pro / SwiftPM Debug + iOS Simulator `iPhone 17 Pro` (`3BB779BD-022F-4E60-A3BB-70DC5A0BF987`) + `generic/platform=iOS`
+- 环境：Apple M5 Pro / SwiftPM Debug + iOS Simulator `iPhone 17 Pro` (`3BB779BD-022F-4E60-A3BB-70DC5A0BF987`) + `generic/platform=iOS`；CI 固定工具链为 `.xcode-version` 26.5.0，本机 27.1 结果用于模拟器走查，固定版本判定以 GitHub Actions 为准
 
 ---
 

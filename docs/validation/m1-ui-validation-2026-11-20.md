@@ -6,7 +6,7 @@
 - 关联提交：
   - Phase A（`[M1-UI][DESIGN]`）：`0bbf6ce8`（`BodySeekDesign` 拆分、`docs/design/chart-grammar.md`、`BodySeekChart` 8 类原生组件族、移除 `liveline-swift`）
   - Phase B（`[M1-UI][VIEWS]`）：`3f34382a`（今日行动卡、五项详情、趋势胶囊与营养看板）
-- 环境：Apple M5 Pro / Xcode 27.1 (`27A9275`) / Swift 6.4 / iPhone 17 Pro 模拟器 (`3BB779BD-022F-4E60-A3BB-70DC5A0BF987`)
+- 环境：Apple M5 Pro / Xcode 27.1 (`27A9275`) / Swift 6.4 / iPhone 17 Pro 模拟器 (`3BB779BD-022F-4E60-A3BB-70DC5A0BF987`)；CI 固定工具链为 `.xcode-version` 26.5.0，本机 27.1 结果用于模拟器走查，固定版本判定以 GitHub Actions 为准
 
 ## 1. M1-UI 交付范围摘要
 

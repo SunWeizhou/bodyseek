@@ -4,7 +4,7 @@
 - 关联提交：
   - Commit 1（`[M3][AGENT]`）：`48679366`（拆出 `BodySeekAgent`、移除 `SpeziLLM`/`swift-openapi-*`、自研 `OpenAICompatibleClient`/四态工具/数字溯源/三层记忆选择器/主动洞察引擎与 30 题评测集）
   - Commit 2（`[M3][UI]`）：`6f577833`（以 `48679366` 为基线，上线三层记忆管理、提案确认卡片、主动洞察与隐私数据预览）
-- 环境：Apple M5 Pro / SwiftPM Debug + iOS Simulator `iPhone 17 Pro` (`3BB779BD-022F-4E60-A3BB-70DC5A0BF987`) + `generic/platform=iOS`
+- 环境：Apple M5 Pro / SwiftPM Debug + iOS Simulator `iPhone 17 Pro` (`3BB779BD-022F-4E60-A3BB-70DC5A0BF987`) + `generic/platform=iOS`；CI 固定工具链为 `.xcode-version` 26.5.0，本机 27.1 结果用于模拟器走查，固定版本判定以 GitHub Actions 为准
 
 ---
 

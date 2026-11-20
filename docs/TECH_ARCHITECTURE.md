@@ -12,7 +12,7 @@
 
 ## 1. 架构总览与技术栈
 
-- **平台**: iOS 26.0+（`IPHONEOS_DEPLOYMENT_TARGET = 26.0`），Xcode 27.1，Swift 6.4；Watch 端由系统“体能训练”App 采集（无独立 `VelaWatch` target）。
+- **平台**: iOS 26.0+（`IPHONEOS_DEPLOYMENT_TARGET = 26.0`）。CI 工具链严格匹配 `.xcode-version`（当前 26.5.0）；本机验证环境可为更新版本（当前 Xcode 27.1 / Swift 6.4），报告必须注明实际工具链，固定版本判定以 CI 为准。Watch 端由系统“体能训练”App 采集（无独立 `VelaWatch` target）。
 - **对外产品名**: BodySeek（仓库、Xcode 工程、Bundle ID `com.sunweizhou.Vela4` 与内部日志子系统保持 Vela 约定）。
 - **架构核心**: Point-Free TCA（`swift-composable-architecture` + `swift-dependencies`）+ `StanfordSpezi/SpeziHealthKit` + **GRDB 7**（M1 引入）+ **原生 `Swift Charts`**（M1-UI 全量替代 `Liveline`）+ **`BodySeekML/`** 离线 Python 建模实验室。
 - **状态与性能原则**:
