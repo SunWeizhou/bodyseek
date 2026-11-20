@@ -13,6 +13,7 @@ let package = Package(
         .library(name: "BodySeekDesign", targets: ["BodySeekDesign"]),
         .library(name: "BodySeekStore", targets: ["BodySeekStore"]),
         .library(name: "BodySeekHealth", targets: ["BodySeekHealth"]),
+        .library(name: "BodySeekAgent", targets: ["BodySeekAgent"]),
         .library(name: "BodySeekFeatures", targets: ["BodySeekFeatures"]),
     ],
     dependencies: [
@@ -35,22 +36,6 @@ let package = Package(
         .package(
             url: "https://github.com/StanfordSpezi/SpeziFoundation.git",
             from: "2.7.0"
-        ),
-        .package(
-            url: "https://github.com/StanfordSpezi/SpeziLLM.git",
-            from: "0.9.0"
-        ),
-        .package(
-            url: "https://github.com/apple/swift-openapi-generator.git",
-            "1.8.0"..<"1.13.0"
-        ),
-        .package(
-            url: "https://github.com/apple/swift-openapi-runtime.git",
-            from: "1.8.0"
-        ),
-        .package(
-            url: "https://github.com/apple/swift-http-types.git",
-            from: "1.8.0"
         ),
         .package(
             url: "https://github.com/melihcolpan/MuscleMap.git",
@@ -86,13 +71,19 @@ let package = Package(
                 "BodySeekStore",
                 .product(name: "Dependencies", package: "swift-dependencies"),
                 .product(name: "DependenciesMacros", package: "swift-dependencies"),
-                .product(name: "HTTPTypes", package: "swift-http-types"),
-                .product(name: "OpenAPIRuntime", package: "swift-openapi-runtime"),
                 .product(name: "Spezi", package: "Spezi"),
                 .product(name: "SpeziFoundation", package: "SpeziFoundation"),
                 .product(name: "SpeziHealthKit", package: "SpeziHealthKit"),
-                .product(name: "SpeziLLM", package: "SpeziLLM"),
-                .product(name: "SpeziLLMOpenAI", package: "SpeziLLM"),
+            ]
+        ),
+        .target(
+            name: "BodySeekAgent",
+            dependencies: [
+                "BodySeekCore",
+                "BodySeekStore",
+                "BodySeekHealth",
+                .product(name: "Dependencies", package: "swift-dependencies"),
+                .product(name: "DependenciesMacros", package: "swift-dependencies"),
             ]
         ),
         .target(
@@ -102,13 +93,12 @@ let package = Package(
                 "BodySeekDesign",
                 "BodySeekStore",
                 "BodySeekHealth",
+                "BodySeekAgent",
                 .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
                 .product(name: "Dependencies", package: "swift-dependencies"),
                 .product(name: "MuscleMap", package: "MuscleMap"),
                 .product(name: "Spezi", package: "Spezi"),
                 .product(name: "SpeziHealthKit", package: "SpeziHealthKit"),
-                .product(name: "SpeziLLM", package: "SpeziLLM"),
-                .product(name: "SpeziLLMOpenAI", package: "SpeziLLM"),
             ]
         ),
         .testTarget(
@@ -118,8 +108,19 @@ let package = Package(
                 "BodySeekDesign",
                 "BodySeekStore",
                 "BodySeekHealth",
+                "BodySeekAgent",
                 "BodySeekFeatures",
                 .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
+                .product(name: "Dependencies", package: "swift-dependencies"),
+            ]
+        ),
+        .testTarget(
+            name: "BodySeekAgentEvals",
+            dependencies: [
+                "BodySeekCore",
+                "BodySeekStore",
+                "BodySeekHealth",
+                "BodySeekAgent",
                 .product(name: "Dependencies", package: "swift-dependencies"),
             ]
         ),

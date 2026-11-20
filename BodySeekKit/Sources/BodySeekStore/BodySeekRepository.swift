@@ -1202,12 +1202,19 @@ public final class BodySeekRepository: Sendable {
         }
     }
 
+    private struct CoachMessageTraceMetadata: Codable {
+        let memoryProposal: TieredMemoryRecord?
+        let workoutAnnotationProposal: CoachWorkoutAnnotationProposal?
+        let unverifiedNumbers: [String]
+        let toolsInvoked: [String]
+    }
+
     public func loadMessages(threadID: String = "default") async throws -> [CoachMessage] {
         try await database.writer.read { db in
             let rows = try Row.fetchAll(
                 db,
                 sql: """
-                SELECT id, role, content, engine_label, evidence_metric, proposal_json, memory_note, at
+                SELECT id, role, content, engine_label, evidence_metric, proposal_json, memory_note, tool_trace_json, at
                 FROM coach_message
                 WHERE thread_id = ?
                 ORDER BY at ASC
@@ -1227,6 +1234,10 @@ public final class BodySeekRepository: Sendable {
                 let proposal: WorkoutProposal? = try proposalJSON.map {
                     try decoder.decode(WorkoutProposal.self, from: Data($0.utf8))
                 }
+                let traceJSON: String? = row["tool_trace_json"]
+                let trace: CoachMessageTraceMetadata? = try traceJSON.map {
+                    try decoder.decode(CoachMessageTraceMetadata.self, from: Data($0.utf8))
+                }
                 return CoachMessage(
                     id: id,
                     role: role,
@@ -1235,7 +1246,11 @@ public final class BodySeekRepository: Sendable {
                     timestamp: Date(timeIntervalSince1970: row["at"]),
                     evidenceMetric: metric,
                     workoutProposal: proposal,
-                    memorySavedNote: row["memory_note"]
+                    memorySavedNote: row["memory_note"],
+                    memoryProposal: trace?.memoryProposal,
+                    workoutAnnotationProposal: trace?.workoutAnnotationProposal,
+                    unverifiedNumbers: trace?.unverifiedNumbers ?? [],
+                    toolsInvoked: trace?.toolsInvoked ?? []
                 )
             }
         }
@@ -1247,8 +1262,31 @@ public final class BodySeekRepository: Sendable {
         } else {
             nil
         }
+        let hasTrace = msg.memoryProposal != nil
+            || msg.workoutAnnotationProposal != nil
+            || !msg.unverifiedNumbers.isEmpty
+            || !msg.toolsInvoked.isEmpty
+        let traceJSON: String? = if hasTrace {
+            try Self.encodeJSONString(
+                CoachMessageTraceMetadata(
+                    memoryProposal: msg.memoryProposal,
+                    workoutAnnotationProposal: msg.workoutAnnotationProposal,
+                    unverifiedNumbers: msg.unverifiedNumbers,
+                    toolsInvoked: msg.toolsInvoked
+                ),
+                label: "CoachMessage.trace"
+            )
+        } else {
+            nil
+        }
         try await database.writer.write { db in
-            try Self.appendMessageSync(db: db, message: msg, proposalJSON: proposalJSON, threadID: threadID)
+            try Self.appendMessageSync(
+                db: db,
+                message: msg,
+                proposalJSON: proposalJSON,
+                traceJSON: traceJSON,
+                threadID: threadID
+            )
         }
     }
 
@@ -1256,6 +1294,7 @@ public final class BodySeekRepository: Sendable {
         db: Database,
         message: CoachMessage,
         proposalJSON: String?,
+        traceJSON: String? = nil,
         threadID: String = "default"
     ) throws {
         try db.execute(
@@ -1264,13 +1303,14 @@ public final class BodySeekRepository: Sendable {
                 id, thread_id, role, content, engine_label, evidence_metric,
                 proposal_json, memory_note, tool_trace_json, at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 content = excluded.content,
                 engine_label = excluded.engine_label,
                 evidence_metric = excluded.evidence_metric,
                 proposal_json = excluded.proposal_json,
                 memory_note = excluded.memory_note,
+                tool_trace_json = excluded.tool_trace_json,
                 at = excluded.at
             """,
             arguments: [
@@ -1282,6 +1322,7 @@ public final class BodySeekRepository: Sendable {
                 message.evidenceMetric?.rawValue,
                 proposalJSON,
                 message.memorySavedNote,
+                traceJSON,
                 message.timestamp.timeIntervalSince1970,
             ]
         )

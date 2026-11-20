@@ -649,24 +649,28 @@ public struct AppPreferencesState: Equatable, Sendable, Codable {
     public var subjectiveFeelingsByDay: [String: Int]
     public var checkInsByDay: [String: DailyCheckIn]
     public var dominantHand: DominantHand
+    public var proactiveInsightsEnabled: Bool
 
     private enum CodingKeys: String, CodingKey {
         case sleepGoalMinutes
         case subjectiveFeelingsByDay
         case checkInsByDay
         case dominantHand
+        case proactiveInsightsEnabled
     }
 
     public init(
         sleepGoalMinutes: Int = 450,
         subjectiveFeelingsByDay: [String: Int] = [:],
         checkInsByDay: [String: DailyCheckIn] = [:],
-        dominantHand: DominantHand = .right
+        dominantHand: DominantHand = .right,
+        proactiveInsightsEnabled: Bool = true
     ) {
         self.sleepGoalMinutes = sleepGoalMinutes
         self.subjectiveFeelingsByDay = subjectiveFeelingsByDay
         self.checkInsByDay = checkInsByDay
         self.dominantHand = dominantHand
+        self.proactiveInsightsEnabled = proactiveInsightsEnabled
     }
 
     public init(from decoder: Decoder) throws {
@@ -675,6 +679,7 @@ public struct AppPreferencesState: Equatable, Sendable, Codable {
         self.subjectiveFeelingsByDay = try container.decodeIfPresent([String: Int].self, forKey: .subjectiveFeelingsByDay) ?? [:]
         self.checkInsByDay = try container.decodeIfPresent([String: DailyCheckIn].self, forKey: .checkInsByDay) ?? [:]
         self.dominantHand = try container.decodeIfPresent(DominantHand.self, forKey: .dominantHand) ?? .right
+        self.proactiveInsightsEnabled = try container.decodeIfPresent(Bool.self, forKey: .proactiveInsightsEnabled) ?? true
     }
 }
 
@@ -683,6 +688,31 @@ public enum AIBriefingStatus: Equatable, Hashable, Sendable {
     case loading
     case generated(text: String, engineName: String)
     case unconfigured(reason: String)
+}
+
+public struct CoachWorkoutAnnotationProposal: Identifiable, Equatable, Hashable, Sendable, Codable {
+    public let id: UUID
+    public let workoutUUID: String
+    public let workoutTitle: String
+    public let rawText: String
+    public let proposal: WorkoutAnnotationProposal
+    public let muscleLoads: [WorkoutMuscleLoadRecord]
+
+    public init(
+        id: UUID = UUID(),
+        workoutUUID: String,
+        workoutTitle: String,
+        rawText: String,
+        proposal: WorkoutAnnotationProposal,
+        muscleLoads: [WorkoutMuscleLoadRecord]
+    ) {
+        self.id = id
+        self.workoutUUID = workoutUUID
+        self.workoutTitle = workoutTitle
+        self.rawText = rawText
+        self.proposal = proposal
+        self.muscleLoads = muscleLoads
+    }
 }
 
 public struct CoachMessage: Identifiable, Equatable, Sendable, Codable {
@@ -699,6 +729,25 @@ public struct CoachMessage: Identifiable, Equatable, Sendable, Codable {
     public let evidenceMetric: MetricKind?
     public let workoutProposal: WorkoutProposal?
     public let memorySavedNote: String?
+    public let memoryProposal: TieredMemoryRecord?
+    public let workoutAnnotationProposal: CoachWorkoutAnnotationProposal?
+    public let unverifiedNumbers: [String]
+    public let toolsInvoked: [String]
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case role
+        case text
+        case engineLabel
+        case timestamp
+        case evidenceMetric
+        case workoutProposal
+        case memorySavedNote
+        case memoryProposal
+        case workoutAnnotationProposal
+        case unverifiedNumbers
+        case toolsInvoked
+    }
 
     public init(
         id: UUID = UUID(),
@@ -708,7 +757,11 @@ public struct CoachMessage: Identifiable, Equatable, Sendable, Codable {
         timestamp: Date = .now,
         evidenceMetric: MetricKind? = nil,
         workoutProposal: WorkoutProposal? = nil,
-        memorySavedNote: String? = nil
+        memorySavedNote: String? = nil,
+        memoryProposal: TieredMemoryRecord? = nil,
+        workoutAnnotationProposal: CoachWorkoutAnnotationProposal? = nil,
+        unverifiedNumbers: [String] = [],
+        toolsInvoked: [String] = []
     ) {
         self.id = id
         self.role = role
@@ -718,6 +771,26 @@ public struct CoachMessage: Identifiable, Equatable, Sendable, Codable {
         self.evidenceMetric = evidenceMetric
         self.workoutProposal = workoutProposal
         self.memorySavedNote = memorySavedNote
+        self.memoryProposal = memoryProposal
+        self.workoutAnnotationProposal = workoutAnnotationProposal
+        self.unverifiedNumbers = unverifiedNumbers
+        self.toolsInvoked = toolsInvoked
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try c.decode(UUID.self, forKey: .id)
+        self.role = try c.decode(Role.self, forKey: .role)
+        self.text = try c.decode(String.self, forKey: .text)
+        self.engineLabel = try c.decodeIfPresent(String.self, forKey: .engineLabel)
+        self.timestamp = try c.decode(Date.self, forKey: .timestamp)
+        self.evidenceMetric = try c.decodeIfPresent(MetricKind.self, forKey: .evidenceMetric)
+        self.workoutProposal = try c.decodeIfPresent(WorkoutProposal.self, forKey: .workoutProposal)
+        self.memorySavedNote = try c.decodeIfPresent(String.self, forKey: .memorySavedNote)
+        self.memoryProposal = try c.decodeIfPresent(TieredMemoryRecord.self, forKey: .memoryProposal)
+        self.workoutAnnotationProposal = try c.decodeIfPresent(CoachWorkoutAnnotationProposal.self, forKey: .workoutAnnotationProposal)
+        self.unverifiedNumbers = try c.decodeIfPresent([String].self, forKey: .unverifiedNumbers) ?? []
+        self.toolsInvoked = try c.decodeIfPresent([String].self, forKey: .toolsInvoked) ?? []
     }
 }
 

@@ -1,3 +1,4 @@
+@_exported import BodySeekAgent
 @_exported import BodySeekCore
 @_exported import BodySeekDesign
 @_exported import BodySeekFeatures

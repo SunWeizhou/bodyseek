@@ -171,6 +171,9 @@ public struct BodySeekStoreClient: Sendable {
     public var loadWorkoutAnnotations: @Sendable (_ workoutUUID: String?) async throws -> [WorkoutAnnotationRecord] = { _ in [] }
     public var loadAllMuscleLoads: @Sendable (_ since: Date?) async throws -> [WorkoutMuscleLoadRecord] = { _ in [] }
     public var applyAutoWorkoutAttribution: @Sendable (_ workoutUUID: String, _ loads: [WorkoutMuscleLoadRecord]) async throws -> Bool = { _, _ in false }
+    public var loadTieredMemories: @Sendable (_ includeRetired: Bool) async throws -> [TieredMemoryRecord] = { _ in [] }
+    public var loadActionAuditEntries: @Sendable (_ limit: Int) async throws -> [ActionAuditEntry] = { _ in [] }
+    public var savePatternFinding: @Sendable (_ finding: PatternFindingRecord) async throws -> Void
 }
 
 extension BodySeekStoreClient: DependencyKey {
@@ -360,6 +363,18 @@ extension BodySeekStoreClient: DependencyKey {
             applyAutoWorkoutAttribution: { workoutUUID, loads in
                 let repo = try await liveOrPreviewRepo(preview: preview)
                 return try await repo.applyAutoWorkoutAttribution(workoutUUID: workoutUUID, loads: loads)
+            },
+            loadTieredMemories: { includeRetired in
+                let repo = try await liveOrPreviewRepo(preview: preview)
+                return try await repo.loadTieredMemories(includeRetired: includeRetired)
+            },
+            loadActionAuditEntries: { limit in
+                let repo = try await liveOrPreviewRepo(preview: preview)
+                return Array(try await repo.loadAuditEntries().prefix(max(1, limit)))
+            },
+            savePatternFinding: { finding in
+                let repo = try await liveOrPreviewRepo(preview: preview)
+                try await repo.savePatternFinding(finding)
             }
         )
     }()
@@ -451,6 +466,18 @@ extension BodySeekStoreClient: DependencyKey {
             applyAutoWorkoutAttribution: { workoutUUID, loads in
                 let (_, repo, _, _) = try await preview.resolve()
                 return try await repo.applyAutoWorkoutAttribution(workoutUUID: workoutUUID, loads: loads)
+            },
+            loadTieredMemories: { includeRetired in
+                let (_, repo, _, _) = try await preview.resolve()
+                return try await repo.loadTieredMemories(includeRetired: includeRetired)
+            },
+            loadActionAuditEntries: { limit in
+                let (_, repo, _, _) = try await preview.resolve()
+                return Array(try await repo.loadAuditEntries().prefix(max(1, limit)))
+            },
+            savePatternFinding: { finding in
+                let (_, repo, _, _) = try await preview.resolve()
+                try await repo.savePatternFinding(finding)
             }
         )
     }

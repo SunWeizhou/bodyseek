@@ -1,8 +1,6 @@
 import Foundation
 import Spezi
 import SpeziHealthKit
-import SpeziLLM
-import SpeziLLMOpenAI
 
 #if os(iOS)
 import HealthKit
@@ -52,8 +50,7 @@ public final actor BodySeekStandard: Standard, HealthKitConstraint {
 public enum BodySeekSpeziConfiguration {
     @MainActor
     public static func makeConfiguration(standard: BodySeekStandard) -> Configuration {
-        let defaultServer = URL(string: "https://api.deepseek.com/v1")!
-        return Configuration(standard: standard) {
+        Configuration(standard: standard) {
             HealthKit {
                 CollectSamples(.heartRateVariabilitySDNN, continueInBackground: true)
                 CollectSamples(.restingHeartRate, continueInBackground: true)
@@ -82,15 +79,6 @@ public enum BodySeekSpeziConfiguration {
                     other: [SampleType.workout]
                 )
             }
-            LLMRunner {
-                LLMOpenAIPlatform(
-                    configuration: .init(
-                        serverUrl: defaultServer,
-                        authToken: .none,
-                        middlewares: [DynamicServerURLMiddleware()]
-                    )
-                )
-            }
             BodySeekHealthBridgeModule.shared
         }
     }
@@ -100,7 +88,6 @@ public final class BodySeekHealthBridgeModule: Module, @unchecked Sendable {
     public static let shared = BodySeekHealthBridgeModule()
 
     @Dependency(HealthKit.self) private var healthKit
-    @Dependency(LLMRunner.self) private var llmRunner
     private weak var standardRef: BodySeekStandard?
 
     private init() {}
@@ -108,7 +95,6 @@ public final class BodySeekHealthBridgeModule: Module, @unchecked Sendable {
     @MainActor
     public func configure() {
         _ = healthKit
-        _ = llmRunner
     }
 
     @MainActor
@@ -119,11 +105,6 @@ public final class BodySeekHealthBridgeModule: Module, @unchecked Sendable {
     @MainActor
     public var currentHealthKit: HealthKit? {
         healthKit
-    }
-
-    @MainActor
-    public var currentLLMRunner: LLMRunner? {
-        llmRunner
     }
 
     public func updateStream() async -> AsyncStream<Void> {
