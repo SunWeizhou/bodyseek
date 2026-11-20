@@ -192,6 +192,11 @@ public enum CoachToolRegistry {
             )
         )),
         OpenAIToolDefinition(function: OpenAIFunctionDefinition(
+            name: "get_personal_forecast",
+            description: "调用端侧 CoreML 个人统计预测模型（仅基于历史因果特征），输出次日夜间 HRV、静息心率与睡眠效率的点估计及 80%/90% Split-Conformal 区间，附“个人统计预测，非医学诊断”声明。",
+            parameters: OpenAIToolParametersObject()
+        )),
+        OpenAIToolDefinition(function: OpenAIFunctionDefinition(
             name: "search_exercise_catalog",
             description: "按肌群或关键词检索内置动作库ID，用于构造训练提案。",
             parameters: OpenAIToolParametersObject(
@@ -274,6 +279,8 @@ public enum CoachToolRegistry {
             output = similarDaysJSON(dayString: stringArg(args, "day"), context: context)
         case "get_eating_context":
             output = eatingContextJSON(days: intArg(args, "days") ?? 7, context: context)
+        case "get_personal_forecast":
+            output = personalForecastJSON(context: context)
         case "search_exercise_catalog":
             output = searchExercisesJSON(query: stringArg(args, "query") ?? "")
         case "propose_plan_change":
@@ -881,6 +888,94 @@ public enum CoachToolRegistry {
                 logs: items
             )
         )
+    }
+
+    private static func personalForecastJSON(context: AgentExecutionContext) -> String {
+        struct ForecastTargetDTO: Encodable {
+            let name: String
+            let title: String
+            let unit: String
+            let point: Double
+            let interval80Low: Double
+            let interval80High: Double
+            let interval90Low: Double
+            let interval90High: Double
+            let walkForwardMAE: Double
+            let walkForwardCov80: Double
+        }
+        struct PersonalForecastPayload: Encodable {
+            let disclaimer: String
+            let referenceDayKey: String
+            let targetDayKey: String
+            let modelVersion: String
+            let runtimeBackend: String
+            let observedDays: Int
+            let targets: [ForecastTargetDTO]
+        }
+
+        let eatingDays = Set(
+            context.nutritionLogs
+                .filter { $0.dietDayComplete == true || !$0.entries.isEmpty }
+                .map(\.dayKey)
+        )
+        let state = PersonalForecasterEngine.forecast(
+            historyDays: context.snapshot.historyDays,
+            referenceDate: context.snapshot.referenceDate,
+            eatingAvailableDayKeys: eatingDays
+        )
+
+        switch state {
+        case let .insufficientData(observedDays, minimumRequired, reason):
+            let cov = min(1.0, max(0.0, Double(observedDays) / Double(max(1, minimumRequired))))
+            return encodeEnvelope(
+                tool: "get_personal_forecast",
+                state: "missing",
+                coverage: cov,
+                reason: reason,
+                algorithmVersion: "personal-forecaster-v1@1.0.0",
+                data: PersonalForecastPayload(
+                    disclaimer: "个人统计预测，非医学诊断",
+                    referenceDayKey: context.snapshot.referenceDate.physiologicalDayKey().isoString,
+                    targetDayKey: context.snapshot.referenceDate.physiologicalDayKey().addingDays(1).isoString,
+                    modelVersion: "personal-forecaster-v1@1.0.0",
+                    runtimeBackend: "CoreML",
+                    observedDays: observedDays,
+                    targets: []
+                )
+            )
+        case let .available(summary):
+            let dtos = summary.targets.map { t in
+                let scale = t.name == "sleep_efficiency" ? 1000.0 : 10.0
+                return ForecastTargetDTO(
+                    name: t.name,
+                    title: t.title,
+                    unit: t.unit,
+                    point: (t.point * scale).rounded() / scale,
+                    interval80Low: (t.interval80Low * scale).rounded() / scale,
+                    interval80High: (t.interval80High * scale).rounded() / scale,
+                    interval90Low: (t.interval90Low * scale).rounded() / scale,
+                    interval90High: (t.interval90High * scale).rounded() / scale,
+                    walkForwardMAE: (t.walkForwardMAE * scale).rounded() / scale,
+                    walkForwardCov80: (t.walkForwardCov80 * 1000.0).rounded() / 1000.0
+                )
+            }
+            return encodeEnvelope(
+                tool: "get_personal_forecast",
+                state: "available",
+                coverage: 1.0,
+                reason: nil,
+                algorithmVersion: summary.modelVersion,
+                data: PersonalForecastPayload(
+                    disclaimer: "个人统计预测，非医学诊断",
+                    referenceDayKey: summary.referenceDayKey.isoString,
+                    targetDayKey: summary.targetDayKey.isoString,
+                    modelVersion: summary.modelVersion,
+                    runtimeBackend: summary.runtimeBackend,
+                    observedDays: summary.observedDays,
+                    targets: dtos
+                )
+            )
+        }
     }
 
     private static func searchExercisesJSON(query: String) -> String {

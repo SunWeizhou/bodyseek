@@ -916,6 +916,34 @@ public final class BodySeekRepository: Sendable {
         }
     }
 
+    public func loadExperimentPlanItems() async throws -> [PlanItemRecord] {
+        try await database.writer.read { db in
+            let rows = try Row.fetchAll(
+                db,
+                sql: "SELECT id, day_key, kind, payload_json, state, origin FROM plan_item WHERE kind = ? ORDER BY day_key DESC",
+                arguments: [PlanItemKind.experiment.rawValue]
+            )
+            return rows.compactMap { row in
+                guard let id = UUID(uuidString: row["id"]),
+                      let key = DayKey(isoString: row["day_key"]),
+                      let kind = PlanItemKind(rawValue: row["kind"]),
+                      let state = PlanItemState(rawValue: row["state"]),
+                      let origin = ActionProposal.Origin(rawValue: row["origin"])
+                else {
+                    return nil
+                }
+                return PlanItemRecord(
+                    id: id,
+                    dayKey: key,
+                    kind: kind,
+                    payloadJSON: row["payload_json"],
+                    state: state,
+                    origin: origin
+                )
+            }
+        }
+    }
+
     // MARK: - Tiered Memory & AthleteMemoryItem Bridge
 
     public func saveTieredMemory(_ record: TieredMemoryRecord) async throws {

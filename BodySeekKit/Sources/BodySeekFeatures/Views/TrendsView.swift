@@ -16,14 +16,18 @@ public struct TrendsView: View {
         let activeSeries = store.activeSeries
         let horizonDays = Array(store.snapshot.historyDays.suffix(store.horizon.dayCount))
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 16) {
                 horizonPills(selected: store.horizon)
 
                 summaryCard(series: activeSeries)
 
                 interactiveChartCard(series: activeSeries)
 
+                personalForecastCard
+
                 dualAxisCard(days: horizonDays)
+
+                nOfOneExperimentCard
 
                 patternsCard
 
@@ -199,6 +203,191 @@ public struct TrendsView: View {
         }
     }
 
+    private var personalForecastCard: some View {
+        BevelCard {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    Label("明天身体预测", systemImage: "cpu")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(BevelTheme.brand)
+                    Spacer()
+                    Text("个人统计预测 · 非医学诊断")
+                        .font(.caption2.weight(.medium))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(BevelTheme.brandSoft, in: Capsule())
+                        .foregroundStyle(BevelTheme.brand)
+                }
+
+                switch store.personalForecast {
+                case let .insufficientData(observedDays, minimumRequired, reason):
+                    Text(reason)
+                        .font(.caption)
+                        .foregroundStyle(BevelTheme.inkSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text("当前有效样本 \(observedDays)/\(minimumRequired) 天（绝不零填充补齐）")
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(BevelTheme.inkSecondary)
+
+                case let .available(summary):
+                    HStack {
+                        Text("目标日 \(summary.targetDayKey.isoString)")
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(BevelTheme.inkSecondary)
+                        Spacer()
+                        Text(summary.modelVersion)
+                            .font(.caption2.monospacedDigit())
+                            .foregroundStyle(BevelTheme.inkSecondary)
+                    }
+
+                    ForEach(summary.targets) { target in
+                        HStack(alignment: .firstTextBaseline) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(target.title)
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(BevelTheme.ink)
+                                Text(formattedInterval(for: target))
+                                    .font(.caption2.monospacedDigit())
+                                    .foregroundStyle(BevelTheme.inkSecondary)
+                            }
+                            Spacer()
+                            Text(formattedPoint(for: target))
+                                .font(.title3.weight(.bold).monospacedDigit())
+                                .fontDesign(.rounded)
+                                .foregroundStyle(BevelTheme.ink)
+                        }
+                        .padding(10)
+                        .background(BevelTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+
+                    Text("运行时：\(summary.runtimeBackend) · 基于 \(summary.observedDays) 天严格因果特征与 80% Split-Conformal 校准区间。")
+                        .font(.caption2)
+                        .foregroundStyle(BevelTheme.inkSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("trends-personal-forecast-card")
+    }
+
+    private func formattedPoint(for target: PersonalForecastTargetResult) -> String {
+        if target.name == "sleep_efficiency" {
+            return String(format: "%.1f%%", target.point * 100.0)
+        }
+        return String(format: "%.1f %@", target.point, target.unit)
+    }
+
+    private func formattedInterval(for target: PersonalForecastTargetResult) -> String {
+        if target.name == "sleep_efficiency" {
+            return String(
+                format: "80%% 预测区间 [%.1f%%, %.1f%%] · 历史回测 MAE %.1f%%",
+                target.interval80Low * 100.0,
+                target.interval80High * 100.0,
+                target.walkForwardMAE * 100.0
+            )
+        }
+        return String(
+            format: "80%% 预测区间 [%.1f, %.1f] %@ · 历史回测 MAE %.2f",
+            target.interval80Low,
+            target.interval80High,
+            target.unit,
+            target.walkForwardMAE
+        )
+    }
+
+    private var nOfOneExperimentCard: some View {
+        let rows = store.evaluatedExperiments
+        let adoptedTemplateIDs = Set(rows.filter { $0.planItem.state == .adopted }.map { $0.record.templateID })
+
+        return BevelCard {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Label("N-of-1 自我对照实验", systemImage: "flask")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(BevelTheme.brand)
+                    Spacer()
+                    Text("个人对比 · 非临床因果结论")
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(BevelTheme.inkSecondary)
+                }
+
+                if let err = store.lastError {
+                    Text(err)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+
+                if !rows.isEmpty {
+                    ForEach(rows) { row in
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text(row.record.title)
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(BevelTheme.ink)
+                                Spacer()
+                                Text(row.planItem.state == .adopted ? "进行中" : "已结束")
+                                    .font(.caption2.weight(.semibold))
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 3)
+                                    .background(BevelTheme.brandSoft, in: Capsule())
+                                    .foregroundStyle(BevelTheme.brand)
+                            }
+                            Text(row.evaluation.summary)
+                                .font(.caption)
+                                .foregroundStyle(BevelTheme.inkSecondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                            if row.planItem.state == .adopted {
+                                HStack {
+                                    Text("起始 \(row.record.startDayKey.isoString) · \(row.record.targetMetric.title)")
+                                        .font(.caption2.monospacedDigit())
+                                        .foregroundStyle(BevelTheme.inkSecondary)
+                                    Spacer()
+                                    Button("结束实验") {
+                                        store.send(.completeExperimentTapped(row.planItem))
+                                    }
+                                    .font(.caption.weight(.semibold))
+                                    .buttonStyle(.bordered)
+                                    .accessibilityIdentifier("trends-nof1-complete-\(row.record.templateID)")
+                                }
+                            }
+                        }
+                        .padding(10)
+                        .background(BevelTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+                }
+
+                ForEach(NOfOneExperimentTemplate.presets) { template in
+                    let isAdopted = adoptedTemplateIDs.contains(template.id)
+                    HStack(alignment: .top, spacing: 10) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(template.title)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(BevelTheme.ink)
+                            Text(template.hypothesis)
+                                .font(.caption2)
+                                .foregroundStyle(BevelTheme.inkSecondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        Spacer()
+                        Button(isAdopted ? "进行中" : "开始 14 天实验") {
+                            store.send(.startExperimentTapped(template))
+                        }
+                        .font(.caption.weight(.semibold))
+                        .buttonStyle(.borderedProminent)
+                        .tint(BevelTheme.brand)
+                        .disabled(isAdopted)
+                        .accessibilityIdentifier("trends-nof1-start-\(template.id)")
+                    }
+                    .padding(10)
+                    .background(BevelTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("trends-nof1-card")
+    }
+
     private var patternsCard: some View {
         let activeFindings = store.patternFindings.filter { $0.status != .dismissed }
         return BevelCard {
@@ -220,22 +409,59 @@ public struct TrendsView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 } else {
                     ForEach(activeFindings.prefix(4)) { finding in
-                        VStack(alignment: .leading, spacing: 4) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text(finding.status == .confirmed ? "已确认" : "待确认")
+                                    .font(.caption2.weight(.semibold))
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 3)
+                                    .background(
+                                        finding.status == .confirmed ? Color.green.opacity(0.16) : BevelTheme.brandSoft,
+                                        in: Capsule()
+                                    )
+                                    .foregroundStyle(finding.status == .confirmed ? Color.green : BevelTheme.brand)
+                                Spacer()
+                                Text("n=\(finding.sampleSize)")
+                                    .font(.caption2.monospacedDigit())
+                                    .foregroundStyle(BevelTheme.inkSecondary)
+                            }
                             Text(finding.statement)
                                 .font(.subheadline.weight(.medium))
                                 .foregroundStyle(BevelTheme.ink)
                                 .fixedSize(horizontal: false, vertical: true)
                             Text(String(
-                                format: "效应 %.2f · 95%% CI [%.2f, %.2f] · n=%d · %@",
+                                format: "效应 %.2f · 95%% CI [%.2f, %.2f] · %@",
                                 finding.effect,
                                 finding.ciLow,
                                 finding.ciHigh,
-                                finding.sampleSize,
                                 finding.method
                             ))
                             .font(.caption2.monospacedDigit())
                             .fontDesign(.rounded)
                             .foregroundStyle(BevelTheme.deviationInk)
+
+                            if finding.status == .candidate {
+                                HStack(spacing: 10) {
+                                    Button("确认规律") {
+                                        store.send(.confirmPatternTapped(finding))
+                                    }
+                                    .font(.caption.weight(.semibold))
+                                    .buttonStyle(.borderedProminent)
+                                    .tint(BevelTheme.brand)
+                                    .accessibilityIdentifier("trends-pattern-confirm-\(finding.id.uuidString)")
+
+                                    Button("忽略") {
+                                        store.send(.dismissPatternTapped(finding))
+                                    }
+                                    .font(.caption)
+                                    .buttonStyle(.bordered)
+                                    .accessibilityIdentifier("trends-pattern-dismiss-\(finding.id.uuidString)")
+                                }
+                            } else {
+                                Text("已晋升为 Verified Pattern 长期记忆")
+                                    .font(.caption2.weight(.medium))
+                                    .foregroundStyle(.green)
+                            }
                         }
                         .padding(10)
                         .frame(maxWidth: .infinity, alignment: .leading)

@@ -355,4 +355,48 @@ final class BodySeekUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["全身肌群恢复热图"].waitForExistence(timeout: 5))
         try snap("09-workout-musclemap")
     }
+
+    func testM4DPersonalForecastAndNOfOneExperimentFlow() throws {
+        let app = launchApp()
+        tapTab("趋势", in: app)
+        XCTAssertTrue(app.buttons["trends-horizon-month"].waitForExistence(timeout: 6))
+
+        func scrollDownUntil(_ element: XCUIElement, maxSwipes: Int = 10) -> Bool {
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0.80))
+            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0.25))
+            for _ in 0..<maxSwipes {
+                if element.exists && element.isHittable {
+                    return true
+                }
+                start.press(forDuration: 0.05, thenDragTo: end)
+            }
+            return element.exists && element.isHittable
+        }
+
+        // 1. CoreML Personal Forecast Card + non-diagnostic disclaimer
+        let forecastCard = app.otherElements["trends-personal-forecast-card"]
+        XCTAssertTrue(forecastCard.waitForExistence(timeout: 5))
+        XCTAssertTrue(scrollDownUntil(forecastCard))
+        XCTAssertTrue(app.staticTexts["明天身体预测"].exists)
+        XCTAssertTrue(app.staticTexts["个人统计预测 · 非医学诊断"].exists)
+
+        // 2. Start 14-day N-of-1 Self-Experiment from template & verify persisted status
+        let startBtn = app.buttons["trends-nof1-start-early_bedtime_2330"]
+        XCTAssertTrue(startBtn.waitForExistence(timeout: 5))
+        XCTAssertTrue(scrollDownUntil(startBtn))
+        startBtn.tap()
+
+        let completeBtn = app.buttons["trends-nof1-complete-early_bedtime_2330"]
+        XCTAssertTrue(completeBtn.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["进行中"].exists)
+
+        // 3. One-tap confirm an M4a candidate pattern -> promoted to Confirmed / Verified Pattern
+        let confirmPredicate = NSPredicate(format: "identifier BEGINSWITH 'trends-pattern-confirm-'")
+        let confirmBtn = app.buttons.matching(confirmPredicate).firstMatch
+        XCTAssertTrue(confirmBtn.waitForExistence(timeout: 5))
+        XCTAssertTrue(scrollDownUntil(confirmBtn))
+        confirmBtn.tap()
+
+        XCTAssertTrue(app.staticTexts["已确认"].waitForExistence(timeout: 5))
+    }
 }

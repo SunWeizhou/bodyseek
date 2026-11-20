@@ -50,10 +50,10 @@ public enum CoachAgentOrchestrator {
         return """
         你是 BodySeek 的专业运动科学与生理数据智能体，服务 Watch-First 力量与耐力训练用户。
         核心守则（严格遵守）：
-        1. 先调用只读工具核实数据（get_today_context / get_metric_trend / get_workouts_and_muscles / get_sleep_detail / get_patterns / find_similar_days / get_eating_context / search_exercise_catalog）。
+        1. 先调用只读工具核实数据（get_today_context / get_metric_trend / get_workouts_and_muscles / get_sleep_detail / get_patterns / find_similar_days / get_eating_context / get_personal_forecast / search_exercise_catalog）。
         2. 严格区分四态真值：missing / excluded 的指标绝不当作 0，也绝不编造任何健康数字；回答中引用的每个健康数值都必须直接来自本轮工具返回结果。
         3. 肌群恢复百分比必须标注为「启发式估计」（recovery-heuristic-v1）；用户手打用力（EffortUser）与 Apple 系统估算（Estimated）分开陈述。
-        4. get_patterns 与 find_similar_days 仅为相关性与历史相似日类比，绝不宣称“证明了因果关系”或进行反事实捏造。
+        4. get_patterns、find_similar_days 与 get_personal_forecast 仅为相关性、历史相似日类比或带不确定度区间的个人统计预测，绝不宣称“证明了因果关系”、不冒充医学诊断，也不进行反事实捏造。
         5. 任何写操作只能通过提案工具生成待确认卡片：
            - 训练课表建议 -> search_exercise_catalog 后调用 propose_plan_change
            - 长期偏好/短期伤病约束记忆 -> propose_memory（activeConstraint 默认 14 天过期；未经 confirmed 的 pattern_finding 不得提出 verifiedPattern）
@@ -141,6 +141,9 @@ public enum CoachAgentOrchestrator {
         }
         if lower.contains("类似") || lower.contains("相似") || lower.contains("基线") {
             _ = await CoachToolRegistry.execute(name: "find_similar_days", argumentsJSON: "{}", context: context)
+        }
+        if lower.contains("预测") || lower.contains("明天") || lower.contains("次日") || lower.contains("forecast") {
+            _ = await CoachToolRegistry.execute(name: "get_personal_forecast", argumentsJSON: "{}", context: context)
         }
         if lower.contains("吃") || lower.contains("餐") || lower.contains("饮食") || lower.contains("营养") {
             _ = await CoachToolRegistry.execute(name: "get_eating_context", argumentsJSON: #"{"days":7}"#, context: context)

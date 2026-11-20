@@ -159,6 +159,7 @@ public struct BodySeekStoreClient: Sendable {
     public var executeProposal: @Sendable (_ proposal: ActionProposal) async throws -> ActionAuditEntry
     public var loadCheckIns: @Sendable () async throws -> [DailyCheckIn] = { [] }
     public var loadPlanItems: @Sendable (_ dayKey: DayKey) async throws -> [PlanItemRecord] = { _ in [] }
+    public var loadExperimentPlanItems: @Sendable () async throws -> [PlanItemRecord] = { [] }
     public var loadPatternFindings: @Sendable (_ status: PatternFindingStatus?) async throws -> [PatternFindingRecord] = { _ in [] }
     public var loadNutritionProfile: @Sendable () async throws -> NutritionProfile?
     public var loadNutritionTargetPlan: @Sendable () async throws -> NutritionTargetPlan?
@@ -278,6 +279,10 @@ extension BodySeekStoreClient: DependencyKey {
                 }
                 let repo = try await BodySeekSharedStore.shared.repository()
                 return try await repo.loadPlanItems(dayKey: dayKey)
+            },
+            loadExperimentPlanItems: {
+                let repo = try await liveOrPreviewRepo(preview: preview)
+                return try await repo.loadExperimentPlanItems()
             },
             loadPatternFindings: { status in
                 if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard")
@@ -418,6 +423,10 @@ extension BodySeekStoreClient: DependencyKey {
             loadPlanItems: { dayKey in
                 let (_, repo, _, _) = try await preview.resolve()
                 return try await repo.loadPlanItems(dayKey: dayKey)
+            },
+            loadExperimentPlanItems: {
+                let (_, repo, _, _) = try await preview.resolve()
+                return try await repo.loadExperimentPlanItems()
             },
             loadPatternFindings: { status in
                 let (_, repo, _, _) = try await preview.resolve()

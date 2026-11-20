@@ -49,7 +49,11 @@ let package = Package(
     targets: [
         .target(
             name: "BodySeekCore",
-            dependencies: []
+            dependencies: [],
+            resources: [
+                .copy("Resources/personal_forecaster_v1_spec.json"),
+                .copy("Resources/BodySeekPersonalForecasterV1.mlpackage"),
+            ]
         ),
         .target(
             name: "BodySeekDesign",
@@ -112,6 +116,9 @@ let package = Package(
                 "BodySeekFeatures",
                 .product(name: "ComposableArchitecture", package: "swift-composable-architecture"),
                 .product(name: "Dependencies", package: "swift-dependencies"),
+            ],
+            resources: [
+                .copy("Fixtures"),
             ]
         ),
         .testTarget(

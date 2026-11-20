@@ -122,6 +122,7 @@ public struct AppFeature: Sendable {
         case backgroundSyncCompleted(String?)
         case supplementalContextLoaded(
             planItems: [PlanItemRecord],
+            experimentPlanItems: [PlanItemRecord],
             patterns: [PatternFindingRecord],
             todayNutritionLog: DailyNutritionLog?,
             nutritionTargetPlan: NutritionTargetPlan?,
@@ -285,11 +286,19 @@ public struct AppFeature: Sendable {
                 }
                 return .none
 
-            case let .supplementalContextLoaded(planItems, patterns, nutritionLog, nutritionPlan, nutritionLogs, checkIns, rollingDeficit7d, error):
+            case let .supplementalContextLoaded(planItems, experimentPlanItems, patterns, nutritionLog, nutritionPlan, nutritionLogs, checkIns, rollingDeficit7d, error):
                 if !planItems.isEmpty {
                     state.today.planItems = planItems
                 }
+                let eatingDays = Set(
+                    nutritionLogs
+                        .filter { $0.dietDayComplete == true || !$0.entries.isEmpty }
+                        .map(\.dayKey)
+                )
                 state.trends.patternFindings = patterns
+                state.trends.experimentPlanItems = experimentPlanItems
+                state.trends.eatingAvailableDayKeys = eatingDays
+                state.trends.refreshPersonalForecast()
                 state.today.todayNutritionLog = nutritionLog
                 state.today.nutritionTargetPlan = nutritionPlan
                 state.today.nutritionRollingDeficit7d = rollingDeficit7d
@@ -479,6 +488,19 @@ public struct AppFeature: Sendable {
                         precomputedCache: state.trends.cache(for: kind)
                     )
                 )
+                return .none
+
+            case let .trends(.delegate(.patternFindingsUpdated(findings))):
+                state.coach.patternFindings = findings
+                return .none
+
+            case let .trends(.delegate(.tieredMemoryAdded(memory))):
+                if !state.tieredMemories.contains(where: { $0.id == memory.id }) {
+                    state.tieredMemories.insert(memory, at: 0)
+                    let updated = state.tieredMemories
+                    state.coach.tieredMemories = updated
+                    state.settings?.tieredMemories = updated
+                }
                 return .none
 
             case let .todayPath(.element(id: _, action: .delegate(.askCoach(question)))),
@@ -743,10 +765,19 @@ public struct AppFeature: Sendable {
 
     private func loadSupplementalContextEffect(dayKey: DayKey, referenceDate: Date) -> Effect<Action> {
         let isPreview = ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard")
+        let isEmptyPreview = ProcessInfo.processInfo.arguments.contains("-velaPreviewEmptyDashboard")
         return .run { send in
             do {
                 let storedPlan = try await bodySeekStoreClient.loadPlanItems(dayKey)
-                let findings = try await bodySeekStoreClient.loadPatternFindings(nil)
+                let experimentItems = try await bodySeekStoreClient.loadExperimentPlanItems()
+                var findings = try await bodySeekStoreClient.loadPatternFindings(nil)
+                if findings.isEmpty && !isEmptyPreview {
+                    let seeds = M4APersonalPatternSeeds.defaultCandidates()
+                    for seed in seeds {
+                        try await bodySeekStoreClient.savePatternFinding(seed)
+                    }
+                    findings = seeds
+                }
 
                 var profile = try await bodySeekStoreClient.loadNutritionProfile()
                 var plan = try await bodySeekStoreClient.loadNutritionTargetPlan()
@@ -800,6 +831,7 @@ public struct AppFeature: Sendable {
 
                 await send(.supplementalContextLoaded(
                     planItems: storedPlan,
+                    experimentPlanItems: experimentItems,
                     patterns: findings,
                     todayNutritionLog: todayLog,
                     nutritionTargetPlan: plan,
@@ -811,6 +843,7 @@ public struct AppFeature: Sendable {
             } catch {
                 await send(.supplementalContextLoaded(
                     planItems: [],
+                    experimentPlanItems: [],
                     patterns: [],
                     todayNutritionLog: nil,
                     nutritionTargetPlan: nil,
