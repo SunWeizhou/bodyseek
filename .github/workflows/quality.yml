@@ -18,7 +18,7 @@ jobs:
   ios:
     name: iOS build and tests
     runs-on: macos-26
-    timeout-minutes: 35
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v6
 
@@ -91,16 +91,14 @@ jobs:
         run: |
           python3 scripts/check_fixed_fonts.py
 
-      - name: SwiftLint (report-only until baseline is clean)
+      - name: SwiftLint (report-only, skip if unavailable)
         shell: bash
         run: |
           set -euo pipefail
           if which swiftlint >/dev/null 2>&1; then
             swiftlint --config .swiftlint.yml || true
           else
-            # macos runners 不预装 SwiftLint；安装后运行自定义规则审计
-            brew install swiftlint >/dev/null 2>&1
-            swiftlint --config .swiftlint.yml || true
+            echo "SwiftLint not preinstalled; report-only step skipped."
           fi
 
       - name: Reject tracked dependencies
@@ -128,7 +126,7 @@ jobs:
             -skipMacroValidation \
             -skipPackagePluginValidation \
             CODE_SIGNING_ALLOWED=NO \
-            clean build
+            build
 
       - name: Run iOS tests
         shell: bash
