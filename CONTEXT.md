@@ -130,6 +130,10 @@ _Avoid_: Cheat meal, bad day, dietary failure
 Optional information about a meal, including foods, portions, photos, calories, or nutrients. Meal Detail may improve an explanation but is never required for Vela to recognise an Eating Disruption or provide guidance.
 _Avoid_: Required food log, exact intake, inferred consumption
 
+**Meal Draft**
+
+Food candidates extracted from user-entered text or a selected photo. User confirmation makes them part of Meal Detail. Nutrient values are estimates derived from the confirmed portions and matched food catalog items. Entries without a suitable catalog item carry missing nutrient values and mark the meal as partial.
+
 ### Training loop
 
 **Training Rotation**:
@@ -152,6 +156,8 @@ _Avoid_: Active workout, in-app workout, training draft
 The evidence Vela receives after a Training Session, combining the imported activity record with any optional user-reported experience. It is the factual basis for post-training interpretation and later calibration.
 _Avoid_: Workout log, completed plan, execution record
 
+In Coach evidence, a HealthKit UUID links an imported Training Observation to a matching manual session. Manual sessions without a matching identifier remain separate observations. An empty HealthKit result leaves workout coverage unknown.
+
 **Session Annotation**:
 User-supplied context attached after a Training Session. Its quick layer identifies Session Focus and overall experience; an optional detail layer may add exercises, weights, sets, and a free-form reflection without turning in-session phone logging into a requirement.
 _Avoid_: Mandatory workout log, active set tracking, training diary
@@ -165,6 +171,8 @@ _Avoid_: Workout logger, set log, mandatory feedback
 **Agent Fact Snapshot**:
 The locale-neutral, deterministic projection used by every AI workflow. It includes the five Scored Health Evidence results and contributors, Personal Baselines and deviations, multi-scale findings, recent daily aggregates, Data Coverage and freshness, Lived State, Training Observations, Daily Operating Plan edits, and confirmed memory or Personal Response Insights. Its semantic content hash excludes snapshot creation time; workflows may query bounded time-series detail through tools instead of uploading raw HealthKit samples.
 _Avoid_: Prompt context, context JSON, AI summary
+
+The `bodyseek-evidence-v1` Coach tool contract carries availability, the calculation version, and coverage where it can be established. Trend and intake results identify their day windows. Intake results preserve the applied plan version, estimates, and partial meals. Training results retain the record source, user effort, and estimated effort separately.
 
 **Coach Artifact**:
 A structured, reviewable output produced by the Coach, such as a readiness explanation, training adjustment, or review.

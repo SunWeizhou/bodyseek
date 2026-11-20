@@ -62,25 +62,27 @@ BodySeekCore.BevelScoringEngine（score-v2）生成规范五项评分与贡献�
 28天/90天个人基线 + 多尺度趋势（7d / 30d / 6m / 3y）+ 规律/预测模型
     ↓
 Apple iOS 26 原生 TabView（Liquid Glass 悬浮底栏）
-├── Tab 0: 今日（Today）   — 3+2 五分彩色仪表 + 今日行动卡 + 每日主观打卡 + AI 简报
+├── Tab 0: 今日（Today）   — 五项状态和走势 + 简短建议 + 体感打卡
 ├── Tab 1: 健身（Workout） — Watch-First 待复盘 Inbox + 肌群恢复热图 + ACWR 轮转 + 档案
-├── Tab 2: 趋势（Trends）  — 原生 Swift Charts 多尺度主图 + 我的规律 + N-of-1 实验 + 指标钻取
-└── Search Role: 问身体（Coach）— 右侧独立悬浮玻璃入口 + 本体驱动私人教练与确认提案
+├── Tab 2: 营养（Nutrition）— 当天餐次、快速记录与周月看板
+├── Tab 3: 趋势（Trends）  — 原生 Swift Charts 多尺度主图 + 我的规律 + N-of-1 实验 + 指标钻取
+└── Coach — 底栏最右侧入口，也支持带页面上下文的提问
 ```
 
 ---
 
-## 5. 一级信息架构（Apple iOS 26 原生四位一体导航）
+## 5. 一级信息架构（Apple iOS 26 原生导航）
 
 生产导航遵循 Apple 官方 iOS 26 Liquid Glass `TabView` 与 L1/L2/L3 纵深规范，不再手绘顶部分段下划线或底部常驻聊天气泡栏：
 
 ```text
 BodySeek iOS 26 App (IPHONEOS_DEPLOYMENT_TARGET = 26.0)
 ├── 底部悬浮 Liquid Glass TabView（随滚动自动收缩 .tabBarMinimizeBehavior(.onScrollDown)）
-│   ├── 今日（Today）：NavigationStack + 五分仪表（状态语义非闭合打卡环）+ 今日行动卡（承接 ADR 0007/0008）+ 每日打卡入口
+│   ├── 今日（Today）：NavigationStack + 五项身体状态看板 + 今日行动卡（承接 ADR 0007/0008）+ 每日打卡入口
 │   ├── 健身（Workout）：NavigationStack + Watch 待复盘 Inbox + 一句话练后复盘 + 肌群恢复热图 + ACWR 节律
+│   ├── 营养（Nutrition）：NavigationStack + 当天餐次 + 记一餐 + 周月营养看板
 │   ├── 趋势（Trends）：NavigationStack + 7d/30d/6m/3y 原生 Swift Charts + 五项纵览 + 我的规律 / N-of-1 实验
-│   └── 问身体（Coach · TabRole.search）：右侧独立悬浮圆形玻璃按钮，点开直接进入 Coach 工作台
+│   └── Coach（TabRole.search）：底栏最右侧入口
 └── 二级系统页面（标准 NavigationStack Push / Sheet）
     ├── 五项指标独立详情页（Recovery / Sleep / Strain / Stress / Energy 各自专用排版与原生图型）
     ├── 健身二级页（全部训练档案时间线、单次心率/次日响应分析、动作参考库、手动补录回退入口）
@@ -89,12 +91,10 @@ BodySeek iOS 26 App (IPHONEOS_DEPLOYMENT_TARGET = 26.0)
 ```
 
 ### 5.1 今日（Today）
-- **核心定位**：L1 首屏 3 秒看清五项身体状态、日内波动与今日行动定调。
-- **Bevel / Apple Fitness 原生仪表 + L1/L2/L3 纵深**：
-  - **三主环 Hero 卡（Recovery / Sleep / Strain）**：三项各自保留独立语义色（恢复翠绿、睡眠靛蓝、负荷橙红）与个人基线刻度；明确表达“当前生理状态储备”而非 Apple 活动环的“闭环达标目标”。缺失/已知零/排除四态严格区分，绝不伪造正常环或合并为单一总健康分；
-  - **实时生理双卡（Stress & Energy）**：并排呈现 **日内压力 24h 分色柱**（含运动后排除区淡斜纹标识）与 **能量储备充放电曲线**；
-  - **今日行动卡（承接 ADR 0007 / ADR 0008）**：融合一句 AI 状态定调与 1 个主行动 + 至多 2 个辅助行动，支持用户直接完成/编辑；Coach 提案以 diff 候选形式经确认后生效；
-  - **每日体感打卡入口（`DailyCheckIn`）**：低摩擦 10 秒采集精力、情绪、主观压力与肌群酸痛，既校准今日解读，也作为个人建模核心标签。
+- **核心定位**：先读五项身体状态和日内变化，再根据需要查看建议。
+- **五项看板**：恢复、睡眠、负荷用主数字和少量上下文呈现，压力和能量用主数字配日内小图。五项各自可点进详情，缺失、已知零和排除分别表达。昨夜睡眠分期紧接看板。
+- **今日建议**：位于主看板之后，先显示一条本地行动建议。AI 有结果时补充一句通俗建议，参考依据按需展开。其他行动和主动提醒不占用首屏。建议采纳和 Coach 提案确认沿用 ADR 0007/0008。
+- **每日体感打卡**：记录精力、情绪、主观压力与肌群酸痛，用于辅助今日解读和个人建模。
 
 ### 5.2 趋势（Trends）
 - **核心定位**：3 年纵向数据智能与个人规律探索（7 天、30 天、6 个月、3 年）。
@@ -108,12 +108,14 @@ BodySeek iOS 26 App (IPHONEOS_DEPLOYMENT_TARGET = 26.0)
 - **L1/L2 结构**：
   - **待复盘 Inbox**：Apple Watch 体能训练结束后自动同步时长、Z1–Z5 心率区间、`WorkoutEffortScore`（区分系统 `EstimatedWorkoutEffortScore`）。用户只需输入或听写一句话练后复盘，经 `FoundationModels` + 中文词典兜底解析成结构化肌群负荷提案，确认后写入账本与审计日志；
   - **交互式肌群恢复热图（`MuscleMap`）**：基于 `recovery-heuristic-v1`（$F_m(t)=\sum L_{m,i}e^{-\Delta t/(\tau_m\alpha)}$，$R_m=e^{-F_m}$，$\alpha$ 仅读取前一晚睡眠与 HRV 偏差）着色，UI 显式标注“启发式估计”；跑步/步行按配速与心率自动分配下肢负荷，羽毛球结合 `dominantHand`（默认右手）分配肩袖/前臂与下肢负荷；
+  - HealthKit 新训练到达或复盘保存后，当前健身页更新恢复估算。页面在前台每 30 秒按当前时间重算，热图显示估算时刻。
   - **负荷节律卡与二级页**：ACWR 甜蜜区与柔性肌群轮转进度，训练档案时间线、动作参考库与手动记组补录统一收进 L2 二级页。
 
-### 5.4 问身体（Coach · `TabRole.search`）
+### 5.4 Coach
 - **核心定位**：绑定强类型健康数据与受控写回提案的个人身体科学家助手。
 - **入口与连续性**：
-  - 通过 TabBar 右侧独立悬浮圆形玻璃按钮随时一键直达；Today、Workout、Trends 与五项详情页携带语义上下文一键跳转；
+  - 从底栏最右侧一键打开；Today、Workout、Trends 与五项详情页携带语义上下文打开 Coach；
+  - 欢迎页提供恢复、睡眠、训练和饮食快捷提问。长回复从开头展示，查看旧消息时可手动回到底部。清空本地对话记录前须确认。
   - 工作台采用自定义 `OpenAICompatibleClient`（默认 DeepSeek，API Key 存 Keychain，仅发送任务型工具聚合结果）与端侧 `FoundationModels`（显式降级日志），支持任务型工具（含 `find_similar_days` 历史相似日、预留 `get_eating_context`）、数字溯源核验（未命中本轮工具结果标注“未核实”）、三层可审阅记忆及可关闭的主动洞察（每日最多 2 条）。
 
 ### 5.5 个人空间与信任控制（Settings）
@@ -123,7 +125,10 @@ BodySeek iOS 26 App (IPHONEOS_DEPLOYMENT_TARGET = 26.0)
 ### 5.6 首次使用（Onboarding）
 - 三步原生引导：五项彩色独立分数预览 → 用户数据主权与 Agent 边界 → Apple 健康只读授权（支持稍后连接，绝不以空白页或问卷阻断使用）。
 
-### 5.7 营养与能量平衡（2026-11-19 并入主线）
+### 5.7 营养与能量平衡（Nutrition）
+
+「营养」拥有独立底栏入口，首屏展示所选日期的餐次和「AI 记饮食」「手动记录」，默认选中今天。「今日」的营养摘要直达营养页当天。
+- 「AI 记饮食」接受一段全天饮食描述，识别早餐、午餐、晚餐和加餐。草稿展示食物、饮品、报告份量、食品成分来源及分餐和全天已知营养小计。缺份量或成分资料的条目仍可保存为待补，整份草稿经用户确认后写入所选日期。
 - 基于用户已验证的 `每日营养素` 三重角色协作闭环（营养库 / 每日记录 / 健康教练），于 GRDB Schema v2 建立可追溯食物营养库（含宏量、脂肪细分、区分化学形态的 14 项维生素与 15 项矿物质）、个人档案与已采纳营养目标（min/max/range 与独立 UL 安全上限校验），支持餐食录入、日终收尾与热量盈余核算（仅在日收尾、BMR 参考及全天消耗齐备时计算），并与周/月圆圈看板及 Coach Agent 工具联动。
 
 ---
@@ -146,3 +151,4 @@ BodySeek iOS 26 App (IPHONEOS_DEPLOYMENT_TARGET = 26.0)
 3. **不做强制热量记账与惩罚性代偿运动**：不以“惩罚有氧”抵消饮食波动；
 4. **不做医疗诊断**：所有指标仅作个人健康节律参考；
 5. **不静默改写用户计划或长期记忆**：必须经过用户显式确认。
+6. **取消独立大字版**。发布和验收统一以 iOS 默认字号为基线。本轮停止大字版专门布局与专项验收，标准版文字沿用 iOS 系统设置。

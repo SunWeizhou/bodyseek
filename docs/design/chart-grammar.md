@@ -9,7 +9,7 @@
 ## 1. 模块与边界铁律
 
 1. **单一图表组件族 `BodySeekChart`**：`BodySeekFeatures` 与 `VelaApp` **严禁**直接 `import Charts` 或手写 `Chart { ... }`；所有图表统一通过 `BodySeekDesign` 导出的 8 个受控组件渲染。
-2. **禁止第三方渲染套壳**：彻底移除 `liveline-swift` 与 `SleepChartKit`，统一使用苹果原生 **Swift Charts (`Charts`)** 与 **SwiftUI `Canvas`**，共享一套坐标系、字体、抗锯齿、网格线、手势锁读与四态语义。
+2. **在设计层复用已验证的实现**：默认使用 **Swift Charts (`Charts`)** 与 **SwiftUI `Canvas`**。允许 `BodySeekDesign` 接入能够保留数据语义的开源组件。今日睡眠摘要的连续分期由 `SleepChartKit 1.2.0` 渲染，有缺测、重叠或需要选点的场景继续使用支持对应语义的原有图表。
 3. **Zero Permanent Loop Animation**：禁止在背景渐变、光环、角标或图表中长期运行 `.repeatForever` 动画，减少 120Hz 掉帧与功耗。
 
 ---
@@ -20,7 +20,7 @@
 | :- | :--- | :--- | :--- | :--- |
 | 1 | `TrendLineChart` | Swift Charts | **7 天 / 30 天**五项指标趋势、详情页短期趋势 | 分段折线 + 顶部柔和面积渐变 + 个人 IQR 基线带 + 中位虚线 + 缺失断线 + 零值实心点 + 排除斜纹带 |
 | 2 | `RangeCapsuleChart` | Swift Charts | **6 个月（按周）/ 3 年（按月）**多周期分布趋势 | min–max 极值细须（`RuleMark`）+ P25–P75 圆角胶囊（`BarMark`）+ 中位圆点（`PointMark`）+ 个人基线带 |
-| 3 | `SleepStageChart` | SwiftUI Canvas + 手势 | 今日睡眠卡 & 睡眠详情页昨夜睡眠分期 | 4 轨水平时间轴（清醒 / REM / 核心 / 深睡）+ 圆角分期块 + 相邻块半透明阶梯连线 + 入睡/中点/起床刻度 |
+| 3 | `SleepStageChart` | SleepChartKit（连续摘要）或 SwiftUI Canvas（带缺测或交互） | 今日睡眠卡 & 睡眠详情页昨夜睡眠分期 | 4 轨水平时间轴（清醒 / REM / 核心 / 深睡）+ 圆角分期块 + 相邻块半透明阶梯连线 + 入睡/中点/起床刻度 |
 | 4 | `IntradayBarChart` | Swift Charts | 24 小时自主神经压力节律（微图 & 详情交互图） | 24 根分时柱 + 压力分档语义着色 + 运动排除窗口斜纹覆盖带（`"运动排除"`） |
 | 5 | `EnergyAreaChart` | Swift Charts | 昼夜电池充放电曲线（微图 & 详情交互图） | 平滑 `.catmullRom` 面积折线 + 50% 参考虚线 + 晨起峰值/当前电量点标 |
 | 6 | `LoadRecoveryComboChart` | Swift Charts | 趋势页「恢复 × 负荷演化对照」 | 同 0–100 坐标系：日负荷圆角柱（Strain）+ 恢复储备折线（Recovery，缺失断线）+ 内置图例 |

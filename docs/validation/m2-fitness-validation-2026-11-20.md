@@ -93,3 +93,17 @@
 
 - **真实 Apple Watch + 真机 HealthKit 链路**：本轮 UI 与 Store 测试基于 `PreviewSeedFactory` 确定性预览与内存 SQLite 夹具运行；真实手表记录的力量 `HKWorkout` 与手打 `HKQuantityTypeIdentifierWorkoutEffortScore` / `estimatedWorkoutEffortScore` 在真机上的端到端延迟与体感节奏尚未完成真机实测。
 - **端侧 `FoundationModels` 实机推理**：iOS 模拟器不支持 Apple Intelligence 端侧模型，`WorkoutReviewParserClient` 自动记录降级日志并路由至 `ChineseWorkoutLexiconParser`；端侧 `@Generable` 真实响应延迟需后续真机实测补充。
+
+## 6. 今日建议与训练复盘同步修复
+
+本地分支 `codex/ui/ios26-native-bodyseek`，HEAD `ed7ab2c2`，工作树含此前改动。回归以早上快照、当天胸部训练和昨天腿部训练重现旧逻辑。修复前胸部恢复仍为 100%，晨间建议仍显示（`/tmp/bodyseek-workout-red.log`，退出码 `1`）。
+
+- `swift test --package-path BodySeekKit --disable-automatic-resolution` 退出码 `0`，54 项包测试和 12 项 Agent 测试通过。覆盖复盘后即时重算、当天练后建议、延迟到达的旧建议和跨日训练绑定（`/tmp/bodyseek-workout-release-unit.log`）。
+- `xcodebuild build -project Vela.xcodeproj -scheme Vela -configuration Debug -destination 'generic/platform=iOS' -derivedDataPath /tmp/bodyseek-deploy-20261120 -disableAutomaticPackageResolution -skipMacroValidation -skipPackagePluginValidation` 退出码 `0`（`/tmp/bodyseek-workout-release-build.log`）。
+- CoreDevice 安装到 iPhone 16 Pro，安装序列 `1804`，并成功启动。按用户要求跳过模拟器。真机安装和启动已确认，历史标注归属与本次实际胸训的展示未读取核对。
+
+## 7. 新训练到达后的前台刷新
+
+- 基线 `ed7ab2c2`，工作区含既有修改。新增回归先复现已存在训练档案时，新力量训练未进入待复盘列表。单测初次运行退出码 1，日志 `/tmp/bodyseek-nov20-recovery-red.log`。修复后，新跑步参与下肢恢复估算，新力量训练进入待复盘，已有用户复盘结果得以保留。
+- HealthKit 快照使用原始参考时刻。新请求替代过时的窗口刷新，缓存与同步回调均合并最新快照里的训练。恢复模型继续使用 `recovery-heuristic-v1`。
+- `swift test --package-path BodySeekKit --disable-automatic-resolution` 退出码 0。默认字号的 iPhone 17 Pro / iOS 26.5 上，`testM2WatchFirstReviewInboxMuscleRecoveryAndArchive` 通过。实际 Apple Watch 回流时延待真机验证。

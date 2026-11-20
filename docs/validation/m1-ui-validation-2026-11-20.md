@@ -1,5 +1,7 @@
 # BodySeek M1-UI 验证报告（2026-11-20）
 
+最新补充验证见[餐食草稿、证据合同与同步回归](m3-agent-validation-2026-11-20.md#6-餐食草稿证据合同与同步回归)。
+
 - 分支：`codex/ui/ios26-native-bodyseek`
 - 关联提交：
   - Phase A（`[M1-UI][DESIGN]`）：`0bbf6ce8`（`BodySeekDesign` 拆分、`docs/design/chart-grammar.md`、`BodySeekChart` 8 类原生组件族、移除 `liveline-swift` 与 `SleepChartKit`）
@@ -87,3 +89,45 @@
 
 - **真机硬件未测项**：由于无真机自动化授权，真机（`iPhone 16 Pro`）Release 构建下的 Instruments 真实滚动 Hitch Time Ratio（目标 `< 5 ms/s`）、真实冷启动到首帧耗时（目标 `< 400 ms`）与真实 HealthKit 增量同步尚待真机手测/专项性能测试确认。
 - **下一步**：执行 **M4a**（基于真实 3 年 HealthKit 导出包 `/Users/sunweizhou/Downloads/导出.zip` 构建 `BodySeekML/` 离线解析、设备去重审计与分布滞后个人规律分析）。
+
+## 今日建议与开放源代码图表复用补充
+
+- 基线为 `ed7ab2c2` 加本地工作区修改。首屏「今日建议」只展开主行动，详细依据、其他建议和次要提醒可按需展开。建议文案调整沿用原判断规则。
+- `swift test --package-path BodySeekKit --disable-automatic-resolution --filter 'BodySeekChartTests|TodayActionAndNutritionFeatureTests'` 退出码 `0`，5 项通过。SleepChartKit 路径使用同一份已规整分期，测试验证跨午夜时间、缺口与重叠拒绝、替代路径和现成组件渲染。
+- `xcodebuild test` 使用 `Vela` Debug 和 iPhone 17 Pro / iOS 26.5 模拟器。M1 建议采纳、睡眠和压力详情、营养、三年趋势在最终文案下通过（退出码 `0`，`/tmp/bodyseek-advice-chart-final-20261120.xcresult`）。M3 Coach 流程在文案收口前的同一集成版本通过。
+- `xcodebuild build` 使用 `Vela` Debug 通用 iOS 目标，退出码 `0`。构建产物为 `/tmp/bodyseek-deploy-20261120/Build/Products/Debug-iphoneos/Vela.app`，包含 SleepChartKit 许可。未做本轮真机安装或真实 HealthKit 数据验收。
+
+## 今日数据看板优先补充验证
+
+- 基线 `ed7ab2c2` 加本地修改。Vela Debug 的「今日」将五项读数、压力与能量走势、昨夜睡眠移到建议之前。使用默认字号的 iPhone 17 Pro / iOS 26.5 模拟器和合成数据核对首屏。
+- `swift test --package-path BodySeekKit --disable-automatic-resolution --filter 'AppAndTodayFeatureTests|TodayActionAndNutritionFeatureTests|BodySeekAgentEvals'`，退出码 0，14 项通过，脚本问答 30/30。
+- `xcodebuild test` 的未授权空态、完整页面流和 M1 建议及营养流共 3 项通过，退出码 0，结果在 `/tmp/bodyseek-dashboard-first-20261120.xcresult`。新增断言核对压力和能量首屏可点、简短 AI 建议文本显示和参考依据默认折叠。
+- 通用 iOS Debug 构建退出码 0，产物 `/tmp/bodyseek-deploy-20261120/Build/Products/Debug-iphoneos/Vela.app`。本次验证使用模拟回复，未调用线上模型或在真机验收。
+
+## 今日紧凑页头补充验证
+
+- 基线 `ed7ab2c2` 加本地修改。系统内联导航栏显示「今日」，日期和数据来源并入身体状态卡，未授权时保留单个清晰的授权按钮。iPhone 17 Pro 模拟器同尺寸前后截图中，身体状态卡顶部从约 200 px 上移到约 126 px（截图高度 911 px）。
+- `xcodebuild test` 使用 Vela Debug 和 iOS 26.5 模拟器，未授权空态和完整页面流 2 项通过，退出码 0，产物 `/tmp/bodyseek-compact-header-20261120.xcresult`。通用 iOS Debug 构建退出码 0。
+
+## 其余一级页紧凑页头补充验证
+
+- 基线 `ed7ab2c2` 加本地修改。健身、趋势、Coach 使用系统内联标题，营养与健身、趋势的内容上沿对齐至 4 pt。iPhone 17 Pro / iOS 26.5 模拟器默认字号的四张截图已逐页核对。
+- Vela Debug 的完整页面切换及 M1 营养、趋势流程共 2 项通过，退出码 0，结果为 `/tmp/bodyseek-compact-tabs-20261120.xcresult`。通用 iOS Debug 构建退出码 0，产物为 `/tmp/bodyseek-deploy-20261120/Build/Products/Debug-iphoneos/Vela.app`。
+
+## 身体状态读数排版补充验证
+
+- 基线 `ed7ab2c2` 加本地修改。三列各用统一的指标名称和读数两行，保留数据单位，示例首屏默认字号下均完整显示。无数据与已排除的状态仍分别显示。
+- Vela Debug 的 iPhone 17 Pro / iOS 26.5 模拟器未授权空态和完整导航流程均通过，退出码 0，结果 `/tmp/bodyseek-overview-readouts-20261120.xcresult`。通用 iOS Debug 构建退出码 0。
+
+## 健身、营养、趋势、Coach 文案整理
+
+- 基线为 `ed7ab2c2` 加本地工作区修改。健身简化待复盘和负荷说明。营养按餐次折叠条目，仅在对应数据完整时汇总，估算读数显示「约」。趋势把模型资料和回测移入「预测依据」，显示目标日期及预测范围。Coach 的欢迎语与提问入口使用日常措辞，回复来源放入可点开的菜单。
+- iOS 26.5 / iPhone 17 的四张示例数据首屏截图已逐页核对。通用 iOS 的 Vela Debug 构建通过，退出码 0，产物在 `/tmp/bodyseek-deploy-20261120/Build/Products/Debug-iphoneos/Vela.app`。本轮未安装到真机。
+- `swift test --package-path BodySeekKit --disable-automatic-resolution --filter 'WorkoutAndCoachReducerTests|TodayActionAndNutritionFeatureTests'` 退出码 0，7 项通过。iPhone 17 Pro / iOS 26.5 的 UI 回归中，训练复盘、页面跳转、M1 记餐、M4 趋势实验均通过；新增用例验证餐次默认折叠，展开早餐可见食物明细。
+- UI 结果见 `/tmp/bodyseek-content-edit-final-20261120.xcresult`。单独重跑 Coach 的回复、确认记忆和隐私设置通过，退出码 0，结果 `/tmp/bodyseek-content-edit-coach-20261120.xcresult`。旧测试的首屏提醒前置条件已移除，设置页检查入口可用性。
+
+## 2026-11-20 版式决定
+
+- 取消独立大字版，停止大字版的专项布局与验收。标准版使用单套 UI，文字随 iOS 系统设置。当前发布验收以 iPhone 17 Pro、iOS 26.5 和默认字号为基线。
+- 基线 `ed7ab2c2`，工作区含既有修改。Vela Debug 的 `xcodebuild test -project Vela.xcodeproj -scheme Vela -destination 'id=3BB779BD-022F-4E60-A3BB-70DC5A0BF987' -parallel-testing-enabled NO -skipMacroValidation -skipPackagePluginValidation -disableAutomaticPackageResolution -resultBundlePath /tmp/bodyseek-nov20-standard.xcresult` 退出码 0。4 项 iOS 集成测试和 10 项 UI 测试通过。只在提供截图目录时运行的批量截图用例按预期跳过。
+- 已核对默认字号的 Coach 欢迎页、回复与证据卡，以及全天饮食草稿。截图和肌群复盘详情附件见 `/tmp/bodyseek-nov20-standard-attachments/manifest.json`。
