@@ -10,8 +10,9 @@ public struct AppFeature: Sendable {
     public enum AppTab: Int, Equatable, Hashable, Sendable, CaseIterable {
         case today = 0
         case workout = 1
-        case trends = 2
-        case coach = 3
+        case nutrition = 2
+        case trends = 3
+        case coach = 4
     }
 
     @ObservableState
@@ -19,6 +20,7 @@ public struct AppFeature: Sendable {
         public var hasCompletedOnboarding: Bool
         public var selectedTab: AppTab = .today
         public var snapshot: BodySeekDashboardSnapshot
+        var lastAppliedCachedDigest: String?
         public var preferences: AppPreferencesState
         public var templates: [WorkoutTemplate]
         public var sessions: [LoggedWorkoutSession]
@@ -31,7 +33,7 @@ public struct AppFeature: Sendable {
         public var todayPath = StackState<MetricDetailFeature.State>()
         public var trendsPath = StackState<MetricDetailFeature.State>()
         @Presents public var settings: SettingsFeature.State?
-        @Presents public var nutrition: NutritionFeature.State?
+        public var nutrition: NutritionFeature.State
         public var isCheckInPresented: Bool = false
 
         public init(
@@ -88,6 +90,7 @@ public struct AppFeature: Sendable {
             self.today = initialToday
             self.workout = initialWorkout
             self.trends = TrendsFeature.State(snapshot: initialSnapshot)
+            self.nutrition = NutritionFeature.State(snapshot: initialSnapshot)
             var initialCoach = CoachFeature.State(
                 snapshot: initialSnapshot,
                 sessions: resolvedSessions,
@@ -149,7 +152,7 @@ public struct AppFeature: Sendable {
         case todayPath(StackActionOf<MetricDetailFeature>)
         case trendsPath(StackActionOf<MetricDetailFeature>)
         case settings(PresentationAction<SettingsFeature.Action>)
-        case nutrition(PresentationAction<NutritionFeature.Action>)
+        case nutrition(NutritionFeature.Action)
         case checkInPresented(Bool)
         case checkInFeelingSelected(Int)
         case checkInSaved(DailyCheckIn)
@@ -158,6 +161,8 @@ public struct AppFeature: Sendable {
     private enum CancelID {
         case healthUpdates
         case dashboardObservation
+        case loadSnapshot
+        case briefing
     }
 
     @Dependency(\.healthKitClient) var healthKitClient
@@ -184,6 +189,10 @@ public struct AppFeature: Sendable {
             CoachFeature()
         }
 
+        Scope(state: \.nutrition, action: \.nutrition) {
+            NutritionFeature()
+        }
+
         Reduce { state, action in
             switch action {
             case .onAppear:
@@ -193,13 +202,12 @@ public struct AppFeature: Sendable {
                     state.preferences = loaded
                     state.workout.dominantHand = loaded.dominantHand
                     state.workout.sleepGoalMinutes = loaded.sleepGoalMinutes
-                    state.workout.recomputeRecoverySnapshot()
+                    state.workout.recomputeRecoverySnapshot(asOf: now)
                     syncCheckInFromPreferences(into: &state)
                 } catch {
                     state.today.lastError = "读取偏好设置失败：\(error.localizedDescription)"
                 }
                 return .merge(
-                    loadCachedDashboardEffect(goalMinutes: state.preferences.sleepGoalMinutes, referenceDate: now),
                     loadSnapshotEffect(goalMinutes: state.preferences.sleepGoalMinutes, referenceDate: now),
                     loadFitnessStoreEffect(),
                     loadSupplementalContextEffect(dayKey: state.snapshot.referenceDate.physiologicalDayKey(), referenceDate: now),
@@ -232,10 +240,12 @@ public struct AppFeature: Sendable {
                 return loadSnapshotEffect(goalMinutes: state.preferences.sleepGoalMinutes, referenceDate: now)
 
             case let .cachedDashboardLoaded(cached):
+                guard cached.contentDigest != state.lastAppliedCachedDigest else { return .none }
                 if state.snapshot.historyDays.isEmpty
                     || !state.snapshot.isAuthorized
                     || cached.snapshot.historyDays.count >= state.snapshot.historyDays.count
                 {
+                    state.lastAppliedCachedDigest = cached.contentDigest
                     apply(snapshot: cached.snapshot, precomputedCache: cached.chartCache, to: &state)
                     BodySeekSignposts.shared.endColdStartIfActive()
                 }
@@ -267,11 +277,11 @@ public struct AppFeature: Sendable {
                 BodySeekSignposts.shared.endColdStartIfActive()
                 guard mergedSnapshot.isAuthorized else {
                     state.today.briefingStatus = .unconfigured(reason: "连接 Apple 健康并配置 AI 模型后生成生理简报")
-                    return .none
+                    return .cancel(id: CancelID.briefing)
                 }
-                state.today.briefingStatus = .loading
+                let briefing = requestBriefing(state: &state)
                 return .merge(
-                    generateBriefingEffect(state: state),
+                    briefing,
                     triggerBackgroundBackfillEffect(goalMinutes: state.preferences.sleepGoalMinutes, referenceDate: now),
                     .send(.workout(.syncWatchWorkouts))
                 )
@@ -287,8 +297,9 @@ public struct AppFeature: Sendable {
                 return .none
 
             case let .supplementalContextLoaded(planItems, experimentPlanItems, patterns, nutritionLog, nutritionPlan, nutritionLogs, checkIns, rollingDeficit7d, error):
-                if !planItems.isEmpty {
-                    state.today.planItems = planItems
+                let currentItems = planItems.filter { $0.dayKey == now.physiologicalDayKey() }
+                if !currentItems.isEmpty {
+                    state.today.planItems = currentItems
                 }
                 let eatingDays = Set(
                     nutritionLogs
@@ -322,19 +333,22 @@ public struct AppFeature: Sendable {
                 state.tieredMemories = resolvedTiered
                 state.workout.templates = templates
                 state.workout.sessions = sessions
+                state.workout.recomputeRecoverySnapshot(asOf: now)
                 state.coach.templates = templates
                 state.coach.sessions = sessions
                 state.coach.memories = memories
                 state.coach.tieredMemories = resolvedTiered
-                if !messages.isEmpty {
+                if !messages.isEmpty, state.coach.isAtWelcome, !state.coach.isResettingConversation {
                     state.coach.messages = messages
                 }
                 if let error {
                     state.workout.lastError = error
                 }
-                return .none
+                refreshTrainingAdvice(&state)
+                return state.today.postWorkoutAdvice == nil ? .none : .cancel(id: CancelID.briefing)
 
             case let .briefingGenerated(status):
+                guard state.today.postWorkoutAdvice == nil else { return .none }
                 state.today.briefingStatus = status
                 return .none
 
@@ -399,10 +413,8 @@ public struct AppFeature: Sendable {
                     }
 
                 case .openNutrition:
-                    state.nutrition = NutritionFeature.State(
-                        snapshot: state.snapshot,
-                        todayKey: state.snapshot.referenceDate.physiologicalDayKey()
-                    )
+                    state.selectedTab = .nutrition
+                    state.nutrition.showToday()
                     return .none
 
                 case .openSettings:
@@ -426,26 +438,35 @@ public struct AppFeature: Sendable {
                     return .none
 
                 case .regenerateBriefingRequested:
-                    state.today.briefingStatus = .loading
-                    return generateBriefingEffect(state: state)
+                    return requestBriefing(state: &state)
                 }
 
             // MARK: - Workout Delegates
 
             case .workout(.watchWorkoutsLoaded), .workout(.reviewPersisted):
                 syncWorkoutContextToCoachAndInsights(&state)
-                return .none
+                refreshTrainingAdvice(&state)
+                return state.today.postWorkoutAdvice == nil ? .none : .cancel(id: CancelID.briefing)
 
             case let .workout(.delegate(delegate)):
                 switch delegate {
+                case .refreshRequested:
+                    return loadSnapshotEffect(goalMinutes: state.preferences.sleepGoalMinutes, referenceDate: now)
+
                 case let .sessionSaved(session):
-                    state.sessions.insert(session, at: 0)
-                    state.coach.sessions = state.sessions
-                    state.workout.recomputeRecoverySnapshot()
-                    if session.syncedHealthKitUUID != nil {
-                        return loadSnapshotEffect(goalMinutes: state.preferences.sleepGoalMinutes, referenceDate: now)
+                    if let index = state.sessions.firstIndex(where: { $0.id == session.id }) {
+                        state.sessions[index] = session
+                    } else {
+                        state.sessions.insert(session, at: 0)
                     }
-                    return .none
+                    state.coach.sessions = state.sessions
+                    state.workout.recomputeRecoverySnapshot(asOf: now)
+                    refreshTrainingAdvice(&state)
+                    let cancelBriefing: Effect<Action> = state.today.postWorkoutAdvice == nil ? .none : .cancel(id: CancelID.briefing)
+                    if session.syncedHealthKitUUID != nil {
+                        return .merge(cancelBriefing, loadSnapshotEffect(goalMinutes: state.preferences.sleepGoalMinutes, referenceDate: now))
+                    }
+                    return cancelBriefing
 
                 case let .templateSaved(template):
                     if let idx = state.templates.firstIndex(where: { $0.id == template.id }) {
@@ -594,7 +615,7 @@ public struct AppFeature: Sendable {
                     state.workout.inspectedWorkoutDetail = nil
                     state.workout.dominantHand = .right
                     state.workout.sleepGoalMinutes = state.preferences.sleepGoalMinutes
-                    state.workout.recomputeRecoverySnapshot()
+                    state.workout.recomputeRecoverySnapshot(asOf: now)
                     state.coach.memories = []
                     state.coach.tieredMemories = []
                     state.coach.sessions = []
@@ -611,7 +632,6 @@ public struct AppFeature: Sendable {
                     state.today.nutritionTargetPlan = nil
                     state.today.nutritionRollingDeficit7d = nil
                     state.trends.patternFindings = []
-                    state.nutrition = nil
                     let emptySnapshot = BevelScoringEngine.computeWindow(
                         rawDays: PreviewSeedFactory.makeEmptyRawWindow(endingAt: now),
                         sleepGoalMinutes: state.preferences.sleepGoalMinutes,
@@ -619,14 +639,15 @@ public struct AppFeature: Sendable {
                         sourceLabel: "已重置",
                         isAuthorized: false
                     )
+                    state.lastAppliedCachedDigest = nil
+                    state.nutrition = NutritionFeature.State(snapshot: emptySnapshot)
                     apply(snapshot: emptySnapshot, precomputedCache: nil, to: &state)
                     return loadSnapshotEffect(goalMinutes: state.preferences.sleepGoalMinutes, referenceDate: now)
 
                 case .dismissed:
                     state.settings = nil
                     if state.snapshot.isAuthorized {
-                        state.today.briefingStatus = .loading
-                        return generateBriefingEffect(state: state)
+                        return requestBriefing(state: &state)
                     }
                     return .none
                 }
@@ -676,18 +697,18 @@ public struct AppFeature: Sendable {
                     }
                 }
 
-            case let .nutrition(.presented(.delegate(delegate))):
-                switch delegate {
-                case let .nutritionDataChanged(todayLog, plan, rollingDeficit7d):
-                    state.today.todayNutritionLog = todayLog
-                    state.today.nutritionTargetPlan = plan
-                    state.today.nutritionRollingDeficit7d = rollingDeficit7d
-                    return .none
-
-                case .dismissed:
-                    state.nutrition = nil
-                    return .none
-                }
+            case let .nutrition(.delegate(.nutritionDataChanged(todayLog, plan, rollingDeficit7d))):
+                state.today.todayNutritionLog = todayLog
+                state.today.nutritionTargetPlan = plan
+                state.today.nutritionRollingDeficit7d = rollingDeficit7d
+                state.coach.todayNutritionLog = todayLog
+                state.coach.nutritionTargetPlan = plan
+                state.coach.nutritionLogs = state.nutrition.logs
+                state.trends.eatingAvailableDayKeys = Set(state.nutrition.logs
+                    .filter { $0.dietDayComplete == true || !$0.entries.isEmpty }
+                    .map(\.dayKey))
+                state.trends.refreshPersonalForecast()
+                return .none
 
             case .today, .workout, .trends, .coach, .todayPath, .trendsPath, .settings, .nutrition:
                 return .none
@@ -702,21 +723,6 @@ public struct AppFeature: Sendable {
         .ifLet(\.$settings, action: \.settings) {
             SettingsFeature()
         }
-        .ifLet(\.$nutrition, action: \.nutrition) {
-            NutritionFeature()
-        }
-    }
-
-    private func loadCachedDashboardEffect(goalMinutes: Int, referenceDate: Date) -> Effect<Action> {
-        .run { send in
-            do {
-                if let cached = try await bodySeekStoreClient.loadCachedDashboard(goalMinutes, referenceDate) {
-                    await send(.cachedDashboardLoaded(cached))
-                }
-            } catch {
-                await send(.persistenceFailed("读取离线生理缓存失败：\(error.localizedDescription)"))
-            }
-        }
     }
 
     private func loadSnapshotEffect(goalMinutes: Int, referenceDate: Date) -> Effect<Action> {
@@ -726,6 +732,7 @@ public struct AppFeature: Sendable {
                 sleepGoalMinutes: goalMinutes,
                 referenceDate: referenceDate
             )
+            try Task.checkCancellation()
             await send(.snapshotLoaded(snapshot))
             if snapshot.isAuthorized {
                 do {
@@ -735,6 +742,7 @@ public struct AppFeature: Sendable {
                 }
             }
         }
+        .cancellable(id: CancelID.loadSnapshot, cancelInFlight: true)
     }
 
     private func observeStoredDashboardEffect(goalMinutes: Int) -> Effect<Action> {
@@ -885,7 +893,10 @@ public struct AppFeature: Sendable {
         }
     }
 
-    private func generateBriefingEffect(state: State) -> Effect<Action> {
+    private func requestBriefing(state: inout State) -> Effect<Action> {
+        refreshTrainingAdvice(&state)
+        guard state.today.postWorkoutAdvice == nil else { return .cancel(id: CancelID.briefing) }
+        state.today.briefingStatus = .loading
         let context = AgentExecutionContext(
             snapshot: state.snapshot,
             sessions: state.sessions,
@@ -901,12 +912,14 @@ public struct AppFeature: Sendable {
             nutritionLogs: state.coach.nutritionLogs,
             checkIns: state.coach.checkIns,
             dominantHand: state.preferences.dominantHand,
-            sleepGoalMinutes: state.preferences.sleepGoalMinutes
+            sleepGoalMinutes: state.preferences.sleepGoalMinutes,
+            asOf: now
         )
         return .run { send in
             let status = await coachAIClient.generateBriefing(context)
             await send(.briefingGenerated(status))
         }
+        .cancellable(id: CancelID.briefing, cancelInFlight: true)
     }
 
     private func observeHealthUpdatesEffect() -> Effect<Action> {
@@ -927,6 +940,7 @@ public struct AppFeature: Sendable {
         state.snapshot = snapshot
         state.today.isLoading = false
         state.today.updateSnapshot(snapshot)
+        state.today.planItems.removeAll { $0.dayKey != snapshot.referenceDate.physiologicalDayKey() }
         let hasPersistedUserDecisions = state.today.planItems.contains { $0.state != .suggested || $0.origin != .system }
         if !hasPersistedUserDecisions {
             state.today.planItems = TodayActionGenerator.generateDefaultPlanItems(
@@ -938,15 +952,24 @@ public struct AppFeature: Sendable {
         state.workout.snapshot = snapshot
         state.workout.dominantHand = state.preferences.dominantHand
         state.workout.sleepGoalMinutes = state.preferences.sleepGoalMinutes
-        if state.workout.storedWorkouts.isEmpty && !snapshot.historyDays.isEmpty {
-            state.workout.storedWorkouts = WorkoutFeature.State.storedRecords(from: snapshot.historyDays)
-        }
-        state.workout.recomputeRecoverySnapshot()
+        state.workout.includeSnapshotWorkouts()
+        state.workout.recomputeRecoverySnapshot(asOf: now)
         state.trends.updateSnapshot(snapshot, precomputedCache: precomputedCache)
         state.coach.snapshot = snapshot
         syncWorkoutContextToCoachAndInsights(&state)
+        refreshTrainingAdvice(&state)
         state.settings?.snapshot = snapshot
-        state.nutrition?.snapshot = snapshot
+        state.nutrition.snapshot = snapshot
+        let nutritionDay = snapshot.referenceDate.physiologicalDayKey()
+        if state.nutrition.todayKey != nutritionDay {
+            let wasShowingToday = state.nutrition.selectedDayKey == state.nutrition.todayKey
+            state.nutrition.todayKey = nutritionDay
+            if wasShowingToday {
+                state.nutrition.showToday()
+            } else {
+                state.nutrition.recomputeSummary()
+            }
+        }
         let sleepGoal = state.preferences.sleepGoalMinutes
         for id in state.todayPath.ids {
             if let kind = state.todayPath[id: id]?.kind {
@@ -962,6 +985,33 @@ public struct AppFeature: Sendable {
                 state.trendsPath[id: id]?.updateSnapshot(snapshot, precomputedCache: kindCache)
             }
         }
+    }
+
+    private func refreshTrainingAdvice(_ state: inout State) {
+        let reference = now
+        let day = reference.physiologicalDayKey()
+        let workouts = state.workout.storedWorkouts
+            + WorkoutFeature.State.storedRecords(from: Array(state.snapshot.historyDays.suffix(3)))
+        let completedIDs = Set(workouts.filter {
+            $0.start.physiologicalDayKey() == day && $0.end <= reference
+        }.map { $0.hkUUID.lowercased() })
+        let manual = state.workout.sessions.filter {
+            $0.startedAt.physiologicalDayKey() == day && $0.completedAt <= reference
+        }
+        guard !completedIDs.isEmpty || !manual.isEmpty else {
+            state.today.postWorkoutAdvice = nil
+            return
+        }
+
+        let primaryMuscles = state.workout.muscleLoads.filter {
+            $0.role == .primary && $0.load > 0 && completedIDs.contains($0.workoutUUID.lowercased())
+        }.map(\.muscle)
+        let manualMuscles = manual.flatMap { $0.muscleLoadIntensities.filter { $0.value >= 0.4 }.keys }
+        let recordedMuscles = Set(primaryMuscles + manualMuscles)
+        let names = BodyRegionMuscle.allCases.filter { recordedMuscles.contains($0) }.map(\.title)
+        let focus = names.isEmpty ? "" : "已记录\(names.joined(separator: "、"))训练。"
+        state.today.postWorkoutAdvice = focus + "接下来留时间恢复。"
+        state.today.briefingStatus = .idle
     }
 
     private func syncWorkoutContextToCoachAndInsights(_ state: inout State) {

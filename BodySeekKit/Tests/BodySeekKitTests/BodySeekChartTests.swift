@@ -19,6 +19,27 @@ final class BodySeekChartTests: XCTestCase {
         return renderer.cgImage
     }
 
+    func testCommunitySleepTimelinePreservesContinuity() {
+        let midnight = refDate
+        let start = midnight.addingTimeInterval(-900)
+        let end = midnight.addingTimeInterval(1_800)
+        let first = SleepStageSegment(stage: .core, startDate: start, endDate: midnight)
+        let second = SleepStageSegment(stage: .deep, startDate: midnight, endDate: end)
+        let continuous = [first, second]
+        let gap = SleepStageSegment(stage: .deep, startDate: midnight.addingTimeInterval(60), endDate: end)
+        let overlap = SleepStageSegment(stage: .deep, startDate: midnight.addingTimeInterval(-60), endDate: end)
+
+        let samples = SleepStageChart.communitySamples(for: continuous)
+        XCTAssertEqual(samples?.first?.startDate, start)
+        XCTAssertEqual(samples?.last?.endDate, end)
+        XCTAssertEqual(samples?.last?.duration, 1_800)
+        XCTAssertNil(SleepStageChart.communitySamples(for: [first, gap]))
+        XCTAssertNil(SleepStageChart.communitySamples(for: [first, overlap]))
+        XCTAssertNil(SleepStageChart.communitySamples(for: []))
+        XCTAssertNotNil(renderCGImage(SleepStageChart(segments: continuous, interactive: false)))
+        XCTAssertNotNil(renderCGImage(SleepStageChart(segments: [first, gap], interactive: false)))
+    }
+
     func testAllEightChartTypesRenderAcrossAllMatrixStates() {
         let now = refDate
         let raw365 = PreviewSeedFactory.makeRawWindow(endingAt: now, days: 365, calendar: calendar)
@@ -235,8 +256,8 @@ final class BodySeekChartTests: XCTestCase {
         for file in try swiftFiles(under: featuresRoot) {
             let content = try String(contentsOf: file, encoding: .utf8)
             XCTAssertFalse(content.contains("import Charts"), "Feature layer must not import Charts directly: \(file.path)")
-            XCTAssertFalse(content.contains("import Liveline"), "Liveline must be removed: \(file.path)")
-            XCTAssertFalse(content.contains("import SleepChartKit"), "SleepChartKit must be removed: \(file.path)")
+            XCTAssertFalse(content.contains("import Liveline"), "Liveline rendering must stay out of the feature layer: \(file.path)")
+            XCTAssertFalse(content.contains("import SleepChartKit"), "SleepChartKit rendering belongs in BodySeekDesign: \(file.path)")
         }
 
         for file in try swiftFiles(under: allSourcesRoot) {

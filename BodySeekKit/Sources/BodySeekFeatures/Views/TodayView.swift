@@ -16,12 +16,9 @@ public struct TodayView: View {
     public var body: some View {
         ZStack(alignment: .top) {
             BevelTheme.canvas.ignoresSafeArea()
-            BevelAmbientAura(recoveryScore: store.today.recovery.value)
 
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 14) {
-                    editorialHeader
-
+                VStack(alignment: .leading, spacing: 14) {
                     if let error = store.lastError {
                         errorBanner(error)
                     }
@@ -30,26 +27,32 @@ public struct TodayView: View {
                         unauthorizedBanner
                     }
 
-                    heroInstrumentCard
-
-                    if !store.proactiveInsights.isEmpty {
-                        proactiveInsightsSection
-                    }
-
-                    todayActionCard
+                    healthOverviewCard
 
                     stressAndEnergyRow
 
-                    checkInCard
+                    if store.snapshot.isAuthorized {
+                        sleepCard
+                    }
+
+                    if store.snapshot.isAuthorized || store.postWorkoutAdvice != nil {
+                        todayActionCard
+                    }
+
+                    if store.snapshot.isAuthorized {
+                        vitalsGrid
+
+                        if !store.today.raw.workouts.isEmpty {
+                            workoutsCard
+                        }
+                    }
 
                     todayNutritionCard
 
-                    sleepCard
+                    checkInCard
 
-                    vitalsGrid
-
-                    if !store.today.raw.workouts.isEmpty {
-                        workoutsCard
+                    if !store.proactiveInsights.isEmpty {
+                        proactiveInsightsSection
                     }
                 }
                 .padding(.horizontal, 16)
@@ -60,7 +63,7 @@ public struct TodayView: View {
                 store.send(.refreshTapped)
             }
         }
-        .navigationTitle("")
+        .navigationTitle("今日")
         .bodyseekNavigationBarInline()
         .bodyseekTransparentNavigationBar()
         .toolbar {
@@ -112,42 +115,6 @@ public struct TodayView: View {
 
     // MARK: - Subviews
 
-    private var editorialHeader: some View {
-        HStack(alignment: .bottom, spacing: 12) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text("\(formattedEditorialDate(store.today.date)) · \(store.snapshot.sourceLabel)")
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(BevelTheme.inkSecondary)
-
-                Text("今日")
-                    .font(.system(size: 32, weight: .bold))
-                    .foregroundStyle(BevelTheme.ink)
-            }
-
-            Spacer()
-
-            if !store.snapshot.isAuthorized {
-                Button {
-                    store.send(.authorizationTapped)
-                } label: {
-                    Label("授权健康", systemImage: "heart.fill")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(BevelTheme.onBrand)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 7)
-                        .background(BevelTheme.brand, in: Capsule())
-                }
-                .accessibilityIdentifier("today-authorize-button")
-            } else if store.isLoading {
-                ProgressView()
-                    .controlSize(.small)
-                    .padding(.bottom, 6)
-            }
-        }
-        .padding(.horizontal, 2)
-        .padding(.bottom, 2)
-    }
-
     private func errorBanner(_ message: String) -> some View {
         BevelCard(padding: 12) {
             HStack(spacing: 10) {
@@ -162,86 +129,47 @@ public struct TodayView: View {
 
     private var unauthorizedBanner: some View {
         BevelCard {
-            HStack(spacing: 16) {
-                ReadinessEmptyIllustration()
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("等待连接 Apple 健康")
-                        .font(.headline)
-                        .foregroundStyle(BevelTheme.ink)
-                    Text("授权读取 HRV、睡眠分期与 Apple Watch 心率训练后，自动计算五项状态并构建 28 天基线。")
-                        .font(.caption)
-                        .foregroundStyle(BevelTheme.inkSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Button {
-                        store.send(.authorizationTapped)
-                    } label: {
-                        Text("立即授权")
-                            .font(.caption.weight(.semibold))
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 7)
-                            .background(BevelTheme.brand, in: Capsule())
-                            .foregroundStyle(BevelTheme.onBrand)
-                    }
-                    .buttonStyle(.plain)
+            VStack(alignment: .leading, spacing: 8) {
+                Label("连接 Apple 健康", systemImage: "heart.text.square")
+                    .font(.headline)
+                    .foregroundStyle(BevelTheme.ink)
+                Text("连接后可查看睡眠、恢复和训练数据。")
+                    .font(.subheadline)
+                    .foregroundStyle(BevelTheme.inkSecondary)
+                Button("立即授权") {
+                    store.send(.authorizationTapped)
                 }
+                .buttonStyle(.borderedProminent)
+                .accessibilityIdentifier("today-authorize-button")
             }
         }
     }
 
-    private var heroInstrumentCard: some View {
+    private var healthOverviewCard: some View {
         BevelCard {
             VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack(spacing: 6) {
-                            BodySeekBrandMark(size: 16)
-                            Text("BodySeek · \(formattedTime(store.snapshot.lastUpdatedAt))")
-                                .font(.caption.weight(.medium))
-                                .foregroundStyle(BevelTheme.inkSecondary)
-                            if case let .generated(_, engineName) = store.briefingStatus {
-                                Text(engineName)
-                                    .font(.caption2.weight(.semibold))
-                                    .padding(.horizontal, 7)
-                                    .padding(.vertical, 2)
-                                    .background(BevelTheme.brandSoft, in: Capsule())
-                                    .foregroundStyle(BevelTheme.brand)
-                            }
-                        }
+                HStack(spacing: 8) {
+                    Text("身体状态")
+                        .font(.headline)
+                        .foregroundStyle(BevelTheme.ink)
 
-                        briefingHeadlineView
+                    if store.isLoading {
+                        ProgressView()
+                            .controlSize(.small)
+                            .accessibilityLabel("正在更新数据")
                     }
-                    Spacer(minLength: 8)
-                    Button {
-                        store.send(.toggleEvidenceBreakdown)
-                    } label: {
-                        Label("依据", systemImage: "doc.text.magnifyingglass")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(BevelTheme.brand)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(BevelTheme.brandSoft, in: Capsule())
-                    }
-                    .accessibilityIdentifier("today-advice-evidence")
-                }
 
-                if store.showEvidenceBreakdown {
-                    Text(store.today.evidenceSummary)
-                        .font(.caption)
+                    Spacer()
+
+                    Text("\(formattedEditorialDate(store.today.date)) · \(store.snapshot.sourceLabel)")
+                        .font(.footnote)
                         .foregroundStyle(BevelTheme.inkSecondary)
-                        .padding(10)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(BevelTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
 
-                HStack(spacing: 12) {
-                    ringButton(for: store.today.recovery, identifier: "today-score-recovery")
-                    ringButton(for: store.today.sleep, identifier: "today-score-sleep")
-                    ringButton(for: store.today.strain, identifier: "today-score-strain")
-                }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    promptChip("结合近 7 天恢复与 ACWR，今天适合什么训练强度？")
-                    promptChip("帮我根据昨晚睡眠构成安排今晚的恢复策略")
+                HStack(alignment: .top, spacing: 12) {
+                    scoreButton(for: store.today.recovery, context: recoveryReadout, identifier: "today-score-recovery")
+                    scoreButton(for: store.today.sleep, context: sleepReadout, identifier: "today-score-sleep")
+                    scoreButton(for: store.today.strain, context: strainReadout, identifier: "today-score-strain")
                 }
             }
         }
@@ -249,89 +177,74 @@ public struct TodayView: View {
         .accessibilityIdentifier("today-score-instrument")
     }
 
-    @ViewBuilder
-    private var briefingHeadlineView: some View {
-        switch store.briefingStatus {
-        case .loading:
-            HStack(spacing: 8) {
-                ProgressView()
-                    .controlSize(.small)
-                Text("正在基于客观数据生成 AI 生理简报...")
-                    .font(.subheadline)
-                    .foregroundStyle(BevelTheme.inkSecondary)
-            }
-        case let .generated(text, _):
-            Text(text)
-                .font(.headline)
-                .foregroundStyle(BevelTheme.ink)
-                .fixedSize(horizontal: false, vertical: true)
-        case .unconfigured, .idle:
-            VStack(alignment: .leading, spacing: 6) {
-                Text(store.today.factualSummary)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(BevelTheme.ink)
-                    .fixedSize(horizontal: false, vertical: true)
-                Button {
-                    store.send(.openSettingsTapped)
-                } label: {
-                    Label("连接 DeepSeek 或 Apple 智能生成真 AI 简报", systemImage: "slider.horizontal.3")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(BevelTheme.brand)
-                }
-                .buttonStyle(.plain)
-            }
+    private typealias MetricReadout = (label: String, value: String?)
+
+    private var recoveryReadout: MetricReadout {
+        if let hrv = store.today.raw.hrvMs {
+            return ("心率变异性", "\(Int(hrv.rounded())) ms")
         }
+        if let heartRate = store.today.raw.restingHeartRateBpm {
+            return ("静息心率", "\(Int(heartRate.rounded())) bpm")
+        }
+        return ("心率变异性", nil)
+    }
+
+    private var sleepReadout: MetricReadout {
+        let duration = store.today.raw.sleepAsleepMinutes.map { minutes in
+            let hours = minutes / 60
+            let remainder = minutes % 60
+            return hours > 0 ? "\(hours) 小时 \(remainder) 分" : "\(remainder) 分钟"
+        }
+        return ("昨夜实睡", duration)
+    }
+
+    private var strainReadout: MetricReadout {
+        let raw = store.today.raw
+        if !raw.workouts.isEmpty {
+            return ("今日训练", "\(raw.workouts.count) 次")
+        }
+        if case .knownZero = store.today.strain.availability {
+            return ("今日训练", "0 次")
+        }
+        return ("动态消耗", raw.activeEnergyKcal.map { "\(Int($0.rounded())) kcal" })
     }
 
     private var proactiveInsightsSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Label("主动洞察（每日最多 2 条）", systemImage: "sparkles.rectangle.stack")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(BevelTheme.brand)
-                Spacer()
-            }
-            .padding(.horizontal, 4)
+        BevelCard {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("值得留意")
+                    .font(.headline)
+                    .foregroundStyle(BevelTheme.ink)
 
-            ForEach(store.proactiveInsights.prefix(2)) { insight in
-                BevelCard(padding: 12) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack {
-                            Text(insight.badge)
-                                .font(.caption2.weight(.semibold))
-                                .padding(.horizontal, 7)
-                                .padding(.vertical, 2)
-                                .background(BevelTheme.brandSoft, in: Capsule())
-                                .foregroundStyle(BevelTheme.brand)
-                            Text(insight.title)
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(BevelTheme.ink)
-                            Spacer()
-                            Button {
-                                store.send(.dismissProactiveInsightTapped(insight.id))
-                            } label: {
-                                Image(systemName: "xmark")
-                                    .font(.caption2.weight(.semibold))
-                                    .foregroundStyle(BevelTheme.inkSecondary)
+                ForEach(store.proactiveInsights.prefix(2)) { insight in
+                    Divider()
+                    DisclosureGroup {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(insight.body)
+                                .font(.subheadline)
+                                .foregroundStyle(BevelTheme.inkSecondary)
+
+                            HStack {
+                                Button(insight.ctaTitle) {
+                                    store.send(.proactiveInsightActionTapped(insight))
+                                }
+                                .accessibilityIdentifier("today-insight-cta-\(insight.kind.rawValue)")
+
+                                Spacer()
+
+                                Button("忽略") {
+                                    store.send(.dismissProactiveInsightTapped(insight.id))
+                                }
+                                .foregroundStyle(BevelTheme.inkSecondary)
+                                .accessibilityIdentifier("today-insight-dismiss-\(insight.kind.rawValue)")
                             }
-                            .buttonStyle(.plain)
-                            .accessibilityIdentifier("today-insight-dismiss-\(insight.kind.rawValue)")
+                            .buttonStyle(.borderless)
                         }
-
-                        Text(insight.body)
-                            .font(.caption)
-                            .foregroundStyle(BevelTheme.inkSecondary)
-                            .fixedSize(horizontal: false, vertical: true)
-
-                        Button {
-                            store.send(.proactiveInsightActionTapped(insight))
-                        } label: {
-                            Text(insight.ctaTitle)
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(BevelTheme.brand)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier("today-insight-cta-\(insight.kind.rawValue)")
+                        .padding(.top, 8)
+                    } label: {
+                        Text(insight.title)
+                            .font(.subheadline)
+                            .foregroundStyle(BevelTheme.ink)
                     }
                 }
             }
@@ -341,24 +254,41 @@ public struct TodayView: View {
     }
 
     @ViewBuilder
-    private func ringButton(for score: MetricScore, identifier: String) -> some View {
+    private func scoreButton(for score: MetricScore, context: MetricReadout, identifier: String) -> some View {
+        let reading: String? = switch score.availability {
+        case .available, .knownZero: context.value
+        case .missing, .excluded: nil
+        }
+        let secondaryLabel = metricContext(score, detail: context.label)
         let base = Button {
             store.send(.metricTapped(score.kind))
         } label: {
-            VStack(spacing: 8) {
-                MetricRingView(score: score, diameter: 86, lineWidth: 9)
-                Text(score.kind.title)
+            VStack(alignment: .leading, spacing: 6) {
+                Label(score.kind.title, systemImage: score.kind.systemImage)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(BevelTheme.ink)
-                Text(score.subtitle)
-                    .font(.caption2)
-                    .foregroundStyle(BevelTheme.deviationInk)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.85)
+                    .foregroundStyle(BevelTheme.color(for: score.kind))
+
+                scoreValue(score)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(secondaryLabel)
+                        .font(.footnote)
+                        .foregroundStyle(BevelTheme.inkSecondary)
+
+                    Text(reading ?? "—")
+                        .font(.subheadline.weight(.medium).monospacedDigit())
+                        .foregroundStyle(reading == nil ? BevelTheme.inkSecondary : BevelTheme.ink)
+                        .lineLimit(1)
+                }
+                .padding(.top, 4)
             }
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(score.kind.title)
+        .accessibilityValue("\(score.formattedScore)，\(score.availability.reasonText ?? "\(secondaryLabel) \(reading ?? "暂无数据")")")
+        .accessibilityHint("打开指标详情")
         .accessibilityIdentifier(identifier)
 
         if let zoomNamespace {
@@ -368,108 +298,173 @@ public struct TodayView: View {
         }
     }
 
-    private func promptChip(_ text: String) -> some View {
-        Button {
-            store.send(.askCoachTapped(text))
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: "sparkles")
-                    .font(.caption)
-                    .foregroundStyle(BevelTheme.brand)
-                Text(text)
-                    .font(.footnote)
-                    .foregroundStyle(BevelTheme.ink)
-                    .lineLimit(1)
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 9)
-            .background(BevelTheme.surfaceElevated, in: Capsule())
+    private func scoreValue(_ score: MetricScore) -> some View {
+        Text(score.formattedScore)
+            .font(.title.weight(.semibold).monospacedDigit())
+            .contentTransition(.numericText())
+            .foregroundStyle(score.value == nil ? BevelTheme.inkSecondary : BevelTheme.ink)
+    }
+
+    private func metricContext(_ score: MetricScore, detail: String) -> String {
+        switch score.availability {
+        case .available, .knownZero: detail
+        case .missing: "暂无数据"
+        case .excluded: "已排除"
         }
-        .buttonStyle(.plain)
     }
 
     @ViewBuilder
     private var todayActionCard: some View {
-        let visibleItems = store.planItems.filter { $0.state != .dismissed }
-        if !visibleItems.isEmpty {
-            BevelCard(padding: 14) {
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        Label("今日行动建议", systemImage: "checkmark.circle.trianglebadge.exclamationmark")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(BevelTheme.brand)
-                        Spacer()
-                        Text("\(visibleItems.filter { $0.state == .adopted }.count)/\(visibleItems.count) 已采纳")
-                            .font(.caption2.monospacedDigit())
-                            .fontDesign(.rounded)
-                            .foregroundStyle(BevelTheme.inkSecondary)
+        let postWorkoutAdvice = store.postWorkoutAdvice
+        let suggestions = store.planItems.filter {
+            $0.state != .dismissed && (postWorkoutAdvice == nil || $0.kind != .trainingFocus)
+        }
+        let primary = postWorkoutAdvice == nil ? (suggestions.first(where: { $0.kind == .trainingFocus }) ?? suggestions.first) : nil
+        let otherSuggestions = suggestions.filter { $0.id != primary?.id }
+
+        if postWorkoutAdvice != nil || primary != nil || hasAISuggestion {
+            BevelCard {
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("今日建议")
+                        .font(.headline)
+                        .foregroundStyle(BevelTheme.ink)
+
+                    if let postWorkoutAdvice {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Label("今天已完成训练", systemImage: "checkmark.circle")
+                                .font(.subheadline.weight(.semibold))
+                            Text(postWorkoutAdvice)
+                                .font(.subheadline)
+                                .foregroundStyle(BevelTheme.inkSecondary)
+                        }
+                    } else if let primary {
+                        suggestionRow(primary, isPrimary: true)
                     }
 
-                    ForEach(visibleItems) { record in
-                        let item = record.decodedActionItem()
-                        let isAdopted = record.state == .adopted
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack(alignment: .top, spacing: 8) {
-                                Image(systemName: isAdopted ? "checkmark.circle.fill" : "circle.dashed")
-                                    .foregroundStyle(isAdopted ? BevelTheme.recoveryColor : BevelTheme.brand)
-                                    .font(.subheadline)
-                                    .padding(.top, 2)
+                    if !otherSuggestions.isEmpty {
+                        Divider()
 
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(item?.title ?? "生理执行建议")
-                                        .font(.subheadline.weight(.semibold))
-                                        .foregroundStyle(BevelTheme.ink)
-                                    if let detail = item?.detail {
-                                        Text(detail)
-                                            .font(.caption)
-                                            .foregroundStyle(BevelTheme.inkSecondary)
-                                            .fixedSize(horizontal: false, vertical: true)
-                                    }
-                                    if let basis = item?.metricBasis {
-                                        Text("依据：\(basis)")
-                                            .font(.caption2)
-                                            .foregroundStyle(BevelTheme.deviationInk)
-                                    }
+                        DisclosureGroup("其他建议") {
+                            VStack(alignment: .leading, spacing: 14) {
+                                ForEach(otherSuggestions) { record in
+                                    Divider()
+                                    suggestionRow(record, isPrimary: false)
                                 }
                             }
-
-                            HStack(spacing: 8) {
-                                Spacer()
-                                if !isAdopted {
-                                    Button("跳过") {
-                                        store.send(.dismissPlanItem(record.id))
-                                    }
-                                    .font(.caption.weight(.medium))
-                                    .foregroundStyle(BevelTheme.inkSecondary)
-                                    .buttonStyle(.plain)
-                                    .accessibilityIdentifier("today-action-dismiss-\(record.id.uuidString)")
-                                }
-                                Button {
-                                    store.send(.adoptPlanItem(record.id))
-                                } label: {
-                                    Text(isAdopted ? "已采纳" : "采纳")
-                                        .font(.caption.weight(.semibold))
-                                        .padding(.horizontal, 12)
-                                        .padding(.vertical, 5)
-                                        .background(
-                                            isAdopted ? BevelTheme.recoveryColor.opacity(0.16) : BevelTheme.brand,
-                                            in: Capsule()
-                                        )
-                                        .foregroundStyle(isAdopted ? BevelTheme.recoveryColor : BevelTheme.onBrand)
-                                }
-                                .buttonStyle(.plain)
-                                .disabled(isAdopted)
-                                .accessibilityIdentifier("today-action-adopt-\(record.id.uuidString)")
-                            }
+                            .padding(.top, 8)
                         }
-                        .padding(10)
-                        .background(BevelTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .font(.subheadline)
+                        .accessibilityIdentifier("today-other-suggestions")
+                    }
+
+                    if hasAISuggestion {
+                        if primary != nil {
+                            Divider()
+                        }
+                        aiSuggestion
                     }
                 }
             }
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("today-action-card")
+        }
+    }
+
+    private var hasAISuggestion: Bool {
+        if case let .generated(text, _) = store.briefingStatus {
+            return !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+        return false
+    }
+
+    @ViewBuilder
+    private var aiSuggestion: some View {
+        if case let .generated(rawText, engine) = store.briefingStatus {
+            let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
+            let compact = text.count <= 64 && !text.contains(where: \.isNewline)
+
+            VStack(alignment: .leading, spacing: 8) {
+                if compact {
+                    Label("AI 建议", systemImage: "sparkles")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(BevelTheme.inkSecondary)
+                    Text(text)
+                        .font(.subheadline)
+                        .foregroundStyle(BevelTheme.ink)
+                        .accessibilityIdentifier("today-ai-suggestion-text")
+                }
+
+                DisclosureGroup(
+                    compact ? "AI 参考依据" : "查看 AI 建议",
+                    isExpanded: Binding(
+                        get: { store.showEvidenceBreakdown },
+                        set: { if $0 != store.showEvidenceBreakdown { store.send(.toggleEvidenceBreakdown) } }
+                    )
+                ) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        if !compact {
+                            Text(text)
+                                .foregroundStyle(BevelTheme.ink)
+                                .accessibilityIdentifier("today-ai-suggestion-text")
+                        }
+                        Text(store.today.evidenceSummary)
+                        Text("由 \(engine) 生成")
+                    }
+                    .foregroundStyle(BevelTheme.inkSecondary)
+                    .padding(.top, 8)
+                    .accessibilityIdentifier("today-ai-suggestion-evidence")
+                }
+                .font(.subheadline)
+                .accessibilityIdentifier("today-advice-evidence")
+            }
+        }
+    }
+
+    private func suggestionRow(_ record: PlanItemRecord, isPrimary: Bool) -> some View {
+        let item = record.decodedActionItem()
+        return VStack(alignment: .leading, spacing: 8) {
+            Text(item?.title ?? "行动建议")
+                .font(isPrimary ? .title3.weight(.semibold) : .headline)
+                .foregroundStyle(BevelTheme.ink)
+
+            if let item {
+                DisclosureGroup("建议依据") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(item.detail)
+                        Text(item.metricBasis)
+                    }
+                    .foregroundStyle(BevelTheme.inkSecondary)
+                    .padding(.top, 6)
+                }
+                .font(.subheadline)
+            }
+
+            switch record.state {
+            case .suggested:
+                HStack(spacing: 12) {
+                    if isPrimary {
+                        Button("采纳") { store.send(.adoptPlanItem(record.id)) }
+                            .buttonStyle(.borderedProminent)
+                            .accessibilityIdentifier("today-action-adopt-\(record.id.uuidString)")
+                    } else {
+                        Button("采纳") { store.send(.adoptPlanItem(record.id)) }
+                            .buttonStyle(.bordered)
+                            .accessibilityIdentifier("today-action-adopt-\(record.id.uuidString)")
+                    }
+
+                    Button("跳过") { store.send(.dismissPlanItem(record.id)) }
+                        .buttonStyle(.borderless)
+                        .foregroundStyle(BevelTheme.inkSecondary)
+                        .accessibilityIdentifier("today-action-dismiss-\(record.id.uuidString)")
+                }
+            case .adopted, .completed:
+                Label(record.state == .completed ? "已完成" : "已采纳", systemImage: "checkmark.circle.fill")
+                    .font(.subheadline)
+                    .foregroundStyle(BevelTheme.recoveryColor)
+                    .accessibilityIdentifier("today-action-status-\(record.id.uuidString)")
+            case .dismissed:
+                EmptyView()
+            }
         }
     }
 
@@ -618,11 +613,8 @@ public struct TodayView: View {
                     }
 
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Text(store.today.stress.formattedScore)
-                            .font(.title2.weight(.bold).monospacedDigit())
-                            .contentTransition(.numericText())
-                            .foregroundStyle(BevelTheme.ink)
-                        Text(store.today.stress.badge)
+                        scoreValue(store.today.stress)
+                        Text(metricContext(store.today.stress, detail: store.today.stress.badge))
                             .font(.caption)
                             .foregroundStyle(BevelTheme.inkSecondary)
                     }
@@ -659,11 +651,8 @@ public struct TodayView: View {
                     }
 
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Text(store.today.energy.formattedScore)
-                            .font(.title2.weight(.bold).monospacedDigit())
-                            .contentTransition(.numericText())
-                            .foregroundStyle(BevelTheme.ink)
-                        Text(store.today.energy.subtitle)
+                        scoreValue(store.today.energy)
+                        Text(metricContext(store.today.energy, detail: store.today.energy.subtitle))
                             .font(.caption)
                             .foregroundStyle(BevelTheme.inkSecondary)
                             .lineLimit(1)
@@ -690,7 +679,7 @@ public struct TodayView: View {
             BevelCard {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
-                        Label("昨夜睡眠分期结构", systemImage: MetricKind.sleep.systemImage)
+                        Label("昨夜睡眠", systemImage: MetricKind.sleep.systemImage)
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(BevelTheme.sleepColor)
                         Spacer()
@@ -824,12 +813,6 @@ public struct TodayView: View {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "zh_Hans")
         formatter.dateFormat = "M月d日 EEEE"
-        return formatter.string(from: date)
-    }
-
-    private func formattedTime(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
         return formatter.string(from: date)
     }
 }

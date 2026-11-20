@@ -9,6 +9,7 @@ public struct TodayFeature: Sendable {
     public struct State: Equatable, Sendable {
         public var snapshot: BodySeekDashboardSnapshot
         public var briefingStatus: AIBriefingStatus = .idle
+        public var postWorkoutAdvice: String?
         public var isLoading: Bool = false
         public var showEvidenceBreakdown: Bool = false
         public var subjectiveFeeling: Int?

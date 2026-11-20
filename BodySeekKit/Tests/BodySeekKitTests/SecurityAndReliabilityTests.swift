@@ -107,7 +107,7 @@ final class SecurityAndReliabilityTests: XCTestCase {
         coachStore.exhaustivity = .off
 
         await coachStore.send(.newConversationTapped)
-        await coachStore.receive(\.storeOperationFailed)
+        await coachStore.receive(\.conversationResetFinished)
         XCTAssertTrue(coachStore.state.lastError?.contains("清空对话历史失败") == true)
 
         await coachStore.send(.deleteMemoryTapped(mem.id))

@@ -7,6 +7,14 @@ import SwiftUI
 public struct CoachView: View {
     @Bindable var store: StoreOf<CoachFeature>
     @FocusState private var isComposerFocused: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isNearLatest = true
+    @State private var confirmNewConversation = false
+
+    private enum ScrollTarget: Hashable {
+        case welcome
+        case latest
+    }
 
     public init(store: StoreOf<CoachFeature>) {
         self.store = store
@@ -14,8 +22,6 @@ public struct CoachView: View {
 
     public var body: some View {
         VStack(spacing: 0) {
-            memoryStripBar
-
             if let err = store.lastError {
                 Text(err)
                     .font(.caption)
@@ -26,74 +32,104 @@ public struct CoachView: View {
 
             ScrollViewReader { proxy in
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 14) {
-                        ForEach(store.messages) { msg in
-                            messageRow(msg)
-                                .id(msg.id)
-                        }
-
-                        if store.isSending {
-                            HStack(spacing: 8) {
-                                ProgressView()
-                                    .controlSize(.small)
-                                Text("智能体正在调用四态工具与记忆检索…")
-                                    .font(.caption)
-                                    .foregroundStyle(BevelTheme.inkSecondary)
+                    LazyVStack(alignment: .leading, spacing: 20) {
+                        if store.isAtWelcome {
+                            welcomePanel
+                                .id(ScrollTarget.welcome)
+                        } else {
+                            ForEach(store.messages) { msg in
+                                messageRow(msg)
+                                    .id(msg.id)
                             }
-                            .padding(.vertical, 6)
+                            if store.isSending {
+                                ProgressView("Coach 正在回复…")
+                                    .controlSize(.small)
+                                    .font(.footnote)
+                                    .foregroundStyle(BevelTheme.inkSecondary)
+                                    .padding(.vertical, 8)
+                            }
                         }
-
-                        quickPromptBar
+                        Color.clear.frame(height: 1)
+                            .accessibilityHidden(true)
+                            .id(ScrollTarget.latest)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 14)
+                    .frame(maxWidth: 680)
+                    .frame(maxWidth: .infinity)
                 }
-                .onChange(of: store.messages.count) { _, _ in
-                    if let lastID = store.messages.last?.id {
-                        proxy.scrollTo(lastID, anchor: .bottom)
+                .defaultScrollAnchor(store.isAtWelcome ? .top : .bottom, for: .initialOffset)
+                .scrollDismissesKeyboard(.interactively)
+                .onScrollGeometryChange(for: Bool.self) { geometry in
+                    geometry.contentSize.height - geometry.visibleRect.maxY < 100
+                } action: { _, nearLatest in
+                    isNearLatest = nearLatest
+                }
+                .onChange(of: store.messages.last?.id) { _, _ in
+                    if store.isAtWelcome {
+                        scroll(to: ScrollTarget.welcome, anchor: .top, using: proxy)
+                    } else if let last = store.messages.last, last.role == .user {
+                        scroll(to: ScrollTarget.latest, anchor: .bottom, using: proxy)
+                    } else if let last = store.messages.last, isNearLatest {
+                        scroll(to: last.id, anchor: .top, using: proxy)
+                    }
+                }
+                .overlay(alignment: .bottomTrailing) {
+                    if !isNearLatest && !store.isAtWelcome {
+                        Button("回到底部", systemImage: "arrow.down") {
+                            scroll(to: ScrollTarget.latest, anchor: .bottom, using: proxy)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .padding(.trailing, 18)
+                        .padding(.bottom, 8)
+                        .accessibilityIdentifier("coach-jump-to-latest")
                     }
                 }
             }
-
-            Divider()
-
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
             composerBar
         }
         .background(BevelTheme.canvas.ignoresSafeArea())
-        .navigationTitle("问身体")
+        .navigationTitle("Coach")
+        .bodyseekNavigationBarInline()
         .toolbar {
-            ToolbarItem(placement: .bodyseekLeading) {
-                BodySeekBrandMark(size: 20)
-            }
             ToolbarItemGroup(placement: .bodyseekTrailing) {
                 Button {
-                    store.send(.newConversationTapped)
+                    store.send(.memorySheetPresented(true))
+                } label: {
+                    Image(systemName: "brain.head.profile")
+                }
+                .accessibilityLabel("记忆")
+                .accessibilityIdentifier("coach-memory-strip")
+
+                Button {
+                    confirmNewConversation = true
                 } label: {
                     Image(systemName: "square.and.pencil")
                 }
                 .accessibilityLabel("新对话")
+                .disabled(store.isAtWelcome || store.isSending || store.isResettingConversation)
 
                 Menu {
                     Button {
-                        store.send(.memorySheetPresented(true))
-                    } label: {
-                        Label("三层记忆管理 (\(store.state.activeTieredMemories().count))", systemImage: "brain.head.profile")
-                    }
-                    Button {
                         store.send(.openSettingsTapped)
                     } label: {
-                        Label("AI 接口与隐私设置", systemImage: "gearshape")
-                    }
-                    Button {
-                        store.send(.newConversationTapped)
-                    } label: {
-                        Label("清空会话", systemImage: "arrow.counterclockwise")
+                        Label("AI 连接与隐私", systemImage: "gearshape")
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
                 .accessibilityLabel("更多")
             }
+        }
+        .alert("开始新对话？", isPresented: $confirmNewConversation) {
+            Button("清空并开始", role: .destructive) {
+                store.send(.newConversationTapped)
+            }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("这会清空当前聊天记录。")
         }
         .sheet(
             isPresented: Binding(
@@ -105,38 +141,10 @@ public struct CoachView: View {
         }
     }
 
-    private var memoryStripBar: some View {
-        let activeMemories = store.state.activeTieredMemories()
-        return Button {
-            store.send(.memorySheetPresented(true))
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "brain.head.profile")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(BevelTheme.brand)
-                if let first = activeMemories.first {
-                    Text("已激活 \(activeMemories.count) 条三层记忆：[\(first.tier.titleLabel)] \(first.content)")
-                        .font(.caption)
-                        .foregroundStyle(BevelTheme.ink)
-                        .lineLimit(1)
-                } else {
-                    Text("尚无长期记忆 · 提及伤病或习惯时可确认写入")
-                        .font(.caption)
-                        .foregroundStyle(BevelTheme.inkSecondary)
-                        .lineLimit(1)
-                }
-                Spacer(minLength: 4)
-                Image(systemName: "chevron.right")
-                    .font(.caption2)
-                    .foregroundStyle(BevelTheme.inkSecondary)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(BevelTheme.card.opacity(0.85))
-            .contentShape(Rectangle())
+    private func scroll(to id: some Hashable, anchor: UnitPoint, using proxy: ScrollViewProxy) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.22)) {
+            proxy.scrollTo(id, anchor: anchor)
         }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("coach-memory-strip")
     }
 
     @ViewBuilder
@@ -145,7 +153,8 @@ public struct CoachView: View {
             HStack {
                 Spacer(minLength: 48)
                 Text(msg.text)
-                    .font(.subheadline)
+                    .font(.body)
+                    .textSelection(.enabled)
                     .foregroundStyle(BevelTheme.onBrand)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
@@ -154,17 +163,19 @@ public struct CoachView: View {
         } else {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 6) {
-                    BodySeekBrandMark(size: 15)
-                    Text("BodySeek Coach")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(BevelTheme.inkSecondary)
-                    if let engineLabel = msg.engineLabel {
-                        Text(engineLabel)
-                            .font(.caption2.weight(.semibold))
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 2)
-                            .background(BevelTheme.brandSoft, in: Capsule())
-                            .foregroundStyle(BevelTheme.brand)
+                    if let engine = msg.engineLabel {
+                        Menu {
+                            Text(engine)
+                        } label: {
+                            Label("Coach", systemImage: "info.circle")
+                                .font(.footnote.weight(.medium))
+                                .foregroundStyle(BevelTheme.inkSecondary)
+                        }
+                        .accessibilityLabel("回复来源")
+                    } else {
+                        Label("Coach", systemImage: "bubble.left")
+                            .font(.footnote.weight(.medium))
+                            .foregroundStyle(BevelTheme.inkSecondary)
                     }
                     if !msg.unverifiedNumbers.isEmpty {
                         Text("含未核实数字")
@@ -177,10 +188,8 @@ public struct CoachView: View {
                     }
                 }
 
-                Text(msg.text)
-                    .font(.subheadline)
-                    .foregroundStyle(BevelTheme.ink)
-                    .fixedSize(horizontal: false, vertical: true)
+                CoachMarkdownReply(source: msg.text)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
                 if let memProposal = msg.memoryProposal,
                    !store.dismissedMemoryProposalMessageIDs.contains(msg.id)
@@ -212,7 +221,7 @@ public struct CoachView: View {
         return BevelCard(padding: 12) {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Label("记忆提案 · 需你确认写入", systemImage: "brain.head.profile")
+                    Label("保存这条记忆？", systemImage: "brain.head.profile")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(BevelTheme.brand)
                     Spacer()
@@ -230,7 +239,7 @@ public struct CoachView: View {
 
                 if let exp = memory.expiresAt {
                     let days = max(1, Int((exp.timeIntervalSince(memory.confirmedAt ?? Date()) / 86_400).rounded()))
-                    Text("到期规则：将在 \(days) 天后自动失效（不长期污染计划）")
+                    Text("\(days) 天后自动到期")
                         .font(.caption2)
                         .foregroundStyle(BevelTheme.inkSecondary)
                 }
@@ -244,7 +253,7 @@ public struct CoachView: View {
                         Button {
                             store.send(.confirmMemoryProposalTapped(messageID: messageID, memory: memory))
                         } label: {
-                            Text("确认写入记忆")
+                            Text("保存记忆")
                                 .font(.caption.weight(.semibold))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 8)
@@ -276,20 +285,25 @@ public struct CoachView: View {
         let isCommitted = store.confirmedAnnotationProposalMessageIDs.contains(messageID)
         return BevelCard(padding: 12) {
             VStack(alignment: .leading, spacing: 8) {
-                Label("Watch 训练复盘标注提案 · 需确认", systemImage: "text.bubble.fill")
+                Label("保存这次训练复盘？", systemImage: "text.bubble.fill")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(BevelTheme.strainColor)
 
                 Text("\(proposal.workoutTitle) ← “\(proposal.rawText)”")
                     .font(.caption)
                     .foregroundStyle(BevelTheme.ink)
+                if let workout = store.storedWorkouts.first(where: { $0.hkUUID == proposal.workoutUUID }) {
+                    Text(workout.start, format: .dateTime.month().day().hour().minute())
+                        .font(.subheadline)
+                        .foregroundStyle(BevelTheme.inkSecondary)
+                }
 
                 Text("主肌群：\(proposal.proposal.primaryMuscles.map(\.title).joined(separator: "、"))" + (proposal.proposal.rpe.map { " · RPE \($0)" } ?? ""))
                     .font(.caption2)
                     .foregroundStyle(BevelTheme.inkSecondary)
 
                 if isCommitted {
-                    Label("已确认标注并更新肌群恢复（启发式）", systemImage: "checkmark.circle.fill")
+                    Label("已保存训练复盘", systemImage: "checkmark.circle.fill")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(BevelTheme.recoveryColor)
                 } else {
@@ -297,7 +311,7 @@ public struct CoachView: View {
                         Button {
                             store.send(.confirmAnnotationProposalTapped(messageID: messageID, proposal: proposal))
                         } label: {
-                            Text("确认写入训练档案")
+                            Text("保存到训练记录")
                                 .font(.caption.weight(.semibold))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 8)
@@ -333,9 +347,7 @@ public struct CoachView: View {
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(BevelTheme.inkSecondary)
                     Spacer()
-                    Text("客观序列")
-                        .font(.caption2)
-                        .foregroundStyle(BevelTheme.inkSecondary)
+
                 }
                 MiniSparkline(
                     points: store.state.sparklinePoints(for: kind),
@@ -352,7 +364,7 @@ public struct CoachView: View {
         BevelCard(padding: 14) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Label("结构化训练处方 · 需你确认", systemImage: "dumbbell.fill")
+                    Label("训练建议", systemImage: "dumbbell.fill")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(BevelTheme.brand)
                     Spacer()
@@ -432,32 +444,49 @@ public struct CoachView: View {
         .accessibilityIdentifier("coach-workout-proposal")
     }
 
-    private var quickPromptBar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(store.quickPrompts, id: \.self) { prompt in
+    private var welcomePanel: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("今天想了解什么？")
+                .font(.title2.weight(.semibold))
+                .accessibilityAddTraits(.isHeader)
+            VStack(spacing: 8) {
+                ForEach(store.quickPrompts, id: \.title) { prompt in
                     Button {
-                        store.send(.quickPromptTapped(prompt))
+                        store.send(.quickPromptTapped(prompt.question))
                     } label: {
-                        Text(prompt)
-                            .font(.caption.weight(.medium))
-                            .foregroundStyle(BevelTheme.ink)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(BevelTheme.card, in: Capsule())
-                            .overlay(Capsule().strokeBorder(BevelTheme.hairline, lineWidth: 0.5))
+                        HStack(spacing: 12) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(prompt.title).font(.subheadline.weight(.semibold))
+                                Text(prompt.question)
+                                    .font(.footnote)
+                                    .foregroundStyle(BevelTheme.inkSecondary)
+                            }
+                            Spacer(minLength: 0)
+                            Image(systemName: "arrow.up.right")
+                                .font(.footnote.weight(.medium))
+                                .foregroundStyle(BevelTheme.brand)
+                                .accessibilityHidden(true)
+                        }
+                        .padding(12)
+                        .background(BevelTheme.card, in: RoundedRectangle(cornerRadius: 14))
+                        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(BevelTheme.hairline, lineWidth: 0.5))
                     }
                     .buttonStyle(.plain)
+                    .disabled(store.isResettingConversation)
                 }
             }
         }
-        .padding(.top, 4)
+        .foregroundStyle(BevelTheme.ink)
+        .padding(.vertical, 10)
+        .accessibilityIdentifier("coach-welcome-panel")
     }
 
     private var composerBar: some View {
-        HStack(spacing: 10) {
+        let canSend = !store.draftText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !store.isSending && !store.isResettingConversation
+        return HStack(alignment: .bottom, spacing: 8) {
             TextField(
-                "追问状态、告诉 Coach 伤病或排一份新课表…",
+                "问 Coach…",
                 text: Binding(
                     get: { store.draftText },
                     set: { store.send(.draftChanged($0)) }
@@ -468,7 +497,6 @@ public struct CoachView: View {
             .focused($isComposerFocused)
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
-            .background(BevelTheme.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
             .accessibilityIdentifier("coach-full-input")
 
             Button {
@@ -477,18 +505,22 @@ public struct CoachView: View {
             } label: {
                 Image(systemName: "arrow.up.circle.fill")
                     .font(.title2)
+                    .frame(width: 44, height: 44)
                     .foregroundStyle(
-                        store.draftText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                            ? BevelTheme.inkSecondary
-                            : BevelTheme.brand
+                        canSend ? BevelTheme.brand : BevelTheme.inkSecondary
                     )
             }
-            .disabled(store.draftText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || store.isSending)
+            .disabled(!canSend)
             .accessibilityLabel("发送")
             .accessibilityIdentifier("coach-send-button")
         }
+        .padding(3)
+        .background(BevelTheme.card, in: RoundedRectangle(cornerRadius: 22))
+        .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(BevelTheme.hairline, lineWidth: 0.5))
         .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .background(BevelTheme.canvas)
+        .padding(.vertical, 6)
+        .frame(maxWidth: 680)
+        .frame(maxWidth: .infinity)
+        .background(.bar)
     }
 }

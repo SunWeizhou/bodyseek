@@ -5,6 +5,13 @@ import Foundation
 
 @Reducer
 public struct NutritionFeature: Sendable {
+    public enum MealLogger: String, Identifiable, Sendable {
+        case manual
+        case assistant
+
+        public var id: Self { self }
+    }
+
     public enum PeriodMode: String, CaseIterable, Identifiable, Hashable, Sendable {
         case week
         case month
@@ -32,7 +39,7 @@ public struct NutritionFeature: Sendable {
         public var foodSearchQuery: String = ""
         public var foodLibrary: [FoodLibraryItem] = NutritionCatalog.starterFoodItems
         public var expandedMicroGroup: String?
-        public var showMealLoggerSheet: Bool = false
+        public var mealLogger: MealLogger?
         public var showLibrarySheet: Bool = false
         public var showProfileTargetSheet: Bool = false
         public var exportedMarkdown: String?
@@ -61,6 +68,12 @@ public struct NutritionFeature: Sendable {
                 endDayKey: window.end,
                 todayKey: resolvedToday
             )
+        }
+
+        mutating func showToday() {
+            anchorDayKey = todayKey
+            selectedDayKey = todayKey
+            recomputeSummary()
         }
 
         public var periodDayKeys: [DayKey] {
@@ -128,8 +141,10 @@ public struct NutritionFeature: Sendable {
         case foodSearchChanged(String)
         case foodSearchResultsLoaded([FoodLibraryItem])
         case mealLoggerPresented(Bool)
+        case mealAssistantTapped
         case libraryPresented(Bool)
         case profileTargetPresented(Bool)
+        case mealDraftConfirmed([MealEntry], fromPhoto: Bool)
         case logMealSubmitted(
             mealType: MealType,
             foodName: String,
@@ -156,7 +171,6 @@ public struct NutritionFeature: Sendable {
         case markdownSheetDismissed
         case mutationSucceeded(message: String)
         case mutationFailed(String)
-        case closeTapped
         case delegate(Delegate)
 
         @CasePathable
@@ -166,7 +180,6 @@ public struct NutritionFeature: Sendable {
                 plan: NutritionTargetPlan?,
                 rollingDeficit7d: Double?
             )
-            case dismissed
         }
     }
 
@@ -244,7 +257,11 @@ public struct NutritionFeature: Sendable {
                 return .none
 
             case let .mealLoggerPresented(presented):
-                state.showMealLoggerSheet = presented
+                state.mealLogger = presented ? .manual : nil
+                return .none
+
+            case .mealAssistantTapped:
+                state.mealLogger = .assistant
                 return .none
 
             case let .libraryPresented(presented):
@@ -254,6 +271,30 @@ public struct NutritionFeature: Sendable {
             case let .profileTargetPresented(presented):
                 state.showProfileTargetSheet = presented
                 return .none
+
+            case let .mealDraftConfirmed(entries, fromPhoto):
+                guard !state.isSaving, let day = entries.first?.dayKey,
+                      entries.allSatisfy({ $0.dayKey == day })
+                else { return .none }
+                state.isSaving = true
+                state.lastError = nil
+                let evidence = entries.compactMap { entry in
+                    entry.foodID.map { EvidenceRef(kind: "food_catalog", identifier: $0, summary: entry.foodName) }
+                }
+                return .run { send in
+                    do {
+                        let proposal = try ActionProposal(
+                            kind: .logNutritionMeals, origin: .user,
+                            encodablePayload: LogNutritionMealsPayload(dayKey: day, entries: entries),
+                            rationale: fromPhoto ? "用户确认照片餐食草稿" : "用户确认文字餐食草稿",
+                            evidenceRefs: evidence
+                        )
+                        _ = try await storeClient.executeProposal(proposal)
+                        await send(.mutationSucceeded(message: "已保存饮食记录"))
+                    } catch {
+                        await send(.mutationFailed("保存餐食失败：\(error.localizedDescription)"))
+                    }
+                }
 
             case let .logMealSubmitted(
                 mealType, foodName, foodID, portionAmount, portionUnit,
@@ -415,7 +456,7 @@ public struct NutritionFeature: Sendable {
                 state.isSaving = false
                 state.lastError = nil
                 state.statusMessage = message
-                state.showMealLoggerSheet = false
+                state.mealLogger = nil
                 state.showProfileTargetSheet = false
                 return loadAllEffect(state: state)
 
@@ -423,9 +464,6 @@ public struct NutritionFeature: Sendable {
                 state.isSaving = false
                 state.lastError = message
                 return .none
-
-            case .closeTapped:
-                return .send(.delegate(.dismissed))
 
             case .delegate:
                 return .none

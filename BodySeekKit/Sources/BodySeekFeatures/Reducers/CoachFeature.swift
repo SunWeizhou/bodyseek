@@ -27,6 +27,7 @@ public struct CoachFeature: Sendable {
         public var messages: [CoachMessage] = []
         public var draftText: String = ""
         public var isSending: Bool = false
+        public var isResettingConversation: Bool = false
         public var showMemorySheet: Bool = false
         public var dismissedProposalMessageIDs: Set<UUID> = []
         public var dismissedMemoryProposalMessageIDs: Set<UUID> = []
@@ -50,23 +51,29 @@ public struct CoachFeature: Sendable {
             self.tieredMemories = tieredMemories.isEmpty && !memories.isEmpty
                 ? MemoryContextSelector.bridgeFromLegacy(memories)
                 : tieredMemories
-            self.messages = messages ?? [Self.makeWelcomeMessage(snapshot: snapshot)]
+            self.messages = messages ?? [Self.makeWelcomeMessage()]
         }
 
-        public static func makeWelcomeMessage(snapshot: BodySeekDashboardSnapshot) -> CoachMessage {
+        public static func makeWelcomeMessage() -> CoachMessage {
             CoachMessage(
                 role: .assistant,
-                text: "已同步今日生理指标与训练基线（\(snapshot.today.factualSummary)）。你可以让我结合三层记忆分析状态、对比历史相似日，或生成待你确认的训练与复盘提案卡片。",
-                engineLabel: "BodySeek 智能体",
-                evidenceMetric: .recovery
+                text: welcomeText
             )
         }
 
-        public var quickPrompts: [String] {
+        private static let welcomeText = "今天想了解什么？可以问我睡眠、恢复或训练。"
+
+        public var isAtWelcome: Bool {
+            messages.isEmpty || (messages.count == 1 && messages.first?.role == .assistant
+                && messages.first?.text == Self.welcomeText)
+        }
+
+        public var quickPrompts: [(title: String, question: String)] {
             [
-                "根据我的恢复和 ACWR，帮我排一份今天能练的减量上肢课表",
-                "记住我右膝前侧轻微不适，最近两周减少大重量深蹲",
-                "昨晚的睡眠分期和历史相似日说明了什么？",
+                ("看恢复", "我今天的恢复和平时相比怎么样？"),
+                ("看睡眠", "昨晚睡得怎么样？和我平时比有什么不同？"),
+                ("排训练", "结合我今天的恢复和近一周训练，帮我安排今天的训练。"),
+                ("看饮食", "根据我今天已记录的饮食，汇总热量、蛋白质和待补数据。"),
             ]
         }
 
@@ -98,6 +105,7 @@ public struct CoachFeature: Sendable {
         case externalPromptSubmitted(String)
         case aiReplyReceived(CoachMessage, storeError: String?)
         case newConversationTapped
+        case conversationResetFinished(error: String?)
         case applyProposalTapped(messageID: UUID, proposal: WorkoutProposal, startImmediately: Bool)
         case dismissProposalTapped(UUID)
         case confirmMemoryProposalTapped(messageID: UUID, memory: TieredMemoryRecord)
@@ -143,17 +151,17 @@ public struct CoachFeature: Sendable {
 
             case .sendTapped:
                 let query = state.draftText.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !query.isEmpty, !state.isSending else { return .none }
+                guard !query.isEmpty, !state.isSending, !state.isResettingConversation else { return .none }
                 state.draftText = ""
                 return enqueueQuestion(query, state: &state)
 
             case let .quickPromptTapped(prompt):
-                guard !state.isSending else { return .none }
+                guard !state.isSending, !state.isResettingConversation else { return .none }
                 return enqueueQuestion(prompt, state: &state)
 
             case let .externalPromptSubmitted(prompt):
                 let trimmed = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !trimmed.isEmpty, !state.isSending else { return .none }
+                guard !trimmed.isEmpty, !state.isSending, !state.isResettingConversation else { return .none }
                 return enqueueQuestion(trimmed, state: &state)
 
             case let .aiReplyReceived(reply, storeError):
@@ -163,22 +171,29 @@ public struct CoachFeature: Sendable {
                 return .none
 
             case .newConversationTapped:
+                guard !state.isSending, !state.isResettingConversation else { return .none }
+                state.isResettingConversation = true
+                return .run { send in
+                    do {
+                        try await fitnessStoreClient.clearMessages()
+                        await send(.conversationResetFinished(error: nil))
+                    } catch {
+                        await send(.conversationResetFinished(error: "清空对话历史失败：\(error.localizedDescription)"))
+                    }
+                }
+
+            case let .conversationResetFinished(error):
+                state.isResettingConversation = false
+                state.lastError = error
+                guard error == nil else { return .none }
                 state.draftText = ""
-                state.isSending = false
-                state.lastError = nil
                 state.dismissedProposalMessageIDs.removeAll()
                 state.dismissedMemoryProposalMessageIDs.removeAll()
                 state.dismissedAnnotationProposalMessageIDs.removeAll()
                 state.confirmedMemoryProposalMessageIDs.removeAll()
                 state.confirmedAnnotationProposalMessageIDs.removeAll()
-                state.messages = [State.makeWelcomeMessage(snapshot: state.snapshot)]
-                return .run { send in
-                    do {
-                        try await fitnessStoreClient.clearMessages()
-                    } catch {
-                        await send(.storeOperationFailed("清空对话历史失败：\(error.localizedDescription)"))
-                    }
-                }
+                state.messages = [State.makeWelcomeMessage()]
+                return .none
 
             case let .applyProposalTapped(messageID, proposal, startImmediately):
                 state.dismissedProposalMessageIDs.insert(messageID)
@@ -391,6 +406,7 @@ public struct CoachFeature: Sendable {
 
     private func enqueueQuestion(_ question: String, state: inout State) -> Effect<Action> {
         let userMsg = CoachMessage(id: uuid(), role: .user, text: question, timestamp: now)
+        if state.isAtWelcome { state.messages = [] }
         state.messages.append(userMsg)
         state.isSending = true
         state.lastError = nil
@@ -410,7 +426,8 @@ public struct CoachFeature: Sendable {
             nutritionLogs: state.nutritionLogs,
             checkIns: state.checkIns,
             dominantHand: state.dominantHand,
-            sleepGoalMinutes: state.sleepGoalMinutes
+            sleepGoalMinutes: state.sleepGoalMinutes,
+            asOf: userMsg.timestamp
         )
         return .run { send in
             let reply = await coachAIClient.reply(question: question, context: context)

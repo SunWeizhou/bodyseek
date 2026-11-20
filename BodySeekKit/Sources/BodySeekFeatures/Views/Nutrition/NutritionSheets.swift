@@ -25,6 +25,15 @@ public struct NutritionMealLoggerSheet: View {
     public var body: some View {
         NavigationStack {
             Form {
+                Section {
+                    NavigationLink {
+                        NutritionMealAssistantView(store: store)
+                    } label: {
+                        Label("用 AI 记饮食", systemImage: "sparkles")
+                    }
+                    .accessibilityIdentifier("nutrition-ai-entry")
+                }
+
                 Section("餐次与日期（\(store.selectedDayKey.isoString)）") {
                     Picker("餐次", selection: $mealType) {
                         ForEach(MealType.allCases, id: \.self) { type in

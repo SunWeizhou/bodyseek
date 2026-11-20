@@ -7,6 +7,7 @@ import SwiftUI
 public struct WorkoutView: View {
     @Bindable var store: StoreOf<WorkoutFeature>
     @State private var showAllExercises = false
+    @Environment(\.scenePhase) private var scenePhase
 
     public init(store: StoreOf<WorkoutFeature>) {
         self.store = store
@@ -35,11 +36,12 @@ public struct WorkoutView: View {
                 manualSupplementarySection
             }
             .padding(.horizontal, 16)
-            .padding(.top, 12)
+            .padding(.top, 4)
             .padding(.bottom, 28)
         }
         .background(BevelTheme.canvas.ignoresSafeArea())
         .navigationTitle("健身")
+        .bodyseekNavigationBarInline()
         .toolbar {
             ToolbarItem(placement: .bodyseekTrailing) {
                 Button {
@@ -53,6 +55,20 @@ public struct WorkoutView: View {
         }
         .onAppear {
             store.send(.onAppear)
+        }
+        .refreshable {
+            await store.send(.refreshRequested).finish()
+        }
+        .task(id: scenePhase) {
+            guard scenePhase == .active else { return }
+            while !Task.isCancelled {
+                store.send(.recoveryTick)
+                do {
+                    try await Task.sleep(for: .seconds(30))
+                } catch {
+                    return
+                }
+            }
         }
         .sheet(
             isPresented: Binding(
@@ -123,7 +139,7 @@ public struct WorkoutView: View {
         BevelCard {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Label("AI 智能体建议处方", systemImage: "sparkles")
+                    Label("AI 训练建议", systemImage: "sparkles")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(BevelTheme.brand)
                     Spacer()
@@ -161,7 +177,7 @@ public struct WorkoutView: View {
                     Button {
                         store.send(.acceptProposalTapped(proposal, startImmediately: true))
                     } label: {
-                        Text("立即按此开练")
+                        Text("立即开练")
                             .font(.subheadline.weight(.semibold))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
@@ -173,7 +189,7 @@ public struct WorkoutView: View {
                     Button {
                         store.send(.acceptProposalTapped(proposal, startImmediately: false))
                     } label: {
-                        Text("仅加入模板")
+                        Text("存为训练模板")
                             .font(.subheadline.weight(.medium))
                             .padding(.horizontal, 14)
                             .padding(.vertical, 10)
@@ -198,12 +214,12 @@ public struct WorkoutView: View {
     private var reviewInboxSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Label("待复盘 Inbox (\(store.unreviewedWorkouts.count))", systemImage: "tray.and.arrow.down.fill")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(BevelTheme.strainColor)
+                Label("待复盘", systemImage: "tray.and.arrow.down.fill")
+                    .font(.headline)
+                    .foregroundStyle(BevelTheme.ink)
                 Spacer()
-                Text("手表力量记录 · 练后一句话标定")
-                    .font(.caption2)
+                Text("\(store.unreviewedWorkouts.count) 条")
+                    .font(.subheadline)
                     .foregroundStyle(BevelTheme.inkSecondary)
             }
             .padding(.horizontal, 4)
@@ -217,17 +233,11 @@ public struct WorkoutView: View {
                                 Text(workout.type)
                                     .font(.subheadline.weight(.semibold))
                                     .foregroundStyle(BevelTheme.ink)
-                                Text("\(workout.start, format: .dateTime.month().day().hour().minute()) · \(durationMin) 分钟 · \(Int(workout.energy.rounded())) kcal")
+                                Text("\(workout.start, format: .dateTime.month().day().hour().minute()) · \(durationMin) 分钟")
                                     .font(.caption)
                                     .foregroundStyle(BevelTheme.inkSecondary)
                             }
                             Spacer()
-                            Text("待复盘")
-                                .font(.caption2.weight(.semibold))
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 3)
-                                .background(BevelTheme.strainColor.opacity(0.14), in: Capsule())
-                                .foregroundStyle(BevelTheme.strainColor)
                         }
 
                         HStack(spacing: 10) {
@@ -277,67 +287,46 @@ public struct WorkoutView: View {
         return BevelCard {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("急慢性负荷比 (ACWR)")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(BevelTheme.ink)
-                        Text(load.zone.note)
-                            .font(.caption)
-                            .foregroundStyle(BevelTheme.inkSecondary)
-                    }
+                    Text("训练负荷")
+                        .font(.headline)
+                        .foregroundStyle(BevelTheme.ink)
                     Spacer()
-                    Text(load.zone.title)
-                        .font(.caption.weight(.semibold))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .background(zoneTint.opacity(0.14), in: Capsule())
+                    Button("查看趋势") {
+                        store.send(.openTrendsTapped)
+                    }
+                    .font(.subheadline)
+                    .buttonStyle(.borderless)
+                }
+
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Text(load.acwrRatio.map { String(format: "%.2f", $0) } ?? "—")
+                        .font(.title2.weight(.semibold).monospacedDigit())
+                        .foregroundStyle(BevelTheme.ink)
+                        .contentTransition(.numericText())
+                    Text(loadStatusLabel(load.zone))
+                        .font(.subheadline)
                         .foregroundStyle(zoneTint)
                 }
 
-                HStack(spacing: 16) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("ACWR")
-                            .font(.caption2)
-                            .foregroundStyle(BevelTheme.inkSecondary)
-                        Text(load.acwrRatio.map { String(format: "%.2f", $0) } ?? "--")
-                            .font(.title2.weight(.bold).monospacedDigit())
-                            .foregroundStyle(zoneTint)
-                            .contentTransition(.numericText())
-                    }
-
-                    Divider().frame(height: 30)
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("近7天急负荷")
-                            .font(.caption2)
-                            .foregroundStyle(BevelTheme.inkSecondary)
-                        Text("\(Int(load.acute7dLoad.rounded()))")
-                            .font(.headline.monospacedDigit())
-                            .foregroundStyle(BevelTheme.ink)
-                            .contentTransition(.numericText())
-                    }
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("系统恢复调节")
-                            .font(.caption2)
-                            .foregroundStyle(BevelTheme.inkSecondary)
-                        Text(String(format: "α %.2f", store.recoverySnapshot.systemicFactor.alpha))
-                            .font(.headline.monospacedDigit())
-                            .foregroundStyle(BevelTheme.ink)
-                    }
-
-                    Spacer()
-
-                    Button {
-                        store.send(.openTrendsTapped)
-                    } label: {
-                        Text("双轴对照")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(BevelTheme.brand)
-                    }
-                    .buttonStyle(.plain)
+                DisclosureGroup("如何理解这个数") {
+                    Text(load.acwrRatio == nil
+                         ? "需要更多训练记录，才能比较最近与平时的负荷。"
+                         : "比较最近 7 天与近 28 天的训练负荷。接近 1 表示近期负荷和过去的水平接近。")
+                        .font(.subheadline)
+                        .foregroundStyle(BevelTheme.inkSecondary)
+                        .padding(.top, 4)
                 }
+                .font(.subheadline)
             }
+        }
+    }
+
+    private func loadStatusLabel(_ zone: ACWRZone) -> String {
+        switch zone {
+        case .sweetSpot: "负荷适中"
+        case .highRisk: "近期负荷偏高"
+        case .undertraining: "近期负荷偏低"
+        case .insufficientData: "数据不足"
         }
     }
 
@@ -367,20 +356,12 @@ public struct WorkoutView: View {
         return BevelCard {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack(spacing: 6) {
-                            Text("全身肌群恢复热图")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(BevelTheme.ink)
-                            Text("启发式估计")
-                                .font(.caption2.weight(.semibold))
-                                .padding(.horizontal, 7)
-                                .padding(.vertical, 2)
-                                .background(BevelTheme.surfaceElevated, in: Capsule())
-                                .foregroundStyle(BevelTheme.inkSecondary)
-                        }
-                        Text("点击任意肌群查看预计就绪时间与刺激来源")
-                            .font(.caption)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("肌群恢复")
+                            .font(.headline)
+                            .foregroundStyle(BevelTheme.ink)
+                        Text("估算于 \(store.recoverySnapshot.asOf, format: .dateTime.hour().minute())")
+                            .font(.footnote)
                             .foregroundStyle(BevelTheme.inkSecondary)
                     }
                     Spacer()
@@ -418,7 +399,7 @@ public struct WorkoutView: View {
                             Text(muscle.title)
                                 .font(.headline)
                                 .foregroundStyle(BevelTheme.ink)
-                            Text("预计恢复 \(est.recoveryPercent)%（启发式估计）")
+                            Text("预计恢复 \(est.recoveryPercent)%")
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(est.isReadyForPrimaryWork ? BevelTheme.recoveryColor : BevelTheme.strainColor)
                             Text(est.readyETADescription)
@@ -447,12 +428,12 @@ public struct WorkoutView: View {
                             }
                             .buttonStyle(.plain)
                         } else {
-                            Text("主要受累肌群恢复度（启发式估计）")
+                            Text("训练涉及的肌群")
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(BevelTheme.inkSecondary)
                             let ranked = store.recoverySnapshot.rankedByFatigue
                             if ranked.isEmpty {
-                                Text("近 7 天暂无显著肌群疲劳记录，点击身体部位可查看参数说明。")
+                                Text("近 7 天暂无肌群负荷记录。")
                                     .font(.caption)
                                     .foregroundStyle(BevelTheme.inkSecondary)
                             } else {
@@ -522,17 +503,11 @@ public struct WorkoutView: View {
     private var watchArchiveSection: some View {
         let items = Array(store.archiveWorkouts.prefix(6))
         return VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                sectionHeader("Apple Watch 训练档案与归因")
-                Spacer()
-                Text("手打 / Apple 估算分离展示")
-                    .font(.caption2)
-                    .foregroundStyle(BevelTheme.inkSecondary)
-            }
+            sectionHeader("手表训练记录")
 
             if items.isEmpty {
                 BevelCard {
-                    Text("近 30 天暂无同步自 Apple Watch 的体能训练记录。使用手表自带「体能训练」完成后，记录将自动进入档案或待复盘 Inbox。")
+                    Text("近 30 天还没有同步的手表训练。")
                         .font(.footnote)
                         .foregroundStyle(BevelTheme.inkSecondary)
                 }
@@ -558,7 +533,7 @@ public struct WorkoutView: View {
                                     Text("\(durationMin) 分钟")
                                     Text("\(Int(workout.energy.rounded())) kcal")
                                     if let hr = workout.avgHR {
-                                        Text("均心率 \(Int(hr.rounded()))")
+                                        Text("平均心率 \(Int(hr.rounded()))")
                                     }
                                 }
                                 .font(.caption)
@@ -566,7 +541,7 @@ public struct WorkoutView: View {
 
                                 HStack(spacing: 8) {
                                     if let effortUser = workout.effortUser {
-                                        Text(String(format: "手打用力 %.1f", effortUser))
+                                        Text(String(format: "主观用力 %.1f", effortUser))
                                             .font(.caption2.weight(.semibold))
                                             .padding(.horizontal, 7)
                                             .padding(.vertical, 2)
@@ -574,7 +549,7 @@ public struct WorkoutView: View {
                                             .foregroundStyle(BevelTheme.strainColor)
                                     }
                                     if let effortEst = workout.effortEstimated {
-                                        Text(String(format: "Apple估算 %.1f", effortEst))
+                                        Text(String(format: "手表估算 %.1f", effortEst))
                                             .font(.caption2)
                                             .padding(.horizontal, 7)
                                             .padding(.vertical, 2)

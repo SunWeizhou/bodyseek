@@ -108,7 +108,7 @@ public struct WorkoutFeature: Sendable {
                 for w in day.raw.workouts {
                     let uuid = (w.healthKitUUID ?? w.id).uuidString
                     guard seen.insert(uuid).inserted else { continue }
-                    let end = w.startDate.addingTimeInterval(Double(max(1, w.durationMinutes)) * 60.0)
+                    let end = w.endDate
                     out.append(
                         StoredWorkoutRecord(
                             hkUUID: uuid,
@@ -128,9 +128,9 @@ public struct WorkoutFeature: Sendable {
             return out.sorted { $0.start > $1.start }
         }
 
-        public mutating func recomputeRecoverySnapshot() {
+        public mutating func recomputeRecoverySnapshot(asOf: Date) {
             recoverySnapshot = MuscleRecoveryEngine.compute(
-                asOf: snapshot.referenceDate,
+                asOf: asOf,
                 storedWorkouts: storedWorkouts,
                 muscleLoads: muscleLoads,
                 manualSessions: sessions,
@@ -138,6 +138,16 @@ public struct WorkoutFeature: Sendable {
                 sleepGoalMinutes: sleepGoalMinutes,
                 dominantHand: dominantHand
             )
+        }
+
+        mutating func includeSnapshotWorkouts() {
+            var known = Set(storedWorkouts.map { $0.hkUUID.lowercased() })
+            let incoming = Self.storedRecords(from: snapshot.historyDays).filter {
+                known.insert($0.hkUUID.lowercased()).inserted
+            }
+            if !incoming.isEmpty {
+                storedWorkouts = (storedWorkouts + incoming).sorted { $0.start > $1.start }
+            }
         }
 
         public var unreviewedWorkouts: [StoredWorkoutRecord] {
@@ -189,6 +199,8 @@ public struct WorkoutFeature: Sendable {
 
     public enum Action: Equatable, Sendable {
         case onAppear
+        case recoveryTick
+        case refreshRequested
         case syncWatchWorkouts
         case watchWorkoutsLoaded(
             workouts: [StoredWorkoutRecord],
@@ -238,6 +250,8 @@ public struct WorkoutFeature: Sendable {
         case discardActiveWorkoutTapped
         case completeActiveWorkoutTapped
         case workoutPersisted(LoggedWorkoutSession, hkWarning: String?)
+        case workoutHealthKitUpdated(LoggedWorkoutSession)
+        case workoutHealthKitUpdateFailed(UUID)
         case workoutPersistFailed(String)
         case templatePersistFailed(String)
         case askCoachForMuscleTapped(BodyRegionMuscle?)
@@ -247,6 +261,7 @@ public struct WorkoutFeature: Sendable {
 
         @CasePathable
         public enum Delegate: Equatable, Sendable {
+            case refreshRequested
             case sessionSaved(LoggedWorkoutSession)
             case templateSaved(WorkoutTemplate)
             case memoryCommitted(AthleteMemoryItem)
@@ -257,6 +272,7 @@ public struct WorkoutFeature: Sendable {
 
     private enum CancelID {
         case restTimer
+        case watchSync
     }
 
     @Dependency(\.bodySeekStoreClient) var bodySeekStoreClient
@@ -273,24 +289,31 @@ public struct WorkoutFeature: Sendable {
     public var body: some ReducerOf<Self> {
         Reduce { state, action in
             switch action {
+            case .recoveryTick:
+                state.recomputeRecoverySnapshot(asOf: now)
+                return .none
+
+            case .refreshRequested:
+                state.recomputeRecoverySnapshot(asOf: now)
+                return .send(.delegate(.refreshRequested))
+
             case .onAppear, .syncWatchWorkouts:
                 return syncWatchWorkoutsEffect(
                     historyDays: state.snapshot.historyDays,
-                    asOf: state.snapshot.referenceDate,
+                    asOf: now,
                     dominantHand: state.dominantHand
                 )
 
             case let .watchWorkoutsLoaded(workouts, annotations, loads):
-                if !workouts.isEmpty {
-                    state.storedWorkouts = workouts
-                }
+                state.storedWorkouts = workouts
+                state.includeSnapshotWorkouts()
                 var map: [String: WorkoutAnnotationRecord] = [:]
                 for ann in annotations where map[ann.workoutUUID] == nil {
                     map[ann.workoutUUID] = ann
                 }
                 state.annotationsByWorkoutUUID = map
                 state.muscleLoads = loads
-                state.recomputeRecoverySnapshot()
+                state.recomputeRecoverySnapshot(asOf: now)
                 return .none
 
             case let .watchSyncFailed(reason):
@@ -493,24 +516,23 @@ public struct WorkoutFeature: Sendable {
 
             case let .reviewPersisted(workouts, annotations, loads, committedMemories):
                 state.reviewDraft = nil
-                if !workouts.isEmpty {
-                    state.storedWorkouts = workouts
-                }
+                state.storedWorkouts = workouts
+                state.includeSnapshotWorkouts()
                 var map: [String: WorkoutAnnotationRecord] = [:]
                 for ann in annotations where map[ann.workoutUUID] == nil {
                     map[ann.workoutUUID] = ann
                 }
                 state.annotationsByWorkoutUUID = map
                 state.muscleLoads = loads
-                state.recomputeRecoverySnapshot()
+                state.recomputeRecoverySnapshot(asOf: now)
                 if !committedMemories.isEmpty {
                     state.statusMessage = "已更新肌群恢复估计，并写入 \(committedMemories.count) 条 14 天身体约束记忆"
                     return .merge(
-                        committedMemories.map { .send(.delegate(.memoryCommitted($0))) }
+                        [.cancel(id: CancelID.watchSync)] + committedMemories.map { .send(.delegate(.memoryCommitted($0))) }
                     )
                 } else {
                     state.statusMessage = "已确认训练复盘并更新肌群恢复（启发式估计）"
-                    return .none
+                    return .cancel(id: CancelID.watchSync)
                 }
 
             case let .reviewPersistFailed(reason):
@@ -798,20 +820,21 @@ public struct WorkoutFeature: Sendable {
                     .cancel(id: CancelID.restTimer),
                     .run { send in
                         await restTimerClient.cancelPending()
-                        var finalSession = baseSession
-                        var hkWarning: String?
                         do {
-                            let hkUUID = try await healthKitClient.saveWorkout(baseSession)
-                            finalSession.syncedHealthKitUUID = hkUUID
-                        } catch {
-                            hkWarning = "Apple 健康写回未完成（\(error.localizedDescription)）"
-                        }
-
-                        do {
-                            try await fitnessStoreClient.saveSession(finalSession)
-                            await send(.workoutPersisted(finalSession, hkWarning: hkWarning))
+                            try await fitnessStoreClient.saveSession(baseSession)
                         } catch {
                             await send(.workoutPersistFailed(error.localizedDescription))
+                            return
+                        }
+                        await send(.workoutPersisted(baseSession, hkWarning: nil))
+                        do {
+                            let hkUUID = try await healthKitClient.saveWorkout(baseSession)
+                            var updated = baseSession
+                            updated.syncedHealthKitUUID = hkUUID
+                            try await fitnessStoreClient.saveSession(updated)
+                            await send(.workoutHealthKitUpdated(updated))
+                        } catch {
+                            await send(.workoutHealthKitUpdateFailed(baseSession.id))
                         }
                     }
                 )
@@ -821,13 +844,27 @@ public struct WorkoutFeature: Sendable {
                 state.activeWorkout = nil
                 state.isExercisePickerPresented = false
                 state.sessions.insert(session, at: 0)
-                state.recomputeRecoverySnapshot()
+                state.recomputeRecoverySnapshot(asOf: now)
                 if let hkWarning {
                     state.statusMessage = "训练已保存到 BodySeek；\(hkWarning)"
                 } else {
-                    state.statusMessage = "已完成「\(session.title)」并同步至 Apple 健康"
+                    state.statusMessage = session.syncedHealthKitUUID == nil
+                        ? "已保存「\(session.title)」"
+                        : "已完成「\(session.title)」并同步至 Apple 健康"
                 }
                 return .send(.delegate(.sessionSaved(session)))
+
+            case let .workoutHealthKitUpdated(session):
+                guard let index = state.sessions.firstIndex(where: { $0.id == session.id }) else { return .none }
+                state.sessions[index] = session
+                state.recomputeRecoverySnapshot(asOf: now)
+                state.statusMessage = "已同步「\(session.title)」至 Apple 健康"
+                return .send(.delegate(.sessionSaved(session)))
+
+            case let .workoutHealthKitUpdateFailed(id):
+                guard state.sessions.contains(where: { $0.id == id }) else { return .none }
+                state.statusMessage = "训练已保存，Apple 健康未能完成同步"
+                return .none
 
             case let .workoutPersistFailed(reason):
                 state.isSavingWorkout = false
@@ -898,5 +935,6 @@ public struct WorkoutFeature: Sendable {
                 await send(.watchSyncFailed("同步 Watch 训练与肌群归因失败：\(error.localizedDescription)"))
             }
         }
+        .cancellable(id: CancelID.watchSync, cancelInFlight: true)
     }
 }

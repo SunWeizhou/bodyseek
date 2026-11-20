@@ -1,11 +1,99 @@
 import BodySeekCore
 import BodySeekFeatures
 import BodySeekHealth
+import BodySeekStore
 import ComposableArchitecture
 import XCTest
 
 @MainActor
 final class AppAndTodayFeatureTests: XCTestCase {
+    func testCachedWorkoutArrivalUpdatesRecoveryAndShowsStrengthReviewWithoutReopeningTab() async {
+        let now = DayKey(year: 2026, month: 11, day: 20).startDate().addingTimeInterval(8 * 3600)
+        let oldRecord = StoredWorkoutRecord(hkUUID: UUID().uuidString, type: "力量训练",
+                                            start: now.addingTimeInterval(-86_400),
+                                            end: now.addingTimeInterval(-82_800), energy: 140,
+                                            reviewState: .annotated)
+        let run = WorkoutSummary(activityName: "跑步", symbolName: "figure.run", startDate: now.addingTimeInterval(-7_200),
+                                 durationMinutes: 40, activeEnergyKcal: 300)
+        let strength = WorkoutSummary(activityName: "力量训练", symbolName: "dumbbell.fill",
+                                      startDate: now.addingTimeInterval(-3_600), durationMinutes: 45, activeEnergyKcal: 200)
+        func snapshot(workouts: [WorkoutSummary]) -> BodySeekDashboardSnapshot {
+            BevelScoringEngine.computeWindow(
+                rawDays: [DailyRawMetrics(date: now, workouts: workouts)], sleepGoalMinutes: 450,
+                referenceDate: now, sourceLabel: "测试", isAuthorized: true
+            )
+        }
+
+        var initial = AppFeature.State(snapshot: snapshot(workouts: []))
+        initial.workout.storedWorkouts = [oldRecord]
+        let store = TestStore(initialState: initial) { AppFeature() } withDependencies: {
+            $0.date.now = now
+        }
+        store.exhaustivity = .off
+        let incoming = CachedDashboardState(snapshot: snapshot(workouts: [strength, run]), chartCache: [:], contentDigest: "new-workouts")
+
+        await store.send(.cachedDashboardLoaded(incoming))
+
+        XCTAssertEqual(store.state.workout.unreviewedWorkouts.map(\.hkUUID), [strength.id.uuidString])
+        XCTAssertTrue(store.state.workout.recoverySnapshot.estimate(for: .quadriceps).contributingEvents.contains { $0.workoutUUID == run.id.uuidString })
+        XCTAssertEqual(store.state.workout.storedWorkouts.last, oldRecord)
+    }
+
+    func testReviewOfTrainingCompletedAfterSnapshotRefreshesRecoveryAndClearsMorningAdvice() async {
+        let day = DayKey(year: 2026, month: 11, day: 20)
+        let morning = day.startDate().addingTimeInterval(4 * 3600)
+        let evening = morning.addingTimeInterval(10 * 3600)
+        let snapshot = BevelScoringEngine.computeWindow(
+            rawDays: [], sleepGoalMinutes: 450, referenceDate: morning,
+            sourceLabel: "测试", isAuthorized: true
+        )
+        var initialState = AppFeature.State(snapshot: snapshot)
+        initialState.today.briefingStatus = .generated(text: "今天可以安排强度训练", engineName: "测试")
+        let chest = StoredWorkoutRecord(
+            hkUUID: UUID().uuidString, type: "力量训练",
+            start: evening.addingTimeInterval(-3600), end: evening.addingTimeInterval(-120),
+            energy: 200, reviewState: .annotated
+        )
+        let legs = StoredWorkoutRecord(
+            hkUUID: UUID().uuidString, type: "力量训练",
+            start: chest.start.addingTimeInterval(-86_400), end: chest.end.addingTimeInterval(-86_400),
+            energy: 240, reviewState: .annotated
+        )
+        let loads = [
+            WorkoutMuscleLoadRecord(workoutUUID: chest.hkUUID, muscle: .chest, role: .primary, load: 0.6,
+                                    algorithmVersion: .recoveryHeuristicV1),
+            WorkoutMuscleLoadRecord(workoutUUID: legs.hkUUID, muscle: .quadriceps, role: .primary, load: 0.6,
+                                    algorithmVersion: .recoveryHeuristicV1),
+        ]
+        let store = TestStore(initialState: initialState) { AppFeature() } withDependencies: {
+            $0.date.now = evening
+        }
+        store.exhaustivity = .off
+        await store.send(.workout(.reviewPersisted(workouts: [chest, legs], annotations: [], loads: loads, committedMemories: [])))
+        XCTAssertLessThan(store.state.workout.recoverySnapshot.estimate(for: .chest).recoveryRatio, 0.8)
+        XCTAssertTrue(store.state.today.postWorkoutAdvice?.contains("胸部") == true)
+        XCTAssertFalse(store.state.today.postWorkoutAdvice?.contains(BodyRegionMuscle.quadriceps.title) == true)
+        await store.send(.briefingGenerated(.generated(text: "过时的晨间建议", engineName: "测试")))
+        if case .generated = store.state.today.briefingStatus {
+            XCTFail("A briefing from before today's completed workout is still visible")
+        }
+    }
+
+    func testDashboardReferenceKeepsLocalTimeForPhysiologicalDay() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .gmt
+        let day = DayKey(year: 2026, month: 11, day: 20)
+        let cutoff = day.startDate(timeZone: calendar.timeZone)
+        for (instant, expected) in [(cutoff.addingTimeInterval(-1), day.addingDays(-1)), (cutoff, day)] {
+            let snapshot = BevelScoringEngine.computeWindow(
+                rawDays: [], sleepGoalMinutes: 450, referenceDate: instant,
+                sourceLabel: "测试", isAuthorized: false, calendar: calendar
+            )
+            XCTAssertEqual(snapshot.referenceDate, instant)
+            XCTAssertEqual(snapshot.referenceDate.physiologicalDayKey(timeZone: calendar.timeZone), expected)
+        }
+    }
+
     func testAppFeatureOpensMetricDetailAndRoutesQuestionToCoach() async {
         let now = Date(timeIntervalSince1970: 1_760_000_000)
         let snapshot = BevelScoringEngine.computeWindow(
@@ -39,7 +127,6 @@ final class AppAndTodayFeatureTests: XCTestCase {
 
         await store.send(.onAppear)
         await store.receive(\.snapshotLoaded)
-        await store.receive(\.briefingGenerated)
 
         await store.send(.today(.metricTapped(.recovery)))
         await store.receive(\.today.delegate.openMetric)

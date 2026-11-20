@@ -5,6 +5,7 @@ import SwiftUI
 
 public struct TrendsView: View {
     @Bindable var store: StoreOf<TrendsFeature>
+    @State private var showsExploration = false
     private let zoomNamespace: Namespace.ID?
 
     public init(store: StoreOf<TrendsFeature>, zoomNamespace: Namespace.ID? = nil) {
@@ -19,28 +20,37 @@ public struct TrendsView: View {
             VStack(alignment: .leading, spacing: 16) {
                 horizonPills(selected: store.horizon)
 
-                summaryCard(series: activeSeries)
-
                 interactiveChartCard(series: activeSeries)
 
-                personalForecastCard
+                summaryCard(series: activeSeries)
 
-                dualAxisCard(days: horizonDays)
-
-                nOfOneExperimentCard
-
-                patternsCard
+                DisclosureGroup(isExpanded: $showsExploration) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        personalForecastCard
+                        dualAxisCard(days: horizonDays)
+                        nOfOneExperimentCard
+                        patternsCard
+                    }
+                    .padding(.top, 12)
+                } label: {
+                    Text("预测、对照与规律")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(BevelTheme.ink)
+                        .accessibilityIdentifier("trends-exploration")
+                }
+                .padding(.horizontal, 4)
 
                 ForEach(store.allMetricSeries, id: \.kind) { series in
                     metricRowCard(series: series)
                 }
             }
             .padding(.horizontal, 16)
-            .padding(.top, 8)
+            .padding(.top, 4)
             .padding(.bottom, 28)
         }
         .background(BevelTheme.canvas.ignoresSafeArea())
         .navigationTitle("趋势")
+        .bodyseekNavigationBarInline()
         .sheet(isPresented: Binding(
             get: { store.showCoverageSheet },
             set: { store.send(.coverageSheetPresented($0)) }
@@ -74,16 +84,6 @@ public struct TrendsView: View {
     private func summaryCard(series: TrendSeries) -> some View {
         BevelCard {
             VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Text("\(store.horizon.title)小结")
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(BevelTheme.inkSecondary)
-                    Spacer()
-                    Text(store.snapshot.sourceLabel)
-                        .font(.caption2.weight(.medium))
-                        .foregroundStyle(BevelTheme.inkSecondary)
-                }
-
                 Text(series.statusSummary)
                     .font(.headline)
                     .foregroundStyle(BevelTheme.ink)
@@ -94,7 +94,7 @@ public struct TrendsView: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "calendar")
-                        Text("图中 \(series.coveredDays)/\(series.totalDays) 天有评分")
+                        Text("\(store.snapshot.sourceLabel) · 查看覆盖")
                         Image(systemName: "chevron.right")
                             .font(.caption2)
                     }
@@ -111,7 +111,7 @@ public struct TrendsView: View {
         return BevelCard {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    Label("\(store.selectedKind.title)交互趋势", systemImage: store.selectedKind.systemImage)
+                    Label("\(store.selectedKind.title)趋势", systemImage: store.selectedKind.systemImage)
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(tint)
                     Spacer()
@@ -175,26 +175,11 @@ public struct TrendsView: View {
     }
 
     private func dualAxisCard(days: [DailyComputedDay]) -> some View {
-        let load = store.snapshot.trainingLoad
-        return BevelCard {
+        BevelCard {
             VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("恢复 × 负荷演化对照")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(BevelTheme.ink)
-                        Text("对比近期训练负荷节奏与恢复储备变化，拖拽可查看每日双值")
-                            .font(.caption)
-                            .foregroundStyle(BevelTheme.inkSecondary)
-                    }
-                    Spacer()
-                    Text(load.acwrRatio.map { String(format: "ACWR %.2f", $0) } ?? "ACWR --")
-                        .font(.caption.weight(.semibold).monospacedDigit())
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(BevelTheme.brandSoft, in: Capsule())
-                        .foregroundStyle(BevelTheme.brand)
-                }
+                Text("恢复与训练负荷")
+                    .font(.headline)
+                    .foregroundStyle(BevelTheme.ink)
 
                 LoadRecoveryComboChart(days: days) { date in
                     store.send(.selectedDateChanged(date))
@@ -207,11 +192,11 @@ public struct TrendsView: View {
         BevelCard {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
-                    Label("明天身体预测", systemImage: "cpu")
+                    Label("身体预测", systemImage: "chart.line.uptrend.xyaxis")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(BevelTheme.brand)
                     Spacer()
-                    Text("个人统计预测 · 非医学诊断")
+                    Text("统计预测 · 非诊断")
                         .font(.caption2.weight(.medium))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
@@ -220,30 +205,20 @@ public struct TrendsView: View {
                 }
 
                 switch store.personalForecast {
-                case let .insufficientData(observedDays, minimumRequired, reason):
-                    Text(reason)
-                        .font(.caption)
-                        .foregroundStyle(BevelTheme.inkSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text("当前有效样本 \(observedDays)/\(minimumRequired) 天（绝不零填充补齐）")
-                        .font(.caption2.monospacedDigit())
+                case let .insufficientData(observedDays, minimumRequired, _):
+                    Text("数据还不够。已记录 \(observedDays) 个有效日，至少需要 \(minimumRequired) 天。")
+                        .font(.subheadline)
                         .foregroundStyle(BevelTheme.inkSecondary)
 
                 case let .available(summary):
-                    HStack {
-                        Text("目标日 \(summary.targetDayKey.isoString)")
-                            .font(.caption.weight(.medium))
-                            .foregroundStyle(BevelTheme.inkSecondary)
-                        Spacer()
-                        Text(summary.modelVersion)
-                            .font(.caption2.monospacedDigit())
-                            .foregroundStyle(BevelTheme.inkSecondary)
-                    }
+                    Text("\(summary.targetDayKey.month) 月 \(summary.targetDayKey.day) 日预测")
+                        .font(.subheadline)
+                        .foregroundStyle(BevelTheme.inkSecondary)
 
                     ForEach(summary.targets) { target in
                         HStack(alignment: .firstTextBaseline) {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(target.title)
+                                Text(forecastTitle(for: target))
                                     .font(.caption.weight(.semibold))
                                     .foregroundStyle(BevelTheme.ink)
                                 Text(formattedInterval(for: target))
@@ -260,15 +235,33 @@ public struct TrendsView: View {
                         .background(BevelTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
 
-                    Text("运行时：\(summary.runtimeBackend) · 基于 \(summary.observedDays) 天严格因果特征与 80% Split-Conformal 校准区间。")
-                        .font(.caption2)
+                    DisclosureGroup("预测依据") {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("使用 \(summary.observedDays) 天有效记录。预测范围按历史误差校准，供比较波动参考。")
+                            ForEach(summary.targets) { target in
+                                Text("\(forecastTitle(for: target)) · 回测平均误差 \(formattedError(for: target))")
+                            }
+                            Text("模型 \(summary.modelVersion) · \(summary.runtimeBackend)")
+                        }
+                        .font(.footnote)
                         .foregroundStyle(BevelTheme.inkSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.top, 6)
+                    }
+                    .font(.subheadline)
                 }
             }
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("trends-personal-forecast-card")
+    }
+
+    private func forecastTitle(for target: PersonalForecastTargetResult) -> String {
+        switch target.name {
+        case "hrv_sdnn_ms": "夜间心率变异性"
+        case "resting_hr_bpm": "静息心率"
+        case "sleep_efficiency": "睡眠效率"
+        default: target.title
+        }
     }
 
     private func formattedPoint(for target: PersonalForecastTargetResult) -> String {
@@ -280,20 +273,18 @@ public struct TrendsView: View {
 
     private func formattedInterval(for target: PersonalForecastTargetResult) -> String {
         if target.name == "sleep_efficiency" {
-            return String(
-                format: "80%% 预测区间 [%.1f%%, %.1f%%] · 历史回测 MAE %.1f%%",
-                target.interval80Low * 100.0,
-                target.interval80High * 100.0,
-                target.walkForwardMAE * 100.0
-            )
+            return String(format: "80%% 预测范围 %.1f%%–%.1f%%",
+                          target.interval80Low * 100, target.interval80High * 100)
         }
-        return String(
-            format: "80%% 预测区间 [%.1f, %.1f] %@ · 历史回测 MAE %.2f",
-            target.interval80Low,
-            target.interval80High,
-            target.unit,
-            target.walkForwardMAE
-        )
+        return String(format: "80%% 预测范围 %.1f–%.1f %@",
+                      target.interval80Low, target.interval80High, target.unit)
+    }
+
+    private func formattedError(for target: PersonalForecastTargetResult) -> String {
+        if target.name == "sleep_efficiency" {
+            return String(format: "%.1f 个百分点", target.walkForwardMAE * 100)
+        }
+        return String(format: "%.2f %@", target.walkForwardMAE, target.unit)
     }
 
     private var nOfOneExperimentCard: some View {
@@ -303,11 +294,11 @@ public struct TrendsView: View {
         return BevelCard {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    Label("N-of-1 自我对照实验", systemImage: "flask")
+                    Label("个人对照实验", systemImage: "flask")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(BevelTheme.brand)
                     Spacer()
-                    Text("个人对比 · 非临床因果结论")
+                    Text("前后对比 · 仅供参考")
                         .font(.caption2.weight(.medium))
                         .foregroundStyle(BevelTheme.inkSecondary)
                 }
@@ -403,12 +394,14 @@ public struct TrendsView: View {
                 }
 
                 if activeFindings.isEmpty {
-                    Text("待导入 3 年历史导出报告或持续积累 ≥ 40 天样本后，将在此发布带置信区间（95% CI）与样本量的分布滞后规律。")
+                    Text("还没有足够的历史记录来显示规律。")
                         .font(.caption)
                         .foregroundStyle(BevelTheme.inkSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 } else {
                     ForEach(activeFindings.prefix(4)) { finding in
+                        let summary = finding.statement.components(separatedBy: "（95% CI ").first ?? finding.statement
+
                         VStack(alignment: .leading, spacing: 6) {
                             HStack {
                                 Text(finding.status == .confirmed ? "已确认" : "待确认")
@@ -420,25 +413,27 @@ public struct TrendsView: View {
                                         in: Capsule()
                                     )
                                     .foregroundStyle(finding.status == .confirmed ? Color.green : BevelTheme.brand)
-                                Spacer()
-                                Text("n=\(finding.sampleSize)")
-                                    .font(.caption2.monospacedDigit())
-                                    .foregroundStyle(BevelTheme.inkSecondary)
+
                             }
-                            Text(finding.statement)
+                            Text(summary)
                                 .font(.subheadline.weight(.medium))
                                 .foregroundStyle(BevelTheme.ink)
                                 .fixedSize(horizontal: false, vertical: true)
-                            Text(String(
-                                format: "效应 %.2f · 95%% CI [%.2f, %.2f] · %@",
-                                finding.effect,
-                                finding.ciLow,
-                                finding.ciHigh,
-                                finding.method
-                            ))
-                            .font(.caption2.monospacedDigit())
-                            .fontDesign(.rounded)
-                            .foregroundStyle(BevelTheme.deviationInk)
+                            DisclosureGroup("统计详情") {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    if summary != finding.statement {
+                                        Text(finding.statement)
+                                    }
+                                    Text(String(
+                                        format: "%d 个样本 · 95%% 置信区间 %.2f 至 %.2f\n%@",
+                                        finding.sampleSize, finding.ciLow, finding.ciHigh, finding.method
+                                    ))
+                                }
+                                .font(.footnote)
+                                .foregroundStyle(BevelTheme.inkSecondary)
+                                .padding(.top, 4)
+                            }
+                            .font(.subheadline)
 
                             if finding.status == .candidate {
                                 HStack(spacing: 10) {
@@ -458,7 +453,7 @@ public struct TrendsView: View {
                                     .accessibilityIdentifier("trends-pattern-dismiss-\(finding.id.uuidString)")
                                 }
                             } else {
-                                Text("已晋升为 Verified Pattern 长期记忆")
+                                Text("已保存到 Coach 记忆")
                                     .font(.caption2.weight(.medium))
                                     .foregroundStyle(.green)
                             }

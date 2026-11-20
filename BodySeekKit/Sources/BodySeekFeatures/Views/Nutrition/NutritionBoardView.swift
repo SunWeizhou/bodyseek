@@ -19,13 +19,13 @@ public struct NutritionBoardView: View {
                     bannerCard(status, isError: false)
                 }
 
+                selectedDayMealsCard
+
                 periodHeaderControls
 
                 energyBalanceCard
 
                 macroCircleMatrixCard
-
-                selectedDayMealsCard
 
                 microAccordionCard(
                     groupKey: "vitamins",
@@ -44,11 +44,11 @@ public struct NutritionBoardView: View {
                 quickActionsBar
             }
             .padding(.horizontal, 16)
-            .padding(.top, 8)
+            .padding(.top, 4)
             .padding(.bottom, 28)
         }
         .background(BevelTheme.canvas.ignoresSafeArea())
-        .navigationTitle("每日营养素")
+        .navigationTitle("营养")
         .bodyseekNavigationBarInline()
         .toolbar {
             ToolbarItem(placement: .bodyseekLeading) {
@@ -66,18 +66,18 @@ public struct NutritionBoardView: View {
                     Button {
                         store.send(.profileTargetPresented(true))
                     } label: {
-                        Label("个人档案与 DRIs 目标", systemImage: "person.text.rectangle")
+                        Label("个人档案与营养目标", systemImage: "person.text.rectangle")
                     }
                     Divider()
                     Button {
                         store.send(.exportDailyMarkdownTapped)
                     } label: {
-                        Label("导出选中日 Markdown", systemImage: "doc.plaintext")
+                        Label("导出当天记录", systemImage: "doc.plaintext")
                     }
                     Button {
                         store.send(.exportTargetsMarkdownTapped)
                     } label: {
-                        Label("导出营养目标 Markdown", systemImage: "doc.badge.gearshape")
+                        Label("导出营养目标", systemImage: "doc.badge.gearshape")
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle")
@@ -85,21 +85,29 @@ public struct NutritionBoardView: View {
                 .accessibilityIdentifier("nutrition-more-menu")
             }
 
-            ToolbarItem(placement: .bodyseekTrailing) {
-                Button("完成") {
-                    store.send(.closeTapped)
-                }
-                .accessibilityIdentifier("nutrition-done-button")
-            }
         }
         .onAppear {
             store.send(.onAppear)
         }
-        .sheet(isPresented: Binding(
-            get: { store.showMealLoggerSheet },
-            set: { store.send(.mealLoggerPresented($0)) }
-        )) {
-            NutritionMealLoggerSheet(store: store)
+        .sheet(item: Binding(
+            get: { store.mealLogger },
+            set: { if $0 == nil { store.send(.mealLoggerPresented(false)) } }
+        )) { logger in
+            switch logger {
+            case .manual:
+                NutritionMealLoggerSheet(store: store)
+            case .assistant:
+                NavigationStack {
+                    NutritionMealAssistantView(store: store)
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button("关闭") { store.send(.mealLoggerPresented(false)) }
+                                    .disabled(store.isSaving)
+                            }
+                        }
+                }
+                .interactiveDismissDisabled(store.isSaving)
+            }
         }
         .sheet(isPresented: Binding(
             get: { store.showLibrarySheet },
@@ -193,25 +201,17 @@ public struct NutritionBoardView: View {
             }
             return nil
         }()
-        let surplusText: String = {
-            if let s = log?.calorieSurplusKcal, isClosed {
-                return s >= 0 ? "+\(Int(s.rounded())) kcal" : "\(Int(s.rounded())) kcal"
-            }
-            return isClosed ? "--" : "未结账"
-        }()
+        let surplus = isClosed ? log?.calorieSurplusKcal.map {
+            let kcal = Int($0.rounded())
+            return kcal > 0 ? "+\(kcal)" : "\(kcal)"
+        } : nil
 
         return BevelCard {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("能量平衡（\(store.selectedDayKey.isoString)）")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(BevelTheme.ink)
-                        Text(store.periodSummary.validatedPlan.statusMessage)
-                            .font(.caption2)
-                            .foregroundStyle(BevelTheme.inkSecondary)
-                            .lineLimit(2)
-                    }
+                    Text("能量平衡")
+                        .font(.headline)
+                        .foregroundStyle(BevelTheme.ink)
                     Spacer()
                     Button {
                         store.send(.profileTargetPresented(true))
@@ -227,7 +227,7 @@ public struct NutritionBoardView: View {
                     .accessibilityIdentifier("nutrition-targets-button")
                 }
 
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 94), spacing: 10)], alignment: .leading, spacing: 10) {
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                     energyMetricTile(
                         label: "饮食摄入",
                         value: intake.map { "\(Int($0.rounded()))" } ?? "--",
@@ -235,21 +235,21 @@ public struct NutritionBoardView: View {
                         tint: BevelTheme.brand
                     )
                     energyMetricTile(
-                        label: "BMR + 运动消耗",
+                        label: "消耗估算",
                         value: expenditure.map { "\(Int($0.rounded()))" } ?? "--",
                         unit: "kcal",
                         tint: BevelTheme.strainColor
                     )
                     energyMetricTile(
-                        label: "当日盈亏",
-                        value: surplusText,
-                        unit: isClosed ? "kcal" : "暂不判断",
+                        label: "能量差",
+                        value: surplus ?? (isClosed ? "数据不足" : "未完成"),
+                        unit: surplus == nil ? "" : "kcal",
                         tint: BevelTheme.nutritionInkColor(for: isClosed ? .met : .unknown)
                     )
                     energyMetricTile(
-                        label: "近 7 日日均缺口",
+                        label: "7 天平均缺口",
                         value: store.periodSummary.rollingDeficit7dKcal.map { "\(Int($0.rounded()))" } ?? "--",
-                        unit: "需≥3完整日",
+                        unit: "kcal",
                         tint: BevelTheme.ink
                     )
                 }
@@ -260,7 +260,7 @@ public struct NutritionBoardView: View {
                     } label: {
                         HStack {
                             Image(systemName: "checkmark.seal.fill")
-                            Text("完成 \(store.selectedDayKey.isoString) 饮食结账并结算盈亏")
+                            Text("完成当天记录")
                                 .font(.caption.weight(.semibold))
                         }
                         .frame(maxWidth: .infinity)
@@ -288,9 +288,11 @@ public struct NutritionBoardView: View {
                 .fontDesign(.rounded)
                 .foregroundStyle(tint)
                 .lineLimit(1)
-            Text(unit)
-                .font(.caption2)
-                .foregroundStyle(BevelTheme.inkSecondary)
+            if !unit.isEmpty {
+                Text(unit)
+                    .font(.footnote)
+                    .foregroundStyle(BevelTheme.inkSecondary)
+            }
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -306,7 +308,7 @@ public struct NutritionBoardView: View {
         return BevelCard {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    Text("核心营养与圆圈状态（\(store.periodMode.title)）")
+                    Text("营养摄入")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(BevelTheme.ink)
                     Spacer()
@@ -316,8 +318,8 @@ public struct NutritionBoardView: View {
                 HStack(spacing: 12) {
                     legendDot(color: BevelTheme.nutritionMet, label: "达标")
                     legendDot(color: BevelTheme.nutritionLow, label: "偏低")
-                    legendDot(color: BevelTheme.nutritionOver, label: "偏高/超UL")
-                    legendDot(color: BevelTheme.nutritionUnknown, label: "未记/未结账")
+                    legendDot(color: BevelTheme.nutritionOver, label: "偏高或超上限")
+                    legendDot(color: BevelTheme.nutritionUnknown, label: "记录未完成")
                 }
 
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -419,69 +421,138 @@ public struct NutritionBoardView: View {
 
     private var selectedDayMealsCard: some View {
         let log = store.selectedDayLog
+        let entries = log?.entries ?? []
+        let byMeal = Dictionary(grouping: entries, by: \.mealType)
+        let day = store.selectedDayKey
+        let dateLabel = day.year == store.todayKey.year
+            ? "\(day.month) 月 \(day.day) 日"
+            : day.isoString
+        let status = log?.dietDayComplete == true ? "已完成记录" : "记录未完成"
+
         return BevelCard {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    Text("\(store.selectedDayKey.isoString) 餐次记录")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(BevelTheme.ink)
-                    Spacer()
-                    Button {
-                        store.send(.mealLoggerPresented(true))
-                    } label: {
-                        Label("记一餐", systemImage: "plus")
-                            .font(.caption.weight(.semibold))
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .background(BevelTheme.brand, in: Capsule())
-                            .foregroundStyle(BevelTheme.onBrand)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("饮食记录")
+                            .font(.headline)
+                            .foregroundStyle(BevelTheme.ink)
+                        Text(entries.isEmpty ? dateLabel : "\(dateLabel) · \(status)")
+                            .font(.footnote)
+                            .foregroundStyle(BevelTheme.inkSecondary)
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("nutrition-log-meal-button")
+
+                    Spacer()
                 }
 
-                if let entries = log?.entries, !entries.isEmpty {
-                    ForEach(entries) { entry in
-                        HStack(alignment: .top, spacing: 10) {
-                            Text(entry.mealType.title)
-                                .font(.caption2.weight(.semibold))
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 3)
-                                .background(BevelTheme.surfaceElevated, in: Capsule())
-                                .foregroundStyle(BevelTheme.brand)
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 8) { mealRecordingActions }
+                    VStack(alignment: .leading, spacing: 8) { mealRecordingActions }
+                }
 
-                            VStack(alignment: .leading, spacing: 2) {
-                                HStack {
-                                    Text(entry.foodName)
-                                        .font(.subheadline.weight(.medium))
-                                        .foregroundStyle(BevelTheme.ink)
-                                    if entry.isEstimated {
-                                        Text("估算")
-                                            .font(.caption2)
-                                            .foregroundStyle(BevelTheme.inkSecondary)
-                                    }
-                                    Spacer()
-                                    Text(entry.kcal.map { "\(Int($0.rounded())) kcal" } ?? entry.waterMl.map { "\(Int($0.rounded())) mL" } ?? "--")
-                                        .font(.caption.weight(.semibold).monospacedDigit())
-                                        .fontDesign(.rounded)
-                                        .foregroundStyle(BevelTheme.ink)
-                                }
-                                Text("\(entry.portionDescription) · 碳 \(entry.carbsG.map(formatMetric) ?? "--")g · 蛋 \(entry.proteinG.map(formatMetric) ?? "--")g · 脂 \(entry.fatG.map(formatMetric) ?? "--")g")
-                                    .font(.caption2.monospacedDigit())
-                                    .fontDesign(.rounded)
-                                    .foregroundStyle(BevelTheme.inkSecondary)
-                            }
+                if entries.isEmpty {
+                    Text("这一天还没有饮食记录。")
+                        .font(.subheadline)
+                        .foregroundStyle(BevelTheme.inkSecondary)
+                } else {
+                    ForEach(MealType.allCases, id: \.self) { meal in
+                        if let mealEntries = byMeal[meal] {
+                            Divider()
+                            mealGroup(meal, entries: mealEntries)
                         }
                     }
-                } else {
-                    Text("该生理日暂无餐次明细；点击右上「记一餐」即可按营养库精准换算。")
-                        .font(.caption)
-                        .foregroundStyle(BevelTheme.inkSecondary)
                 }
             }
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("nutrition-selected-day-card")
+    }
+
+    @ViewBuilder
+    private var mealRecordingActions: some View {
+        Button {
+            store.send(.mealAssistantTapped)
+        } label: {
+            Label("AI 记饮食", systemImage: "sparkles")
+        }
+        .buttonStyle(.borderedProminent)
+        .accessibilityIdentifier("nutrition-ai-entry")
+
+        Button {
+            store.send(.mealLoggerPresented(true))
+        } label: {
+            Label("手动记录", systemImage: "plus")
+        }
+        .buttonStyle(.bordered)
+        .accessibilityIdentifier("nutrition-log-meal-button")
+    }
+
+    private func mealGroup(_ meal: MealType, entries: [MealEntry]) -> some View {
+        let values = entries.compactMap { meal == .water ? $0.waterMl : $0.kcal }
+        let unit = meal == .water ? "mL" : "kcal"
+        let total = values.count == entries.count ? "\(Int(values.reduce(0, +).rounded())) \(unit)" : nil
+        let hasEstimates = entries.contains(where: \.isEstimated)
+
+        return DisclosureGroup {
+            VStack(alignment: .leading, spacing: 12) {
+                ForEach(entries) { entry in
+                    mealEntryRow(entry)
+                }
+            }
+            .padding(.top, 8)
+        } label: {
+            HStack {
+                Text(meal.title)
+                    .font(.subheadline.weight(.semibold))
+                Text("\(entries.count) 项")
+                    .font(.footnote)
+                    .foregroundStyle(BevelTheme.inkSecondary)
+                Spacer()
+                if let total {
+                    Text(hasEstimates ? "约 \(total)" : total)
+                        .font(.subheadline.monospacedDigit())
+                }
+            }
+            .foregroundStyle(BevelTheme.ink)
+        }
+        .accessibilityIdentifier("nutrition-meal-\(meal.rawValue)")
+    }
+
+    private func mealEntryRow(_ entry: MealEntry) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack {
+                Text(entry.foodName)
+                    .font(.subheadline.weight(.medium))
+                Spacer()
+                if let estimate = entry.energyEstimate {
+                    Text("粗估 \(estimate.displayRange)")
+                        .font(.footnote.monospacedDigit())
+                } else if let amount = entry.kcal.map({ "\(Int($0.rounded())) kcal" })
+                    ?? entry.waterMl.map({ "\(Int($0.rounded())) mL" }) {
+                    Text(entry.isEstimated ? "约 \(amount)" : amount)
+                        .font(.footnote.monospacedDigit())
+                }
+            }
+            .foregroundStyle(BevelTheme.ink)
+            Text(entry.portionDescription)
+                .font(.footnote)
+                .foregroundStyle(BevelTheme.inkSecondary)
+
+            let nutrients = [
+                entry.carbsG.map { "碳水 \(formatMetric($0)) g" },
+                entry.proteinG.map { "蛋白质 \(formatMetric($0)) g" },
+                entry.fatG.map { "脂肪 \(formatMetric($0)) g" }
+            ].compactMap(\.self)
+            if !nutrients.isEmpty {
+                Text(nutrients.joined(separator: " · "))
+                    .font(.footnote.monospacedDigit())
+                    .foregroundStyle(BevelTheme.inkSecondary)
+            }
+            if let note = entry.estimationNote, !note.isEmpty {
+                Text(note)
+                    .font(.caption)
+                    .foregroundStyle(BevelTheme.inkSecondary)
+            }
+        }
     }
 
     private func microAccordionCard(
@@ -560,7 +631,7 @@ public struct NutritionBoardView: View {
             Button {
                 store.send(.libraryPresented(true))
             } label: {
-                Label("营养库（\(store.foodLibrary.count)）", systemImage: "books.vertical")
+                Label("营养库", systemImage: "books.vertical")
                     .font(.caption.weight(.semibold))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 11)
@@ -572,7 +643,7 @@ public struct NutritionBoardView: View {
             Button {
                 store.send(.exportDailyMarkdownTapped)
             } label: {
-                Label("导出 MD", systemImage: "square.and.arrow.up")
+                Label("导出记录", systemImage: "square.and.arrow.up")
                     .font(.caption.weight(.semibold))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 11)

@@ -5,6 +5,8 @@ import SwiftUI
 public struct RootTabView: View {
     @Bindable var store: StoreOf<AppFeature>
     @AppStorage("bodyseek.onboardingCompleted") private var persistedOnboardingCompleted = false
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var wasInBackground = false
     @Namespace private var zoomNamespace
 
     public init(store: StoreOf<AppFeature>) {
@@ -32,17 +34,20 @@ public struct RootTabView: View {
         .onAppear {
             store.send(.onAppear)
         }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background {
+                wasInBackground = true
+            } else if phase == .active, wasInBackground {
+                wasInBackground = false
+                if store.hasCompletedOnboarding || persistedOnboardingCompleted {
+                    store.send(.refreshRequested)
+                }
+            }
+        }
         .sheet(
             item: $store.scope(state: \.settings, action: \.settings)
         ) { settingsStore in
             SettingsView(store: settingsStore)
-        }
-        .sheet(
-            item: $store.scope(state: \.nutrition, action: \.nutrition)
-        ) { nutritionStore in
-            NavigationStack {
-                NutritionBoardView(store: nutritionStore)
-            }
         }
         .sheet(
             isPresented: Binding(
@@ -89,6 +94,12 @@ public struct RootTabView: View {
                 }
             }
 
+            Tab("营养", systemImage: "fork.knife", value: AppFeature.AppTab.nutrition) {
+                NavigationStack {
+                    NutritionBoardView(store: store.scope(state: \.nutrition, action: \.nutrition))
+                }
+            }
+
             Tab("趋势", systemImage: "chart.xyaxis.line", value: AppFeature.AppTab.trends) {
                 NavigationStack(path: $store.scope(state: \.trendsPath, action: \.trendsPath)) {
                     TrendsView(
@@ -104,7 +115,7 @@ public struct RootTabView: View {
                 }
             }
 
-            Tab("问身体", systemImage: "sparkles", value: AppFeature.AppTab.coach, role: .search) {
+            Tab("Coach", systemImage: "sparkles", value: AppFeature.AppTab.coach, role: .search) {
                 NavigationStack {
                     CoachView(store: store.scope(state: \.coach, action: \.coach))
                 }

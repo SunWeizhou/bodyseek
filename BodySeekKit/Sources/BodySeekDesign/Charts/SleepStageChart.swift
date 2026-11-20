@@ -1,7 +1,8 @@
 import BodySeekCore
+import SleepChartKit
 import SwiftUI
 
-/// Native Apple Health-style 4-track staircase sleep stage chart built with SwiftUI Canvas & gestures.
+/// Sleep-stage summary and interactive detail sharing the same normalized segments.
 public struct SleepStageChart: View {
     public let segments: [SleepStageSegment]
     public let height: CGFloat
@@ -9,7 +10,7 @@ public struct SleepStageChart: View {
 
     @State private var selectedSegment: SleepStageSegment?
 
-    private let trackOrder: [SleepStage] = [.awake, .rem, .core, .deep]
+    private let trackOrder: [BodySeekCore.SleepStage] = [.awake, .rem, .core, .deep]
 
     public init(segments: [SleepStageSegment], height: CGFloat = 156, interactive: Bool = true) {
         self.segments = segments
@@ -26,6 +27,33 @@ public struct SleepStageChart: View {
                 systemImage: "bed.double.fill",
                 height: min(height, 110)
             )
+        } else if !interactive, let samples = Self.communitySamples(for: ordered),
+                  let start = ordered.first?.startDate, let end = ordered.last?.endDate {
+            VStack(alignment: .leading, spacing: 8) {
+                SleepTimelineGraph(samples: samples, colorProvider: CommunitySleepColors())
+                    .frame(height: max(40, height - 48))
+                    .clipped()
+
+                HStack {
+                    Text(ChartAxisSupport.formatHour(start))
+                    Spacer()
+                    Text(ChartAxisSupport.formatHour(end))
+                }
+                .font(.subheadline.monospacedDigit())
+                .foregroundStyle(BevelTheme.inkSecondary)
+
+                HStack(spacing: 12) {
+                    ForEach(trackOrder, id: \.self) { stage in
+                        Label(stage.title, systemImage: "circle.fill")
+                            .foregroundStyle(BevelTheme.sleepStageColor(stage))
+                    }
+                }
+                .font(.footnote)
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("昨夜睡眠分期图")
+            .accessibilityValue(totalStageSummary(ordered))
+            .accessibilityIdentifier("community-sleep-chart")
         } else if let minStart = ordered.first?.startDate, let maxEnd = ordered.map(\.endDate).max(), maxEnd > minStart {
             let totalDuration = maxEnd.timeIntervalSince(minStart)
             let midDate = minStart.addingTimeInterval(totalDuration / 2.0)
@@ -68,7 +96,7 @@ public struct SleepStageChart: View {
                             for i in 0..<(ordered.count - 1) {
                                 let a = ordered[i]
                                 let b = ordered[i + 1]
-                                guard b.startDate.timeIntervalSince(a.endDate) <= 120 else { continue }
+                                guard a.endDate == b.startDate else { continue }
                                 let rowA = trackOrder.firstIndex(of: a.stage) ?? 2
                                 let rowB = trackOrder.firstIndex(of: b.stage) ?? 2
                                 guard rowA != rowB else { continue }
@@ -157,6 +185,25 @@ public struct SleepStageChart: View {
         }
     }
 
+    static func communitySamples(for ordered: [SleepStageSegment]) -> [SleepSample]? {
+        // The upstream renderer connects consecutive samples even across a gap.
+        // Keep incomplete or overlapping sessions on the gap-aware renderer.
+        guard !ordered.isEmpty,
+              ordered.allSatisfy({ $0.startDate < $0.endDate }),
+              zip(ordered, ordered.dropFirst()).allSatisfy({ $0.endDate == $1.startDate })
+        else { return nil }
+
+        return ordered.map { segment in
+            let stage: SleepChartKit.SleepStage = switch segment.stage {
+            case .awake: .awake
+            case .rem: .asleepREM
+            case .core: .asleepCore
+            case .deep: .asleepDeep
+            }
+            return SleepSample(stage: stage, startDate: segment.startDate, endDate: segment.endDate)
+        }
+    }
+
     private func selectSegment(
         atX x: CGFloat,
         labelOffset: CGFloat,
@@ -167,12 +214,9 @@ public struct SleepStageChart: View {
     ) {
         let fraction = min(1, max(0, (x - labelOffset) / max(1, plotWidth)))
         let targetDate = start.addingTimeInterval(duration * Double(fraction))
-        let hit = ordered.first(where: { targetDate >= $0.startDate && targetDate <= $0.endDate })
-            ?? ordered.min(by: {
-                let mid0 = $0.startDate.addingTimeInterval($0.endDate.timeIntervalSince($0.startDate) / 2)
-                let mid1 = $1.startDate.addingTimeInterval($1.endDate.timeIntervalSince($1.startDate) / 2)
-                return abs(mid0.timeIntervalSince(targetDate)) < abs(mid1.timeIntervalSince(targetDate))
-            })
+        let hit = ordered.first {
+            targetDate >= $0.startDate && (targetDate < $0.endDate || targetDate == ordered.last?.endDate && targetDate == $0.endDate)
+        }
         if selectedSegment?.id != hit?.id {
             selectedSegment = hit
             BodySeekSignposts.shared.emitEvent(.chartScrub, detail: "sleep-stages")
@@ -184,5 +228,18 @@ public struct SleepStageChart: View {
         let rem = ordered.filter { $0.stage == .rem }.reduce(0) { $0 + $1.durationMinutes }
         let core = ordered.filter { $0.stage == .core }.reduce(0) { $0 + $1.durationMinutes }
         return "深睡 \(deep)分 · REM \(rem)分 · 核心 \(core)分"
+    }
+}
+
+
+private struct CommunitySleepColors: SleepStageColorProvider {
+    func color(for stage: SleepChartKit.SleepStage) -> Color {
+        switch stage {
+        case .awake: BevelTheme.sleepStageColor(.awake)
+        case .asleepREM: BevelTheme.sleepStageColor(.rem)
+        case .asleepCore: BevelTheme.sleepStageColor(.core)
+        case .asleepDeep: BevelTheme.sleepStageColor(.deep)
+        case .asleepUnspecified, .inBed: BevelTheme.inkSecondary
+        }
     }
 }
