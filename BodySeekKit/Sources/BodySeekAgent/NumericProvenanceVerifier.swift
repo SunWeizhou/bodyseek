@@ -95,16 +95,15 @@ public enum NumericProvenanceVerifier {
         let nsResponse = responseText as NSString
 
         for cand in uniqueCandidates {
-            let verified: Bool
-            if typedFacts.isEmpty {
-                verified = isAllowedNumber(cand.numberString, allowed: allowed)
-            } else {
-                verified = verifyAgainstTypedFacts(
-                    candidate: cand,
-                    text: responseText,
-                    facts: typedFacts
-                )
-            }
+            let typedResult = typedFacts.isEmpty ? nil : verifyAgainstTypedFacts(
+                candidate: cand,
+                text: responseText,
+                facts: typedFacts
+            )
+            // A number that does not appear in typed evidence may still come from a
+            // legacy tool result in the same turn. Only enforce metric/date/unit when
+            // the value is actually present in typed evidence.
+            let verified = typedResult ?? isAllowedNumber(cand.numberString, allowed: allowed)
             if verified {
                 verifiedCount += 1
             } else {
@@ -142,6 +141,17 @@ public enum NumericProvenanceVerifier {
     }
 
     // MARK: - Helpers
+
+    // Compiling these once avoids re-compiling on every candidate number in a reply.
+    private static let unitRegex = try? NSRegularExpression(
+        pattern: #"(?i)(?:\s*)(%|ms|bpm|kcal|大卡|千卡|小时|分钟|h|kg|km|公里|ml|毫升|mg|毫克|μg|ug|步|分)(?=[\s。；;，,）)]|$)"#
+    )
+    private static let dayRegex = try? NSRegularExpression(
+        pattern: #"(\d{4})-(\d{2})-(\d{2})|(\d{1,2})月(\d{1,2})日"#
+    )
+    private static let numberRegex = try? NSRegularExpression(
+        pattern: #"(?<![A-Za-z])-?\d+(?:\.\d+)?"#
+    )
 
     // MARK: - Typed evidence
 
@@ -184,12 +194,12 @@ public enum NumericProvenanceVerifier {
         candidate: CandidateMatch,
         text: String,
         facts: [TypedEvidenceFact]
-    ) -> Bool {
+    ) -> Bool? {
         guard let value = Double(candidate.numberString), value.isFinite else { return false }
         var scaled = Set<Int>()
         insertScaled(value, into: &scaled)
         let matched = facts.filter { !$0.scaledValues.isDisjoint(with: scaled) }
-        guard !matched.isEmpty else { return false }
+        guard !matched.isEmpty else { return nil }
 
         let nsText = text as NSString
         let snippet = nsText.substring(with: candidate.fullRange)
@@ -219,8 +229,7 @@ public enum NumericProvenanceVerifier {
     }
 
     private static func extractUnit(from snippet: String) -> String? {
-        let pattern = #"(?i)(?:\s*)(%|ms|bpm|kcal|大卡|千卡|小时|分钟|h|kg|km|公里|ml|毫升|mg|毫克|μg|ug|步|分)(?=[\s。；;，,）)]|$)"#
-        guard let regex = try? NSRegularExpression(pattern: pattern),
+        guard let regex = unitRegex,
               let match = regex.firstMatch(in: snippet, range: NSRange(snippet.startIndex..., in: snippet)),
               let range = Range(match.range(at: 1), in: snippet)
         else { return nil }
@@ -295,8 +304,7 @@ public enum NumericProvenanceVerifier {
     }
 
     private static func detectedDayKey(in context: String) -> String? {
-        let pattern = #"(\d{4})-(\d{2})-(\d{2})|(\d{1,2})月(\d{1,2})日"#
-        guard let regex = try? NSRegularExpression(pattern: pattern),
+        guard let regex = dayRegex,
               let match = regex.firstMatch(in: context, range: NSRange(context.startIndex..., in: context))
         else { return nil }
         func group(_ index: Int) -> String? {
@@ -315,9 +323,7 @@ public enum NumericProvenanceVerifier {
 
     private static func collectAllowedNumbers(from texts: [String]) -> Set<Int> {
         var allowedScaled = Set<Int>()
-        let pattern = #"(?<![A-Za-z])-?\d+(?:\.\d+)?"#
-        do {
-            let regex = try NSRegularExpression(pattern: pattern, options: [])
+        if let regex = numberRegex {
             for text in texts {
                 let range = NSRange(text.startIndex..., in: text)
                 let ns = text as NSString
@@ -328,8 +334,6 @@ public enum NumericProvenanceVerifier {
                     insertScaled(val.rounded(), into: &allowedScaled)
                 }
             }
-        } catch {
-            logger.error("Failed collecting tool output numbers: \(error.localizedDescription, privacy: .public)")
         }
         return allowedScaled
     }

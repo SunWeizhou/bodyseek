@@ -287,5 +287,14 @@ final class WeeklyRecoveryEvidenceTests: XCTestCase {
         XCTAssertTrue(unverified("11月20日恢复 99 分。").contains { $0.contains("99") })
         XCTAssertTrue(unverified("11月20日恢复 71 分。").isEmpty)
         XCTAssertTrue(unverified("11月20日 HRV 54 ms。").isEmpty)
+
+        // Mixed turn: a legacy tool result may still supply a number that is absent
+        // from typed evidence; it must not be flagged merely because typed facts exist.
+        let legacyOutput = #"{"tool":"get_today_context","data":{"hrvMs":46}}"#
+        let mixed = NumericProvenanceVerifier.verify(
+            responseText: "今天 HRV 46 ms。",
+            toolOutputs: [toolOutput, legacyOutput]
+        )
+        XCTAssertTrue(mixed.unverifiedTokens.isEmpty)
     }
 }

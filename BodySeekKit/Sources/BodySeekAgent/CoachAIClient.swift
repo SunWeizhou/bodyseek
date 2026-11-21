@@ -165,11 +165,17 @@ public enum CoachAgentOrchestrator {
                 context: context
             )
             let answer: String
-            if let evidence = try? WeeklyRecoveryEvidenceBuilder.build(
-                endDayKey: nil,
-                asOf: context.asOf,
-                context: context
-            ) {
+            let weeklyEvidence: WeeklyRecoveryEvidence?
+            do {
+                weeklyEvidence = try WeeklyRecoveryEvidenceBuilder.build(
+                    endDayKey: nil,
+                    asOf: context.asOf,
+                    context: context
+                )
+            } catch {
+                weeklyEvidence = nil
+            }
+            if let evidence = weeklyEvidence {
                 let recovery = evidence.recovery
                 let target = recovery.targetMedian.map(String.init) ?? "--"
                 let control = recovery.controlMedian.map(String.init) ?? "--"

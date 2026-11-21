@@ -244,6 +244,10 @@ public struct WeeklyCoffeeObservation: Codable, Hashable, Sendable {
     public let note: String
 }
 
+private struct WorkoutEvidenceIndex {
+    let byDay: [DayKey: [WeeklyDayWorkout]]
+}
+
 public enum WeeklyRecoveryEvidenceBuilder {
     private static let cutoverHour = 4
     private static let targetDays = 7
@@ -281,6 +285,7 @@ public enum WeeklyRecoveryEvidenceBuilder {
             uniquingKeysWith: { _, latest in latest }
         )
         let endIsPartial = endKey == currentKey
+        let workoutIndex = makeWorkoutIndex(context: context, asOf: asOf, timeZone: timeZone)
 
         var facts: [EvidenceFact] = []
         var truncated = false
@@ -290,9 +295,8 @@ public enum WeeklyRecoveryEvidenceBuilder {
             keys: targetKeys,
             historyByKey: historyByKey,
             context: context,
-            asOf: asOf,
-            currentKey: currentKey,
             timeZone: timeZone,
+            workoutIndex: workoutIndex,
             facts: &facts
         )
         let control = buildWindow(
@@ -300,9 +304,8 @@ public enum WeeklyRecoveryEvidenceBuilder {
             keys: controlKeys,
             historyByKey: historyByKey,
             context: context,
-            asOf: asOf,
-            currentKey: currentKey,
             timeZone: timeZone,
+            workoutIndex: workoutIndex,
             facts: &facts
         )
 
@@ -323,7 +326,7 @@ public enum WeeklyRecoveryEvidenceBuilder {
             if let checkIn {
                 appendCheckInFacts(key: key, value: checkIn, facts: &facts)
             }
-            var workouts = dayWorkouts(for: key, context: context, asOf: asOf, timeZone: timeZone)
+            var workouts = workoutIndex.byDay[key] ?? []
             if workouts.count > maximumWorkoutsPerDay {
                 workouts = Array(workouts.prefix(maximumWorkoutsPerDay))
                 truncated = true
@@ -402,9 +405,8 @@ public enum WeeklyRecoveryEvidenceBuilder {
         keys: [DayKey],
         historyByKey: [DayKey: DailyComputedDay],
         context: AgentExecutionContext,
-        asOf: Date,
-        currentKey: DayKey,
         timeZone: TimeZone,
+        workoutIndex: WorkoutEvidenceIndex,
         facts: inout [EvidenceFact]
     ) -> WeeklyRecoveryWindow {
         let metricStats = MetricKind.allCases.map { kind in
@@ -417,7 +419,7 @@ public enum WeeklyRecoveryEvidenceBuilder {
             rawStats(metric: "active_energy", unit: "kcal", keys: keys, historyByKey: historyByKey) { $0.activeEnergyKcal },
             rawStats(metric: "exercise_minutes", unit: "minutes", keys: keys, historyByKey: historyByKey) { $0.exerciseMinutes.map(Double.init) },
         ]
-        let workouts = workoutSummary(keys: keys, context: context, asOf: asOf, timeZone: timeZone)
+        let workouts = workoutSummary(keys: keys, index: workoutIndex)
         let checkIns = checkInSummary(keys: keys, context: context, timeZone: timeZone)
         let nutrition = nutritionSummary(keys: keys, context: context)
 
@@ -685,24 +687,31 @@ public enum WeeklyRecoveryEvidenceBuilder {
         }
     }
 
-    private static func dayWorkouts(
-        for key: DayKey,
+    private static func makeWorkoutIndex(
         context: AgentExecutionContext,
         asOf: Date,
         timeZone: TimeZone
-    ) -> [WeeklyDayWorkout] {
+    ) -> WorkoutEvidenceIndex {
+        let loadsByUUID = Dictionary(
+            grouping: context.muscleLoads.filter { $0.role == .primary && $0.load > 0 },
+            by: { $0.workoutUUID.lowercased() }
+        )
+        let annotationsByUUID = Dictionary(
+            context.annotationsByWorkoutUUID.map { ($0.key.lowercased(), $0.value) },
+            uniquingKeysWith: { first, _ in first }
+        )
         var seen = Set<String>()
-        var result: [WeeklyDayWorkout] = []
+        var byDay: [DayKey: [WeeklyDayWorkout]] = [:]
+
         for workout in context.storedWorkouts
-            .filter({ $0.end <= asOf && $0.start.physiologicalDayKey(cutoverHour: cutoverHour, timeZone: timeZone) == key })
+            .filter({ $0.end <= asOf })
             .sorted(by: { $0.start < $1.start })
         {
             let uuid = workout.hkUUID.lowercased()
             guard seen.insert(uuid).inserted else { continue }
-            let loads = context.muscleLoads.filter {
-                $0.workoutUUID.caseInsensitiveCompare(workout.hkUUID) == .orderedSame && $0.role == .primary && $0.load > 0
-            }
-            result.append(WeeklyDayWorkout(
+            let key = workout.start.physiologicalDayKey(cutoverHour: cutoverHour, timeZone: timeZone)
+            let loads = loadsByUUID[uuid] ?? []
+            byDay[key, default: []].append(WeeklyDayWorkout(
                 uuid: workout.hkUUID,
                 source: "healthkit",
                 type: workout.type,
@@ -715,19 +724,22 @@ public enum WeeklyRecoveryEvidenceBuilder {
                 effortUser: workout.effortUser,
                 effortEstimated: workout.effortEstimated,
                 reviewState: workout.reviewState.rawValue,
-                annotationText: context.annotationsByWorkoutUUID[workout.hkUUID]?.rawText,
+                annotationText: annotationsByUUID[uuid]?.rawText,
                 primaryMuscles: loads.map(\.muscle.rawValue).sorted()
             ))
         }
+
         for session in context.sessions
-            .filter({ $0.completedAt <= asOf && $0.startedAt.physiologicalDayKey(cutoverHour: cutoverHour, timeZone: timeZone) == key })
+            .filter({ $0.completedAt <= asOf })
             .sorted(by: { $0.startedAt < $1.startedAt })
         {
-            let linked = session.syncedHealthKitUUID?.lowercased()
-            if let linked, seen.contains(linked) { continue }
-            guard seen.insert(session.id.uuidString.lowercased()).inserted else { continue }
-            let muscles = session.muscleLoadIntensities.filter { $0.value > 0 }.keys.map(\.rawValue).sorted()
-            result.append(WeeklyDayWorkout(
+            if let linked = session.syncedHealthKitUUID?.lowercased(), seen.contains(linked) {
+                continue
+            }
+            let sessionID = session.id.uuidString.lowercased()
+            guard seen.insert(sessionID).inserted else { continue }
+            let key = session.startedAt.physiologicalDayKey(cutoverHour: cutoverHour, timeZone: timeZone)
+            byDay[key, default: []].append(WeeklyDayWorkout(
                 uuid: session.id.uuidString,
                 source: "manual",
                 type: session.title,
@@ -741,19 +753,18 @@ public enum WeeklyRecoveryEvidenceBuilder {
                 effortEstimated: nil,
                 reviewState: "manual",
                 annotationText: session.notes.isEmpty ? nil : String(session.notes.prefix(160)),
-                primaryMuscles: muscles
+                primaryMuscles: session.muscleLoadIntensities.filter { $0.value > 0 }.keys.map(\.rawValue).sorted()
             ))
         }
-        return result.sorted { $0.start < $1.start }
+
+        return WorkoutEvidenceIndex(byDay: byDay.mapValues { $0.sorted { $0.start < $1.start } })
     }
 
     private static func workoutSummary(
         keys: [DayKey],
-        context: AgentExecutionContext,
-        asOf: Date,
-        timeZone: TimeZone
+        index: WorkoutEvidenceIndex
     ) -> WeeklyWorkoutSummary {
-        let workouts = keys.flatMap { dayWorkouts(for: $0, context: context, asOf: asOf, timeZone: timeZone) }
+        let workouts = keys.flatMap { index.byDay[$0] ?? [] }
         var byType: [String: Int] = [:]
         for workout in workouts {
             byType[workout.type, default: 0] += 1
