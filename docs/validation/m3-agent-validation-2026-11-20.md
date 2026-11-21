@@ -250,3 +250,19 @@
 - 新增断言：7 天窗口恰好 7 个单样本日胶囊（`p25 == p75`、`sampleCount == 1`）；30 天窗口至少 4 个周胶囊；图表渲染矩阵新增 7 天日桶与 30 天周桶的胶囊图渲染（normal/sparse/empty/extreme/ax5/dark）。
 - 模拟器 Debug 构建 `BUILD SUCCEEDED`；UI 全套见下文（14 项中 13 通过、1 项按预期跳过），截图走查新增 7 天趋势页。
 - 未验证：真机截图与不同数据密度的视觉效果；`selectedDate` 拖拽状态目前仍写入但未被展示，留待接入读数卡片或删除。
+
+## 15. 2026-11-22 深轮性能扫描与优化（第二轮）
+
+趋势页重构后继续全量扫描，本轮修复四处可测热点：
+
+- **N-of-1 实验评估每次渲染重算**：`TrendsFeature.evaluatedExperiments` 原来是计算属性，滚动趋势页时每次 body 渲染都重新 JSON 解码并重跑 `NOfOneExperimentEvaluator`。改为状态内缓存 `experimentEvaluations`，仅在 `snapshot` 或 `experimentPlanItems` 变化时重算，并移除每次调用新建的 Logger/Decoder。
+- **图表快照重复建索引**：`buildAllChartSnapshots` 对 4 个窗口 × 5 项指标调用 20 次内部构造器，每次都重建「日→computed day」字典。抽出 `makeChartDayMap` 建一次共享；新增 parity 测试逐一断言单指标构造与批量构造结果相等。
+- **HealthKit 窗口查询串行**：`LiveHealthKitSyncSource.fetchWindow` 原来顺序执行 10 个离散信号 + 3 个累计统计 + 心率 + 睡眠共 15 次查询。改为 `withTaskGroup` 并发执行，每个子任务自建谓词并各自吞掉失败，结果按原索引顺序合并，保证 `dayMetrics` 顺序确定性；anchored 训练查询保持串行以保护锚点。
+- **视图日期格式化重复分配**：`TodayView.formattedEditorialDate` 每次调用新建 `DateFormatter`，改为静态缓存；`RangeCapsuleChart.dayLabel` 每次调用取 `Calendar.current`，改为静态缓存。
+
+验证：
+
+- `swift test --package-path BodySeekKit --disable-automatic-resolution` 退出码 0，94 项包测试和 22 项 Agent 测试通过。
+- `xcodebuild test … -only-testing:VelaTests -only-testing:VelaUITests` 退出码 0；VelaTests 4/4，UI 14 项中 13 通过、1 项按预期跳过。
+- 模拟器 Debug 构建 `BUILD SUCCEEDED`。
+- 未验证：HealthKit 并发查询在真机上的正确性（模拟器预览不经过 LiveHealthKitSyncSource），部署后按真实数据核对。
