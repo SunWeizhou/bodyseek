@@ -394,7 +394,7 @@ extension BodySeekStoreClient: DependencyKey {
             },
             loadActionAuditEntries: { limit in
                 let repo = try await liveOrPreviewRepo(preview: preview)
-                return Array(try await repo.loadAuditEntries().prefix(max(1, limit)))
+                return try await repo.loadAuditEntries(limit: max(1, limit))
             },
             savePatternFinding: { finding in
                 let repo = try await liveOrPreviewRepo(preview: preview)

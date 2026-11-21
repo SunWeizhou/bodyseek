@@ -575,19 +575,25 @@ public struct AppFeature: Sendable {
 
                 case let .preferencesUpdated(updated):
                     let handChanged = state.preferences.dominantHand != updated.dominantHand
+                    let sleepGoalChanged = state.preferences.sleepGoalMinutes != updated.sleepGoalMinutes
                     state.preferences = updated
                     state.workout.dominantHand = updated.dominantHand
                     state.workout.sleepGoalMinutes = updated.sleepGoalMinutes
                     state.coach.dominantHand = updated.dominantHand
                     state.coach.sleepGoalMinutes = updated.sleepGoalMinutes
                     syncWorkoutContextToCoachAndInsights(&state)
+                    var effects: [Effect<Action>] = [
+                        loadSnapshotEffect(goalMinutes: updated.sleepGoalMinutes, referenceDate: now),
+                    ]
                     if handChanged {
-                        return .merge(
-                            loadSnapshotEffect(goalMinutes: updated.sleepGoalMinutes, referenceDate: now),
-                            .send(.workout(.syncWatchWorkouts))
-                        )
+                        effects.append(.send(.workout(.syncWatchWorkouts)))
                     }
-                    return loadSnapshotEffect(goalMinutes: updated.sleepGoalMinutes, referenceDate: now)
+                    if sleepGoalChanged {
+                        // The stored ReadModel reuses cached scores; restart it with the
+                        // new goal so a later cached emission cannot overwrite fresh scores.
+                        effects.append(observeStoredDashboardEffect(goalMinutes: updated.sleepGoalMinutes))
+                    }
+                    return .merge(effects)
 
                 case let .memoriesUpdated(memories):
                     state.memories = memories

@@ -31,11 +31,96 @@ final class BodySeekStoreTests: XCTestCase {
         XCTAssertEqual(annotations.count, 2)
     }
 
+    func testComputedDaysRoundTripAndIncrementalReuse() async throws {
+        let db = try BodySeekDatabase.inMemory()
+        let repo = BodySeekRepository(database: db)
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Asia/Shanghai")!
+        let date = calendar.date(from: DateComponents(year: 2026, month: 11, day: 20, hour: 12))!
+        let dayKey = date.physiologicalDayKey(cutoverHour: 4, timeZone: calendar.timeZone)
+        let raw = DailyRawMetrics(
+            date: date,
+            hrvMs: 52,
+            restingHeartRateBpm: 58,
+            sleepAsleepMinutes: 430,
+            sleepInBedMinutes: 470,
+            deepMinutes: 70,
+            remMinutes: 95,
+            coreMinutes: 265,
+            awakeMinutes: 25,
+            activeEnergyKcal: 420,
+            exerciseMinutes: 35,
+            steps: 7200,
+            daytimeMeanHeartRateBpm: 71,
+            daytimeMaxHeartRateBpm: 132,
+            hasAuthorizedHealthData: true,
+            sourceNames: ["Fixture"],
+            dayKey: dayKey
+        )
+        try await repo.saveDailyRawMetrics([raw], calendar: calendar)
+        let computed = BevelScoringEngine.scoreDay(
+            raw,
+            priorDays: [],
+            sleepGoalMinutes: 450,
+            calendar: calendar
+        )
+        try await repo.saveComputedDays([computed])
+
+        let loaded = try await repo.loadComputedDays(calendar: calendar)
+        XCTAssertEqual(loaded.count, 1)
+        XCTAssertEqual(loaded.first?.dayKey, dayKey)
+        XCTAssertEqual(loaded.first?.recovery, computed.recovery)
+        XCTAssertEqual(loaded.first?.sleep, computed.sleep)
+        XCTAssertEqual(loaded.first?.energyCurve, computed.energyCurve)
+        XCTAssertEqual(loaded.first?.raw.hrvMs, 52)
+
+        let snapshot = BevelScoringEngine.recomputeIncremental(
+            existingByDayKey: [dayKey: loaded[0]],
+            allRawDays: [raw],
+            dirtyDayKeys: [],
+            sleepGoalMinutes: 450,
+            referenceDate: date,
+            sourceLabel: "cache-test",
+            isAuthorized: true,
+            calendar: calendar
+        )
+        XCTAssertEqual(snapshot.historyDays.count, 1)
+        XCTAssertEqual(snapshot.historyDays[0].recovery, computed.recovery)
+        XCTAssertEqual(snapshot.historyDays[0].energyCurve, computed.energyCurve)
+    }
+
     func testMigrationIdentifiersAreStable() {
         XCTAssertEqual(
             BodySeekDatabase.migrator.migrations,
             ["v1_initial_schema", "v2_nutrition_schema", "v3_allow_unknown_meal_portions", "v4_healthkit_workout_deletions", "v5_action_audit_undo_snapshots"]
         )
+    }
+
+    func testAuditQueryHonorsDatabaseLimit() async throws {
+        let db = try BodySeekDatabase.inMemory()
+        let repo = BodySeekRepository(database: db)
+        let payload = try ActionProposal(
+            kind: .annotateWorkout,
+            origin: .user,
+            encodablePayload: AnnotateWorkoutPayload(workoutUUID: "W-1", rawText: "练腿")
+        )
+        let json = String(decoding: try JSONEncoder().encode(payload), as: UTF8.self)
+        try await db.writer.write { db in
+            for (offset, id) in ["00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000002"].enumerated() {
+                try db.execute(
+                    sql: """
+                    INSERT INTO action_audit (id, proposal_json, origin, decision, decided_at, affected_ids_json)
+                    VALUES (?, ?, 'user', 'applied', ?, '[]')
+                    """,
+                    arguments: [id, json, 1_000.0 + Double(offset)]
+                )
+            }
+        }
+        let limited = try await repo.loadAuditEntries(limit: 1)
+        XCTAssertEqual(limited.count, 1)
+        XCTAssertEqual(limited.first?.id.uuidString.lowercased(), "00000000-0000-4000-8000-000000000002")
+        let all = try await repo.loadAuditEntries()
+        XCTAssertEqual(all.count, 2)
     }
 
     func testSchemaV1CreatesAllFifteenV5TablesAndFTSTriggers() async throws {
@@ -447,6 +532,46 @@ final class BodySeekStoreTests: XCTestCase {
         // Total across overnight + 45m nap = 525 min
         XCTAssertEqual(result.totalAsleepMinutes, 525)
         XCTAssertEqual(result.naps.first?.asleepMinutes, 45)
+    }
+
+    func testReadModelFallsBackWhenCachedArtifactIsCorrupt() async throws {
+        let db = try BodySeekDatabase.inMemory()
+        let repo = BodySeekRepository(database: db)
+        let readModel = BodySeekReadModel(database: db)
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Asia/Shanghai")!
+        let date = calendar.date(from: DateComponents(year: 2026, month: 11, day: 20, hour: 12))!
+        let dayKey = date.physiologicalDayKey(cutoverHour: 4, timeZone: calendar.timeZone)
+        let raw = DailyRawMetrics(
+            date: date,
+            hrvMs: 50,
+            restingHeartRateBpm: 60,
+            sleepAsleepMinutes: 420,
+            activeEnergyKcal: 380,
+            hasAuthorizedHealthData: true,
+            sourceNames: ["Fixture"],
+            dayKey: dayKey
+        )
+        try await repo.saveDailyRawMetrics([raw], calendar: calendar)
+        let computed = BevelScoringEngine.scoreDay(raw, priorDays: [], sleepGoalMinutes: 450, calendar: calendar)
+        try await repo.saveComputedDays([computed])
+        try await db.writer.write { db in
+            try db.execute(
+                sql: "UPDATE day_computed_artifact SET energy_curve_json = 'not-json' WHERE day_key = ?",
+                arguments: [dayKey.isoString]
+            )
+        }
+
+        let cached = try await readModel.loadCachedDashboard(
+            sleepGoalMinutes: 450,
+            referenceDate: date,
+            sourceLabel: "Fixture",
+            isAuthorized: true,
+            calendar: calendar
+        )
+        XCTAssertNotNil(cached)
+        XCTAssertEqual(cached?.snapshot.historyDays.count, 1)
+        XCTAssertEqual(cached?.snapshot.historyDays.first?.recovery.value, computed.recovery.value)
     }
 
     func testReadModelPrecomputesChartCacheAndDeduplicatesIdenticalContentDigest() async throws {

@@ -432,8 +432,20 @@ public actor SyncEngine {
         }
 
         let allRawDays = try await repository.loadRawDays(calendar: calendar)
+        let existingByDayKey: [DayKey: DailyComputedDay]
+        do {
+            let cachedDays = try await repository.loadComputedDays(rawDays: allRawDays)
+            existingByDayKey = Dictionary(
+                cachedDays.map { ($0.dayKey, $0) },
+                uniquingKeysWith: { _, latest in latest }
+            )
+        } catch {
+            // A corrupt cached artifact must not block syncing; recompute from raw data.
+            Self.logger.error("Failed loading cached computed days, recomputing: \(error.localizedDescription, privacy: .public)")
+            existingByDayKey = [:]
+        }
         let snapshot = BevelScoringEngine.recomputeIncremental(
-            existingByDayKey: [:],
+            existingByDayKey: existingByDayKey,
             allRawDays: allRawDays,
             dirtyDayKeys: dirtyKeys,
             sleepGoalMinutes: sleepGoalMinutes,

@@ -107,114 +107,21 @@ public final class BodySeekReadModel: Sendable {
         let rawDays = try BodySeekRepository.loadRawDaysSync(db: db, calendar: calendar)
         guard !rawDays.isEmpty else { return nil }
 
-        let targetVersion = AlgorithmVersion.scoreV2.description
-        let scoreRows = try Row.fetchAll(
-            db,
-            sql: """
-            SELECT day_key, kind, value, state, reason, baseline_delta, badge, subtitle, contributors_json
-            FROM score_snapshot
-            WHERE algorithm_version = ?
-            """,
-            arguments: [targetVersion]
-        )
-
-        let artifactRows = try Row.fetchAll(
-            db,
-            sql: """
-            SELECT day_key, date, energy_curve_json, stress_timeline_json, factual_summary, evidence_summary
-            FROM day_computed_artifact
-            WHERE algorithm_version = ?
-            """,
-            arguments: [targetVersion]
-        )
-
-        let decoder = JSONDecoder()
-        var scoresByDayAndKind: [String: [MetricKind: MetricScore]] = [:]
-        for row in scoreRows {
-            let dayKeyStr: String = row["day_key"]
-            let kindStr: String = row["kind"]
-            guard let kind = MetricKind(rawValue: kindStr) else { continue }
-
-            let valueInt: Int? = row["value"]
-            let stateStr: String = row["state"]
-            let reasonStr: String = (row["reason"] as String?) ?? ""
-            let availability: MetricAvailability
-            switch stateStr {
-            case ObservationStateTag.available.rawValue:
-                availability = .available
-            case ObservationStateTag.knownZero.rawValue:
-                availability = .knownZero(reason: reasonStr)
-            case ObservationStateTag.excluded.rawValue:
-                availability = .excluded(reason: reasonStr)
-            default:
-                availability = .missing(reason: reasonStr)
-            }
-
-            let contribJSON: String = row["contributors_json"]
-            let contributors = try decoder.decode([MetricContributor].self, from: Data(contribJSON.utf8))
-            scoresByDayAndKind[dayKeyStr, default: [:]][kind] = MetricScore(
-                kind: kind,
-                value: valueInt,
-                availability: availability,
-                badge: row["badge"],
-                subtitle: row["subtitle"],
-                baselineDelta: row["baseline_delta"],
-                algorithmVersion: .scoreV2,
-                contributors: contributors
+        let cachedDays: [DailyComputedDay]
+        do {
+            cachedDays = try BodySeekRepository.loadComputedDaysSync(
+                db: db,
+                rawDays: rawDays,
+                algorithmVersion: .scoreV2
             )
+        } catch {
+            Self.logger.error("Failed decoding cached computed days, recomputing: \(error.localizedDescription, privacy: .public)")
+            cachedDays = []
         }
-
-        struct ArtifactRecord {
-            let date: Date
-            let energyCurve: [EnergyCurvePoint]
-            let stressTimeline: [StressTimelineBin]
-            let factualSummary: String
-            let evidenceSummary: String
-        }
-        var artifactsByDay: [String: ArtifactRecord] = [:]
-        for row in artifactRows {
-            let dayKeyStr: String = row["day_key"]
-            let curve = try decoder.decode([EnergyCurvePoint].self, from: Data((row["energy_curve_json"] as String).utf8))
-            let stress = try decoder.decode([StressTimelineBin].self, from: Data((row["stress_timeline_json"] as String).utf8))
-            artifactsByDay[dayKeyStr] = ArtifactRecord(
-                date: Date(timeIntervalSince1970: row["date"]),
-                energyCurve: curve,
-                stressTimeline: stress,
-                factualSummary: row["factual_summary"],
-                evidenceSummary: row["evidence_summary"]
-            )
-        }
-
-        var existingByDayKey: [DayKey: DailyComputedDay] = [:]
-        for raw in rawDays {
-            let key = raw.dayKey ?? raw.date.physiologicalDayKey(cutoverHour: 4, timeZone: calendar.timeZone)
-            let keyStr = key.isoString
-            if let scores = scoresByDayAndKind[keyStr],
-               scores.count == MetricKind.allCases.count,
-               let rec = scores[.recovery],
-               let slp = scores[.sleep],
-               let str = scores[.strain],
-               let sts = scores[.stress],
-               let eng = scores[.energy],
-               let artifact = artifactsByDay[keyStr]
-            {
-                existingByDayKey[key] = DailyComputedDay(
-                    date: artifact.date,
-                    dayKey: key,
-                    raw: raw,
-                    recovery: rec,
-                    sleep: slp,
-                    strain: str,
-                    stress: sts,
-                    energy: eng,
-                    energyCurve: artifact.energyCurve,
-                    stressTimeline: artifact.stressTimeline,
-                    factualSummary: artifact.factualSummary,
-                    evidenceSummary: artifact.evidenceSummary,
-                    algorithmVersion: .scoreV2
-                )
-            }
-        }
+        let existingByDayKey = Dictionary(
+            cachedDays.map { ($0.dayKey, $0) },
+            uniquingKeysWith: { _, latest in latest }
+        )
 
         let snapshot = BevelScoringEngine.recomputeIncremental(
             existingByDayKey: existingByDayKey,

@@ -138,11 +138,19 @@ public final class BodySeekRepository: Sendable {
                 }
             }
         }
-        let placeholders = Array(repeating: "?", count: affected.count).joined(separator: ",")
-        try db.execute(
-            sql: "DELETE FROM day_computed_artifact WHERE day_key IN (\(placeholders))",
-            arguments: StatementArguments(Array(affected))
-        )
+        let affectedKeys = Array(affected)
+        // Stay below conservative SQLite host-parameter limits on large backfills.
+        let chunkSize = 500
+        var offset = 0
+        while offset < affectedKeys.count {
+            let chunk = affectedKeys[offset..<min(offset + chunkSize, affectedKeys.count)]
+            let placeholders = Array(repeating: "?", count: chunk.count).joined(separator: ",")
+            try db.execute(
+                sql: "DELETE FROM day_computed_artifact WHERE day_key IN (\(placeholders))",
+                arguments: StatementArguments(Array(chunk))
+            )
+            offset += chunk.count
+        }
     }
 
     public func upsertDayMetrics(_ records: [DayMetricRecord]) async throws {
@@ -827,6 +835,146 @@ public final class BodySeekRepository: Sendable {
         }
     }
 
+    /// Loads cached `score-v2` computed days plus their raw inputs. SyncEngine uses this
+    /// to reuse untouched days instead of recomputing the whole three-year window.
+    public func loadComputedDays(
+        from startKey: DayKey? = nil,
+        to endKey: DayKey? = nil,
+        calendar: Calendar = .current
+    ) async throws -> [DailyComputedDay] {
+        try await database.writer.read { db in
+            let rawDays = try Self.loadRawDaysSync(db: db, from: startKey, to: endKey, calendar: calendar)
+            return try Self.loadComputedDaysSync(
+                db: db,
+                rawDays: rawDays,
+                from: startKey,
+                to: endKey,
+                algorithmVersion: .scoreV2
+            )
+        }
+    }
+
+    /// Same as `loadComputedDays(from:to:)` when the caller already loaded the raw days,
+    /// avoiding a second full raw-day query during sync.
+    public func loadComputedDays(
+        rawDays: [DailyRawMetrics],
+        from startKey: DayKey? = nil,
+        to endKey: DayKey? = nil,
+        algorithmVersion: AlgorithmVersion = .scoreV2
+    ) async throws -> [DailyComputedDay] {
+        try await database.writer.read { db in
+            try Self.loadComputedDaysSync(
+                db: db,
+                rawDays: rawDays,
+                from: startKey,
+                to: endKey,
+                algorithmVersion: algorithmVersion
+            )
+        }
+    }
+
+    static func loadComputedDaysSync(
+        db: Database,
+        rawDays: [DailyRawMetrics],
+        from startKey: DayKey? = nil,
+        to endKey: DayKey? = nil,
+        algorithmVersion: AlgorithmVersion
+    ) throws -> [DailyComputedDay] {
+        var artifactSQL = """
+            SELECT day_key, date, energy_curve_json, stress_timeline_json,
+                   factual_summary, evidence_summary, algorithm_version
+            FROM day_computed_artifact
+            WHERE algorithm_version = ?
+            """
+        var artifactArgs: [DatabaseValueConvertible?] = [algorithmVersion.description]
+        if let startKey {
+            artifactSQL += " AND day_key >= ?"
+            artifactArgs.append(startKey.isoString)
+        }
+        if let endKey {
+            artifactSQL += " AND day_key <= ?"
+            artifactArgs.append(endKey.isoString)
+        }
+        artifactSQL += " ORDER BY day_key ASC"
+        let artifactRows = try Row.fetchAll(db, sql: artifactSQL, arguments: StatementArguments(artifactArgs))
+
+        var scoreSQL = """
+            SELECT day_key, kind, value, state, reason, baseline_delta, badge, subtitle,
+                   contributors_json, algorithm_version
+            FROM score_snapshot
+            WHERE algorithm_version = ?
+            """
+        var scoreArgs: [DatabaseValueConvertible?] = [algorithmVersion.description]
+        if let startKey {
+            scoreSQL += " AND day_key >= ?"
+            scoreArgs.append(startKey.isoString)
+        }
+        if let endKey {
+            scoreSQL += " AND day_key <= ?"
+            scoreArgs.append(endKey.isoString)
+        }
+        let scoreRows = try Row.fetchAll(db, sql: scoreSQL, arguments: StatementArguments(scoreArgs))
+        var scoresByDay: [String: [String: MetricScore]] = [:]
+        for row in scoreRows {
+            guard let kind = MetricKind(rawValue: row["kind"]) else { continue }
+            let stateRaw: String = row["state"]
+            let reason: String? = row["reason"]
+            let availability: MetricAvailability
+            switch stateRaw {
+            case "available": availability = .available
+            case "knownZero": availability = .knownZero(reason: reason ?? "")
+            case "missing": availability = .missing(reason: reason ?? "")
+            case "excluded": availability = .excluded(reason: reason ?? "")
+            default: continue
+            }
+            let contributors: [MetricContributor] = try Self.decodeJSON(row["contributors_json"] as String, as: [MetricContributor].self)
+            scoresByDay[row["day_key"], default: [:]][kind.rawValue] = MetricScore(
+                kind: kind,
+                value: row["value"],
+                availability: availability,
+                badge: row["badge"],
+                subtitle: row["subtitle"],
+                baselineDelta: row["baseline_delta"],
+                algorithmVersion: algorithmVersion,
+                contributors: contributors
+            )
+        }
+
+        let rawByKey = Dictionary(rawDays.map { ($0.dayKey?.isoString ?? "", $0) }, uniquingKeysWith: { first, _ in first })
+        var result: [DailyComputedDay] = []
+        result.reserveCapacity(artifactRows.count)
+        for row in artifactRows {
+            let key: String = row["day_key"]
+            guard let raw = rawByKey[key],
+                  let dayKey = DayKey(isoString: key),
+                  let dayScores = scoresByDay[key],
+                  let recovery = dayScores[MetricKind.recovery.rawValue],
+                  let sleep = dayScores[MetricKind.sleep.rawValue],
+                  let strain = dayScores[MetricKind.strain.rawValue],
+                  let stress = dayScores[MetricKind.stress.rawValue],
+                  let energy = dayScores[MetricKind.energy.rawValue]
+            else { continue }
+            let curve: [EnergyCurvePoint] = try Self.decodeJSON(row["energy_curve_json"] as String, as: [EnergyCurvePoint].self)
+            let timeline: [StressTimelineBin] = try Self.decodeJSON(row["stress_timeline_json"] as String, as: [StressTimelineBin].self)
+            result.append(DailyComputedDay(
+                date: Date(timeIntervalSince1970: row["date"]),
+                dayKey: dayKey,
+                raw: raw,
+                recovery: recovery,
+                sleep: sleep,
+                strain: strain,
+                stress: stress,
+                energy: energy,
+                energyCurve: curve,
+                stressTimeline: timeline,
+                factualSummary: row["factual_summary"],
+                evidenceSummary: row["evidence_summary"],
+                algorithmVersion: algorithmVersion
+            ))
+        }
+        return result
+    }
+
     // MARK: - Check-ins, Plans, Memories, Patterns, Audits
 
     public func saveCheckIn(_ checkIn: DailyCheckIn) async throws {
@@ -1429,17 +1577,20 @@ public final class BodySeekRepository: Sendable {
         }
     }
 
-    public func loadAuditEntries() async throws -> [ActionAuditEntry] {
+    public func loadAuditEntries(limit: Int? = nil) async throws -> [ActionAuditEntry] {
         try await database.writer.read { db in
-            let rows = try Row.fetchAll(
-                db,
-                sql: """
+            var sql = """
                 SELECT id, proposal_json, origin, decision, decided_at, affected_ids_json,
                        snapshot_version, snapshot_json, undo_of, undone_by
                 FROM action_audit
                 ORDER BY decided_at DESC
                 """
-            )
+            var arguments = StatementArguments()
+            if let limit {
+                sql += " LIMIT ?"
+                arguments = StatementArguments([max(0, limit)])
+            }
+            let rows = try Row.fetchAll(db, sql: sql, arguments: arguments)
             return try rows.compactMap(Self.decodeAuditEntry)
         }
     }
