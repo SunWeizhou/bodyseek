@@ -35,7 +35,10 @@ public struct CoachFeature: Sendable {
         public var dismissedAnnotationProposalMessageIDs: Set<UUID> = []
         public var confirmedMemoryProposalMessageIDs: Set<UUID> = []
         public var confirmedAnnotationProposalMessageIDs: Set<UUID> = []
+        public var annotationCandidateSelections: [UUID: CoachWorkoutAnnotationProposal] = [:]
+        public var undoneAnnotationMessageIDs: Set<UUID> = []
         var pendingAnnotationDecisionMessageIDs: Set<UUID> = []
+        var pendingAnnotationUndoMessageIDs: Set<UUID> = []
         public var lastError: String?
 
         public init(
@@ -114,10 +117,14 @@ public struct CoachFeature: Sendable {
         case memoryProposalCommitted(messageID: UUID, memory: TieredMemoryRecord)
         case dismissMemoryProposalTapped(UUID)
         case confirmAnnotationProposalTapped(messageID: UUID, proposal: CoachWorkoutAnnotationProposal)
+        case selectAnnotationCandidate(messageID: UUID, candidate: CoachWorkoutAnnotationCandidate)
         case annotationProposalCommitted(messageID: UUID, proposal: CoachWorkoutAnnotationProposal)
         case dismissAnnotationProposalTapped(UUID)
         case annotationProposalRejected(UUID)
         case annotationDecisionFailed(UUID, String)
+        case undoAnnotationTapped(messageID: UUID)
+        case annotationUndone(messageID: UUID)
+        case annotationUndoFailed(messageID: UUID, String)
         case memorySheetPresented(Bool)
         case deleteMemoryTapped(UUID)
         case retireTieredMemoryTapped(UUID)
@@ -134,6 +141,7 @@ public struct CoachFeature: Sendable {
             case tieredMemoriesUpdated([TieredMemoryRecord])
             case patternFindingsUpdated([PatternFindingRecord])
             case workoutAnnotationCommitted
+            case workoutAnnotationUndone
             case openSettings
         }
     }
@@ -196,6 +204,8 @@ public struct CoachFeature: Sendable {
                 state.dismissedAnnotationProposalMessageIDs.removeAll()
                 state.confirmedMemoryProposalMessageIDs.removeAll()
                 state.confirmedAnnotationProposalMessageIDs.removeAll()
+                state.annotationCandidateSelections.removeAll()
+                state.undoneAnnotationMessageIDs.removeAll()
                 state.messages = [State.makeWelcomeMessage()]
                 return .none
 
@@ -280,9 +290,44 @@ public struct CoachFeature: Sendable {
             case let .confirmAnnotationProposalTapped(messageID, proposal):
                 return decideAnnotation(messageID: messageID, proposal: proposal, decision: .applied, state: &state)
 
+            case let .selectAnnotationCandidate(messageID, candidate):
+                state.annotationCandidateSelections[messageID] = candidate.proposal
+                return .none
+
+            case let .undoAnnotationTapped(messageID):
+                let message = state.messages.first(where: { $0.id == messageID })
+                let committed = message?.annotationDecision == .applied
+                    || state.confirmedAnnotationProposalMessageIDs.contains(messageID)
+                guard !state.pendingAnnotationUndoMessageIDs.contains(messageID),
+                      !state.undoneAnnotationMessageIDs.contains(messageID),
+                      committed
+                else { return .none }
+                state.pendingAnnotationUndoMessageIDs.insert(messageID)
+                return .run { send in
+                    do {
+                        _ = try await bodySeekStoreClient.undoWorkoutAnnotation(messageID)
+                        await send(.annotationUndone(messageID: messageID))
+                    } catch {
+                        await send(.annotationUndoFailed(messageID: messageID, "撤销训练标注失败：\(error.localizedDescription)"))
+                    }
+                }
+
+            case let .annotationUndone(messageID):
+                state.pendingAnnotationUndoMessageIDs.remove(messageID)
+                state.undoneAnnotationMessageIDs.insert(messageID)
+                state.confirmedAnnotationProposalMessageIDs.remove(messageID)
+                state.annotationCandidateSelections[messageID] = nil
+                return .send(.delegate(.workoutAnnotationUndone))
+
+            case let .annotationUndoFailed(messageID, message):
+                state.pendingAnnotationUndoMessageIDs.remove(messageID)
+                state.lastError = message
+                return .none
+
             case let .annotationProposalCommitted(messageID, _):
                 state.pendingAnnotationDecisionMessageIDs.remove(messageID)
                 state.confirmedAnnotationProposalMessageIDs.insert(messageID)
+                state.undoneAnnotationMessageIDs.remove(messageID)
                 return .send(.delegate(.workoutAnnotationCommitted))
 
             case let .dismissAnnotationProposalTapped(messageID):
@@ -417,7 +462,8 @@ public struct CoachFeature: Sendable {
                     encodablePayload: AnnotateWorkoutPayload(
                         workoutUUID: proposal.workoutUUID, rawText: proposal.rawText,
                         parserVersion: proposal.proposal.parserVersion, muscleLoads: proposal.muscleLoads,
-                        coachAnnotationDecision: decision
+                        coachAnnotationDecision: decision,
+                        expectedRecordState: proposal.recordState
                     )
                 )
                 let audit = try await bodySeekStoreClient.executeProposal(action)

@@ -1265,6 +1265,7 @@ public final class BodySeekRepository: Sendable {
     private struct CoachMessageTraceMetadata: Codable {
         let memoryProposal: TieredMemoryRecord?
         let workoutAnnotationProposal: CoachWorkoutAnnotationProposal?
+        let workoutAnnotationCandidates: [CoachWorkoutAnnotationCandidate]?
         let unverifiedNumbers: [String]
         let toolsInvoked: [String]
     }
@@ -1275,9 +1276,11 @@ public final class BodySeekRepository: Sendable {
                 db,
                 sql: """
                 SELECT m.id, m.role, m.content, m.engine_label, m.evidence_metric, m.proposal_json, m.memory_note,
-                       m.tool_trace_json, m.at, a.decision AS annotation_decision
+                       m.tool_trace_json, m.at, a.decision AS annotation_decision,
+                       u.decision AS undo_decision
                 FROM coach_message m
                 LEFT JOIN action_audit a ON a.id = m.id
+                LEFT JOIN action_audit u ON u.undo_of = m.id AND u.decision = 'undone'
                 WHERE thread_id = ?
                 ORDER BY at ASC
                 """,
@@ -1313,7 +1316,8 @@ public final class BodySeekRepository: Sendable {
                 }
                 let at = Date(timeIntervalSince1970: row["at"])
                 let persistedDecision = (row["annotation_decision"] as String?).flatMap(ActionAuditDecision.init(rawValue:))
-                let annotationDecision = persistedDecision ?? trace?.workoutAnnotationProposal.flatMap { proposal in
+                let undoDecision = (row["undo_decision"] as String?).flatMap(ActionAuditDecision.init(rawValue:))
+                let annotationDecision = undoDecision ?? persistedDecision ?? trace?.workoutAnnotationProposal.flatMap { proposal in
                     legacyAnnotations.contains { payload, decidedAt in
                         decidedAt >= at && payload.workoutUUID == proposal.workoutUUID
                             && payload.rawText == proposal.rawText
@@ -1332,6 +1336,7 @@ public final class BodySeekRepository: Sendable {
                     memorySavedNote: row["memory_note"],
                     memoryProposal: trace?.memoryProposal,
                     workoutAnnotationProposal: trace?.workoutAnnotationProposal,
+                    workoutAnnotationCandidates: trace?.workoutAnnotationCandidates ?? [],
                     annotationDecision: annotationDecision,
                     unverifiedNumbers: trace?.unverifiedNumbers ?? [],
                     toolsInvoked: trace?.toolsInvoked ?? []
@@ -1348,6 +1353,7 @@ public final class BodySeekRepository: Sendable {
         }
         let hasTrace = msg.memoryProposal != nil
             || msg.workoutAnnotationProposal != nil
+            || !msg.workoutAnnotationCandidates.isEmpty
             || !msg.unverifiedNumbers.isEmpty
             || !msg.toolsInvoked.isEmpty
         let traceJSON: String? = if hasTrace {
@@ -1355,6 +1361,7 @@ public final class BodySeekRepository: Sendable {
                 CoachMessageTraceMetadata(
                     memoryProposal: msg.memoryProposal,
                     workoutAnnotationProposal: msg.workoutAnnotationProposal,
+                    workoutAnnotationCandidates: msg.workoutAnnotationCandidates.isEmpty ? nil : msg.workoutAnnotationCandidates,
                     unverifiedNumbers: msg.unverifiedNumbers,
                     toolsInvoked: msg.toolsInvoked
                 ),
@@ -1426,7 +1433,12 @@ public final class BodySeekRepository: Sendable {
         try await database.writer.read { db in
             let rows = try Row.fetchAll(
                 db,
-                sql: "SELECT id, proposal_json, origin, decision, decided_at, affected_ids_json FROM action_audit ORDER BY decided_at DESC"
+                sql: """
+                SELECT id, proposal_json, origin, decision, decided_at, affected_ids_json,
+                       snapshot_version, snapshot_json, undo_of, undone_by
+                FROM action_audit
+                ORDER BY decided_at DESC
+                """
             )
             return try rows.compactMap(Self.decodeAuditEntry)
         }
@@ -1440,13 +1452,19 @@ public final class BodySeekRepository: Sendable {
             return nil
         }
         let affected = try Self.decodeJSON(row["affected_ids_json"] as String, as: [String].self)
+        let undoOf: UUID? = (row["undo_of"] as String?).flatMap(UUID.init(uuidString:))
+        let undoneBy: UUID? = (row["undone_by"] as String?).flatMap(UUID.init(uuidString:))
         return ActionAuditEntry(
             id: id,
             proposalJSON: row["proposal_json"],
             origin: origin,
             decision: decision,
             decidedAt: Date(timeIntervalSince1970: row["decided_at"]),
-            affectedIDs: affected
+            affectedIDs: affected,
+            snapshotVersion: (row["snapshot_version"] as Int?) ?? 1,
+            snapshotJSON: row["snapshot_json"],
+            undoOf: undoOf,
+            undoneBy: undoneBy
         )
     }
 

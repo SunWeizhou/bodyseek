@@ -113,3 +113,13 @@
 工作树基线为 `b03f2bb8`。复用现有 `HKAnchoredObjectQuery` 消费明确的已删训练 UUID。GRDB 迁移保留删除记录与原日期，防止旧快照重新写入，重试仍能重算受影响的日期。独立的手动训练保留。锚点数据缺少详细心率区间时保留已有区间。 [Apple HealthKit 删除对象](https://developer.apple.com/documentation/healthkit/hkdeletedobject)
 
 `swift test --package-path BodySeekKit --disable-automatic-resolution` 退出码 0。锚点测试覆盖首次删除、重试、旧训练回写与保留其他训练。真实 Apple Watch 和真机回流仍待实测。
+
+## 9. 2026-11-21 Coach Watch 标注、跨页刷新与撤销（工单 2）
+
+在工单 1 提交后继续。云端工具与 Apple Foundation Models 共用 `WorkoutAnnotationResolver`，统一解析「今天/昨天/前天/昨晚/昨夜/前晚」和显式 UUID。「昨晚」按本地夜间窗口 `[前一日 18:00, 当日 06:00]` 处理，覆盖午夜至 04:00 的训练；无日期时取近 72 小时待复盘力量训练；删除 UUID、未来结束、无候选、多候选、日期与 UUID 冲突分别返回缺失、选择卡或澄清。
+
+确认卡绑定训练开始/结束、类型、复盘状态和最新标注。提交在 `ActionExecutor` 单事务内重查删除标记与记录状态，展示后变化会拒绝写入。`action_audit` 新增 v5 迁移：`snapshot_version`、`snapshot_json`、`undo_of`、`undone_by`，旧审计保持可读且 `decided_at` 仍为 DOUBLE。撤销按原操作 ID 定位，原子恢复标注、肌群负荷与复盘状态；已撤销重复调用返回原撤销审计，手改/删除/旧审计无快照分别提示冲突或不支持。
+
+- `swift test --package-path BodySeekKit --disable-automatic-resolution` 退出码 0。`WorkoutAnnotationUndoTests` 覆盖提交快照、幂等重试、无标注/已有标注两种恢复、再次撤销、手改冲突、删除冲突、旧审计、拒绝重试、提交前记录变化；`WorkoutAnnotationResolutionTests` 覆盖 02:00 的昨晚、昨天生理日、72 小时唯一/多候选、删除、UUID/日期冲突；`MigrationV5Tests` 从真实 v4 结构（旧审计 + 删除标记）升级。
+- `xcodebuild test -project Vela.xcodeproj -scheme Vela -destination 'id=3BB779BD-022F-4E60-A3BB-70DC5A0BF987' -only-testing:VelaUITests` 退出码 0，13 项中 12 项通过、1 项按预期跳过。新增 `testCoachAnnotationConfirmAndUndo` 在 iPhone 17 Pro / iOS 26.5 模拟器验证：唯一候选确认 → “已保存训练复盘” → 撤销 → “已撤销这次训练标注” → 切到健身页 → 返回 Coach 仍显示撤销卡。
+- 未验证：真实 Apple Watch 训练回流、真机上的 Coach 端侧模型、退出重开 App 后真实 GRDB 文件上的撤销回执（存储层已覆盖加载路径，但未做真机重启）。真实设备安装与在线模型未在本轮执行。

@@ -200,10 +200,29 @@ public struct CoachView: View {
                     memoryProposalCard(memProposal, messageID: msg.id)
                 }
 
-                if let annotationProposal = msg.workoutAnnotationProposal, msg.annotationDecision != .rejected,
-                   !store.dismissedAnnotationProposalMessageIDs.contains(msg.id)
+                if msg.annotationDecision == .undone || store.undoneAnnotationMessageIDs.contains(msg.id) {
+                    annotationUndoneCard(msg)
+                } else if let selected = store.annotationCandidateSelections[msg.id] {
+                    workoutAnnotationProposalCard(
+                        selected,
+                        messageID: msg.id,
+                        applied: msg.annotationDecision == .applied,
+                        undone: false
+                    )
+                } else if msg.workoutAnnotationCandidates.count > 1, msg.workoutAnnotationProposal == nil,
+                          msg.annotationDecision == nil,
+                          !store.dismissedAnnotationProposalMessageIDs.contains(msg.id)
                 {
-                    workoutAnnotationProposalCard(annotationProposal, messageID: msg.id, applied: msg.annotationDecision == .applied)
+                    annotationCandidateCard(msg.workoutAnnotationCandidates, messageID: msg.id)
+                } else if let annotationProposal = msg.workoutAnnotationProposal, msg.annotationDecision != .rejected,
+                          !store.dismissedAnnotationProposalMessageIDs.contains(msg.id)
+                {
+                    workoutAnnotationProposalCard(
+                        annotationProposal,
+                        messageID: msg.id,
+                        applied: msg.annotationDecision == .applied || store.confirmedAnnotationProposalMessageIDs.contains(msg.id),
+                        undone: msg.annotationDecision == .undone
+                    )
                 }
 
                 if let metric = msg.evidenceMetric {
@@ -284,8 +303,82 @@ public struct CoachView: View {
         .accessibilityIdentifier("coach-memory-proposal-card")
     }
 
-    private func workoutAnnotationProposalCard(_ proposal: CoachWorkoutAnnotationProposal, messageID: UUID, applied: Bool) -> some View {
+    private func annotationCandidateCard(
+        _ candidates: [CoachWorkoutAnnotationCandidate],
+        messageID: UUID
+    ) -> some View {
+        BevelCard(padding: 12) {
+            VStack(alignment: .leading, spacing: 8) {
+                Label("选择要复盘的训练", systemImage: "list.bullet.rectangle")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(BevelTheme.strainColor)
+                Text("找到 \(candidates.count) 条 Watch 训练，请按开始时间和类型选择。")
+                    .font(.caption2)
+                    .foregroundStyle(BevelTheme.inkSecondary)
+                ForEach(candidates) { candidate in
+                    Button {
+                        store.send(.selectAnnotationCandidate(messageID: messageID, candidate: candidate))
+                    } label: {
+                        HStack(spacing: 10) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(candidate.proposal.workoutTitle)
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(BevelTheme.ink)
+                                Text(candidate.start, format: .dateTime.month().day().hour().minute())
+                                    .font(.caption2)
+                                    .foregroundStyle(BevelTheme.inkSecondary)
+                            }
+                            Spacer()
+                            Text(candidate.reviewState == .unreviewed ? "待复盘" : "已记录")
+                                .font(.caption2)
+                                .foregroundStyle(BevelTheme.inkSecondary)
+                            Image(systemName: "chevron.right")
+                                .font(.caption2)
+                                .foregroundStyle(BevelTheme.inkSecondary)
+                        }
+                        .padding(.vertical, 6)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("coach-annotation-candidate-\(candidate.proposal.workoutUUID)")
+                    if candidate.id != candidates.last?.id {
+                        Divider().overlay(BevelTheme.hairline)
+                    }
+                }
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("coach-annotation-candidate-card")
+    }
+
+    private func annotationUndoneCard(_ message: CoachMessage) -> some View {
+        BevelCard(padding: 12) {
+            VStack(alignment: .leading, spacing: 6) {
+                Label("这次训练标注已撤销", systemImage: "arrow.uturn.backward.circle")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(BevelTheme.inkSecondary)
+                if let proposal = message.workoutAnnotationProposal {
+                    Text("\(proposal.workoutTitle) ← “\(proposal.rawText)”")
+                        .font(.caption2)
+                        .foregroundStyle(BevelTheme.inkSecondary)
+                }
+                Text("训练记录、肌群负荷和复盘状态已恢复到提交前。")
+                    .font(.caption2)
+                    .foregroundStyle(BevelTheme.inkSecondary)
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("coach-annotation-undone-card")
+    }
+
+    private func workoutAnnotationProposalCard(
+        _ proposal: CoachWorkoutAnnotationProposal,
+        messageID: UUID,
+        applied: Bool,
+        undone: Bool
+    ) -> some View {
         let isCommitted = applied || store.confirmedAnnotationProposalMessageIDs.contains(messageID)
+        let isUndone = undone || store.undoneAnnotationMessageIDs.contains(messageID)
         return BevelCard(padding: 12) {
             VStack(alignment: .leading, spacing: 8) {
                 Label("保存这次训练复盘？", systemImage: "text.bubble.fill")
@@ -305,10 +398,27 @@ public struct CoachView: View {
                     .font(.caption2)
                     .foregroundStyle(BevelTheme.inkSecondary)
 
-                if isCommitted {
-                    Label("已保存训练复盘", systemImage: "checkmark.circle.fill")
+                if isUndone {
+                    Label("已撤销这次标注", systemImage: "arrow.uturn.backward.circle.fill")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(BevelTheme.recoveryColor)
+                        .foregroundStyle(BevelTheme.inkSecondary)
+                } else if isCommitted {
+                    HStack {
+                        Label("已保存训练复盘", systemImage: "checkmark.circle.fill")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(BevelTheme.recoveryColor)
+                        Spacer()
+                        Button {
+                            store.send(.undoAnnotationTapped(messageID: messageID))
+                        } label: {
+                            Text("撤销")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(BevelTheme.dangerColor)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(store.pendingAnnotationDecisionMessageIDs.contains(messageID))
+                        .accessibilityIdentifier("coach-annotation-undo")
+                    }
                 } else {
                     HStack(spacing: 10) {
                         Button {

@@ -187,6 +187,66 @@ final class WorkoutAndCoachReducerTests: XCTestCase {
         XCTAssertEqual(auditCountAfterRetire, 2)
     }
 
+    func testCoachAnnotationCandidateSelectionBindsOneWorkout() async throws {
+        let now = Date(timeIntervalSince1970: 1_760_000_000)
+        let snapshot = BevelScoringEngine.computeWindow(
+            rawDays: PreviewSeedFactory.makeRawWindow(endingAt: now, days: 14),
+            sleepGoalMinutes: 450,
+            referenceDate: now,
+            sourceLabel: "示例数据",
+            isAuthorized: true
+        )
+        let start = now.addingTimeInterval(-12 * 3600)
+        let parsed = ChineseWorkoutLexiconParser.parse("昨晚练腿，深蹲 5 组 RPE 8")
+        let proposal = CoachWorkoutAnnotationProposal(
+            workoutUUID: "W-COACH-1",
+            workoutTitle: "传统力量训练",
+            rawText: "昨晚练腿，深蹲 5 组 RPE 8",
+            proposal: parsed,
+            muscleLoads: [],
+            recordState: WorkoutAnnotationRecordState(
+                workoutUUID: "W-COACH-1",
+                start: start,
+                end: start.addingTimeInterval(3600),
+                type: "传统力量训练",
+                reviewState: .unreviewed
+            )
+        )
+        let candidate = CoachWorkoutAnnotationCandidate(
+            proposal: proposal,
+            start: start,
+            end: start.addingTimeInterval(3600),
+            dayKey: "2026-10-13",
+            source: "healthkit",
+            reviewState: .unreviewed
+        )
+        let messageID = UUID(uuidString: "00000000-0000-4000-8000-000000000099")!
+        var state = CoachFeature.State(snapshot: snapshot)
+        state.messages = [
+            CoachMessage(
+                id: messageID,
+                role: .assistant,
+                text: "找到两条训练，请选择。",
+                timestamp: now,
+                workoutAnnotationCandidates: [candidate]
+            ),
+        ]
+
+        let store = TestStore(initialState: state) {
+            CoachFeature()
+        } withDependencies: {
+            $0.bodySeekStoreClient = .previewValue
+            $0.fitnessStoreClient = .previewValue
+            $0.date.now = now
+            $0.uuid = .incrementing
+        }
+        store.exhaustivity = .off
+
+        await store.send(.selectAnnotationCandidate(messageID: messageID, candidate: candidate))
+        XCTAssertEqual(store.state.annotationCandidateSelections[messageID]?.workoutUUID, "W-COACH-1")
+        XCTAssertEqual(store.state.annotationCandidateSelections[messageID]?.recordState?.latestAnnotationID, nil)
+    }
+
     func testCoachCandidatePatternPromotionAndTodayProactiveInsights() async throws {
         let now = Date(timeIntervalSince1970: 1_760_000_000)
         let snapshot = BevelScoringEngine.computeWindow(

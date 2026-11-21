@@ -163,3 +163,15 @@
 `swift test --package-path BodySeekKit --disable-automatic-resolution` 退出码 0，63 项包测试和 22 项 Agent 测试通过。iPhone 17 Pro / iOS 26.5 模拟器的全天草稿确认回归通过，产物为 `/tmp/bodyseek-micro-ui.xcresult`。在线模型的估算质量待实测。
 
 扩展估算版的 Vela Debug 通用 iOS 构建成功，日志 `/tmp/bodyseek-micro-phone-build.log`。已覆盖安装至 iPhone 16 Pro，安装序列 `1916`。启动请求被设备锁屏拦截，线上估算仍待实测。
+
+## 10. 2026-11-21 Coach 近 7 天恢复取证（工单 1）
+
+基线为 `03051a4d`（工单 1 提交）。本轮新增 `get_weekly_recovery_evidence`，云端与 Apple Foundation Models 共用 `WeeklyRecoveryEvidenceBuilder` 的确定性查询。目标窗是最近 7 个本地 04:00 生理日，对照窗是此前不重叠的 28 个生理日；逐日五项、睡眠、训练、体感和饮食按同一时间线返回，覆盖率与统计样本数分列，四态和已知零保持原样。饮食只给保存时间，进食时刻保持未知；咖啡名称作为未确认线索。证据信封新增带 metric/window/day/unit/estimated 的 `evidence` facts，核验器会拒绝错日期、错指标和错单位。
+
+改前使用同一问题从当前 `get_metric_trend` 取证：30 天 `median=69`、`deltaFromFirstHalf=+3`、`coverage=1.0`（30 条记录），没有 7/28 拆分、逐日观测、睡眠/训练/体感/饮食时间线，预览回复无法回答“为什么下降”。
+
+改后同一夹具（35 天预览种子）：目标 7 天恢复中位 77，对照 28 天中位 68，变化 +9，方向 improved；对照覆盖 26/28、样本 26、缺失 2、排除 0，逐日 7 天和 120 条证据 facts 一并返回。因此正确首答是“没有下降”，而不是编造下降原因。
+
+- `swift test --package-path BodySeekKit --disable-automatic-resolution` 退出码 0，89 项包测试和 22 项 Agent 测试通过。`WeeklyRecoveryEvidenceTests` 覆盖 04:00 切日、未来日期、当前日部分、窗口不重叠、3 天缺失 + 2 天排除得到 23/28 覆盖与 23 样本、已知零、同日 09:00 力量与 20:00 羽毛球各计一次、缺失睡眠、咖啡时间未知，以及错日期/错指标/错单位/数值替换负例。Agent 评测新增 W1 用例，31/31 通过。
+- `xcodebuild test -project Vela.xcodeproj -scheme Vela -destination 'id=3BB779BD-022F-4E60-A3BB-70DC5A0BF987' -only-testing:VelaUITests` 退出码 0，13 项中 12 项通过、1 项按预期跳过。
+- 未验证：线上 DeepSeek/OpenAI 对同一问题的实际回复质量、Apple 端侧 `FoundationModels` 真机调用、真机 HealthKit 数据。上述 7/28 数值来自固定合成夹具，不是临床证据。

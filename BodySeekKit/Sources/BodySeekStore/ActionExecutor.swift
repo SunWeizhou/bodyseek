@@ -26,6 +26,8 @@ public final class ActionExecutor: Sendable {
                 let affectedIDs: [String]
                 var auditID = UUID()
                 var decision = ActionAuditDecision.applied
+                var snapshotVersion = 1
+                var snapshotJSON: String?
                 switch proposal.kind {
                 case .annotateWorkout:
                     let payload = try proposal.decodePayload(AnnotateWorkoutPayload.self)
@@ -44,16 +46,49 @@ public final class ActionExecutor: Sendable {
                             break
                         }
                     }
-                    let exists = try Int.fetchOne(
+                    if try Self.isWorkoutDeleted(db, uuid: payload.workoutUUID) {
+                        throw BodySeekDatabaseError.recordDeleted(table: "workout", key: payload.workoutUUID)
+                    }
+                    guard let beforeReviewRaw = try String.fetchOne(
                         db,
-                        sql: "SELECT COUNT(*) FROM workout WHERE hk_uuid = ?",
+                        sql: "SELECT review_state FROM workout WHERE hk_uuid = ?",
                         arguments: [payload.workoutUUID]
-                    ) ?? 0
-                    guard exists > 0 else {
+                    ) else {
                         throw BodySeekDatabaseError.foreignKeyTargetMissing(
                             table: "workout",
                             key: payload.workoutUUID
                         )
+                    }
+                    let beforeReviewState = WorkoutReviewState(rawValue: beforeReviewRaw) ?? .unreviewed
+                    let beforeAnnotations = try Self.fetchAnnotations(db, workoutUUID: payload.workoutUUID)
+                    let beforeLoads = try Self.fetchMuscleLoads(db, workoutUUID: payload.workoutUUID)
+                    if let expected = payload.expectedRecordState {
+                        guard let row = try Row.fetchOne(
+                            db,
+                            sql: "SELECT start, end, type FROM workout WHERE hk_uuid = ?",
+                            arguments: [payload.workoutUUID]
+                        ) else {
+                            throw BodySeekDatabaseError.recordDeleted(table: "workout", key: payload.workoutUUID)
+                        }
+                        let latest = beforeAnnotations.first
+                        let current = WorkoutAnnotationRecordState(
+                            workoutUUID: payload.workoutUUID,
+                            start: Date(timeIntervalSince1970: row["start"]),
+                            end: Date(timeIntervalSince1970: row["end"]),
+                            type: row["type"],
+                            reviewState: beforeReviewState,
+                            latestAnnotationID: latest?.id,
+                            latestAnnotationRawText: latest?.rawText
+                        )
+                        guard current.start == expected.start,
+                              current.end == expected.end,
+                              current.type == expected.type,
+                              current.reviewState == expected.reviewState,
+                              current.latestAnnotationID == expected.latestAnnotationID,
+                              current.latestAnnotationRawText == expected.latestAnnotationRawText
+                        else {
+                            throw BodySeekDatabaseError.recordChanged(table: "workout", key: payload.workoutUUID)
+                        }
                     }
 
                     let annotationID = UUID()
@@ -95,6 +130,23 @@ public final class ActionExecutor: Sendable {
                         sql: "UPDATE workout SET review_state = ? WHERE hk_uuid = ?",
                         arguments: [payload.reviewState.rawValue, payload.workoutUUID]
                     )
+                    let snapshot = WorkoutAnnotationUndoSnapshot(
+                        workoutUUID: payload.workoutUUID,
+                        beforeReviewState: beforeReviewState,
+                        beforeAnnotations: beforeAnnotations,
+                        beforeMuscleLoads: beforeLoads,
+                        afterAnnotationID: annotationID,
+                        afterRawText: payload.rawText,
+                        afterParserVersion: payload.parserVersion,
+                        afterReviewState: payload.reviewState,
+                        afterMuscleLoads: payload.muscleLoads
+                    )
+                    let snapshotData = try encoder.encode(snapshot)
+                    guard let encodedSnapshot = String(data: snapshotData, encoding: .utf8) else {
+                        throw BodySeekDatabaseError.invalidJSONEncoding(context: "WorkoutAnnotationUndoSnapshot")
+                    }
+                    snapshotVersion = WorkoutAnnotationUndoSnapshot.currentVersion
+                    snapshotJSON = encodedSnapshot
                     affectedIDs = [payload.workoutUUID, annotationID.uuidString]
 
                 case .commitMemory:
@@ -206,13 +258,145 @@ public final class ActionExecutor: Sendable {
                     origin: proposal.origin,
                     decision: decision,
                     decidedAt: now,
-                    affectedIDs: affectedIDs
+                    affectedIDs: affectedIDs,
+                    snapshotVersion: snapshotVersion,
+                    snapshotJSON: snapshotJSON
                 )
                 try Self.insertAuditSync(db: db, audit: audit, encoder: encoder)
                 return audit
             }
         } catch {
             Self.logger.error("ActionExecutor failed executing \(proposal.kind.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            throw error
+        }
+    }
+
+    /// Atomically restores the workout annotation state captured by the original
+    /// `annotateWorkout` audit. Refuses when the workout was deleted or changed after
+    /// the commit; repeated calls return the existing undo audit.
+    @discardableResult
+    public func undoWorkoutAnnotation(
+        originalAuditID: UUID,
+        now: Date = Date()
+    ) async throws -> ActionAuditEntry {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        do {
+            return try await database.writer.write { db in
+                if let existingRow = try Row.fetchOne(
+                    db,
+                    sql: "SELECT * FROM action_audit WHERE undo_of = ? AND decision = ?",
+                    arguments: [originalAuditID.uuidString, ActionAuditDecision.undone.rawValue]
+                ), let existing = try BodySeekRepository.decodeAuditEntry(existingRow) {
+                    return existing
+                }
+                guard let originalRow = try Row.fetchOne(
+                    db,
+                    sql: "SELECT * FROM action_audit WHERE id = ?",
+                    arguments: [originalAuditID.uuidString]
+                ), let original = try BodySeekRepository.decodeAuditEntry(originalRow) else {
+                    throw BodySeekDatabaseError.undoUnsupported(reason: "找不到原操作审计")
+                }
+                guard original.decision == .applied else {
+                    throw BodySeekDatabaseError.undoUnsupported(reason: "只有已提交的操作可以撤销")
+                }
+                guard original.snapshotVersion >= WorkoutAnnotationUndoSnapshot.currentVersion,
+                      let snapshotJSON = original.snapshotJSON,
+                      let snapshotData = snapshotJSON.data(using: .utf8),
+                      let snapshot = try? JSONDecoder().decode(WorkoutAnnotationUndoSnapshot.self, from: snapshotData)
+                else {
+                    throw BodySeekDatabaseError.undoUnsupported(reason: "旧版审计没有可撤销快照")
+                }
+                if try Self.isWorkoutDeleted(db, uuid: snapshot.workoutUUID) {
+                    throw BodySeekDatabaseError.recordDeleted(table: "workout", key: snapshot.workoutUUID)
+                }
+                guard let currentReviewRaw = try String.fetchOne(
+                    db,
+                    sql: "SELECT review_state FROM workout WHERE hk_uuid = ?",
+                    arguments: [snapshot.workoutUUID]
+                ) else {
+                    throw BodySeekDatabaseError.recordDeleted(table: "workout", key: snapshot.workoutUUID)
+                }
+                let currentReview = WorkoutReviewState(rawValue: currentReviewRaw) ?? .unreviewed
+                let currentAnnotations = try Self.fetchAnnotations(db, workoutUUID: snapshot.workoutUUID)
+                let currentLoads = try Self.fetchMuscleLoads(db, workoutUUID: snapshot.workoutUUID)
+
+                let expectedAnnotationIDs = Set(snapshot.beforeAnnotations.map(\.id)).union([snapshot.afterAnnotationID])
+                let currentAnnotationIDs = Set(currentAnnotations.map(\.id))
+                guard currentAnnotationIDs == expectedAnnotationIDs,
+                      let afterAnnotation = currentAnnotations.first(where: { $0.id == snapshot.afterAnnotationID }),
+                      afterAnnotation.rawText == snapshot.afterRawText,
+                      afterAnnotation.parserVersion == snapshot.afterParserVersion,
+                      currentReview == snapshot.afterReviewState,
+                      Self.loadsEqual(currentLoads, snapshot.afterMuscleLoads)
+                else {
+                    throw BodySeekDatabaseError.undoConflict(reason: "训练标注、肌群负荷或复盘状态已在提交后变化")
+                }
+
+                try db.execute(
+                    sql: "DELETE FROM workout_annotation WHERE workout_uuid = ?",
+                    arguments: [snapshot.workoutUUID]
+                )
+                for annotation in snapshot.beforeAnnotations {
+                    try db.execute(
+                        sql: """
+                        INSERT INTO workout_annotation (id, workout_uuid, raw_text, parser_version, confirmed_at)
+                        VALUES (?, ?, ?, ?, ?)
+                        """,
+                        arguments: [
+                            annotation.id.uuidString,
+                            annotation.workoutUUID,
+                            annotation.rawText,
+                            annotation.parserVersion.description,
+                            annotation.confirmedAt?.timeIntervalSince1970,
+                        ]
+                    )
+                }
+                try db.execute(
+                    sql: "DELETE FROM workout_muscle_load WHERE workout_uuid = ?",
+                    arguments: [snapshot.workoutUUID]
+                )
+                for load in snapshot.beforeMuscleLoads {
+                    try db.execute(
+                        sql: """
+                        INSERT INTO workout_muscle_load (workout_uuid, muscle_id, role, load, algorithm_version)
+                        VALUES (?, ?, ?, ?, ?)
+                        """,
+                        arguments: [
+                            load.workoutUUID,
+                            load.muscle.rawValue,
+                            load.role.rawValue,
+                            load.load,
+                            load.algorithmVersion.description,
+                        ]
+                    )
+                }
+                try db.execute(
+                    sql: "UPDATE workout SET review_state = ? WHERE hk_uuid = ?",
+                    arguments: [snapshot.beforeReviewState.rawValue, snapshot.workoutUUID]
+                )
+
+                let undoID = UUID()
+                let audit = ActionAuditEntry(
+                    id: undoID,
+                    proposalJSON: original.proposalJSON,
+                    origin: .user,
+                    decision: .undone,
+                    decidedAt: now,
+                    affectedIDs: [snapshot.workoutUUID, snapshot.afterAnnotationID.uuidString],
+                    snapshotVersion: WorkoutAnnotationUndoSnapshot.currentVersion,
+                    snapshotJSON: original.snapshotJSON,
+                    undoOf: originalAuditID
+                )
+                try Self.insertAuditSync(db: db, audit: audit, encoder: encoder)
+                try db.execute(
+                    sql: "UPDATE action_audit SET undone_by = ? WHERE id = ?",
+                    arguments: [undoID.uuidString, originalAuditID.uuidString]
+                )
+                return audit
+            }
+        } catch {
+            Self.logger.error("ActionExecutor failed undo \(originalAuditID.uuidString, privacy: .public): \(error.localizedDescription, privacy: .public)")
             throw error
         }
     }
@@ -254,6 +438,92 @@ public final class ActionExecutor: Sendable {
         log.dietPartialFields = fields.sorted()
     }
 
+    private static func isWorkoutDeleted(_ db: Database, uuid: String) throws -> Bool {
+        try Bool.fetchOne(
+            db,
+            sql: "SELECT 1 FROM deleted_healthkit_workout WHERE uuid = ?",
+            arguments: [uuid]
+        ) ?? false
+    }
+
+    private static func fetchAnnotations(_ db: Database, workoutUUID: String) throws -> [WorkoutAnnotationRecord] {
+        let rows = try Row.fetchAll(
+            db,
+            sql: """
+            SELECT id, workout_uuid, raw_text, parser_version, confirmed_at
+            FROM workout_annotation
+            WHERE workout_uuid = ?
+            ORDER BY confirmed_at DESC, id ASC
+            """,
+            arguments: [workoutUUID]
+        )
+        return rows.compactMap { row in
+            guard let id = UUID(uuidString: row["id"]) else { return nil }
+            return WorkoutAnnotationRecord(
+                id: id,
+                workoutUUID: row["workout_uuid"],
+                rawText: row["raw_text"],
+                parserVersion: Self.decodeVersion(row["parser_version"] as String, fallback: .workoutParserV1),
+                confirmedAt: (row["confirmed_at"] as Double?).map(Date.init(timeIntervalSince1970:))
+            )
+        }
+    }
+
+    private static func fetchMuscleLoads(_ db: Database, workoutUUID: String) throws -> [WorkoutMuscleLoadRecord] {
+        let rows = try Row.fetchAll(
+            db,
+            sql: """
+            SELECT workout_uuid, muscle_id, role, load, algorithm_version
+            FROM workout_muscle_load
+            WHERE workout_uuid = ?
+            ORDER BY muscle_id ASC, role ASC
+            """,
+            arguments: [workoutUUID]
+        )
+        return rows.compactMap { row in
+            guard let muscle = BodyRegionMuscle(rawValue: row["muscle_id"]),
+                  let role = MuscleLoadRole(rawValue: row["role"])
+            else { return nil }
+            return WorkoutMuscleLoadRecord(
+                workoutUUID: row["workout_uuid"],
+                muscle: muscle,
+                role: role,
+                load: row["load"],
+                algorithmVersion: Self.decodeVersion(row["algorithm_version"] as String, fallback: .recoveryHeuristicV1)
+            )
+        }
+    }
+
+    private static func decodeVersion(_ value: String, fallback: AlgorithmVersion) -> AlgorithmVersion {
+        let parts = value.split(separator: "@", maxSplits: 1)
+        guard let first = parts.first else { return fallback }
+        return AlgorithmVersion(
+            id: String(first),
+            semver: parts.count > 1 ? String(parts[1]) : "1.0.0"
+        )
+    }
+
+    private static func loadsEqual(_ lhs: [WorkoutMuscleLoadRecord], _ rhs: [WorkoutMuscleLoadRecord]) -> Bool {
+        guard lhs.count == rhs.count else { return false }
+        let left = lhs.sorted {
+            $0.muscle.rawValue == $1.muscle.rawValue
+                ? $0.role.rawValue < $1.role.rawValue
+                : $0.muscle.rawValue < $1.muscle.rawValue
+        }
+        let right = rhs.sorted {
+            $0.muscle.rawValue == $1.muscle.rawValue
+                ? $0.role.rawValue < $1.role.rawValue
+                : $0.muscle.rawValue < $1.muscle.rawValue
+        }
+        return zip(left, right).allSatisfy {
+            $0.workoutUUID.caseInsensitiveCompare($1.workoutUUID) == .orderedSame
+                && $0.muscle == $1.muscle
+                && $0.role == $1.role
+                && abs($0.load - $1.load) < 0.0001
+                && $0.algorithmVersion == $1.algorithmVersion
+        }
+    }
+
     private static func insertAuditSync(db: Database, audit: ActionAuditEntry, encoder: JSONEncoder) throws {
         let affectedData = try encoder.encode(audit.affectedIDs)
         guard let affectedJSON = String(data: affectedData, encoding: .utf8) else {
@@ -261,8 +531,10 @@ public final class ActionExecutor: Sendable {
         }
         try db.execute(
             sql: """
-            INSERT INTO action_audit (id, proposal_json, origin, decision, decided_at, affected_ids_json)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO action_audit
+                (id, proposal_json, origin, decision, decided_at, affected_ids_json,
+                 snapshot_version, snapshot_json, undo_of, undone_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             arguments: [
                 audit.id.uuidString,
@@ -271,6 +543,10 @@ public final class ActionExecutor: Sendable {
                 audit.decision.rawValue,
                 audit.decidedAt.timeIntervalSince1970,
                 affectedJSON,
+                audit.snapshotVersion,
+                audit.snapshotJSON,
+                audit.undoOf?.uuidString,
+                audit.undoneBy?.uuidString,
             ]
         )
     }

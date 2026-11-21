@@ -245,6 +245,7 @@ public enum CoachAgentOrchestrator {
         let workoutProposal = await context.effects.workoutProposal
         let memoryProposal = await context.effects.memoryProposal
         let annotationProposal = await context.effects.workoutAnnotationProposal
+        let annotationCandidates = await context.effects.workoutAnnotationCandidates
 
         return CoachMessage(
             role: .assistant,
@@ -255,6 +256,7 @@ public enum CoachAgentOrchestrator {
             memorySavedNote: memoryProposal.map { "待你确认记忆 [\($0.tier.titleLabel)]：\($0.content)" },
             memoryProposal: memoryProposal,
             workoutAnnotationProposal: annotationProposal,
+            workoutAnnotationCandidates: annotationCandidates,
             unverifiedNumbers: provenance.unverifiedTokens,
             toolsInvoked: toolsInvoked
         )
@@ -613,6 +615,8 @@ extension CoachAIClient: DependencyKey {
         )
         let proposal = await context.effects.workoutProposal
         let memProposal = await context.effects.memoryProposal
+        let annotationProposal = await context.effects.workoutAnnotationProposal
+        let annotationCandidates = await context.effects.workoutAnnotationCandidates
 
         return CoachMessage(
             role: .assistant,
@@ -622,6 +626,8 @@ extension CoachAIClient: DependencyKey {
             workoutProposal: proposal,
             memorySavedNote: memProposal.map { "待你确认记忆 [\($0.tier.titleLabel)]：\($0.content)" },
             memoryProposal: memProposal,
+            workoutAnnotationProposal: annotationProposal,
+            workoutAnnotationCandidates: annotationCandidates,
             unverifiedNumbers: provenance.unverifiedTokens,
             toolsInvoked: toolsInvoked
         )

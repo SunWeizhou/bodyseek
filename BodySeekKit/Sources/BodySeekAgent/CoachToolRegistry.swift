@@ -8,6 +8,7 @@ public actor AgentCapturedSideEffects: Sendable {
     public private(set) var workoutProposal: WorkoutProposal?
     public private(set) var memoryProposal: TieredMemoryRecord?
     public private(set) var workoutAnnotationProposal: CoachWorkoutAnnotationProposal?
+    public private(set) var workoutAnnotationCandidates: [CoachWorkoutAnnotationCandidate] = []
     public private(set) var toolOutputs: [String] = []
     public private(set) var toolsInvoked: [String] = []
 
@@ -23,6 +24,10 @@ public actor AgentCapturedSideEffects: Sendable {
 
     public func recordWorkoutAnnotationProposal(_ proposal: CoachWorkoutAnnotationProposal) {
         workoutAnnotationProposal = proposal
+    }
+
+    public func recordWorkoutAnnotationCandidates(_ candidates: [CoachWorkoutAnnotationCandidate]) {
+        workoutAnnotationCandidates = candidates
     }
 
     public func recordToolInvocation(name: String, output: String) {
@@ -135,6 +140,26 @@ private struct ToolEnvelope<Payload: Encodable>: Encodable {
     /// to a metric, window/date and unit populate this.
     let evidence: [EvidenceFact]?
     let truncated: Bool?
+}
+
+private struct AnnotationCandidateSummary: Encodable {
+    let workoutUUID: String
+    let workoutTitle: String
+    let dayKey: String
+    let start: Date
+    let end: Date
+    let reviewState: String
+    let latestAnnotation: String?
+
+    init(_ candidate: CoachWorkoutAnnotationCandidate) {
+        self.workoutUUID = candidate.proposal.workoutUUID
+        self.workoutTitle = candidate.proposal.workoutTitle
+        self.dayKey = candidate.dayKey
+        self.start = candidate.start
+        self.end = candidate.end
+        self.reviewState = candidate.reviewState.rawValue
+        self.latestAnnotation = candidate.proposal.recordState?.latestAnnotationRawText
+    }
 }
 
 public enum CoachToolRegistry {
@@ -1294,77 +1319,99 @@ public enum CoachToolRegistry {
         workoutUUID: String?,
         context: AgentExecutionContext
     ) async -> String {
-        let cleaned = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !cleaned.isEmpty else {
-            return encodeEnvelope(tool: "propose_workout_annotation", state: "missing", coverage: 0, reason: "复盘描述为空", data: ["status": "rejected"])
-        }
-
-        let referenceDate = context.asOf
-        let today = referenceDate.physiologicalDayKey()
-        let mentionsToday = cleaned.contains("今天") || cleaned.contains("今日")
-        let mentionsYesterday = cleaned.contains("昨天") || cleaned.contains("昨日")
-        guard !(mentionsToday && mentionsYesterday) else {
-            return encodeEnvelope(tool: "propose_workout_annotation", state: "missing", coverage: 0,
-                                  reason: "请指定要复盘的那一条训练", data: ["status": "ambiguous"])
-        }
-        let day = mentionsYesterday ? today.addingDays(-1) : today
-        let completed = context.storedWorkouts.filter { $0.end <= referenceDate }
-        let matching = completed.filter {
-            $0.start.physiologicalDayKey() == day && WorkoutAutoAttributor.isStrengthWorkout(type: $0.type)
-        }
-        let target: StoredWorkoutRecord?
-        if let uuid = workoutUUID, !uuid.isEmpty {
-            let candidates = mentionsToday || mentionsYesterday ? matching : completed
-            target = candidates.first { $0.hkUUID.caseInsensitiveCompare(uuid) == .orderedSame }
-        } else {
-            target = matching.count == 1 ? matching.first : nil
-        }
-
-        guard let workout = target else {
-            return encodeEnvelope(tool: "propose_workout_annotation", state: "missing", coverage: 0,
-                                  reason: "无法按日期唯一定位训练，请先在健身页选择对应记录", data: ["status": "missing"])
-        }
-
-        let parsed = ChineseWorkoutLexiconParser.parse(cleaned)
-        let durationMin = max(1, Int((workout.end.timeIntervalSince(workout.start) / 60).rounded()))
-        let loads = WorkoutLoadBuilder.buildMuscleLoads(
-            workoutUUID: workout.hkUUID,
-            durationMinutes: durationMin,
-            primaryMuscles: parsed.primaryMuscles,
-            secondaryMuscles: parsed.secondaryMuscles,
-            rpe: parsed.rpe ?? 7
+        let resolution = WorkoutAnnotationResolver.resolve(
+            rawText: rawText,
+            workoutUUID: workoutUUID,
+            asOf: context.asOf,
+            workouts: context.storedWorkouts,
+            deletedWorkoutUUIDs: context.deletedWorkoutUUIDs,
+            annotationsByWorkoutUUID: context.annotationsByWorkoutUUID
         )
-        let proposal = CoachWorkoutAnnotationProposal(
-            workoutUUID: workout.hkUUID,
-            workoutTitle: workout.type,
-            rawText: cleaned,
-            proposal: parsed,
-            muscleLoads: loads
-        )
-        await context.effects.recordWorkoutAnnotationProposal(proposal)
 
         struct AnnotationAck: Encodable {
             let status: String
-            let workoutUUID: String
-            let workoutTitle: String
-            let dayKey: String
+            let workoutUUID: String?
+            let workoutTitle: String?
+            let dayKey: String?
             let primaryMuscles: [String]
             let rpe: Int?
+            let candidates: [AnnotationCandidateSummary]
+            let windowDescription: String?
         }
-        return encodeEnvelope(
-            tool: "propose_workout_annotation",
-            state: "available",
-            coverage: 1.0,
-            reason: nil,
-            data: AnnotationAck(
-                status: "pending_user_confirmation",
-                workoutUUID: workout.hkUUID,
-                workoutTitle: workout.type,
-                dayKey: workout.start.physiologicalDayKey().isoString,
-                primaryMuscles: parsed.primaryMuscles.map(\.title),
-                rpe: parsed.rpe
+
+        switch resolution {
+        case let .unique(candidate):
+            await context.effects.recordWorkoutAnnotationProposal(candidate.proposal)
+            await context.effects.recordWorkoutAnnotationCandidates([candidate])
+            return encodeEnvelope(
+                tool: "propose_workout_annotation",
+                state: "available",
+                coverage: 1.0,
+                reason: nil,
+                data: AnnotationAck(
+                    status: "pending_user_confirmation",
+                    workoutUUID: candidate.proposal.workoutUUID,
+                    workoutTitle: candidate.proposal.workoutTitle,
+                    dayKey: candidate.dayKey,
+                    primaryMuscles: candidate.proposal.proposal.primaryMuscles.map(\.title),
+                    rpe: candidate.proposal.proposal.rpe,
+                    candidates: [AnnotationCandidateSummary(candidate)],
+                    windowDescription: nil
+                )
             )
-        )
+        case let .multiple(candidates, windowDescription):
+            await context.effects.recordWorkoutAnnotationCandidates(candidates)
+            return encodeEnvelope(
+                tool: "propose_workout_annotation",
+                state: "needs_selection",
+                coverage: 0,
+                reason: "\(windowDescription) 有多条训练，请让用户按开始时间和训练类型选择",
+                data: AnnotationAck(
+                    status: "needs_selection",
+                    workoutUUID: nil,
+                    workoutTitle: nil,
+                    dayKey: nil,
+                    primaryMuscles: [],
+                    rpe: nil,
+                    candidates: candidates.map(AnnotationCandidateSummary.init),
+                    windowDescription: windowDescription
+                )
+            )
+        case let .none(reason):
+            return encodeEnvelope(
+                tool: "propose_workout_annotation",
+                state: "missing",
+                coverage: 0,
+                reason: reason,
+                data: AnnotationAck(
+                    status: "missing",
+                    workoutUUID: nil,
+                    workoutTitle: nil,
+                    dayKey: nil,
+                    primaryMuscles: [],
+                    rpe: nil,
+                    candidates: [],
+                    windowDescription: nil
+                )
+            )
+        case let .conflict(reason):
+            return encodeEnvelope(
+                tool: "propose_workout_annotation",
+                state: "excluded",
+                coverage: 0,
+                reason: reason,
+                data: AnnotationAck(
+                    status: "needs_clarification",
+                    workoutUUID: nil,
+                    workoutTitle: nil,
+                    dayKey: nil,
+                    primaryMuscles: [],
+                    rpe: nil,
+                    candidates: [],
+                    windowDescription: nil
+                )
+            )
+        }
     }
 
     // MARK: - Decoding & Encoding Helpers

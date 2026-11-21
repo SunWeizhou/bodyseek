@@ -34,7 +34,7 @@ final class BodySeekStoreTests: XCTestCase {
     func testMigrationIdentifiersAreStable() {
         XCTAssertEqual(
             BodySeekDatabase.migrator.migrations,
-            ["v1_initial_schema", "v2_nutrition_schema", "v3_allow_unknown_meal_portions", "v4_healthkit_workout_deletions"]
+            ["v1_initial_schema", "v2_nutrition_schema", "v3_allow_unknown_meal_portions", "v4_healthkit_workout_deletions", "v5_action_audit_undo_snapshots"]
         )
     }
 

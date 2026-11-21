@@ -706,6 +706,7 @@ public struct CoachWorkoutAnnotationProposal: Identifiable, Equatable, Hashable,
     public let rawText: String
     public let proposal: WorkoutAnnotationProposal
     public let muscleLoads: [WorkoutMuscleLoadRecord]
+    public let recordState: WorkoutAnnotationRecordState?
 
     public init(
         id: UUID = UUID(),
@@ -713,7 +714,8 @@ public struct CoachWorkoutAnnotationProposal: Identifiable, Equatable, Hashable,
         workoutTitle: String,
         rawText: String,
         proposal: WorkoutAnnotationProposal,
-        muscleLoads: [WorkoutMuscleLoadRecord]
+        muscleLoads: [WorkoutMuscleLoadRecord],
+        recordState: WorkoutAnnotationRecordState? = nil
     ) {
         self.id = id
         self.workoutUUID = workoutUUID
@@ -721,6 +723,34 @@ public struct CoachWorkoutAnnotationProposal: Identifiable, Equatable, Hashable,
         self.rawText = rawText
         self.proposal = proposal
         self.muscleLoads = muscleLoads
+        self.recordState = recordState
+    }
+}
+
+/// One selectable Watch workout for the Coach annotation confirmation card.
+public struct CoachWorkoutAnnotationCandidate: Identifiable, Hashable, Codable, Sendable {
+    public var id: String { proposal.workoutUUID }
+    public let proposal: CoachWorkoutAnnotationProposal
+    public let start: Date
+    public let end: Date
+    public let dayKey: String
+    public let source: String
+    public let reviewState: WorkoutReviewState
+
+    public init(
+        proposal: CoachWorkoutAnnotationProposal,
+        start: Date,
+        end: Date,
+        dayKey: String,
+        source: String,
+        reviewState: WorkoutReviewState
+    ) {
+        self.proposal = proposal
+        self.start = start
+        self.end = end
+        self.dayKey = dayKey
+        self.source = source
+        self.reviewState = reviewState
     }
 }
 
@@ -740,6 +770,7 @@ public struct CoachMessage: Identifiable, Equatable, Sendable, Codable {
     public let memorySavedNote: String?
     public let memoryProposal: TieredMemoryRecord?
     public let workoutAnnotationProposal: CoachWorkoutAnnotationProposal?
+    public let workoutAnnotationCandidates: [CoachWorkoutAnnotationCandidate]
     public let annotationDecision: ActionAuditDecision?
     public let unverifiedNumbers: [String]
     public let toolsInvoked: [String]
@@ -755,6 +786,7 @@ public struct CoachMessage: Identifiable, Equatable, Sendable, Codable {
         case memorySavedNote
         case memoryProposal
         case workoutAnnotationProposal
+        case workoutAnnotationCandidates
         case annotationDecision
         case unverifiedNumbers
         case toolsInvoked
@@ -771,6 +803,7 @@ public struct CoachMessage: Identifiable, Equatable, Sendable, Codable {
         memorySavedNote: String? = nil,
         memoryProposal: TieredMemoryRecord? = nil,
         workoutAnnotationProposal: CoachWorkoutAnnotationProposal? = nil,
+        workoutAnnotationCandidates: [CoachWorkoutAnnotationCandidate] = [],
         annotationDecision: ActionAuditDecision? = nil,
         unverifiedNumbers: [String] = [],
         toolsInvoked: [String] = []
@@ -785,6 +818,7 @@ public struct CoachMessage: Identifiable, Equatable, Sendable, Codable {
         self.memorySavedNote = memorySavedNote
         self.memoryProposal = memoryProposal
         self.workoutAnnotationProposal = workoutAnnotationProposal
+        self.workoutAnnotationCandidates = workoutAnnotationCandidates
         self.annotationDecision = annotationDecision
         self.unverifiedNumbers = unverifiedNumbers
         self.toolsInvoked = toolsInvoked
@@ -802,6 +836,7 @@ public struct CoachMessage: Identifiable, Equatable, Sendable, Codable {
         self.memorySavedNote = try c.decodeIfPresent(String.self, forKey: .memorySavedNote)
         self.memoryProposal = try c.decodeIfPresent(TieredMemoryRecord.self, forKey: .memoryProposal)
         self.workoutAnnotationProposal = try c.decodeIfPresent(CoachWorkoutAnnotationProposal.self, forKey: .workoutAnnotationProposal)
+        self.workoutAnnotationCandidates = try c.decodeIfPresent([CoachWorkoutAnnotationCandidate].self, forKey: .workoutAnnotationCandidates) ?? []
         self.annotationDecision = try c.decodeIfPresent(ActionAuditDecision.self, forKey: .annotationDecision)
         self.unverifiedNumbers = try c.decodeIfPresent([String].self, forKey: .unverifiedNumbers) ?? []
         self.toolsInvoked = try c.decodeIfPresent([String].self, forKey: .toolsInvoked) ?? []

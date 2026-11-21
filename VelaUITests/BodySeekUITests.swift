@@ -388,6 +388,43 @@ final class BodySeekUITests: XCTestCase {
         app.buttons["settings-done-button"].tap()
     }
 
+    func testCoachAnnotationConfirmAndUndo() {
+        let app = launchApp()
+        XCTAssertTrue(app.otherElements["today-score-instrument"].waitForExistence(timeout: 8))
+        tapTab("Coach", in: app)
+
+        let input = app.textViews["coach-full-input"].exists
+            ? app.textViews["coach-full-input"]
+            : app.textFields["coach-full-input"]
+        XCTAssertTrue(input.waitForExistence(timeout: 5))
+        input.tap()
+        input.typeText("给昨晚那次 Watch 训练补上腿训标注")
+        app.buttons["coach-send-button"].tap()
+
+        let confirm = app.buttons["coach-annotation-proposal-confirm"].firstMatch
+        if !confirm.waitForExistence(timeout: 8) {
+            let candidate = app.otherElements["coach-annotation-candidate-card"].firstMatch
+            XCTAssertTrue(candidate.waitForExistence(timeout: 4), "expected a unique confirmation or a candidate list")
+            candidate.buttons.firstMatch.tap()
+            XCTAssertTrue(confirm.waitForExistence(timeout: 5))
+        }
+        confirm.tap()
+
+        XCTAssertTrue(app.staticTexts["已保存训练复盘"].firstMatch.waitForExistence(timeout: 8))
+        let undo = app.buttons["coach-annotation-undo"].firstMatch
+        XCTAssertTrue(undo.waitForExistence(timeout: 5))
+        undo.tap()
+
+        let undoneText = app.staticTexts["已撤销这次训练标注"].firstMatch.waitForExistence(timeout: 8)
+        let undoneCard = app.otherElements["coach-annotation-undone-card"].firstMatch.waitForExistence(timeout: 2)
+        XCTAssertTrue(undoneText || undoneCard)
+
+        tapTab("健身", in: app)
+        XCTAssertTrue(app.staticTexts["肌群恢复"].waitForExistence(timeout: 6))
+        tapTab("Coach", in: app)
+        XCTAssertTrue(app.otherElements["coach-annotation-undone-card"].firstMatch.waitForExistence(timeout: 5))
+    }
+
     func testCaptureLightAndDarkScreenshotsWhenRequested() throws {
         let env = ProcessInfo.processInfo.environment
         guard let outputDir = env["BODYSEEK_WALKTHROUGH_DIR"], !outputDir.isEmpty else {

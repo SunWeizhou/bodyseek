@@ -7,6 +7,10 @@ public enum BodySeekDatabaseError: Error, LocalizedError, Sendable {
     case invalidJSONEncoding(context: String)
     case foreignKeyTargetMissing(table: String, key: String)
     case invalidProposalPayload(kind: ActionProposal.Kind)
+    case recordDeleted(table: String, key: String)
+    case undoUnsupported(reason: String)
+    case undoConflict(reason: String)
+    case recordChanged(table: String, key: String)
 
     public var errorDescription: String? {
         switch self {
@@ -16,6 +20,14 @@ public enum BodySeekDatabaseError: Error, LocalizedError, Sendable {
             "缺少关联记录（\(table): \(key)）"
         case let .invalidProposalPayload(kind):
             "无效的操作提案载荷（\(kind.rawValue)）"
+        case let .recordDeleted(table, key):
+            "关联记录已删除（\(table): \(key)），不能继续该操作。"
+        case let .undoUnsupported(reason):
+            "该操作无法撤销：\(reason)"
+        case let .undoConflict(reason):
+            "训练记录之后已被修改或删除，撤销会覆盖新内容：\(reason)。当前记录未变。"
+        case let .recordChanged(table, key):
+            "确认卡展示后记录已变化（\(table): \(key)），请刷新训练记录后重试。"
         }
     }
 }
@@ -441,6 +453,16 @@ public final class BodySeekDatabase: Sendable {
                 table.column("uuid", .text).primaryKey()
                 table.column("day_key", .text)
             }
+        }
+
+        migrator.registerMigration("v5_action_audit_undo_snapshots") { db in
+            try db.alter(table: "action_audit") { table in
+                table.add(column: "snapshot_version", .integer).notNull().defaults(to: 1)
+                table.add(column: "snapshot_json", .text)
+                table.add(column: "undo_of", .text)
+                table.add(column: "undone_by", .text)
+            }
+            try db.create(index: "idx_action_audit_undo_of", on: "action_audit", columns: ["undo_of"])
         }
 
         return migrator

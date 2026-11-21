@@ -157,6 +157,9 @@ public struct BodySeekStoreClient: Sendable {
     public var syncRecentWindow: @Sendable (_ sleepGoalMinutes: Int, _ referenceDate: Date) async throws -> SyncRunSummary?
     public var runBackgroundBackfill: @Sendable (_ sleepGoalMinutes: Int, _ referenceDate: Date) async throws -> BackfillRunSummary?
     public var executeProposal: @Sendable (_ proposal: ActionProposal) async throws -> ActionAuditEntry
+    public var undoWorkoutAnnotation: @Sendable (_ auditID: UUID) async throws -> ActionAuditEntry = { _ in
+        throw BodySeekDatabaseError.undoUnsupported(reason: "当前存储未配置撤销入口")
+    }
     public var loadCheckIns: @Sendable () async throws -> [DailyCheckIn] = { [] }
     public var loadPlanItems: @Sendable (_ dayKey: DayKey) async throws -> [PlanItemRecord] = { _ in [] }
     public var loadExperimentPlanItems: @Sendable () async throws -> [PlanItemRecord] = { [] }
@@ -260,6 +263,16 @@ extension BodySeekStoreClient: DependencyKey {
                 }
                 let exec = try await BodySeekSharedStore.shared.executor()
                 return try await exec.execute(proposal)
+            },
+            undoWorkoutAnnotation: { auditID in
+                if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard")
+                    || ProcessInfo.processInfo.arguments.contains("-velaPreviewEmptyDashboard")
+                {
+                    let (_, _, exec, _) = try await preview.resolve()
+                    return try await exec.undoWorkoutAnnotation(originalAuditID: auditID)
+                }
+                let exec = try await BodySeekSharedStore.shared.executor()
+                return try await exec.undoWorkoutAnnotation(originalAuditID: auditID)
             },
             loadCheckIns: {
                 if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard")
@@ -421,6 +434,10 @@ extension BodySeekStoreClient: DependencyKey {
             executeProposal: { proposal in
                 let (_, _, exec, _) = try await preview.resolve()
                 return try await exec.execute(proposal)
+            },
+            undoWorkoutAnnotation: { auditID in
+                let (_, _, exec, _) = try await preview.resolve()
+                return try await exec.undoWorkoutAnnotation(originalAuditID: auditID)
             },
             loadCheckIns: {
                 let (_, repo, _, _) = try await preview.resolve()

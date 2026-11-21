@@ -550,7 +550,7 @@ public struct AppFeature: Sendable {
                     state.trends.patternFindings = findings
                     return .none
 
-                case .workoutAnnotationCommitted:
+                case .workoutAnnotationCommitted, .workoutAnnotationUndone:
                     return .send(.workout(.onAppear))
 
                 case .openSettings:

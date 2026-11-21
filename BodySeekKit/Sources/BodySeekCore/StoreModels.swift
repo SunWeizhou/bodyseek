@@ -299,6 +299,9 @@ public enum ActionAuditDecision: String, Hashable, Codable, Sendable {
     case applied
     case rejected
     case failed
+    /// Audit row of an undo operation. The original row keeps `applied` and points to
+    /// this row through `undoneBy`.
+    case undone
 }
 
 public struct ActionAuditEntry: Identifiable, Hashable, Codable, Sendable {
@@ -308,6 +311,13 @@ public struct ActionAuditEntry: Identifiable, Hashable, Codable, Sendable {
     public let decision: ActionAuditDecision
     public let decidedAt: Date
     public let affectedIDs: [String]
+    /// 1 = legacy row without a snapshot, 2 = typed `WorkoutAnnotationUndoSnapshot`.
+    public let snapshotVersion: Int
+    public let snapshotJSON: String?
+    /// The audit row this row undoes.
+    public let undoOf: UUID?
+    /// The undo audit row that undid this row.
+    public let undoneBy: UUID?
 
     public init(
         id: UUID = UUID(),
@@ -315,7 +325,11 @@ public struct ActionAuditEntry: Identifiable, Hashable, Codable, Sendable {
         origin: ActionProposal.Origin,
         decision: ActionAuditDecision,
         decidedAt: Date = Date(),
-        affectedIDs: [String] = []
+        affectedIDs: [String] = [],
+        snapshotVersion: Int = 1,
+        snapshotJSON: String? = nil,
+        undoOf: UUID? = nil,
+        undoneBy: UUID? = nil
     ) {
         self.id = id
         self.proposalJSON = proposalJSON
@@ -323,6 +337,52 @@ public struct ActionAuditEntry: Identifiable, Hashable, Codable, Sendable {
         self.decision = decision
         self.decidedAt = decidedAt
         self.affectedIDs = affectedIDs
+        self.snapshotVersion = snapshotVersion
+        self.snapshotJSON = snapshotJSON
+        self.undoOf = undoOf
+        self.undoneBy = undoneBy
+    }
+}
+
+/// Versioned before/after state for one Coach workout annotation. Stored in
+/// `action_audit.snapshot_json`; undo compares the current rows with `after` before
+/// restoring `before` atomically.
+public struct WorkoutAnnotationUndoSnapshot: Hashable, Codable, Sendable {
+    public static let currentVersion = 2
+
+    public let version: Int
+    public let workoutUUID: String
+    public let beforeReviewState: WorkoutReviewState
+    public let beforeAnnotations: [WorkoutAnnotationRecord]
+    public let beforeMuscleLoads: [WorkoutMuscleLoadRecord]
+    public let afterAnnotationID: UUID
+    public let afterRawText: String
+    public let afterParserVersion: AlgorithmVersion
+    public let afterReviewState: WorkoutReviewState
+    public let afterMuscleLoads: [WorkoutMuscleLoadRecord]
+
+    public init(
+        version: Int = WorkoutAnnotationUndoSnapshot.currentVersion,
+        workoutUUID: String,
+        beforeReviewState: WorkoutReviewState,
+        beforeAnnotations: [WorkoutAnnotationRecord],
+        beforeMuscleLoads: [WorkoutMuscleLoadRecord],
+        afterAnnotationID: UUID,
+        afterRawText: String,
+        afterParserVersion: AlgorithmVersion,
+        afterReviewState: WorkoutReviewState,
+        afterMuscleLoads: [WorkoutMuscleLoadRecord]
+    ) {
+        self.version = version
+        self.workoutUUID = workoutUUID
+        self.beforeReviewState = beforeReviewState
+        self.beforeAnnotations = beforeAnnotations
+        self.beforeMuscleLoads = beforeMuscleLoads
+        self.afterAnnotationID = afterAnnotationID
+        self.afterRawText = afterRawText
+        self.afterParserVersion = afterParserVersion
+        self.afterReviewState = afterReviewState
+        self.afterMuscleLoads = afterMuscleLoads
     }
 }
 
@@ -368,6 +428,37 @@ public struct PatternFindingRecord: Identifiable, Hashable, Codable, Sendable {
 
 // MARK: - Typed ActionProposal Payloads
 
+/// Snapshot of the fields a Coach annotation confirmation was shown against.
+/// Re-checked inside the commit transaction so a deleted or edited workout cannot
+/// receive a stale annotation.
+public struct WorkoutAnnotationRecordState: Hashable, Codable, Sendable {
+    public let workoutUUID: String
+    public let start: Date
+    public let end: Date
+    public let type: String
+    public let reviewState: WorkoutReviewState
+    public let latestAnnotationID: UUID?
+    public let latestAnnotationRawText: String?
+
+    public init(
+        workoutUUID: String,
+        start: Date,
+        end: Date,
+        type: String,
+        reviewState: WorkoutReviewState,
+        latestAnnotationID: UUID? = nil,
+        latestAnnotationRawText: String? = nil
+    ) {
+        self.workoutUUID = workoutUUID
+        self.start = start
+        self.end = end
+        self.type = type
+        self.reviewState = reviewState
+        self.latestAnnotationID = latestAnnotationID
+        self.latestAnnotationRawText = latestAnnotationRawText
+    }
+}
+
 public struct AnnotateWorkoutPayload: Hashable, Codable, Sendable {
     public let workoutUUID: String
     public let rawText: String
@@ -375,6 +466,7 @@ public struct AnnotateWorkoutPayload: Hashable, Codable, Sendable {
     public let muscleLoads: [WorkoutMuscleLoadRecord]
     public let reviewState: WorkoutReviewState
     public let coachAnnotationDecision: ActionAuditDecision?
+    public let expectedRecordState: WorkoutAnnotationRecordState?
 
     public init(
         workoutUUID: String,
@@ -382,7 +474,8 @@ public struct AnnotateWorkoutPayload: Hashable, Codable, Sendable {
         parserVersion: AlgorithmVersion = .workoutParserV1,
         muscleLoads: [WorkoutMuscleLoadRecord] = [],
         reviewState: WorkoutReviewState = .annotated,
-        coachAnnotationDecision: ActionAuditDecision? = nil
+        coachAnnotationDecision: ActionAuditDecision? = nil,
+        expectedRecordState: WorkoutAnnotationRecordState? = nil
     ) {
         self.workoutUUID = workoutUUID
         self.rawText = rawText
@@ -390,6 +483,7 @@ public struct AnnotateWorkoutPayload: Hashable, Codable, Sendable {
         self.muscleLoads = muscleLoads
         self.reviewState = reviewState
         self.coachAnnotationDecision = coachAnnotationDecision
+        self.expectedRecordState = expectedRecordState
     }
 }
 
