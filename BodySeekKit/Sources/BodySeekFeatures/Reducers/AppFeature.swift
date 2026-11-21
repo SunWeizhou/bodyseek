@@ -243,8 +243,13 @@ public struct AppFeature: Sendable {
                 return loadSnapshotEffect(goalMinutes: state.preferences.sleepGoalMinutes, referenceDate: now)
 
             case let .cachedDashboardLoaded(cached):
+                let wasLoading = state.today.isLoading
                 state.today.isLoading = false
-                guard cached.contentDigest != state.lastAppliedCachedDigest else { return .none }
+                guard cached.contentDigest != state.lastAppliedCachedDigest else {
+                    // Pull-to-refresh with unchanged data should still regenerate the
+                    // briefing; background observations must not.
+                    return wasLoading ? requestBriefing(state: &state) : .none
+                }
                 let isColdStart = !state.didScheduleColdStartWork
                 if state.snapshot.historyDays.isEmpty
                     || !state.snapshot.isAuthorized
