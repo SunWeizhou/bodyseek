@@ -196,3 +196,23 @@
 - `xcodebuild test … -only-testing:VelaUITests` 退出码 0，13 项中 12 项通过、1 项按预期跳过，294–296 秒。
 - 模拟器 Debug 构建 `BUILD SUCCEEDED`。
 - 未验证项与第 10 节相同：线上模型、Apple 端侧和真机数据未在本轮重新验证。
+
+## 12. 2026-11-22 深扫同步、读模型与审计查询
+
+在 `6a2105ee` 基础上继续审查 Coach 以外的链路。静态扫描仍为 0 个 `try!`/`fatalError`/`as!`/`TODO`/源码 `print`；`swift build` 只出现 SpeziHealthKit 的 pkg-config 提示，无 Swift 编译警告。6 处 `@unchecked Sendable` 逐一核对，均有锁、系统对象或串行 actor 约束。
+
+本轮发现并修复：
+
+- **同步每次都重算完整历史**：`SyncEngine.persistAndRecompute` 传给 `recomputeIncremental` 的 `existingByDayKey` 一直是空字典，导致每次锚点同步都重新计算整个三年窗口。新增 `BodySeekRepository.loadComputedDays`（复用已存 `score_snapshot` + `day_computed_artifact` + raw days），同步改为加载缓存后传入；缓存损坏时记录日志并回退为全量重算，不阻塞同步。新增存储往返和 `recomputeIncremental` 复用测试。
+- **读模型重复解析 computed day**：`BodySeekReadModel.loadCachedDashboardSync` 原先有一份与仓库层近似的 score/artifact 解码，现已统一调用 `loadComputedDaysSync`；读模型遇到损坏 artifact 时回退重算，新增损坏快照回归。
+- **审计列表全量加载**：设置页只取最近 N 条，但 `loadActionAuditEntries(limit:)` 先取全部再截断。`loadAuditEntries` 增加可选 SQL `LIMIT`，客户端直接下推；新增数据库层限量测试。
+- **失效删除的参数上限**：`invalidateComputedArtifactsSync` 把最多约 29×N 个日期放进单个 `IN` 列表，长回填可能逼近 SQLite 参数上限。改为每 500 个一批删除，行为不变。
+- **睡眠目标变化后的缓存观察**：`AppFeature` 在睡眠目标变化时重启 `observeDashboard`，避免旧的观察闭包继续用旧目标重算并把旧分数写回；`loadSnapshotEffect` 会先重算并持久化新目标的结果。仍有一个已知边界：`day_computed_artifact` 未记录睡眠目标，极端竞态下重启观察后可能短暂读到旧缓存，直到新快照写入；已在下方列为未验证风险。
+- **固定字号**：肌群恢复详情的 40pt 百分比改为 `.largeTitle` Dynamic Type，支持大字号。
+
+验证：
+
+- `swift test --package-path BodySeekKit --disable-automatic-resolution` 退出码 0，92 项包测试和 22 项 Agent 测试通过。
+- `xcodebuild test … -only-testing:VelaTests -only-testing:VelaUITests` 退出码 0；VelaTests 4/4，UI 13 项中 12 通过、1 项按预期跳过。
+- 模拟器 Debug 构建 `BUILD SUCCEEDED`。
+- 未验证：真机、线上模型、真实 Watch 回流；多候选选择卡仍无 UI 自动化；睡眠目标缓存边界仅做了代码级防护，尚无专门的竞态回归。
