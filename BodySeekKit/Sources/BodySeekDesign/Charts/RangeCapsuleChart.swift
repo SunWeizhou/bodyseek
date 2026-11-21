@@ -249,8 +249,10 @@ public struct RangeCapsuleChart: View {
         }
     }
 
+    private static let localCalendar = Calendar.current
+
     private func dayLabel(for date: Date) -> String {
-        let calendar = Calendar.current
+        let calendar = Self.localCalendar
         return "\(calendar.component(.month, from: date))/\(calendar.component(.day, from: date))"
     }
 

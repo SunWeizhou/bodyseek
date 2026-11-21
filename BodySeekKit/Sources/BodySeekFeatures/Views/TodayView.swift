@@ -809,10 +809,14 @@ public struct TodayView: View {
         }
     }
 
-    private func formattedEditorialDate(_ date: Date) -> String {
+    private static let editorialDateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "zh_Hans")
         formatter.dateFormat = "M月d日 EEEE"
-        return formatter.string(from: date)
+        return formatter
+    }()
+
+    private func formattedEditorialDate(_ date: Date) -> String {
+        Self.editorialDateFormatter.string(from: date)
     }
 }
