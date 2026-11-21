@@ -157,6 +157,50 @@ public enum CoachAgentOrchestrator {
         context: AgentExecutionContext
     ) async -> CoachMessage {
         let lower = question.lowercased()
+        if lower.contains("这周") || lower.contains("近7天") || lower.contains("近 7 天")
+            || (lower.contains("恢复") && (lower.contains("下降") || lower.contains("为什么"))) {
+            _ = await CoachToolRegistry.execute(
+                name: "get_weekly_recovery_evidence",
+                argumentsJSON: "{}",
+                context: context
+            )
+            let answer: String
+            if let evidence = try? WeeklyRecoveryEvidenceBuilder.build(
+                endDayKey: nil,
+                asOf: context.asOf,
+                context: context
+            ) {
+                let recovery = evidence.recovery
+                let target = recovery.targetMedian.map(String.init) ?? "--"
+                let control = recovery.controlMedian.map(String.init) ?? "--"
+                let delta = recovery.delta.map { $0 > 0 ? "+\($0)" : "\($0)" } ?? "--"
+                let direction = switch recovery.direction {
+                case "declined": "下降"
+                case "improved": "上升"
+                case "stable": "基本持平"
+                default: "证据不足"
+                }
+                answer = "最近 7 天恢复中位 \(target) 分，此前 28 天中位 \(control) 分，变化 \(delta) 分，方向：\(direction)。对照窗有效样本 \(recovery.controlSampleCount)/28 天。这是固定窗口的点估计，不构成因果或显著性结论。"
+                    + (recovery.evidenceSufficient ? "" : " 对照窗样本不足，不能判断趋势。")
+            } else {
+                answer = "近 7 天恢复证据不足，暂不能判断是否下降或给出原因。"
+            }
+            let toolOutputs = await context.effects.toolOutputs
+            let toolsInvoked = await context.effects.toolsInvoked
+            let provenance = NumericProvenanceVerifier.verify(
+                responseText: answer,
+                toolOutputs: toolOutputs,
+                userQuestion: question
+            )
+            return CoachMessage(
+                role: .assistant,
+                text: provenance.annotatedText,
+                engineLabel: "预览演示 · 四态工具引擎",
+                evidenceMetric: .recovery,
+                unverifiedNumbers: provenance.unverifiedTokens,
+                toolsInvoked: toolsInvoked
+            )
+        }
         let todayJSON = await CoachToolRegistry.execute(name: "get_today_context", argumentsJSON: "{}", context: context)
 
         if lower.contains("睡") || lower.contains("sleep") {
