@@ -234,3 +234,19 @@
 - `xcodebuild test … -only-testing:VelaTests -only-testing:VelaUITests` 退出码 0；VelaTests 4/4，UI 14 项中 13 通过、1 项按预期跳过。
 - 模拟器 Debug 构建 `BUILD SUCCEEDED`。
 - 未验证：真实 HealthKit 启动路径（本轮只有模拟器预览路径）、真实 Watch 回流/删除、线上与 Apple 端侧模型；启动合并后的首屏时延也还没有真机 Instruments 数据。
+
+## 14. 2026-11-22 趋势页分周期胶囊重构
+
+用户提出把 6 个月 / 3 年窗口的分周期胶囊可视化推广到 7 天和 30 天，并重构趋势页。
+
+- 数据合同新增 `TrendBucketUnit`（day / week / month）与 `TrendHorizon.bucketUnit`：7 天→按日、30 天与 6 个月→按周、3 年→按月。`buildCapsules` 从「按 horizon 硬编码」改为「按 bucketUnit 通用分组」，所有窗口都产出 `capsules`；删除 `usesRangeCapsules` 布尔分支。
+- `RangeCapsuleChart` 支持单样本日桶：渲染为「0→值日柱 + 中位点」；多样本桶保持 min–max 细须 + P25–P75 胶囊 + 中位点。7 天窗口在日桶正下方逐日显示日期标签；标题按桶单位显示「N 个日/周/月胶囊」。
+- 新增统一入口 `TrendHorizonChart`（有胶囊→`RangeCapsuleChart`，无胶囊历史缓存→`TrendLineChart` 兜底），趋势页与 5 个指标详情页不再各自 `if horizon` 选组件，详情标题改为统一趋势命名。
+- 图表语法文档更新：`TrendLineChart` 定位为日尺度兜底，`RangeCapsuleChart` 覆盖全窗口，调用方禁止自行分叉组件。
+
+验证：
+
+- `swift test --package-path BodySeekKit --disable-automatic-resolution` 退出码 0，93 项包测试和 22 项 Agent 测试通过。
+- 新增断言：7 天窗口恰好 7 个单样本日胶囊（`p25 == p75`、`sampleCount == 1`）；30 天窗口至少 4 个周胶囊；图表渲染矩阵新增 7 天日桶与 30 天周桶的胶囊图渲染（normal/sparse/empty/extreme/ax5/dark）。
+- 模拟器 Debug 构建 `BUILD SUCCEEDED`；UI 全套见下文（14 项中 13 通过、1 项按预期跳过），截图走查新增 7 天趋势页。
+- 未验证：真机截图与不同数据密度的视觉效果；`selectedDate` 拖拽状态目前仍写入但未被展示，留待接入读数卡片或删除。

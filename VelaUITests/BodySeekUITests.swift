@@ -521,6 +521,9 @@ final class BodySeekUITests: XCTestCase {
 
         tapTab("趋势", in: app)
         XCTAssertTrue(app.buttons["trends-horizon-month"].waitForExistence(timeout: 5))
+        app.buttons["trends-horizon-week"].tap()
+        try snap("06b-trends-week")
+        app.buttons["trends-horizon-month"].tap()
         try snap("07-trends-month")
 
         app.buttons["trends-horizon-threeYears"].tap()
