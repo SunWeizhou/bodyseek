@@ -101,6 +101,7 @@ public enum BevelScoringEngine {
             if !isDirtyAffected,
                let cached = existingByDayKey[entry.dayKey],
                cached.algorithmVersion == .scoreV2,
+               cached.sleepGoalMinutes == sleepGoalMinutes,
                cached.raw == entry.raw
             {
                 computed.append(cached)
@@ -213,6 +214,7 @@ public enum BevelScoringEngine {
         return DailyComputedDay(
             date: dayStart,
             dayKey: raw.dayKey ?? DayKey(date: raw.date, cutoverHour: 4, timeZone: calendar.timeZone),
+            sleepGoalMinutes: sleepGoalMinutes,
             raw: raw,
             recovery: recoveryScore,
             sleep: sleepScore,

@@ -87,12 +87,25 @@ final class BodySeekStoreTests: XCTestCase {
         XCTAssertEqual(snapshot.historyDays.count, 1)
         XCTAssertEqual(snapshot.historyDays[0].recovery, computed.recovery)
         XCTAssertEqual(snapshot.historyDays[0].energyCurve, computed.energyCurve)
+        XCTAssertEqual(snapshot.historyDays[0].sleepGoalMinutes, 450)
+
+        let changedGoal = BevelScoringEngine.recomputeIncremental(
+            existingByDayKey: [dayKey: loaded[0]],
+            allRawDays: [raw],
+            dirtyDayKeys: [],
+            sleepGoalMinutes: 500,
+            referenceDate: date,
+            sourceLabel: "cache-test",
+            isAuthorized: true,
+            calendar: calendar
+        )
+        XCTAssertEqual(changedGoal.historyDays[0].sleepGoalMinutes, 500)
     }
 
     func testMigrationIdentifiersAreStable() {
         XCTAssertEqual(
             BodySeekDatabase.migrator.migrations,
-            ["v1_initial_schema", "v2_nutrition_schema", "v3_allow_unknown_meal_portions", "v4_healthkit_workout_deletions", "v5_action_audit_undo_snapshots"]
+            ["v1_initial_schema", "v2_nutrition_schema", "v3_allow_unknown_meal_portions", "v4_healthkit_workout_deletions", "v5_action_audit_undo_snapshots", "v6_sleep_goal_cache_key"]
         )
     }
 

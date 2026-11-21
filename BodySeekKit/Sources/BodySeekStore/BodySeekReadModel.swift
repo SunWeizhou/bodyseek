@@ -33,6 +33,18 @@ public final class BodySeekReadModel: Sendable {
     public init(database: BodySeekDatabase) {
         self.database = database
     }
+    private typealias ChartCache = [TrendHorizon: [MetricKind: ChartSeriesSnapshot]]
+
+    private struct ChartCacheStore {
+        var values: [String: ChartCache] = [:]
+        var order: [String] = []
+    }
+
+    private static let chartCacheStore = OSAllocatedUnfairLock(
+        initialState: ChartCacheStore()
+    )
+
+
 
     public func loadCachedDashboard(
         sleepGoalMinutes: Int,
@@ -133,12 +145,26 @@ public final class BodySeekReadModel: Sendable {
             isAuthorized: isAuthorized,
             calendar: calendar
         )
-        let chartCache = BevelScoringEngine.buildAllChartSnapshots(
-            days: snapshot.historyDays,
-            referenceDate: snapshot.referenceDate,
-            calendar: calendar
-        )
         let digest = try computeDigest(snapshot: snapshot)
+        let chartCache: ChartCache
+        if let cached = Self.chartCacheStore.withLock({ $0.values[digest] }) {
+            chartCache = cached
+        } else {
+            let built = BevelScoringEngine.buildAllChartSnapshots(
+                days: snapshot.historyDays,
+                referenceDate: snapshot.referenceDate,
+                calendar: calendar
+            )
+            Self.chartCacheStore.withLock { state in
+                state.values[digest] = built
+                state.order.append(digest)
+                while state.order.count > 8 {
+                    let evicted = state.order.removeFirst()
+                    state.values[evicted] = nil
+                }
+            }
+            chartCache = built
+        }
         return CachedDashboardState(
             snapshot: snapshot,
             chartCache: chartCache,

@@ -406,6 +406,18 @@ public final class BodySeekRepository: Sendable {
         guard !rawDays.isEmpty else { return }
         try await database.writer.write { db in
             let deletedWorkoutUUIDs = try Self.deletedWorkoutUUIDs(in: db)
+            // 22 metric upserts per day; prepare once per transaction instead of
+            // re-parsing the same SQL for every scalar.
+            let scalarStatement = try db.cachedStatement(sql: """
+                INSERT INTO day_metric (day_key, metric, value, state, reason, coverage, sources_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(day_key, metric) DO UPDATE SET
+                    value = excluded.value,
+                    state = excluded.state,
+                    reason = excluded.reason,
+                    coverage = excluded.coverage,
+                    sources_json = excluded.sources_json
+                """)
             var dirtyKeys = Set<DayKey>()
             for raw in rawDays {
                 let dayKey = raw.dayKey ?? raw.date.physiologicalDayKey(cutoverHour: 4, timeZone: calendar.timeZone)
@@ -427,27 +439,15 @@ public final class BodySeekRepository: Sendable {
                         state = .missing
                         reason = "无样本"
                     }
-                    try db.execute(
-                        sql: """
-                        INSERT INTO day_metric (day_key, metric, value, state, reason, coverage, sources_json)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                        ON CONFLICT(day_key, metric) DO UPDATE SET
-                            value = excluded.value,
-                            state = excluded.state,
-                            reason = excluded.reason,
-                            coverage = excluded.coverage,
-                            sources_json = excluded.sources_json
-                        """,
-                        arguments: [
-                            dayKey.isoString,
-                            field.rawValue,
-                            value,
-                            state.rawValue,
-                            reason,
-                            value == nil ? 0.0 : 1.0,
-                            sourcesJSON,
-                        ]
-                    )
+                    try scalarStatement.execute(arguments: [
+                        dayKey.isoString,
+                        field.rawValue,
+                        value,
+                        state.rawValue,
+                        reason,
+                        value == nil ? 0.0 : 1.0,
+                        sourcesJSON,
+                    ])
                 }
 
                 try upsertScalar(.hrvMs, raw.hrvMs)
@@ -758,6 +758,39 @@ public final class BodySeekRepository: Sendable {
         guard !days.isEmpty else { return }
         try await database.writer.write { db in
             let nowEpoch = computedAt.timeIntervalSince1970
+            let scoreStatement = try db.cachedStatement(sql: """
+                INSERT INTO score_snapshot (
+                    day_key, kind, value, state, reason, baseline_delta,
+                    badge, subtitle, contributors_json, algorithm_version, computed_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(day_key, kind, algorithm_version) DO UPDATE SET
+                    value = excluded.value,
+                    state = excluded.state,
+                    reason = excluded.reason,
+                    baseline_delta = excluded.baseline_delta,
+                    badge = excluded.badge,
+                    subtitle = excluded.subtitle,
+                    contributors_json = excluded.contributors_json,
+                    computed_at = excluded.computed_at
+                """)
+            let artifactStatement = try db.cachedStatement(sql: """
+                INSERT INTO day_computed_artifact (
+                    day_key, date, energy_curve_json, stress_timeline_json,
+                    factual_summary, evidence_summary, algorithm_version, computed_at,
+                    sleep_goal_minutes
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(day_key) DO UPDATE SET
+                    date = excluded.date,
+                    energy_curve_json = excluded.energy_curve_json,
+                    stress_timeline_json = excluded.stress_timeline_json,
+                    factual_summary = excluded.factual_summary,
+                    evidence_summary = excluded.evidence_summary,
+                    algorithm_version = excluded.algorithm_version,
+                    computed_at = excluded.computed_at,
+                    sleep_goal_minutes = excluded.sleep_goal_minutes
+                """)
             for day in days {
                 for kind in MetricKind.allCases {
                     let score = day.score(for: kind)
@@ -769,68 +802,34 @@ public final class BodySeekRepository: Sendable {
                     case .excluded: stateTag = .excluded
                     }
                     let contributorsJSON = try Self.encodeJSONString(score.contributors, label: "score.contributors")
-                    try db.execute(
-                        sql: """
-                        INSERT INTO score_snapshot (
-                            day_key, kind, value, state, reason, baseline_delta,
-                            badge, subtitle, contributors_json, algorithm_version, computed_at
-                        )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        ON CONFLICT(day_key, kind, algorithm_version) DO UPDATE SET
-                            value = excluded.value,
-                            state = excluded.state,
-                            reason = excluded.reason,
-                            baseline_delta = excluded.baseline_delta,
-                            badge = excluded.badge,
-                            subtitle = excluded.subtitle,
-                            contributors_json = excluded.contributors_json,
-                            computed_at = excluded.computed_at
-                        """,
-                        arguments: [
-                            day.dayKey.isoString,
-                            kind.rawValue,
-                            score.value,
-                            stateTag.rawValue,
-                            score.availability.reasonText,
-                            score.baselineDelta,
-                            score.badge,
-                            score.subtitle,
-                            contributorsJSON,
-                            score.algorithmVersion.description,
-                            nowEpoch,
-                        ]
-                    )
+                    try scoreStatement.execute(arguments: [
+                        day.dayKey.isoString,
+                        kind.rawValue,
+                        score.value,
+                        stateTag.rawValue,
+                        score.availability.reasonText,
+                        score.baselineDelta,
+                        score.badge,
+                        score.subtitle,
+                        contributorsJSON,
+                        score.algorithmVersion.description,
+                        nowEpoch,
+                    ])
                 }
 
                 let curveJSON = try Self.encodeJSONString(day.energyCurve, label: "day.energyCurve")
                 let stressJSON = try Self.encodeJSONString(day.stressTimeline, label: "day.stressTimeline")
-                try db.execute(
-                    sql: """
-                    INSERT INTO day_computed_artifact (
-                        day_key, date, energy_curve_json, stress_timeline_json,
-                        factual_summary, evidence_summary, algorithm_version, computed_at
-                    )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(day_key) DO UPDATE SET
-                        date = excluded.date,
-                        energy_curve_json = excluded.energy_curve_json,
-                        stress_timeline_json = excluded.stress_timeline_json,
-                        factual_summary = excluded.factual_summary,
-                        evidence_summary = excluded.evidence_summary,
-                        algorithm_version = excluded.algorithm_version,
-                        computed_at = excluded.computed_at
-                    """,
-                    arguments: [
-                        day.dayKey.isoString,
-                        day.date.timeIntervalSince1970,
-                        curveJSON,
-                        stressJSON,
-                        day.factualSummary,
-                        day.evidenceSummary,
-                        day.algorithmVersion.description,
-                        nowEpoch,
-                    ]
-                )
+                try artifactStatement.execute(arguments: [
+                    day.dayKey.isoString,
+                    day.date.timeIntervalSince1970,
+                    curveJSON,
+                    stressJSON,
+                    day.factualSummary,
+                    day.evidenceSummary,
+                    day.algorithmVersion.description,
+                    nowEpoch,
+                    day.sleepGoalMinutes,
+                ])
             }
         }
     }
@@ -882,7 +881,7 @@ public final class BodySeekRepository: Sendable {
     ) throws -> [DailyComputedDay] {
         var artifactSQL = """
             SELECT day_key, date, energy_curve_json, stress_timeline_json,
-                   factual_summary, evidence_summary, algorithm_version
+                   factual_summary, evidence_summary, algorithm_version, sleep_goal_minutes
             FROM day_computed_artifact
             WHERE algorithm_version = ?
             """
@@ -959,6 +958,7 @@ public final class BodySeekRepository: Sendable {
             result.append(DailyComputedDay(
                 date: Date(timeIntervalSince1970: row["date"]),
                 dayKey: dayKey,
+                sleepGoalMinutes: row["sleep_goal_minutes"] ?? 450,
                 raw: raw,
                 recovery: recovery,
                 sleep: sleep,

@@ -465,6 +465,18 @@ public final class BodySeekDatabase: Sendable {
             try db.create(index: "idx_action_audit_undo_of", on: "action_audit", columns: ["undo_of"])
         }
 
+        migrator.registerMigration("v6_sleep_goal_cache_key") { db in
+            // -1 marks artifacts written before the sleep goal was part of the cache
+            // identity; they are treated as misses and recomputed once.
+            try db.alter(table: "day_computed_artifact") { table in
+                table.add(column: "sleep_goal_minutes", .integer).notNull().defaults(to: -1)
+            }
+            try db.execute(sql: """
+                CREATE INDEX IF NOT EXISTS idx_action_audit_kind
+                ON action_audit(json_extract(proposal_json, '$.kind'))
+                """)
+        }
+
         return migrator
     }
 }

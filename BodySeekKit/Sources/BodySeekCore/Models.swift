@@ -444,6 +444,9 @@ public struct DailyComputedDay: Identifiable, Hashable, Sendable, Codable {
     public var id: Date { date }
     public let date: Date
     public let dayKey: DayKey
+    /// Sleep goal used for this computation; part of the cache identity because
+    /// sleep scores depend on it even when raw health data is unchanged.
+    public let sleepGoalMinutes: Int
     public let raw: DailyRawMetrics
     public let recovery: MetricScore
     public let sleep: MetricScore
@@ -459,6 +462,7 @@ public struct DailyComputedDay: Identifiable, Hashable, Sendable, Codable {
     public init(
         date: Date,
         dayKey: DayKey? = nil,
+        sleepGoalMinutes: Int = 450,
         raw: DailyRawMetrics,
         recovery: MetricScore,
         sleep: MetricScore,
@@ -473,6 +477,7 @@ public struct DailyComputedDay: Identifiable, Hashable, Sendable, Codable {
     ) {
         self.date = date
         self.dayKey = dayKey ?? DayKey(date: date, cutoverHour: 4)
+        self.sleepGoalMinutes = sleepGoalMinutes
         self.raw = raw
         self.recovery = recovery
         self.sleep = sleep
