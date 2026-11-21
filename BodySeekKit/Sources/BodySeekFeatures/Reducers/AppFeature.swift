@@ -35,6 +35,9 @@ public struct AppFeature: Sendable {
         @Presents public var settings: SettingsFeature.State?
         public var nutrition: NutritionFeature.State
         public var isCheckInPresented: Bool = false
+        /// Cold-start briefing/backfill/workout sync is scheduled once per process,
+        /// whether it comes from the synced ReadModel cache or the direct fetch.
+        public var didScheduleColdStartWork: Bool = false
 
         public init(
             hasCompletedOnboarding: Bool = false,
@@ -240,7 +243,9 @@ public struct AppFeature: Sendable {
                 return loadSnapshotEffect(goalMinutes: state.preferences.sleepGoalMinutes, referenceDate: now)
 
             case let .cachedDashboardLoaded(cached):
+                state.today.isLoading = false
                 guard cached.contentDigest != state.lastAppliedCachedDigest else { return .none }
+                let isColdStart = !state.didScheduleColdStartWork
                 if state.snapshot.historyDays.isEmpty
                     || !state.snapshot.isAuthorized
                     || cached.snapshot.historyDays.count >= state.snapshot.historyDays.count
@@ -249,7 +254,17 @@ public struct AppFeature: Sendable {
                     apply(snapshot: cached.snapshot, precomputedCache: cached.chartCache, to: &state)
                     BodySeekSignposts.shared.endColdStartIfActive()
                 }
-                return .none
+                guard isColdStart, cached.snapshot.isAuthorized else { return .none }
+                state.didScheduleColdStartWork = true
+                let briefing = requestBriefing(state: &state)
+                return .merge(
+                    briefing,
+                    triggerBackgroundBackfillEffect(
+                        goalMinutes: state.preferences.sleepGoalMinutes,
+                        referenceDate: cached.snapshot.referenceDate
+                    ),
+                    .send(.workout(.syncWatchWorkouts))
+                )
 
             case let .snapshotLoaded(snapshot):
                 let mergedSnapshot: BodySeekDashboardSnapshot
@@ -279,7 +294,10 @@ public struct AppFeature: Sendable {
                     state.today.briefingStatus = .unconfigured(reason: "连接 Apple 健康并配置 AI 模型后生成生理简报")
                     return .cancel(id: CancelID.briefing)
                 }
+                let isColdStart = !state.didScheduleColdStartWork
+                state.didScheduleColdStartWork = true
                 let briefing = requestBriefing(state: &state)
+                guard isColdStart else { return briefing }
                 return .merge(
                     briefing,
                     triggerBackgroundBackfillEffect(goalMinutes: state.preferences.sleepGoalMinutes, referenceDate: now),
@@ -647,6 +665,7 @@ public struct AppFeature: Sendable {
                         isAuthorized: false
                     )
                     state.lastAppliedCachedDigest = nil
+                    state.didScheduleColdStartWork = false
                     state.nutrition = NutritionFeature.State(snapshot: emptySnapshot)
                     apply(snapshot: emptySnapshot, precomputedCache: nil, to: &state)
                     return loadSnapshotEffect(goalMinutes: state.preferences.sleepGoalMinutes, referenceDate: now)
@@ -734,6 +753,22 @@ public struct AppFeature: Sendable {
 
     private func loadSnapshotEffect(goalMinutes: Int, referenceDate: Date) -> Effect<Action> {
         .run { send in
+            // The anchored recent sync also updates the HealthKit anchor and writes
+            // raw/computed days. Read the resulting snapshot back instead of issuing a
+            // second 60-day HealthKit query on every launch.
+            do {
+                if let summary = try await bodySeekStoreClient.syncRecentWindow(goalMinutes, referenceDate) {
+                    if !summary.deletedWorkoutUUIDs.isEmpty {
+                        await send(.backgroundSyncCompleted(nil, workoutsDeleted: true))
+                    }
+                    if let cached = try await bodySeekStoreClient.loadCachedDashboard(goalMinutes, referenceDate) {
+                        await send(.cachedDashboardLoaded(cached))
+                        return
+                    }
+                }
+            } catch {
+                // Fall through to the direct fetch; the next anchored sync retries.
+            }
             let snapshot = await healthKitClient.loadDashboardWindow(
                 days: 60,
                 sleepGoalMinutes: goalMinutes,
@@ -769,10 +804,6 @@ public struct AppFeature: Sendable {
     private func triggerBackgroundBackfillEffect(goalMinutes: Int, referenceDate: Date) -> Effect<Action> {
         .run { send in
             do {
-                let recent = try await bodySeekStoreClient.syncRecentWindow(goalMinutes, referenceDate)
-                if let recent, !recent.deletedWorkoutUUIDs.isEmpty {
-                    await send(.backgroundSyncCompleted(nil, workoutsDeleted: true))
-                }
                 _ = try await bodySeekStoreClient.runBackgroundBackfill(goalMinutes, referenceDate)
                 await send(.backgroundSyncCompleted(nil))
             } catch {
