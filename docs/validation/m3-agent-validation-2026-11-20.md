@@ -216,3 +216,21 @@
 - `xcodebuild test … -only-testing:VelaTests -only-testing:VelaUITests` 退出码 0；VelaTests 4/4，UI 13 项中 12 通过、1 项按预期跳过。
 - 模拟器 Debug 构建 `BUILD SUCCEEDED`。
 - 未验证：真机、线上模型、真实 Watch 回流；多候选选择卡仍无 UI 自动化；睡眠目标缓存边界仅做了代码级防护，尚无专门的竞态回归。
+
+## 13. 2026-11-22 清单 1–6 优化
+
+按上一轮列出的六项继续：
+
+1. **睡眠目标进入 computed cache 身份**：`DailyComputedDay` 新增 `sleepGoalMinutes`，`scoreDay` 写入；`day_computed_artifact` v6 新增 `sleep_goal_minutes`（旧行默认 `-1`）。`recomputeIncremental` 仅在 raw、算法版本和睡眠目标都一致时复用缓存；v4/v5 旧 artifact 因 `-1` 不匹配而自动失效一次。回归确认同一 raw 在目标 450→500 时重算并返回 500。
+2. **启动同步合并**：`loadSnapshotEffect` 先走 `syncRecentWindow`（同时推进 HealthKit 锚点并写库），再读 ReadModel 缓存；只有同步失败或缓存为空时才回退到直接 60 天查询。`triggerBackgroundBackfillEffect` 只负责历史回填，不再重复 recent sync；冷启动的简报、回填和训练同步只调度一次。
+3. **批量写入 prepared statements**：`saveDailyRawMetrics` 的 22 个指标 upsert、`saveComputedDays` 的 5 个 score upsert 和 artifact upsert 改为每个事务准备一次 `cachedStatement`，循环内只绑定参数。
+4. **legacy annotation 查询索引**：v6 增加 `idx_action_audit_kind` 表达式索引（`json_extract(proposal_json,'$.kind')`），配合上一轮已下推的 `LIMIT`。
+5. **chart cache 按 digest 复用**：ReadModel 先算 `contentDigest`，命中进程内 8 条 LRU chart cache 时跳过 `buildAllChartSnapshots`；数据变化时 digest 改变，仍在写入后重建。
+6. **多候选 UI 自动化**：新增 `-velaPreviewAnnotationCandidates` 预览种子（昨晚 18:30 与 20:00 两条力量训练），UI 测试选择候选、确认卡出现、点“忽略”后候选与提案卡都消失。
+
+验证：
+
+- `swift test --package-path BodySeekKit --disable-automatic-resolution` 退出码 0，93 项包测试和 22 项 Agent 测试通过。
+- `xcodebuild test … -only-testing:VelaTests -only-testing:VelaUITests` 退出码 0；VelaTests 4/4，UI 14 项中 13 通过、1 项按预期跳过。
+- 模拟器 Debug 构建 `BUILD SUCCEEDED`。
+- 未验证：真实 HealthKit 启动路径（本轮只有模拟器预览路径）、真实 Watch 回流/删除、线上与 Apple 端侧模型；启动合并后的首屏时延也还没有真机 Instruments 数据。
