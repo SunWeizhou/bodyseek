@@ -388,6 +388,35 @@ final class BodySeekUITests: XCTestCase {
         app.buttons["settings-done-button"].tap()
     }
 
+    func testCoachMultipleWatchAnnotationCandidates() {
+        let app = launchApp(extraArguments: ["-velaPreviewDashboard", "-velaPreviewAnnotationCandidates"])
+        XCTAssertTrue(app.otherElements["today-score-instrument"].waitForExistence(timeout: 8))
+        tapTab("Coach", in: app)
+
+        let input = app.textViews["coach-full-input"].exists
+            ? app.textViews["coach-full-input"]
+            : app.textFields["coach-full-input"]
+        XCTAssertTrue(input.waitForExistence(timeout: 5))
+        input.tap()
+        input.typeText("给昨晚那次 Watch 训练补上腿训标注")
+        app.buttons["coach-send-button"].tap()
+
+        let candidateCard = app.otherElements["coach-annotation-candidate-card"].firstMatch
+        XCTAssertTrue(candidateCard.waitForExistence(timeout: 8))
+        let candidates = app.buttons.matching(
+            NSPredicate(format: "identifier BEGINSWITH 'coach-annotation-candidate-'")
+        )
+        XCTAssertGreaterThanOrEqual(candidates.count, 2)
+        candidates.firstMatch.tap()
+
+        let confirm = app.buttons["coach-annotation-proposal-confirm"].firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5))
+        app.buttons["忽略"].firstMatch.tap()
+
+        XCTAssertFalse(app.otherElements["coach-annotation-proposal-card"].firstMatch.waitForExistence(timeout: 2))
+        XCTAssertFalse(app.otherElements["coach-annotation-candidate-card"].firstMatch.exists)
+    }
+
     func testCoachAnnotationConfirmAndUndo() {
         let app = launchApp()
         XCTAssertTrue(app.otherElements["today-score-instrument"].waitForExistence(timeout: 8))

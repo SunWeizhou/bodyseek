@@ -102,6 +102,32 @@ public enum PreviewSeedFactory {
                         healthKitUUID: strengthUUID
                     )
                 )
+                if ProcessInfo.processInfo.arguments.contains("-velaPreviewAnnotationCandidates") {
+                    let secondStart = calendar.date(bySettingHour: 20, minute: 0, second: 0, of: date) ?? date
+                    let secondUUID = deterministicWorkoutUUID(slot: 7)
+                    workouts.append(
+                        WorkoutSummary(
+                            id: secondUUID,
+                            activityName: "传统力量训练 · Apple Watch",
+                            symbolName: "dumbbell.fill",
+                            startDate: secondStart,
+                            durationMinutes: 40,
+                            activeEnergyKcal: 240,
+                            averageHeartRate: 126,
+                            effortScore: 7.0,
+                            heartRateZones: WorkoutHeartRateZones(
+                                zone1Minutes: 8,
+                                zone2Minutes: 16,
+                                zone3Minutes: 11,
+                                zone4Minutes: 4,
+                                zone5Minutes: 0,
+                                maxHeartRate: 154
+                            ),
+                            estimatedEffortScore: 6.8,
+                            healthKitUUID: secondUUID
+                        )
+                    )
+                }
             } else if offset == -2 {
                 let badStart = calendar.date(bySettingHour: 19, minute: 15, second: 0, of: date) ?? date
                 let badUUID = deterministicWorkoutUUID(slot: 2)
