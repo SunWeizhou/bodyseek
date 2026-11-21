@@ -302,10 +302,15 @@ public final class ActionExecutor: Sendable {
                 }
                 guard original.snapshotVersion >= WorkoutAnnotationUndoSnapshot.currentVersion,
                       let snapshotJSON = original.snapshotJSON,
-                      let snapshotData = snapshotJSON.data(using: .utf8),
-                      let snapshot = try? JSONDecoder().decode(WorkoutAnnotationUndoSnapshot.self, from: snapshotData)
+                      let snapshotData = snapshotJSON.data(using: .utf8)
                 else {
                     throw BodySeekDatabaseError.undoUnsupported(reason: "旧版审计没有可撤销快照")
+                }
+                let snapshot: WorkoutAnnotationUndoSnapshot
+                do {
+                    snapshot = try JSONDecoder().decode(WorkoutAnnotationUndoSnapshot.self, from: snapshotData)
+                } catch {
+                    throw BodySeekDatabaseError.undoUnsupported(reason: "撤销快照无法解析")
                 }
                 if try Self.isWorkoutDeleted(db, uuid: snapshot.workoutUUID) {
                     throw BodySeekDatabaseError.recordDeleted(table: "workout", key: snapshot.workoutUUID)
