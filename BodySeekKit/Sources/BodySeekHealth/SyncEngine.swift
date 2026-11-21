@@ -540,78 +540,206 @@ public final class LiveHealthKitSyncSource: HealthKitSyncSource, @unchecked Send
 
         let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
         var dayMetrics: [DayMetricRecord] = []
+        var hourlyRecords: [HourlyMetricRecord] = []
+        var rawSleepSamples: [RawSleepSample] = []
         var affectedDays = Set<DayKey>()
         let tz = calendar.timeZone
 
-        // 1. Discrete daily quantity signals
-        let discreteSpecs: [(HKQuantityTypeIdentifier, HKUnit, DayMetricField, Bool)] = [
-            (.heartRateVariabilitySDNN, .secondUnit(with: .milli), .hrvMs, false),
-            (.restingHeartRate, .count().unitDivided(by: .minute()), .restingHeartRateBpm, false),
-            (.respiratoryRate, .count().unitDivided(by: .minute()), .respiratoryRateBrpm, false),
-            (.oxygenSaturation, .percent(), .oxygenSaturationPct, true),
-            (.appleSleepingWristTemperature, .degreeCelsius(), .wristTempDeltaC, false),
-            (.walkingHeartRateAverage, .count().unitDivided(by: .minute()), .walkingHeartRateAvgBpm, false),
-            (.vo2Max, HKUnit(from: "ml/kg*min"), .vo2MaxMlKgMin, false),
-            (.heartRateRecoveryOneMinute, .count().unitDivided(by: .minute()), .heartRateRecovery1MinBpm, false),
-            (.bodyMass, .gramUnit(with: .kilo), .bodyMassKg, false),
-            (.physicalEffort, HKUnit(from: "kcal/(kg*hr)"), .physicalEffortKcalPerKgHr, false),
-        ]
-
-        for (identifier, unit, field, scalePercent) in discreteSpecs {
-            do {
-                let samples = try await queryQuantitySamples(
-                    identifier: identifier,
-                    unit: unit,
-                    scalePercent: scalePercent,
-                    predicate: predicate
-                )
-                let windowWristBaseline: Double? = field == .wristTempDeltaC
-                    ? BevelScoringEngine.median(samples.map(\.value))
-                    : nil
-                let grouped = Dictionary(grouping: samples) { sample in
-                    sample.endDate.physiologicalDayKey(cutoverHour: 4, timeZone: tz)
-                }
-                for (dayKey, items) in grouped {
-                    let values = items.map(\.value)
-                    guard !values.isEmpty else { continue }
-                    let meanValue = values.reduce(0, +) / Double(values.count)
-                    let value = if field == .wristTempDeltaC, let windowWristBaseline {
-                        meanValue - windowWristBaseline
-                    } else {
-                        meanValue
-                    }
-                    let sources = Self.uniqueSourceRefs(items.map(\.source))
-                    dayMetrics.append(
-                        DayMetricRecord(
-                            dayKey: dayKey,
-                            metric: field.rawValue,
-                            value: value,
-                            state: .available,
-                            coverage: 1.0,
-                            sources: sources
-                        )
-                    )
-                    affectedDays.insert(dayKey)
-                }
-            } catch {
-                Self.logger.error("HealthKit query failed for \(identifier.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
-            }
+        // 1–4 run concurrently (10 discrete quantity queries, 3 cumulative statistics,
+        // hourly heart rate, and raw sleep samples). Each child catches its own failure;
+        // results are merged back in the original deterministic order.
+        struct DiscreteSpecBox: @unchecked Sendable {
+            let identifier: HKQuantityTypeIdentifier
+            let unit: HKUnit
+            let field: DayMetricField
+            let scalePercent: Bool
+        }
+        struct CumulativeSpecBox: @unchecked Sendable {
+            let identifier: HKQuantityTypeIdentifier
+            let unit: HKUnit
+            let field: DayMetricField
         }
 
-        // 2. Cumulative statistics (steps, activeEnergy, exerciseMinutes)
-        let cumulativeSpecs: [(HKQuantityTypeIdentifier, HKUnit, DayMetricField)] = [
-            (.activeEnergyBurned, .kilocalorie(), .activeEnergyKcal),
-            (.appleExerciseTime, .minute(), .exerciseMinutes),
-            (.stepCount, .count(), .steps),
+        let discreteSpecs: [DiscreteSpecBox] = [
+            DiscreteSpecBox(identifier: .heartRateVariabilitySDNN, unit: .secondUnit(with: .milli), field: .hrvMs, scalePercent: false),
+            DiscreteSpecBox(identifier: .restingHeartRate, unit: .count().unitDivided(by: .minute()), field: .restingHeartRateBpm, scalePercent: false),
+            DiscreteSpecBox(identifier: .respiratoryRate, unit: .count().unitDivided(by: .minute()), field: .respiratoryRateBrpm, scalePercent: false),
+            DiscreteSpecBox(identifier: .oxygenSaturation, unit: .percent(), field: .oxygenSaturationPct, scalePercent: true),
+            DiscreteSpecBox(identifier: .appleSleepingWristTemperature, unit: .degreeCelsius(), field: .wristTempDeltaC, scalePercent: false),
+            DiscreteSpecBox(identifier: .walkingHeartRateAverage, unit: .count().unitDivided(by: .minute()), field: .walkingHeartRateAvgBpm, scalePercent: false),
+            DiscreteSpecBox(identifier: .vo2Max, unit: HKUnit(from: "ml/kg*min"), field: .vo2MaxMlKgMin, scalePercent: false),
+            DiscreteSpecBox(identifier: .heartRateRecoveryOneMinute, unit: .count().unitDivided(by: .minute()), field: .heartRateRecovery1MinBpm, scalePercent: false),
+            DiscreteSpecBox(identifier: .bodyMass, unit: .gramUnit(with: .kilo), field: .bodyMassKg, scalePercent: false),
+            DiscreteSpecBox(identifier: .physicalEffort, unit: HKUnit(from: "kcal/(kg*hr)"), field: .physicalEffortKcalPerKgHr, scalePercent: false),
         ]
-        for (identifier, unit, field) in cumulativeSpecs {
-            do {
-                let byDay = try await queryDailyCumulativeSums(
-                    identifier: identifier,
-                    unit: unit,
-                    start: start,
-                    end: end
-                )
+        let cumulativeSpecs: [CumulativeSpecBox] = [
+            CumulativeSpecBox(identifier: .activeEnergyBurned, unit: .kilocalorie(), field: .activeEnergyKcal),
+            CumulativeSpecBox(identifier: .appleExerciseTime, unit: .minute(), field: .exerciseMinutes),
+            CumulativeSpecBox(identifier: .stepCount, unit: .count(), field: .steps),
+        ]
+
+        enum FetchOutcome: Sendable {
+            case discrete(metrics: [DayMetricRecord], days: Set<DayKey>)
+            case cumulative(field: DayMetricField, byDay: [DayKey: Double])
+            case hourly(records: [HourlyMetricRecord], metrics: [DayMetricRecord], days: Set<DayKey>)
+            case sleep(samples: [RawSleepSample])
+        }
+
+        let totalTasks = discreteSpecs.count + cumulativeSpecs.count + 2
+        let collected = await withTaskGroup(of: (Int, FetchOutcome?).self) { group in
+            for (index, spec) in discreteSpecs.enumerated() {
+                group.addTask { [self] in
+                    do {
+                        let predicate = HKQuery.predicateForSamples(
+                            withStart: start,
+                            end: end,
+                            options: .strictStartDate
+                        )
+                        let samples = try await queryQuantitySamples(
+                            identifier: spec.identifier,
+                            unit: spec.unit,
+                            scalePercent: spec.scalePercent,
+                            predicate: predicate
+                        )
+                        let windowWristBaseline: Double? = spec.field == .wristTempDeltaC
+                            ? BevelScoringEngine.median(samples.map(\.value))
+                            : nil
+                        let grouped = Dictionary(grouping: samples) { sample in
+                            sample.endDate.physiologicalDayKey(cutoverHour: 4, timeZone: tz)
+                        }
+                        var metrics: [DayMetricRecord] = []
+                        var days = Set<DayKey>()
+                        for (dayKey, items) in grouped {
+                            let values = items.map(\.value)
+                            guard !values.isEmpty else { continue }
+                            let meanValue = values.reduce(0, +) / Double(values.count)
+                            let value: Double
+                            if spec.field == .wristTempDeltaC, let windowWristBaseline {
+                                value = meanValue - windowWristBaseline
+                            } else {
+                                value = meanValue
+                            }
+                            let sources = Self.uniqueSourceRefs(items.map(\.source))
+                            metrics.append(
+                                DayMetricRecord(
+                                    dayKey: dayKey,
+                                    metric: spec.field.rawValue,
+                                    value: value,
+                                    state: .available,
+                                    coverage: 1.0,
+                                    sources: sources
+                                )
+                            )
+                            days.insert(dayKey)
+                        }
+                        return (index, .discrete(metrics: metrics, days: days))
+                    } catch {
+                        Self.logger.error("HealthKit query failed for \(spec.identifier.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                        return (index, nil)
+                    }
+                }
+            }
+
+            for (offset, spec) in cumulativeSpecs.enumerated() {
+                let index = discreteSpecs.count + offset
+                group.addTask { [self] in
+                    do {
+                        let byDay = try await queryDailyCumulativeSums(
+                            identifier: spec.identifier,
+                            unit: spec.unit,
+                            start: start,
+                            end: end
+                        )
+                        return (index, .cumulative(field: spec.field, byDay: byDay))
+                    } catch {
+                        Self.logger.error("HealthKit statistics query failed for \(spec.identifier.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                        return (index, nil)
+                    }
+                }
+            }
+
+            let hourlyIndex = discreteSpecs.count + cumulativeSpecs.count
+            group.addTask { [self] in
+                do {
+                    let hrByHour = try await queryHourlyAverages(
+                        identifier: .heartRate,
+                        unit: .count().unitDivided(by: .minute()),
+                        start: start,
+                        end: end
+                    )
+                    var records: [HourlyMetricRecord] = []
+                    var metrics: [DayMetricRecord] = []
+                    var days = Set<DayKey>()
+                    var daytimeByDay: [DayKey: [Double]] = [:]
+                    for (hourStart, avgBPM) in hrByHour {
+                        records.append(
+                            HourlyMetricRecord(hourStart: hourStart, metric: "hr_bpm", value: avgBPM, coverage: 1.0)
+                        )
+                        let key = hourStart.physiologicalDayKey(cutoverHour: 4, timeZone: calendar.timeZone)
+                        daytimeByDay[key, default: []].append(avgBPM)
+                    }
+                    for (dayKey, bpms) in daytimeByDay where !bpms.isEmpty {
+                        let mean = bpms.reduce(0, +) / Double(bpms.count)
+                        let maxVal = bpms.max() ?? mean
+                        metrics.append(
+                            DayMetricRecord(
+                                dayKey: dayKey,
+                                metric: DayMetricField.daytimeMeanHeartRateBpm.rawValue,
+                                value: mean,
+                                state: .available,
+                                coverage: min(1.0, Double(bpms.count) / 16.0)
+                            )
+                        )
+                        metrics.append(
+                            DayMetricRecord(
+                                dayKey: dayKey,
+                                metric: DayMetricField.daytimeMaxHeartRateBpm.rawValue,
+                                value: maxVal,
+                                state: .available,
+                                coverage: min(1.0, Double(bpms.count) / 16.0)
+                            )
+                        )
+                        days.insert(dayKey)
+                    }
+                    return (hourlyIndex, .hourly(records: records, metrics: metrics, days: days))
+                } catch {
+                    Self.logger.error("HealthKit hourly heartRate failed: \(error.localizedDescription, privacy: .public)")
+                    return (hourlyIndex, nil)
+                }
+            }
+
+            let sleepIndex = hourlyIndex + 1
+            group.addTask { [self] in
+                do {
+                    let predicate = HKQuery.predicateForSamples(
+                        withStart: start,
+                        end: end,
+                        options: .strictStartDate
+                    )
+                    let samples = try await querySleepSamples(predicate: predicate)
+                    return (sleepIndex, .sleep(samples: samples))
+                } catch {
+                    Self.logger.error("HealthKit sleepAnalysis query failed: \(error.localizedDescription, privacy: .public)")
+                    return (sleepIndex, nil)
+                }
+            }
+
+            var output: [Int: FetchOutcome] = [:]
+            for await (index, outcome) in group {
+                if let outcome {
+                    output[index] = outcome
+                }
+            }
+            return output
+        }
+
+        for index in 0..<totalTasks {
+            guard let outcome = collected[index] else { continue }
+            switch outcome {
+            case let .discrete(metrics, days):
+                dayMetrics.append(contentsOf: metrics)
+                affectedDays.formUnion(days)
+            case let .cumulative(field, byDay):
                 for (dayKey, total) in byDay {
                     dayMetrics.append(
                         DayMetricRecord(
@@ -625,64 +753,18 @@ public final class LiveHealthKitSyncSource: HealthKitSyncSource, @unchecked Send
                     )
                     affectedDays.insert(dayKey)
                 }
-            } catch {
-                Self.logger.error("HealthKit statistics query failed for \(identifier.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
-            }
-        }
-
-        // 3. Hourly heart rate + daytime mean/max
-        var hourlyRecords: [HourlyMetricRecord] = []
-        do {
-            let hrByHour = try await queryHourlyAverages(
-                identifier: .heartRate,
-                unit: .count().unitDivided(by: .minute()),
-                start: start,
-                end: end
-            )
-            var daytimeByDay: [DayKey: [Double]] = [:]
-            for (hourStart, avgBPM) in hrByHour {
-                hourlyRecords.append(
-                    HourlyMetricRecord(hourStart: hourStart, metric: "hr_bpm", value: avgBPM, coverage: 1.0)
-                )
-                let key = hourStart.physiologicalDayKey(cutoverHour: 4, timeZone: calendar.timeZone)
-                daytimeByDay[key, default: []].append(avgBPM)
-            }
-            for (dayKey, bpms) in daytimeByDay where !bpms.isEmpty {
-                let mean = bpms.reduce(0, +) / Double(bpms.count)
-                let maxVal = bpms.max() ?? mean
-                dayMetrics.append(
-                    DayMetricRecord(
-                        dayKey: dayKey,
-                        metric: DayMetricField.daytimeMeanHeartRateBpm.rawValue,
-                        value: mean,
-                        state: .available,
-                        coverage: min(1.0, Double(bpms.count) / 16.0)
+            case let .hourly(records, metrics, days):
+                hourlyRecords.append(contentsOf: records)
+                dayMetrics.append(contentsOf: metrics)
+                affectedDays.formUnion(days)
+            case let .sleep(samples):
+                rawSleepSamples = samples
+                for sample in samples {
+                    affectedDays.insert(
+                        sample.endDate.physiologicalDayKey(cutoverHour: 4, timeZone: tz)
                     )
-                )
-                dayMetrics.append(
-                    DayMetricRecord(
-                        dayKey: dayKey,
-                        metric: DayMetricField.daytimeMaxHeartRateBpm.rawValue,
-                        value: maxVal,
-                        state: .available,
-                        coverage: min(1.0, Double(bpms.count) / 16.0)
-                    )
-                )
-                affectedDays.insert(dayKey)
+                }
             }
-        } catch {
-            Self.logger.error("HealthKit hourly heartRate failed: \(error.localizedDescription, privacy: .public)")
-        }
-
-        // 4. Raw sleep samples for SleepMergePolicy
-        var rawSleepSamples: [RawSleepSample] = []
-        do {
-            rawSleepSamples = try await querySleepSamples(predicate: predicate)
-            for sample in rawSleepSamples {
-                affectedDays.insert(sample.endDate.physiologicalDayKey(cutoverHour: 4, timeZone: tz))
-            }
-        } catch {
-            Self.logger.error("HealthKit sleepAnalysis query failed: \(error.localizedDescription, privacy: .public)")
         }
 
         // 5. Workouts (separating user workoutEffortScore from estimatedWorkoutEffortScore)
