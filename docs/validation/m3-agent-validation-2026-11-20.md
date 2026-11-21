@@ -175,3 +175,24 @@
 - `swift test --package-path BodySeekKit --disable-automatic-resolution` 退出码 0，89 项包测试和 22 项 Agent 测试通过。`WeeklyRecoveryEvidenceTests` 覆盖 04:00 切日、未来日期、当前日部分、窗口不重叠、3 天缺失 + 2 天排除得到 23/28 覆盖与 23 样本、已知零、同日 09:00 力量与 20:00 羽毛球各计一次、缺失睡眠、咖啡时间未知，以及错日期/错指标/错单位/数值替换负例。Agent 评测新增 W1 用例，31/31 通过。
 - `xcodebuild test -project Vela.xcodeproj -scheme Vela -destination 'id=3BB779BD-022F-4E60-A3BB-70DC5A0BF987' -only-testing:VelaUITests` 退出码 0，13 项中 12 项通过、1 项按预期跳过。
 - 未验证：线上 DeepSeek/OpenAI 对同一问题的实际回复质量、Apple 端侧 `FoundationModels` 真机调用、真机 HealthKit 数据。上述 7/28 数值来自固定合成夹具，不是临床证据。
+
+## 11. 2026-11-21 全量审查与代码优化
+
+审查基于 `efe97829` 加当时 7 个用户文档改动。静态扫描 `BodySeekKit/Sources` 与 `VelaApp`：`try!`、`fatalError`、`as!`、`TODO/FIXME`、`print(` 均为 0；未发现 `DispatchQueue.main.sync` 或 `Task.detached`；6 处 `@unchecked Sendable` 均有锁/系统对象封装，未改动。重点复核了周恢复、溯源核验、标注撤销、数据库迁移和 Coach 刷新路径。
+
+本轮修复：
+
+- **混合工具溯源误报**：此前一回合并存 `evidence` facts 和无 facts 的旧工具结果时，只要 facts 非空，旧工具的数字（如 `get_today_context` 的 HRV）就会被判未核实。现在只有数字确实出现在 typed facts 中才强制 metric/日期/单位校验；不在 facts 中的数字回退到旧工具白名单。新增“周恢复 facts + HRV 46 ms”回归，负例（错日期/指标/单位）仍被拒绝。
+- **周恢复重复扫描**：原实现对目标/对照窗口和逐日展示反复调用 `dayWorkouts`，每次全量过滤训练并为每条训练再过滤肌群负荷。改为一次构建 `WorkoutEvidenceIndex`（按生理日分组、按训练 UUID 索引负荷和标注），窗口和逐日共用；训练/负荷行为不变，扫描从约 70 次全量过滤降为 1 次。
+- **溯源正则重复编译**：单位、日期和数字正则改为静态缓存，避免每个候选数字重复编译。
+- **多候选“忽略”无效**：多候选选中后消息本身没有 `workoutAnnotationProposal`，原 reducer 直接返回。现在回退到 `annotationCandidateSelections`，清空选择并按 rejected 审计。
+- **撤销按钮禁用条件用错集合**：从 `pendingAnnotationDecisionMessageIDs` 改为 `pendingAnnotationUndoMessageIDs`。
+- **静默 `try?`**：撤销快照解析失败现在返回明确的 `undoUnsupported`；预览周恢复的构建失败改为显式 do/catch。
+
+验证：
+
+- `swift test --package-path BodySeekKit --disable-automatic-resolution` 退出码 0，89 项包测试和 22 项 Agent 测试通过。
+- `xcodebuild test … -only-testing:VelaTests` 退出码 0，4/4 通过。
+- `xcodebuild test … -only-testing:VelaUITests` 退出码 0，13 项中 12 项通过、1 项按预期跳过，294–296 秒。
+- 模拟器 Debug 构建 `BUILD SUCCEEDED`。
+- 未验证项与第 10 节相同：线上模型、Apple 端侧和真机数据未在本轮重新验证。
