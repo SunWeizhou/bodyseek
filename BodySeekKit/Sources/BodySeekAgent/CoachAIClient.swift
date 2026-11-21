@@ -50,7 +50,7 @@ public enum CoachAgentOrchestrator {
         return """
         你是 BodySeek 的专业运动科学与生理数据智能体，服务 Watch-First 力量与耐力训练用户。
         核心守则（严格遵守）：
-        1. 先调用只读工具核实数据（get_today_context / get_metric_trend / get_workouts_and_muscles / get_sleep_detail / get_patterns / find_similar_days / get_eating_context / get_personal_forecast / search_exercise_catalog）。
+        1. 先调用只读工具核实数据（get_today_context / get_metric_trend / get_weekly_recovery_evidence / get_workouts_and_muscles / get_sleep_detail / get_patterns / find_similar_days / get_eating_context / get_personal_forecast / search_exercise_catalog）。
         2. 严格区分四态真值：missing / excluded 的指标绝不当作 0，也绝不编造任何健康数字；回答中引用的每个健康数值都必须直接来自本轮工具返回结果。
         3. 肌群恢复百分比必须标注为「启发式估计」（recovery-heuristic-v1）；用户手打用力（EffortUser）与 Apple 系统估算（Estimated）分开陈述。
         4. get_patterns、find_similar_days 与 get_personal_forecast 仅为相关性、历史相似日类比或带不确定度区间的个人统计预测，绝不宣称“证明了因果关系”、不冒充医学诊断，也不进行反事实捏造。
@@ -61,6 +61,11 @@ public enum CoachAgentOrchestrator {
         6. 绝对不要输出 <tool_call>、<|DSML|> 等 XML 或内部标签，直接用简洁克制的中文回复。
         7. 按工具提供的日期范围与单位比较。历史训练标注中的「今天」「昨天」以该条训练的 dayKey 为准。把用户确认记录、设备记录、估算和建议分开写。饮食未完成时只谈已记录部分，缺失日不计作零。饮食工具返回热量区间时优先陈述上下限；kcal 中点仅供汇总。有缺项时称为已记录小计。历史聊天只用于理解指代，请用本轮工具核对数据。
         8. 先用一小段话回答问题。信息较多时用 Markdown 小标题和短列表分段，只在需要比较多项数据时使用简短表格。
+        9. 当用户问「这周/近 7 天恢复为什么下降」或比较最近一周时，必须调用 get_weekly_recovery_evidence，不要用 get_metric_trend 的 30 天中位数代替。
+           - 先回答恢复是否下降、下降多少、与哪个 7 天/28 天窗口比较；再看覆盖率与样本数是否足以判断。
+           - 然后分别列出：有证据的因素（睡眠、训练负荷、体感、饮食）、只是线索的因素、以及数据缺口。不要把共现写成因果。
+           - 每个关键数字带上日期或窗口、指标和单位。覆盖率与统计样本数分开表述。
+           - 进食时刻未知时保持未知；recorded_at 只是保存时间，绝不能当作进食时间。咖啡只能作为未确认的观察线索。
 
         与本轮对话相关的已激活三层记忆：
         \(memoryLines)
@@ -575,6 +580,7 @@ extension CoachAIClient: DependencyKey {
             FMWorkoutsAndMusclesTool(context: context),
             FMSleepDetailTool(context: context),
             FMMetricTrendTool(context: context),
+            FMWeeklyRecoveryEvidenceTool(context: context),
             FMEatingContextTool(context: context),
             FMProposeMemoryTool(context: context),
             FMProposePlanTool(context: context),
@@ -708,6 +714,25 @@ private struct FMMetricTrendTool: Tool {
         let json = try JSONEncoder().encode(["metric": arguments.metric, "horizon": arguments.horizon])
         return await CoachToolRegistry.execute(name: name, argumentsJSON: String(decoding: json, as: UTF8.self),
                                                context: context)
+    }
+}
+
+@available(iOS 26.0, macOS 26.0, *)
+private struct FMWeeklyRecoveryEvidenceTool: Tool {
+    let name = "get_weekly_recovery_evidence"
+    let description = "比较最近 7 天与此前 28 天的恢复、睡眠、训练、体感和饮食，返回逐日观测、覆盖率与四态计数"
+    let context: AgentExecutionContext
+
+    @Generable
+    struct Arguments {
+        @Guide(description: "结束日 YYYY-MM-DD；留空表示当前生理日")
+        var endDayKey: String
+    }
+
+    func call(arguments: Arguments) async throws -> String {
+        let key = arguments.endDayKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        let args = key.isEmpty ? "{}" : "{\"end_day_key\":\"\(key)\"}"
+        return await CoachToolRegistry.execute(name: name, argumentsJSON: args, context: context)
     }
 }
 

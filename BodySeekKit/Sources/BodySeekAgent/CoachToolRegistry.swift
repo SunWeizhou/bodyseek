@@ -131,6 +131,10 @@ private struct ToolEnvelope<Payload: Encodable>: Encodable {
     let reason: String?
     let algorithmVersion: String
     let data: Payload
+    /// Typed numbers for the provenance verifier. Only tools that can bind a value
+    /// to a metric, window/date and unit populate this.
+    let evidence: [EvidenceFact]?
+    let truncated: Bool?
 }
 
 public enum CoachToolRegistry {
@@ -151,6 +155,15 @@ public enum CoachToolRegistry {
                     "horizon": OpenAIToolParameterSchema(type: "string", description: "7d, 30d, 6m, 3y", enumValues: ["7d", "30d", "6m", "3y"]),
                 ],
                 required: ["metric", "horizon"]
+            )
+        )),
+        OpenAIToolDefinition(function: OpenAIFunctionDefinition(
+            name: "get_weekly_recovery_evidence",
+            description: "按本地 04:00 生理日比较最近 7 天与此前不重叠的 28 天：恢复、睡眠、训练、体感和饮食的逐日观测、覆盖率、四态计数与统计样本数。用于回答「这周恢复为什么下降」等问题。",
+            parameters: OpenAIToolParametersObject(
+                properties: [
+                    "end_day_key": OpenAIToolParameterSchema(type: "string", description: "可选结束日 YYYY-MM-DD；省略使用当前生理日"),
+                ]
             )
         )),
         OpenAIToolDefinition(function: OpenAIFunctionDefinition(
@@ -272,6 +285,11 @@ public enum CoachToolRegistry {
             output = metricTrendJSON(
                 metricRaw: stringArg(args, "metric") ?? "recovery",
                 horizonRaw: stringArg(args, "horizon") ?? "7d",
+                context: context
+            )
+        case "get_weekly_recovery_evidence":
+            output = weeklyRecoveryEvidenceJSON(
+                endDayKeyString: stringArg(args, "end_day_key"),
                 context: context
             )
         case "get_workouts_and_muscles":
@@ -496,6 +514,45 @@ public enum CoachToolRegistry {
                 missingDays: missing
             )
         )
+    }
+
+    private static func weeklyRecoveryEvidenceJSON(
+        endDayKeyString: String?,
+        context: AgentExecutionContext
+    ) -> String {
+        do {
+            let endDay: DayKey? = try endDayKeyString.map { raw in
+                guard let key = DayKey(isoString: raw) else {
+                    throw WeeklyRecoveryEvidenceError.invalidDayKey(raw)
+                }
+                return key
+            }
+            let evidence = try WeeklyRecoveryEvidenceBuilder.build(
+                endDayKey: endDay,
+                asOf: context.asOf,
+                context: context
+            )
+            let state = evidence.recovery.evidenceSufficient ? "available" : "missing"
+            let reason = evidence.recovery.evidenceSufficient ? nil : evidence.recovery.note
+            return encodeEnvelope(
+                tool: "get_weekly_recovery_evidence",
+                state: state,
+                coverage: evidence.target.metricStats.first { $0.metric == MetricKind.recovery.rawValue }?.coverage,
+                reason: reason,
+                algorithmVersion: context.snapshot.scoreAlgorithmVersion.description,
+                data: evidence,
+                evidence: evidence.evidence,
+                truncated: evidence.truncated
+            )
+        } catch {
+            return encodeEnvelope(
+                tool: "get_weekly_recovery_evidence",
+                state: "excluded",
+                coverage: 0,
+                reason: error.localizedDescription,
+                data: ["error": "invalid_or_future_day"]
+            )
+        }
     }
 
     private static func workoutsAndMusclesJSON(
@@ -1373,7 +1430,9 @@ public enum CoachToolRegistry {
         coverage: Double?,
         reason: String?,
         algorithmVersion: String = "v1",
-        data: Payload
+        data: Payload,
+        evidence: [EvidenceFact]? = nil,
+        truncated: Bool? = nil
     ) -> String {
         let envelope = ToolEnvelope(
             tool: tool,
@@ -1381,7 +1440,9 @@ public enum CoachToolRegistry {
             coverage: coverage,
             reason: reason,
             algorithmVersion: algorithmVersion,
-            data: data
+            data: data,
+            evidence: evidence,
+            truncated: truncated
         )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
