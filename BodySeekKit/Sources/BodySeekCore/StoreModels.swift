@@ -374,19 +374,22 @@ public struct AnnotateWorkoutPayload: Hashable, Codable, Sendable {
     public let parserVersion: AlgorithmVersion
     public let muscleLoads: [WorkoutMuscleLoadRecord]
     public let reviewState: WorkoutReviewState
+    public let coachAnnotationDecision: ActionAuditDecision?
 
     public init(
         workoutUUID: String,
         rawText: String,
         parserVersion: AlgorithmVersion = .workoutParserV1,
         muscleLoads: [WorkoutMuscleLoadRecord] = [],
-        reviewState: WorkoutReviewState = .annotated
+        reviewState: WorkoutReviewState = .annotated,
+        coachAnnotationDecision: ActionAuditDecision? = nil
     ) {
         self.workoutUUID = workoutUUID
         self.rawText = rawText
         self.parserVersion = parserVersion
         self.muscleLoads = muscleLoads
         self.reviewState = reviewState
+        self.coachAnnotationDecision = coachAnnotationDecision
     }
 }
 

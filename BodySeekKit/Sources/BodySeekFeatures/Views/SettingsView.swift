@@ -116,7 +116,7 @@ public struct SettingsView: View {
                 } header: {
                     Text("AI 智能体引擎（自研 OpenAI 兼容客户端 / Apple 智能）")
                 } footer: {
-                    Text("填入 DeepSeek 等 OpenAI 兼容接口后可启用云端四态工具调用；留空时，支持 Apple 智能的 iOS 26 设备将自动启用端侧 FoundationModels 智能体。")
+                    Text("填入 DeepSeek 等 OpenAI 兼容接口后可启用云端四态工具调用；留空时，支持 Apple 智能的 iOS 26 设备将自动启用端侧 FoundationModels 智能体。云端 Coach 请求会附带当前对话最近最多 6 条消息及其中的训练提案摘要，可在隐私预览核对。")
                 }
 
                 Section("三层长期记忆 (\(store.tieredMemories.isEmpty ? store.memories.count : store.tieredMemories.filter { $0.isActive() }.count))") {

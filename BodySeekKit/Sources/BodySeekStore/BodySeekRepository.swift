@@ -284,10 +284,39 @@ public final class BodySeekRepository: Sendable {
         }
     }
 
+    public func loadDeletedWorkoutUUIDs() async throws -> Set<String> {
+        try await database.writer.read { db in
+            try Self.deletedWorkoutUUIDs(in: db)
+        }
+    }
+
+    private static func deletedWorkoutUUIDs(in db: Database) throws -> Set<String> {
+        try Set(String.fetchAll(db, sql: "SELECT uuid FROM deleted_healthkit_workout"))
+    }
+
+    public func applyWorkoutDeletions(_ uuids: Set<String>) async throws -> Set<DayKey> {
+        guard !uuids.isEmpty else { return [] }
+        return try await database.writer.write { db in
+            var affected: Set<DayKey> = []
+            for uuid in uuids.map({ $0.lowercased() }) {
+                let day = try String.fetchOne(db, sql: "SELECT day_key FROM workout WHERE lower(hk_uuid) = ?", arguments: [uuid])
+                try db.execute(
+                    sql: "INSERT OR IGNORE INTO deleted_healthkit_workout(uuid, day_key) VALUES (?, ?)",
+                    arguments: [uuid, day]
+                )
+                let affectedDay = try String.fetchOne(db, sql: "SELECT day_key FROM deleted_healthkit_workout WHERE uuid = ?", arguments: [uuid])
+                if let affectedDay, let key = DayKey(isoString: affectedDay) { affected.insert(key) }
+                try db.execute(sql: "DELETE FROM workout WHERE lower(hk_uuid) = ?", arguments: [uuid])
+            }
+            return affected
+        }
+    }
+
     public func upsertWorkouts(_ workouts: [StoredWorkoutRecord], symbolByUUID: [String: String] = [:]) async throws {
         guard !workouts.isEmpty else { return }
         try await database.writer.write { db in
-            for workout in workouts {
+            let deleted = try Self.deletedWorkoutUUIDs(in: db)
+            for workout in workouts where !deleted.contains(workout.hkUUID.lowercased()) {
                 let dayKey = workout.start.physiologicalDayKey()
                 let zonesJSON: String? = if let zones = workout.zones {
                     try Self.encodeJSONString(zones, label: "workout.zones")
@@ -310,7 +339,7 @@ public final class BodySeekRepository: Sendable {
                         end = excluded.end,
                         energy = excluded.energy,
                         avg_hr = excluded.avg_hr,
-                        zones_json = excluded.zones_json,
+                        zones_json = COALESCE(excluded.zones_json, workout.zones_json),
                         effort_user = COALESCE(excluded.effort_user, workout.effort_user),
                         effort_estimated = COALESCE(excluded.effort_estimated, workout.effort_estimated)
                     """,
@@ -368,6 +397,7 @@ public final class BodySeekRepository: Sendable {
     public func saveDailyRawMetrics(_ rawDays: [DailyRawMetrics], calendar: Calendar = .current) async throws {
         guard !rawDays.isEmpty else { return }
         try await database.writer.write { db in
+            let deletedWorkoutUUIDs = try Self.deletedWorkoutUUIDs(in: db)
             var dirtyKeys = Set<DayKey>()
             for raw in rawDays {
                 let dayKey = raw.dayKey ?? raw.date.physiologicalDayKey(cutoverHour: 4, timeZone: calendar.timeZone)
@@ -480,6 +510,7 @@ public final class BodySeekRepository: Sendable {
 
                 for workout in raw.workouts {
                     let hkUUID = (workout.healthKitUUID ?? workout.id).uuidString
+                    guard !deletedWorkoutUUIDs.contains(hkUUID.lowercased()) else { continue }
                     let zonesJSON: String? = if let z = workout.heartRateZones {
                         try Self.encodeJSONString(z, label: "workout.zones")
                     } else {
@@ -1243,14 +1274,27 @@ public final class BodySeekRepository: Sendable {
             let rows = try Row.fetchAll(
                 db,
                 sql: """
-                SELECT id, role, content, engine_label, evidence_metric, proposal_json, memory_note, tool_trace_json, at
-                FROM coach_message
+                SELECT m.id, m.role, m.content, m.engine_label, m.evidence_metric, m.proposal_json, m.memory_note,
+                       m.tool_trace_json, m.at, a.decision AS annotation_decision
+                FROM coach_message m
+                LEFT JOIN action_audit a ON a.id = m.id
                 WHERE thread_id = ?
                 ORDER BY at ASC
                 """,
                 arguments: [threadID]
             )
             let decoder = JSONDecoder()
+            // Older builds stored successful Coach annotations without a message ID.
+            let legacyAnnotations = try Row.fetchAll(db, sql: """
+                SELECT proposal_json, decided_at FROM action_audit
+                WHERE origin = 'agent' AND decision = 'applied'
+                  AND json_extract(proposal_json, '$.kind') = 'annotateWorkout'
+                """).compactMap { row -> (AnnotateWorkoutPayload, Date)? in
+                    let action = try decoder.decode(ActionProposal.self, from: Data((row["proposal_json"] as String).utf8))
+                    let payload = try action.decodePayload(AnnotateWorkoutPayload.self)
+                    guard payload.coachAnnotationDecision == nil else { return nil }
+                    return (payload, Date(timeIntervalSince1970: row["decided_at"]))
+                }
             return try rows.compactMap { row in
                 guard let id = UUID(uuidString: row["id"]),
                       let role = CoachMessage.Role(rawValue: row["role"])
@@ -1267,17 +1311,28 @@ public final class BodySeekRepository: Sendable {
                 let trace: CoachMessageTraceMetadata? = try traceJSON.map {
                     try decoder.decode(CoachMessageTraceMetadata.self, from: Data($0.utf8))
                 }
+                let at = Date(timeIntervalSince1970: row["at"])
+                let persistedDecision = (row["annotation_decision"] as String?).flatMap(ActionAuditDecision.init(rawValue:))
+                let annotationDecision = persistedDecision ?? trace?.workoutAnnotationProposal.flatMap { proposal in
+                    legacyAnnotations.contains { payload, decidedAt in
+                        decidedAt >= at && payload.workoutUUID == proposal.workoutUUID
+                            && payload.rawText == proposal.rawText
+                            && payload.parserVersion == proposal.proposal.parserVersion
+                            && payload.muscleLoads == proposal.muscleLoads
+                    } ? .applied : nil
+                }
                 return CoachMessage(
                     id: id,
                     role: role,
                     text: row["content"],
                     engineLabel: row["engine_label"],
-                    timestamp: Date(timeIntervalSince1970: row["at"]),
+                    timestamp: at,
                     evidenceMetric: metric,
                     workoutProposal: proposal,
                     memorySavedNote: row["memory_note"],
                     memoryProposal: trace?.memoryProposal,
                     workoutAnnotationProposal: trace?.workoutAnnotationProposal,
+                    annotationDecision: annotationDecision,
                     unverifiedNumbers: trace?.unverifiedNumbers ?? [],
                     toolsInvoked: trace?.toolsInvoked ?? []
                 )
@@ -1373,24 +1428,26 @@ public final class BodySeekRepository: Sendable {
                 db,
                 sql: "SELECT id, proposal_json, origin, decision, decided_at, affected_ids_json FROM action_audit ORDER BY decided_at DESC"
             )
-            return try rows.compactMap { row in
-                guard let id = UUID(uuidString: row["id"]),
-                      let origin = ActionProposal.Origin(rawValue: row["origin"]),
-                      let decision = ActionAuditDecision(rawValue: row["decision"])
-                else {
-                    return nil
-                }
-                let affected = try Self.decodeJSON(row["affected_ids_json"] as String, as: [String].self)
-                return ActionAuditEntry(
-                    id: id,
-                    proposalJSON: row["proposal_json"],
-                    origin: origin,
-                    decision: decision,
-                    decidedAt: Date(timeIntervalSince1970: row["decided_at"]),
-                    affectedIDs: affected
-                )
-            }
+            return try rows.compactMap(Self.decodeAuditEntry)
         }
+    }
+
+    static func decodeAuditEntry(_ row: Row) throws -> ActionAuditEntry? {
+        guard let id = UUID(uuidString: row["id"]),
+              let origin = ActionProposal.Origin(rawValue: row["origin"]),
+              let decision = ActionAuditDecision(rawValue: row["decision"])
+        else {
+            return nil
+        }
+        let affected = try Self.decodeJSON(row["affected_ids_json"] as String, as: [String].self)
+        return ActionAuditEntry(
+            id: id,
+            proposalJSON: row["proposal_json"],
+            origin: origin,
+            decision: decision,
+            decidedAt: Date(timeIntervalSince1970: row["decided_at"]),
+            affectedIDs: affected
+        )
     }
 
     public func savePatternFinding(_ finding: PatternFindingRecord) async throws {
@@ -1876,6 +1933,7 @@ public final class BodySeekRepository: Sendable {
                 "workout_muscle_load",
                 "workout_annotation",
                 "workout",
+                "deleted_healthkit_workout",
                 "sleep_episode",
                 "hourly_metric",
                 "day_metric",

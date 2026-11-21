@@ -1,6 +1,12 @@
 import BodySeekCore
 import Foundation
 
+public struct MealMacroEstimate: Codable, Hashable, Sendable {
+    public let proteinG: Double?
+    public let carbsG: Double?
+    public let fatG: Double?
+}
+
 public struct MealDraftCandidate: Codable, Hashable, Sendable {
     public let name: String
     public let amount: Double?
@@ -11,10 +17,13 @@ public struct MealDraftCandidate: Codable, Hashable, Sendable {
     public let isEstimatedPortion: Bool?
     public let catalogSearchName: String?
     public let energyEstimate: MealEnergyEstimate?
+    public let macroEstimate: MealMacroEstimate?
+    public let additionalEstimates: [String: Double]?
 
     public init(name: String, amount: Double?, unit: String?, meal: MealType? = nil,
                 reportedPortion: String? = nil, isEstimatedPortion: Bool? = nil,
-                catalogSearchName: String? = nil, energyEstimate: MealEnergyEstimate? = nil) {
+                catalogSearchName: String? = nil, energyEstimate: MealEnergyEstimate? = nil,
+                macroEstimate: MealMacroEstimate? = nil, additionalEstimates: [String: Double]? = nil) {
         self.name = name
         self.amount = amount
         self.unit = unit
@@ -23,6 +32,8 @@ public struct MealDraftCandidate: Codable, Hashable, Sendable {
         self.isEstimatedPortion = isEstimatedPortion
         self.catalogSearchName = catalogSearchName
         self.energyEstimate = energyEstimate
+        self.macroEstimate = macroEstimate
+        self.additionalEstimates = additionalEstimates
     }
 }
 
@@ -68,7 +79,7 @@ struct MealDraftAnalysis {
         guard !items.isEmpty else { throw MealDraftAnalysisError.noFoods }
         guard items.count <= 32 else { throw MealDraftAnalysisError.invalidReply }
         let candidates = items.compactMap(candidate)
-        guard !candidates.isEmpty else { throw MealDraftAnalysisError.invalidReply }
+        guard candidates.count == items.count else { throw MealDraftAnalysisError.invalidReply }
         return candidates
     }
 
@@ -102,7 +113,9 @@ struct MealDraftAnalysis {
             reportedPortion: string(item["reportedPortion"]).map { String($0.prefix(120)) },
             isEstimatedPortion: estimated,
             catalogSearchName: string(item["catalogSearchName"]).flatMap { !$0.isEmpty && $0.count <= 40 ? $0 : nil },
-            energyEstimate: validatedEstimate(item["energyEstimate"])
+            energyEstimate: validatedEstimate(item["energyEstimate"]),
+            macroEstimate: validatedMacros(item["macroEstimate"], grams: unit == "g" ? amount : nil),
+            additionalEstimates: validatedAdditionalEstimates(item["nutrients"], amount: amount, unit: unit, foodName: name)
         )
     }
 
@@ -119,6 +132,49 @@ struct MealDraftAnalysis {
         }
     }
 
+    private static func validatedAdditionalEstimates(
+        _ value: JSONValue?, amount: Double?, unit: String?, foodName: String
+    ) -> [String: Double]? {
+        guard case let .object(fields) = value else { return nil }
+        var result: [String: Double] = [:]
+        for id in MealEntry.additionalNutrientIDs {
+            guard let descriptor = NutritionCatalog.allKnownDescriptors[id],
+                  case let .array(pair) = fields[id], pair.count == 2,
+                  let raw = number(pair[0]), raw.isFinite, raw > 0,
+                  let suppliedUnit = string(pair[1]) else { continue }
+            let expected = descriptor.rawUnit ?? descriptor.unit
+            let normalized: Double?
+            if expected == "mg" || expected == "μg" {
+                normalized = NutritionCatalog.normalizeMicroValue(raw, fromUnit: suppliedUnit, toUnit: expected)
+            } else {
+                normalized = suppliedUnit.lowercased() == expected.lowercased() ? raw : nil
+            }
+            guard let normalized, normalized.isFinite, normalized > 0 else { continue }
+            if expected == "mL" {
+                let plainWater = ["水", "白水", "白开水", "温开水", "温水", "矿泉水", "纯净水", "饮用水", "自来水", "water", "plain water"]
+                guard plainWater.contains(foodName.lowercased()), unit == "ml", let amount, normalized <= amount
+                else { continue }
+            } else {
+                let grams = normalized / (expected == "μg" ? 1_000_000 : expected == "mg" ? 1_000 : 1)
+                guard grams <= (unit == "g" ? amount ?? 2_500 : 2_500) else { continue }
+            }
+            result[id] = normalized
+        }
+        return result.isEmpty ? nil : result
+    }
+
+    private static func validatedMacros(_ value: JSONValue?, grams: Double?) -> MealMacroEstimate? {
+        guard case let .object(fields) = value else { return nil }
+        func gramsValue(_ key: String) -> Double? {
+            guard let value = number(fields[key]), value.isFinite, (0...2_500).contains(value) else { return nil }
+            return value
+        }
+        let estimate = MealMacroEstimate(proteinG: gramsValue("proteinG"), carbsG: gramsValue("carbsG"), fatG: gramsValue("fatG"))
+        let values = [estimate.proteinG, estimate.carbsG, estimate.fatG].compactMap { $0 }
+        guard !values.isEmpty, values.reduce(0, +) <= (grams.map { $0 * 1.05 } ?? 2_500) else { return nil }
+        return estimate
+    }
+
     private static func validatedEstimate(_ value: JSONValue?) -> MealEnergyEstimate? {
         guard case let .object(estimate) = value,
               let lower = number(estimate["lowerKcal"]), let upper = number(estimate["upperKcal"]),
@@ -127,6 +183,11 @@ struct MealDraftAnalysis {
         return MealEnergyEstimate(lowerKcal: lower, upperKcal: upper, assumptions: String(assumptions.prefix(240)))
     }
 
+    private static let nutrientUnits = MealEntry.additionalNutrientIDs.compactMap { id -> String? in
+        guard let descriptor = NutritionCatalog.allKnownDescriptors[id] else { return nil }
+        return "\(id)=\(descriptor.rawUnit ?? descriptor.unit)"
+    }.joined(separator: "，")
+
     static let instructions = """
         将用户的一天饮食拆成条目，只输出 JSON：
         {"items":[{"name":"水煮蛋","meal":"breakfast","reportedPortion":"2 个","amount":100,"unit":"g","isEstimatedPortion":true}]}。
@@ -134,10 +195,14 @@ struct MealDraftAnalysis {
         按餐次归类，文字里的先后顺序不决定餐次。用同一餐次下的独立条目记录不同食物和饮品；与主餐一起喝的饮品归该餐，单独喝的咖啡归加餐。不要把全天摄入都归为同一餐。
         name 保留原食物、品牌、烹饪方式和关键配方信息。无品牌的常见食物用简洁的通用名称，例如「水煮蛋」「燕麦」，不要把份量或餐次塞进 name。原文中的个、勺、包、杯、份写到 reportedPortion。明确克数或毫升数时，换算成 g 或 mL，isEstimatedPortion 为 false。
         确有同类型食物时，可以加可选字段 catalogSearchName，使用简短的通用品名供用户在食物库核对，保持食材、干湿状态与烹饪方式一致。配方不明的复合菜和饮品留 null。
-        常见家庭份量可估计可食重量，isEstimatedPortion 为 true。无法可靠估计重量时 amount 留 null，保留原文份量。把「人均120元」之类的消费线索写入 reportedPortion，金额不得当作质量或热量。
-        对食物库难以匹配的外食或混合饮品，若出现食物类别加人均价格、容积或类似线索，请给这一条目总热量的粗略区间：
+        没有克数或毫升数时，优先按食物、数量和常见份量估算本次摄入的可食重量或体积，isEstimatedPortion 为 true。完全没有合理份量依据时才留空，并保留原文份量。把「人均120元」之类的消费线索写入 reportedPortion，金额不得当作质量或热量。
+        尽量为每项食物和饮品给出本次总热量粗略区间，供没有可靠食物库匹配或份量资料时使用。按已知或估算的份量计算，而非每 100g：
         "energyEstimate":{"lowerKcal":下限,"upperKcal":上限,"assumptions":"说明假设和影响区间的主要因素"}。
         火锅按一人实际摄入，用较轻到较丰盛的菜品、蘸料或喝汤情景估算。价格仅辅助选择情景，不用价格乘系数，也不虚构点单明细。饮品按已知体积乘合理的每100mL热量范围；如用户说 1 L，使用 1000 mL，少甜仍可能含糖和果汁本身的热量。与火锅同餐的果汁请单独计算，避免重复。对价格、配方、糖量不确定的情景给较宽范围。无合理情景则留空。
-        不得把估算写成实测，不输出估算的蛋白质、碳水、脂肪或咖啡因。不编造品牌官方数据或来源。
+        同一份量下的三大营养素可给粗估中间值，格式为 "macroEstimate":{"proteinG":克数,"carbsG":克数,"fatG":克数}。与热量区间使用同一配方和份量假设；单项缺乏依据时留 null，不把未知填成 0。不输出咖啡因，不编造品牌官方数据或来源。
+        对有常见成分依据的食物，尽可能补充膳食纤维、ALA、EPA＋DHA、维生素和矿物质。把本次摄入的粗估写入可选 nutrients 对象，值使用 [数值,"单位"]，例如 "nutrients":{"diet_fiber_g":[3,"g"],"diet_minerals::钙":[60,"mg"]}。饮水字段仅用于明确喝下的白水，不把食物水分、汤和混合饮品填成饮水。
+        按食材、已知或典型配方及本份重量估算，一个食品只输出有合理依据的指标。复合外食可根据明确食材估算常见成分；无法判断强化配方、烹调盐或痕量矿物质时省略对应指标。不得为凑齐指标而补值，也不得把缺失写成零。尽量用一到两位有效数字。
+        只用以下指标及对应单位。ALA 是毫克，A 需用 RAE，叶酸需用 DFE，烟酸需用 NE。
+        \(nutrientUnits)
         """
 }

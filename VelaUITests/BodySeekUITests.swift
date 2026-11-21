@@ -220,6 +220,24 @@ final class BodySeekUITests: XCTestCase {
         XCTAssertTrue(egg.waitForExistence(timeout: 5))
     }
 
+    func testNutritionEditsExistingMeal() {
+        let app = launchApp()
+        XCTAssertTrue(app.otherElements["today-score-instrument"].waitForExistence(timeout: 8))
+        tapTab("营养", in: app)
+        let breakfast = app.descendants(matching: .any)["nutrition-meal-breakfast"].firstMatch
+        XCTAssertTrue(breakfast.waitForExistence(timeout: 8))
+        breakfast.tap()
+        let edit = app.buttons.matching(NSPredicate(format: "label BEGINSWITH '编辑 '")).firstMatch
+        XCTAssertTrue(edit.waitForExistence(timeout: 6), app.debugDescription)
+        edit.tap()
+        XCTAssertTrue(app.navigationBars["编辑饮食"].waitForExistence(timeout: 5))
+        app.buttons["加餐"].tap()
+        attachScreenshot("nutrition-edit-saved-meal", in: app)
+        app.buttons["nutrition-meal-save-button"].tap()
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label BEGINSWITH '已记录'")).firstMatch.waitForExistence(timeout: 6))
+        XCTAssertTrue(app.descendants(matching: .any)["nutrition-meal-snack"].firstMatch.exists)
+    }
+
     func testNutritionAllDayTextDraftRequiresConfirmationBeforeSaving() {
         let app = launchApp()
         tapTab("营养", in: app)

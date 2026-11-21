@@ -720,7 +720,8 @@ public enum NutritionTargetEvaluator {
         }
 
         let hasPartialMeals = log?.dietPartialFields.isEmpty == false
-        let isDayComplete = log?.dietDayComplete == true && !hasPartialMeals
+        let hasAIEstimate = log?.entries.contains { $0.aiEstimatedNutrientIDs?.contains(metricID) == true } == true
+        let isDayComplete = log?.dietDayComplete == true && !hasPartialMeals && !hasAIEstimate
         let isConfirmed = log?.healthConfirmedFields.contains(metricID) == true
         let rawAmount = log?.rawValue(forMetricID: metricID)
 
@@ -786,7 +787,7 @@ public enum NutritionTargetEvaluator {
                 displayUnit: displayUnit,
                 rawUnit: descriptor.rawUnit,
                 status: .unknown,
-                reason: hasPartialMeals ? "有餐食的营养记录不完整" : "当天未收尾",
+                reason: hasAIEstimate ? "含 AI 粗估，暂不判定达标或超限" : (hasPartialMeals ? "有餐食的营养记录不完整" : "当天未收尾"),
                 targetSummary: targetLabel,
                 isDayComplete: isDayComplete,
                 isConfirmed: isConfirmed
@@ -1044,8 +1045,29 @@ public struct MealEntry: Identifiable, Hashable, Codable, Sendable {
     public var minerals: [String: Double]
     public var isEstimated: Bool
     public var estimationNote: String?
+    public var isExplicitlyPartial: Bool?
     public var energyEstimate: MealEnergyEstimate?
     public var recordedAt: Date
+
+    public var aiEstimatedNutrientIDs: Set<String>?
+
+    public static let additionalNutrientIDs = ["diet_fiber_g", "diet_water_ml", "diet_ala_mg", "diet_epa_dha_mg"]
+        + NutritionCatalog.vitaminOrder.map { "diet_vitamins::" + $0 }
+        + NutritionCatalog.mineralOrder.map { "diet_minerals::" + $0 }
+
+    public static func additionalNutrientKeyPath(_ id: String) -> WritableKeyPath<Self, Double?>? {
+        switch id {
+        case "diet_fiber_g": return \.fiberG
+        case "diet_water_ml": return \.waterMl
+        case "diet_ala_mg": return \.alaMg
+        case "diet_epa_dha_mg": return \.epaDhaMg
+        default:
+            guard let descriptor = NutritionCatalog.allKnownDescriptors[id], let component = descriptor.component else { return nil }
+            if descriptor.field == "diet_vitamins" { return \Self.vitamins[component] }
+            if descriptor.field == "diet_minerals" { return \Self.minerals[component] }
+            return nil
+        }
+    }
 
     public init(
         id: UUID = UUID(),
@@ -1091,6 +1113,30 @@ public struct MealEntry: Identifiable, Hashable, Codable, Sendable {
         self.isEstimated = isEstimated
         self.estimationNote = estimationNote
         self.recordedAt = recordedAt
+    }
+}
+
+public struct MealEnergySummary: Encodable, Sendable {
+    public let knownKcalSubtotal: Double?
+    public let estimatedLowerKcal: Double?
+    public let estimatedUpperKcal: Double?
+    public let missingEntryCount: Int
+
+    public init(entries: [MealEntry]) {
+        let foods = entries.filter { $0.mealType != .water || $0.kcal != nil }
+        let known = foods.filter { $0.energyEstimate == nil }.compactMap(\.kcal)
+        let ranges = foods.compactMap(\.energyEstimate)
+        let base = known.reduce(0, +)
+        knownKcalSubtotal = known.isEmpty ? nil : base
+        estimatedLowerKcal = ranges.isEmpty ? nil : ranges.reduce(base) { $0 + $1.lowerKcal }
+        estimatedUpperKcal = ranges.isEmpty ? nil : ranges.reduce(base) { $0 + $1.upperKcal }
+        missingEntryCount = foods.filter { $0.kcal == nil && $0.energyEstimate == nil }.count
+    }
+
+    public var displayRange: String? {
+        guard let lower = estimatedLowerKcal, let upper = estimatedUpperKcal else { return nil }
+        let format = FloatingPointFormatStyle<Double>.number.precision(.fractionLength(0))
+        return "\(lower.formatted(format))–\(upper.formatted(format))"
     }
 }
 
@@ -1312,6 +1358,18 @@ public struct NutritionPeriodSummary: Equatable, Sendable {
 }
 
 public enum NutritionBoardAggregator {
+    public static func rollingDeficit(logs: [DailyNutritionLog], endingAt end: DayKey) -> Double? {
+        let start = end.addingDays(-6)
+        let byDay = Dictionary(logs.map { ($0.dayKey, $0) }, uniquingKeysWith: { _, latest in latest })
+        let values = byDay.values.compactMap { log -> Double? in
+            guard (start...end).contains(log.dayKey), log.dietDayComplete == true, log.dietPartialFields.isEmpty
+            else { return nil }
+            return log.calorieSurplusKcal
+        }
+        guard values.count >= 3 else { return nil }
+        return -values.reduce(0, +) / Double(values.count)
+    }
+
     public static func summarizePeriod(
         logs: [DailyNutritionLog],
         targetPlan: NutritionTargetPlan?,
@@ -1415,12 +1473,10 @@ public enum NutritionBoardAggregator {
             }
         }
 
-        let surpluses = relevantLogs.compactMap { _, log in
-            log.dietDayComplete == true && log.dietPartialFields.isEmpty ? log.calorieSurplusKcal : nil
-        }
-        let deficit7d: Double? = surpluses.count >= 3
-            ? -(surpluses.suffix(7).reduce(0, +) / Double(min(7, surpluses.count)))
-            : nil
+        let validSurplusDays = relevantLogs.filter { _, log in
+            log.dietDayComplete == true && log.dietPartialFields.isEmpty && log.calorieSurplusKcal != nil
+        }.count
+        let deficit7d = rollingDeficit(logs: relevantLogs.map(\.value), endingAt: min(endDayKey, todayKey))
 
         return NutritionPeriodSummary(
             startDayKey: startDayKey,
@@ -1429,7 +1485,7 @@ public enum NutritionBoardAggregator {
             dayLogsByKey: byKey,
             metricAverages: averages,
             rollingDeficit7dKcal: deficit7d,
-            validSurplusDays: surpluses.count
+            validSurplusDays: validSurplusDays
         )
     }
 
@@ -1556,6 +1612,16 @@ public struct UpsertNutritionProfilePayload: Hashable, Codable, Sendable {
 public struct CommitNutritionTargetsPayload: Hashable, Codable, Sendable {
     public let plan: NutritionTargetPlan
     public init(plan: NutritionTargetPlan) { self.plan = plan }
+}
+
+public struct DeleteNutritionMealPayload: Hashable, Codable, Sendable {
+    public let dayKey: DayKey
+    public let entryID: UUID
+
+    public init(dayKey: DayKey, entryID: UUID) {
+        self.dayKey = dayKey
+        self.entryID = entryID
+    }
 }
 
 public struct LogNutritionMealsPayload: Hashable, Codable, Sendable {

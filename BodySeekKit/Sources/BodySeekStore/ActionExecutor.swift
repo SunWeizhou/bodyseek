@@ -24,9 +24,26 @@ public final class ActionExecutor: Sendable {
         do {
             return try await database.writer.write { db in
                 let affectedIDs: [String]
+                var auditID = UUID()
+                var decision = ActionAuditDecision.applied
                 switch proposal.kind {
                 case .annotateWorkout:
                     let payload = try proposal.decodePayload(AnnotateWorkoutPayload.self)
+                    if let requestedDecision = payload.coachAnnotationDecision {
+                        guard requestedDecision == .applied || requestedDecision == .rejected else {
+                            throw BodySeekDatabaseError.invalidProposalPayload(kind: proposal.kind)
+                        }
+                        auditID = proposal.id
+                        if let row = try Row.fetchOne(db, sql: "SELECT * FROM action_audit WHERE id = ?", arguments: [auditID.uuidString]),
+                           let existing = try BodySeekRepository.decodeAuditEntry(row) {
+                            return existing
+                        }
+                        decision = requestedDecision
+                        if decision == .rejected {
+                            affectedIDs = []
+                            break
+                        }
+                    }
                     let exists = try Int.fetchOne(
                         db,
                         sql: "SELECT COUNT(*) FROM workout WHERE hk_uuid = ?",
@@ -118,16 +135,16 @@ public final class ActionExecutor: Sendable {
                     if proposal.kind == .logNutritionMeal {
                         let payload = try proposal.decodePayload(LogNutritionMealPayload.self)
                         dayKey = payload.dayKey
-                        entries = [payload.entry]
+                        var entry = payload.entry
+                        entry.isExplicitlyPartial = payload.partialFields.contains(entry.mealType.rawValue)
+                        entries = [entry]
                         fields = payload.partialFields
                         note = payload.note
                     } else {
                         let payload = try proposal.decodePayload(LogNutritionMealsPayload.self)
                         dayKey = payload.dayKey
                         entries = payload.entries
-                        fields = entries.filter {
-                            $0.kcal == nil || $0.proteinG == nil || $0.carbsG == nil || $0.fatG == nil
-                        }.map { $0.mealType.rawValue }
+                        fields = []
                         note = nil
                     }
                     guard !entries.isEmpty, entries.allSatisfy({ $0.dayKey == dayKey }) else {
@@ -135,14 +152,17 @@ public final class ActionExecutor: Sendable {
                     }
                     var log = try BodySeekRepository.loadDailyNutritionLogSync(db: db, dayKey: dayKey)
                         ?? DailyNutritionLog(dayKey: dayKey)
+                    var affectedMeals = Set(entries.map(\.mealType))
                     for entry in entries {
                         if let idx = log.entries.firstIndex(where: { $0.id == entry.id }) {
+                            affectedMeals.insert(log.entries[idx].mealType)
                             log.entries[idx] = entry
                         } else {
                             log.entries.append(entry)
                         }
                     }
                     log.dietPartialFields = Set(log.dietPartialFields).union(fields).sorted()
+                    Self.refreshPartialFields(&log, affectedMeals: affectedMeals)
                     if let note, !note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         log.notes.append(note)
                     }
@@ -150,6 +170,19 @@ public final class ActionExecutor: Sendable {
                     log.recalculateTotals()
                     try BodySeekRepository.saveDailyNutritionLogSync(db: db, log: log)
                     affectedIDs = [dayKey.isoString] + entries.map { $0.id.uuidString }
+
+                case .deleteNutritionMeal:
+                    let payload = try proposal.decodePayload(DeleteNutritionMealPayload.self)
+                    guard var log = try BodySeekRepository.loadDailyNutritionLogSync(db: db, dayKey: payload.dayKey),
+                          let index = log.entries.firstIndex(where: { $0.id == payload.entryID })
+                    else { throw BodySeekDatabaseError.invalidProposalPayload(kind: proposal.kind) }
+                    let removed = log.entries.remove(at: index)
+                    log.dietDayComplete = nil
+                    Self.refreshPartialFields(&log, affectedMeals: [removed.mealType])
+                    log.updatedAt = now
+                    log.recalculateTotals()
+                    try BodySeekRepository.saveDailyNutritionLogSync(db: db, log: log)
+                    affectedIDs = [payload.dayKey.isoString, payload.entryID.uuidString]
 
                 case .closeNutritionDay:
                     let payload = try proposal.decodePayload(CloseNutritionDayPayload.self)
@@ -168,10 +201,10 @@ public final class ActionExecutor: Sendable {
                 }
 
                 let audit = ActionAuditEntry(
-                    id: UUID(),
+                    id: auditID,
                     proposalJSON: proposalJSON,
                     origin: proposal.origin,
-                    decision: .applied,
+                    decision: decision,
                     decidedAt: now,
                     affectedIDs: affectedIDs
                 )
@@ -205,6 +238,20 @@ public final class ActionExecutor: Sendable {
             try Self.insertAuditSync(db: db, audit: audit, encoder: encoder)
             return audit
         }
+    }
+
+    private static func refreshPartialFields(_ log: inout DailyNutritionLog, affectedMeals: Set<MealType>) {
+        var fields = Set(log.dietPartialFields)
+        for meal in affectedMeals {
+            let hasMissing = log.entries.contains { entry in
+                guard entry.mealType == meal else { return false }
+                if entry.isExplicitlyPartial == true { return true }
+                if meal == .water { return entry.waterMl == nil }
+                return entry.kcal == nil || entry.proteinG == nil || entry.carbsG == nil || entry.fatG == nil
+            }
+            if hasMissing { fields.insert(meal.rawValue) } else { fields.remove(meal.rawValue) }
+        }
+        log.dietPartialFields = fields.sorted()
     }
 
     private static func insertAuditSync(db: Database, audit: ActionAuditEntry, encoder: JSONEncoder) throws {

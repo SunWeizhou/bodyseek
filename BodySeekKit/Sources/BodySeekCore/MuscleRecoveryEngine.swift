@@ -436,7 +436,8 @@ public enum MuscleRecoveryEngine {
         manualSessions: [LoggedWorkoutSession] = [],
         historyDays: [DailyComputedDay] = [],
         sleepGoalMinutes: Int = 450,
-        dominantHand: DominantHand = .right
+        dominantHand: DominantHand = .right,
+        deletedWorkoutUUIDs: Set<String> = []
     ) -> MuscleRecoverySnapshot {
         let systemic = computeSystemicFactor(
             historyDays: historyDays,
@@ -445,7 +446,7 @@ public enum MuscleRecoveryEngine {
         )
 
         var workoutByUUID: [String: StoredWorkoutRecord] = [:]
-        for w in storedWorkouts where w.end <= asOf {
+        for w in storedWorkouts where w.end <= asOf && !deletedWorkoutUUIDs.contains(w.hkUUID.lowercased()) {
             workoutByUUID[w.hkUUID.lowercased()] = w
         }
 
@@ -458,7 +459,7 @@ public enum MuscleRecoveryEngine {
         var eventsByMuscle: [BodyRegionMuscle: [MuscleLoadEvent]] = [:]
 
         // 1. Persisted Watch workouts + DB loads (and inline auto-attribution when unpersisted non-strength exists)
-        var representedUUIDs = Set<String>()
+        var representedUUIDs = deletedWorkoutUUIDs
         for workout in workoutByUUID.values {
             guard asOf.timeIntervalSince(workout.end) <= lookbackWindowHours else { continue }
             representedUUIDs.insert(workout.hkUUID.lowercased())

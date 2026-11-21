@@ -715,7 +715,7 @@ public struct OpenAICompatibleClient: Sendable {
                     : MealDraftAnalysis.instructions + "\n上次回复无法读取。仅输出紧凑的 JSON 对象，根字段为 items。食物名优先，无法填的字段用 null。先完整闭合 JSON。"
                 let payload = OpenAIChatRequest(
                     model: modelName, messages: [.init(role: "system", content: instructions), user],
-                    maxTokens: attempt == 0 ? 2_800 : 6_144, stream: false
+                    maxTokens: attempt == 0 ? 4_096 : 6_144, stream: false
                 )
                 let request = try buildURLRequest(url: chatURL, apiKey: apiKey, payload: payload)
                 do {

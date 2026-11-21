@@ -5,6 +5,57 @@ import GRDB
 import XCTest
 
 final class NutritionEngineTests: XCTestCase {
+    func testAIEstimatedMicronutrientRemainsVisibleWithoutDeterminingTargetStatus() throws {
+        let day = DayKey(year: 2026, month: 11, day: 20)
+        let metric = "diet_minerals::钙"
+        var entry = MealEntry(dayKey: day, mealType: .lunch, foodName: "豆腐", portionAmount: 150, portionUnit: "g")
+        let field = try XCTUnwrap(MealEntry.additionalNutrientKeyPath(metric))
+        entry[keyPath: field] = 120
+        entry.aiEstimatedNutrientIDs = [metric]
+        let reloaded = try JSONDecoder().decode(MealEntry.self, from: JSONEncoder().encode(entry))
+        var log = DailyNutritionLog(dayKey: day, entries: [reloaded], dietDayComplete: true)
+        log.recalculateTotals()
+
+        let result = NutritionTargetEvaluator.evaluate(
+            metricID: metric, log: log, validatedPlan: NutritionTargetEvaluator.validate(plan: nil, on: day)
+        )
+        XCTAssertEqual(result.value, 120)
+        XCTAssertEqual(result.status, .unknown)
+        XCTAssertFalse(result.isDayComplete)
+        XCTAssertTrue(result.reason.contains("AI 粗估"))
+    }
+
+    func testEditingCompletesExistingPartialMealAndDeletingReopensDay() async throws {
+        let database = try BodySeekDatabase.inMemory()
+        let executor = ActionExecutor(database: database)
+        let repo = BodySeekRepository(database: database)
+        let day = DayKey(year: 2026, month: 11, day: 20)
+        var entry = MealEntry(dayKey: day, mealType: .dinner, foodName: "火锅", portionAmount: nil, portionUnit: "g")
+        func save(_ entry: MealEntry) async throws {
+            _ = try await executor.execute(ActionProposal(kind: .logNutritionMeals, origin: .user,
+                encodablePayload: LogNutritionMealsPayload(dayKey: day, entries: [entry])))
+        }
+        try await save(entry)
+        let partial = try await repo.loadNutritionLogs()
+        XCTAssertEqual(partial.first?.dietPartialFields, ["dinner"])
+        entry.kcal = 600
+        entry.proteinG = 32
+        entry.carbsG = 40
+        entry.fatG = 32
+        try await save(entry)
+        let complete = try await repo.loadNutritionLogs()
+        XCTAssertEqual(complete.first?.dietPartialFields, [])
+        XCTAssertEqual(complete.first?.entries.map(\.id), [entry.id])
+        _ = try await executor.execute(ActionProposal(kind: .closeNutritionDay, origin: .user,
+            encodablePayload: CloseNutritionDayPayload(dayKey: day, sportKcal: 350, bmrKcalUsed: 1500)))
+        _ = try await executor.execute(ActionProposal(kind: .deleteNutritionMeal, origin: .user,
+            encodablePayload: DeleteNutritionMealPayload(dayKey: day, entryID: entry.id)))
+        let deleted = try await repo.loadNutritionLogs()
+        XCTAssertTrue(deleted.first?.entries.isEmpty == true)
+        XCTAssertNil(deleted.first?.dietDayComplete)
+        XCTAssertNil(deleted.first?.calorieSurplusKcal)
+    }
+
     func testMealPortionMigrationPreservesExistingEntries() throws {
         let queue = try DatabaseQueue()
         let migrator = BodySeekDatabase.migrator

@@ -5,11 +5,18 @@ import Foundation
 
 @Reducer
 public struct NutritionFeature: Sendable {
-    public enum MealLogger: String, Identifiable, Sendable {
+    public enum MealLogger: Identifiable, Equatable, Sendable {
         case manual
         case assistant
+        case edit(MealEntry)
 
-        public var id: Self { self }
+        public var id: String {
+            switch self {
+            case .manual: "manual"
+            case .assistant: "assistant"
+            case let .edit(entry): entry.id.uuidString
+            }
+        }
     }
 
     public enum PeriodMode: String, CaseIterable, Identifiable, Hashable, Sendable {
@@ -89,6 +96,11 @@ public struct NutritionFeature: Sendable {
             return result
         }
 
+        public var selectedHealthDay: DailyComputedDay? {
+            snapshot.historyDays.first { $0.dayKey == selectedDayKey }
+                ?? (snapshot.today.dayKey == selectedDayKey ? snapshot.today : nil)
+        }
+
         public var selectedDayLog: DailyNutritionLog? {
             periodSummary.dayLogsByKey[selectedDayKey]
                 ?? logs.first(where: { $0.dayKey == selectedDayKey })
@@ -142,6 +154,8 @@ public struct NutritionFeature: Sendable {
         case foodSearchResultsLoaded([FoodLibraryItem])
         case mealLoggerPresented(Bool)
         case mealAssistantTapped
+        case mealEditTapped(MealEntry)
+        case mealDeleteConfirmed(MealEntry)
         case libraryPresented(Bool)
         case profileTargetPresented(Bool)
         case mealDraftConfirmed([MealEntry], fromPhoto: Bool)
@@ -149,7 +163,7 @@ public struct NutritionFeature: Sendable {
             mealType: MealType,
             foodName: String,
             foodID: String?,
-            portionAmount: Double,
+            portionAmount: Double?,
             portionUnit: String,
             kcal: Double?,
             carbsG: Double?,
@@ -208,7 +222,7 @@ public struct NutritionFeature: Sendable {
                 return .send(.delegate(.nutritionDataChanged(
                     todayLog: todayLog,
                     plan: targetPlan,
-                    rollingDeficit7d: state.periodSummary.rollingDeficit7dKcal
+                    rollingDeficit7d: NutritionBoardAggregator.rollingDeficit(logs: logs, endingAt: state.todayKey)
                 )))
 
             case let .loadFailed(message):
@@ -272,6 +286,29 @@ public struct NutritionFeature: Sendable {
                 state.showProfileTargetSheet = presented
                 return .none
 
+            case let .mealEditTapped(entry):
+                state.mealLogger = .edit(entry)
+                state.foodSearchQuery = ""
+                state.lastError = nil
+                return .none
+
+            case let .mealDeleteConfirmed(entry):
+                guard !state.isSaving else { return .none }
+                state.isSaving = true
+                state.lastError = nil
+                return .run { send in
+                    do {
+                        let proposal = try ActionProposal(
+                            kind: .deleteNutritionMeal, origin: .user,
+                            encodablePayload: DeleteNutritionMealPayload(dayKey: entry.dayKey, entryID: entry.id)
+                        )
+                        _ = try await storeClient.executeProposal(proposal)
+                        await send(.mutationSucceeded(message: "已删除饮食条目"))
+                    } catch {
+                        await send(.mutationFailed("删除餐食失败：\(error.localizedDescription)"))
+                    }
+                }
+
             case let .mealDraftConfirmed(entries, fromPhoto):
                 guard !state.isSaving, let day = entries.first?.dayKey,
                       entries.allSatisfy({ $0.dayKey == day })
@@ -301,26 +338,44 @@ public struct NutritionFeature: Sendable {
                 kcal, carbsG, proteinG, fatG, fiberG, waterMl,
                 vitamins, minerals, isEstimated, isPartial, note
             ):
+                guard !state.isSaving else { return .none }
                 state.isSaving = true
-                let dayKey = state.selectedDayKey
-                let entry = MealEntry(
+                let original: MealEntry? = if case let .edit(entry) = state.mealLogger { entry } else { nil }
+                let dayKey = original?.dayKey ?? state.selectedDayKey
+                let samePortion = original?.portionAmount == portionAmount && original?.portionUnit == portionUnit
+                let sameFood = original?.foodName == foodName && original?.foodID == foodID
+                var entry = MealEntry(
+                    id: original?.id ?? UUID(),
                     dayKey: dayKey,
                     mealType: mealType,
                     foodID: foodID,
                     foodName: foodName,
                     portionAmount: portionAmount,
                     portionUnit: portionUnit,
+                    portionDescription: samePortion ? original?.portionDescription : nil,
                     kcal: kcal,
                     carbsG: carbsG,
                     proteinG: proteinG,
                     fatG: fatG,
-                    fiberG: fiberG,
+                    fiberG: fiberG ?? (sameFood && samePortion ? original?.fiberG : nil),
                     waterMl: waterMl,
-                    vitamins: vitamins,
-                    minerals: minerals,
+                    alaMg: sameFood && samePortion ? original?.alaMg : nil,
+                    epaDhaMg: sameFood && samePortion ? original?.epaDhaMg : nil,
+                    vitamins: vitamins.isEmpty && sameFood && samePortion ? original?.vitamins ?? [:] : vitamins,
+                    minerals: minerals.isEmpty && sameFood && samePortion ? original?.minerals ?? [:] : minerals,
                     isEstimated: isEstimated,
-                    recordedAt: now
+                    estimationNote: sameFood && samePortion && original?.kcal == kcal ? original?.estimationNote : nil,
+                    recordedAt: original?.recordedAt ?? now
                 )
+                if sameFood && samePortion {
+                    entry.aiEstimatedNutrientIDs = original?.aiEstimatedNutrientIDs?.filter { id in
+                        guard let field = MealEntry.additionalNutrientKeyPath(id) else { return false }
+                        return entry[keyPath: field] != nil && entry[keyPath: field] == original?[keyPath: field]
+                    }
+                }
+                if sameFood && samePortion && original?.kcal == kcal {
+                    entry.energyEstimate = original?.energyEstimate
+                }
                 let partialFields = isPartial ? [mealType.rawValue] : []
                 let payload = LogNutritionMealPayload(
                     dayKey: dayKey,
@@ -334,7 +389,7 @@ public struct NutritionFeature: Sendable {
                             kind: .logNutritionMeal,
                             origin: .user,
                             encodablePayload: payload,
-                            rationale: "用户记录餐次 \(mealType.title)：\(foodName)"
+                            rationale: original == nil ? "用户记录餐次" : "用户修正已保存餐次"
                         )
                         _ = try await storeClient.executeProposal(proposal)
                         await send(.mutationSucceeded(message: "已记录 \(foodName)"))
@@ -346,22 +401,20 @@ public struct NutritionFeature: Sendable {
             case let .closeSelectedDayTapped(reviewSummary):
                 state.isSaving = true
                 let dayKey = state.selectedDayKey
-                let matchingDay = state.snapshot.historyDays.first(where: { $0.dayKey == dayKey }) ?? state.snapshot.today
-                let activeKcal = matchingDay.raw.activeEnergyKcal
-                    ?? state.selectedDayLog?.sportKcal
-                    ?? 0
+                let matchingDay = state.selectedHealthDay
+                let activeKcal = matchingDay?.raw.activeEnergyKcal ?? state.selectedDayLog?.sportKcal
                 let sportHours: Double? = {
-                    let workoutMinutes = matchingDay.raw.workouts.reduce(0) { $0 + $1.durationMinutes }
+                    let workoutMinutes = matchingDay?.raw.workouts.reduce(0) { $0 + $1.durationMinutes } ?? 0
                     if workoutMinutes > 0 { return (Double(workoutMinutes) / 60.0 * 100).rounded() / 100 }
-                    if let ex = matchingDay.raw.exerciseMinutes { return (Double(ex) / 60.0 * 100).rounded() / 100 }
+                    if let ex = matchingDay?.raw.exerciseMinutes { return (Double(ex) / 60.0 * 100).rounded() / 100 }
                     return state.selectedDayLog?.sportHours
                 }()
-                let steps = matchingDay.raw.steps ?? state.selectedDayLog?.steps
+                let steps = matchingDay?.raw.steps ?? state.selectedDayLog?.steps
                 let bmr = state.profile?.bmrKcalReference
                     ?? state.selectedDayLog?.bmrKcalUsed
                     ?? NutritionPlanFactory.estimateBMR(
                         sex: state.profile?.referenceSex,
-                        weightKg: matchingDay.raw.bodyMassKg ?? state.profile?.referenceWeightKg,
+                        weightKg: matchingDay?.raw.bodyMassKg ?? state.profile?.referenceWeightKg,
                         heightCm: state.profile?.heightCm,
                         age: state.profile?.age
                     )

@@ -436,6 +436,13 @@ public final class BodySeekDatabase: Sendable {
             }
         }
 
+        migrator.registerMigration("v4_healthkit_workout_deletions") { db in
+            try db.create(table: "deleted_healthkit_workout") { table in
+                table.column("uuid", .text).primaryKey()
+                table.column("day_key", .text)
+            }
+        }
+
         return migrator
     }
 }

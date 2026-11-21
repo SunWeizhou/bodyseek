@@ -64,6 +64,79 @@ private final actor MockAgentTransport: AgentHTTPTransport {
 }
 
 final class OpenAICompatibleClientTests: XCTestCase {
+    func testAdditionalNutrientEstimatesValidateUnitsKeysAndDrinkingWater() throws {
+        let parsed = try MealDraftAnalysis.decode("""
+            {"items":[
+                {"name":"豆腐","amount":150,"unit":"g","nutrients":{
+                    "diet_minerals::钙":[120,"mg"], "diet_vitamins::B12":[0.0012,"mg"],
+                    "diet_fiber_g":[2,"mg"], "diet_ala_mg":[0.4,"g"], "diet_minerals::铁":[170000,"mg"],
+                    "diet_vitamins::A":[30,"μg"], "diet_minerals::锌":[0,"mg"]}},
+                {"name":"白水","amount":1,"unit":"L","nutrients":{"diet_water_ml":[1000,"mL"]}},
+                {"name":"桑葚汁","amount":1,"unit":"L","nutrients":{"diet_water_ml":[1000,"mL"]}}
+            ]}
+            """)
+        let estimates = try XCTUnwrap(parsed[0].additionalEstimates)
+        XCTAssertEqual(estimates["diet_minerals::钙"], 120)
+        XCTAssertEqual(try XCTUnwrap(estimates["diet_vitamins::B12"]), 1.2, accuracy: 0.0001)
+        XCTAssertEqual(estimates.count, 2)
+        XCTAssertEqual(parsed[1].additionalEstimates?["diet_water_ml"], 1_000)
+        XCTAssertNil(parsed[2].additionalEstimates)
+    }
+
+    func testMealDraftAcceptsMacroEstimatesAndRejectsImplausibleMass() throws {
+        let entries = try MealDraftAnalysis.decode("""
+            {"items":[
+              {"name":"家常菜","amount":200,"unit":"g","macroEstimate":{"proteinG":25,"carbsG":30,"fatG":12}},
+              {"name":"其他菜","amount":100,"unit":"g","macroEstimate":{"proteinG":95,"carbsG":95,"fatG":20}}
+            ]}
+            """)
+        XCTAssertEqual(entries[0].macroEstimate?.proteinG, 25)
+        XCTAssertEqual(entries[0].macroEstimate?.fatG, 12)
+        XCTAssertNil(entries[1].macroEstimate)
+    }
+
+    func testMealDraftRejectsPartiallyUnreadableReply() {
+        XCTAssertThrowsError(try MealDraftAnalysis.decode(
+            #"{"items":[{"name":"水煮蛋","meal":"breakfast"},{"meal":"dinner"}]}"#
+        ))
+    }
+
+    func testCoachIncludesBoundedPriorTurns() {
+        let snapshot = sampleContext().snapshot
+        let history = (0..<10).map {
+            CoachMessage(role: $0.isMultiple(of: 2) ? .user : .assistant, text: "消息 \($0)")
+        }
+        let turns = CoachAgentOrchestrator.conversationTurns(.init(snapshot: snapshot, conversationHistory: history))
+        XCTAssertEqual(turns.count, 6)
+        XCTAssertEqual(turns.first?.content, "消息 4")
+        XCTAssertEqual(turns.last?.role, "assistant")
+    }
+
+    func testNutritionToolRetainsRangeAndMissingEntries() async {
+        let snapshot = sampleContext().snapshot
+        let day = snapshot.referenceDate.physiologicalDayKey()
+        var hotpot = MealEntry(dayKey: day, mealType: .dinner, foodName: "火锅", portionAmount: nil, portionUnit: "g", kcal: 700)
+        hotpot.energyEstimate = MealEnergyEstimate(lowerKcal: 400, upperKcal: 1_000, assumptions: "份量未知")
+        let egg = MealEntry(dayKey: day, mealType: .breakfast, foodName: "鸡蛋", portionAmount: 100, portionUnit: "g", kcal: 134)
+        let unknown = MealEntry(dayKey: day, mealType: .snack, foodName: "果汁", portionAmount: nil, portionUnit: "mL")
+        var log = DailyNutritionLog(dayKey: day, entries: [hotpot, egg, unknown])
+        log.recalculateTotals()
+        let json = await CoachToolRegistry.execute(name: "get_eating_context", argumentsJSON: "{}",
+                                                    context: .init(snapshot: snapshot, nutritionLogs: [log]))
+        XCTAssertTrue(json.contains(#""estimatedLowerKcal":534"#), json)
+        XCTAssertTrue(json.contains(#""estimatedUpperKcal":1134"#), json)
+        XCTAssertTrue(json.contains(#""missingEntryCount":1"#), json)
+    }
+
+    func testHistoricalSleepAndSimilarDaysDoNotSubstituteLatestDate() async {
+        for tool in ["get_sleep_detail", "find_similar_days"] {
+            let json = await CoachToolRegistry.execute(name: tool, argumentsJSON: #"{"date":"2000-01-01","day":"2000-01-01"}"#,
+                                                        context: sampleContext())
+            XCTAssertTrue(json.contains(#""state":"missing""#), json)
+            XCTAssertTrue(json.contains("2000-01-01"), json)
+        }
+    }
+
     func testMealDraftSurvivesUnexpectedOptionalFields() throws {
         let items = try MealDraftAnalysis.decode("""
         ```json

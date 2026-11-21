@@ -47,6 +47,7 @@ public struct SyncBatch: Sendable {
     public let rawSleepSamples: [RawSleepSample]
     public let workouts: [StoredWorkoutRecord]
     public let workoutSymbols: [String: String]
+    public let deletedWorkoutUUIDs: Set<String>
     public let affectedDayKeys: Set<DayKey>
     public let nextAnchorData: Data?
 
@@ -56,6 +57,7 @@ public struct SyncBatch: Sendable {
         rawSleepSamples: [RawSleepSample] = [],
         workouts: [StoredWorkoutRecord] = [],
         workoutSymbols: [String: String] = [:],
+        deletedWorkoutUUIDs: Set<String> = [],
         affectedDayKeys: Set<DayKey> = [],
         nextAnchorData: Data? = nil
     ) {
@@ -64,6 +66,7 @@ public struct SyncBatch: Sendable {
         self.rawSleepSamples = rawSleepSamples
         self.workouts = workouts
         self.workoutSymbols = workoutSymbols
+        self.deletedWorkoutUUIDs = deletedWorkoutUUIDs
         self.affectedDayKeys = affectedDayKeys
         self.nextAnchorData = nextAnchorData
     }
@@ -86,18 +89,21 @@ public struct SyncRunSummary: Equatable, Hashable, Sendable {
     public let syncedDayKeys: Set<DayKey>
     public let sleepEpisodesSaved: Int
     public let workoutsSaved: Int
+    public let deletedWorkoutUUIDs: Set<String>
     public let scoresComputed: Int
 
     public init(
         syncedDayKeys: Set<DayKey>,
         sleepEpisodesSaved: Int,
         workoutsSaved: Int,
-        scoresComputed: Int
+        scoresComputed: Int,
+        deletedWorkoutUUIDs: Set<String> = []
     ) {
         self.syncedDayKeys = syncedDayKeys
         self.sleepEpisodesSaved = sleepEpisodesSaved
         self.workoutsSaved = workoutsSaved
         self.scoresComputed = scoresComputed
+        self.deletedWorkoutUUIDs = deletedWorkoutUUIDs
     }
 }
 
@@ -302,6 +308,7 @@ public actor SyncEngine {
         referenceDate: Date
     ) async throws -> SyncRunSummary {
         var dirtyKeys = batch.affectedDayKeys
+        dirtyKeys.formUnion(try await repository.applyWorkoutDeletions(batch.deletedWorkoutUUIDs))
         for m in batch.dayMetrics {
             dirtyKeys.insert(m.dayKey)
         }
@@ -419,7 +426,8 @@ public actor SyncEngine {
                 syncedDayKeys: [],
                 sleepEpisodesSaved: mergedEpisodes.count,
                 workoutsSaved: batch.workouts.count,
-                scoresComputed: 0
+                scoresComputed: 0,
+                deletedWorkoutUUIDs: batch.deletedWorkoutUUIDs
             )
         }
 
@@ -450,7 +458,8 @@ public actor SyncEngine {
             syncedDayKeys: dirtyKeys,
             sleepEpisodesSaved: mergedEpisodes.count,
             workoutsSaved: batch.workouts.count,
-            scoresComputed: daysToSave.isEmpty ? snapshot.historyDays.count : daysToSave.count
+            scoresComputed: daysToSave.isEmpty ? snapshot.historyDays.count : daysToSave.count,
+            deletedWorkoutUUIDs: batch.deletedWorkoutUUIDs
         )
     }
 }
@@ -667,6 +676,7 @@ public final class LiveHealthKitSyncSource: HealthKitSyncSource, @unchecked Send
         // 5. Workouts (separating user workoutEffortScore from estimatedWorkoutEffortScore)
         var workoutRecords: [StoredWorkoutRecord] = []
         var workoutSymbols: [String: String] = [:]
+        var deletedWorkoutUUIDs: Set<String> = []
         var nextAnchorData: Data? = incomingAnchorData
 
         do {
@@ -676,6 +686,7 @@ public final class LiveHealthKitSyncSource: HealthKitSyncSource, @unchecked Send
             )
             workoutRecords = result.records
             workoutSymbols = result.symbols
+            if useAnchoredWorkouts { deletedWorkoutUUIDs = result.deletedUUIDs }
             nextAnchorData = result.nextAnchor ?? incomingAnchorData
             for record in workoutRecords {
                 affectedDays.insert(record.start.physiologicalDayKey(cutoverHour: 4, timeZone: tz))
@@ -690,6 +701,7 @@ public final class LiveHealthKitSyncSource: HealthKitSyncSource, @unchecked Send
             rawSleepSamples: rawSleepSamples,
             workouts: workoutRecords,
             workoutSymbols: workoutSymbols,
+            deletedWorkoutUUIDs: deletedWorkoutUUIDs,
             affectedDayKeys: affectedDays,
             nextAnchorData: nextAnchorData
         )
@@ -761,7 +773,7 @@ public final class LiveHealthKitSyncSource: HealthKitSyncSource, @unchecked Send
     private func queryWorkouts(
         predicate: NSPredicate?,
         anchorData: Data?
-    ) async throws -> (records: [StoredWorkoutRecord], symbols: [String: String], nextAnchor: Data?) {
+    ) async throws -> (records: [StoredWorkoutRecord], symbols: [String: String], deletedUUIDs: Set<String>, nextAnchor: Data?) {
         var anchor: HKQueryAnchor?
         if let anchorData {
             do {
@@ -777,7 +789,7 @@ public final class LiveHealthKitSyncSource: HealthKitSyncSource, @unchecked Send
                 predicate: predicate,
                 anchor: anchor,
                 limit: HKObjectQueryNoLimit
-            ) { _, samples, _, newAnchor, error in
+            ) { _, samples, deletedObjects, newAnchor, error in
                 if let error {
                     continuation.resume(throwing: error)
                     return
@@ -827,7 +839,8 @@ public final class LiveHealthKitSyncSource: HealthKitSyncSource, @unchecked Send
                         )
                     )
                 }
-                continuation.resume(returning: (records, symbols, archived))
+                let deletedUUIDs = Set((deletedObjects ?? []).map { $0.uuid.uuidString.lowercased() })
+                continuation.resume(returning: (records, symbols, deletedUUIDs, archived))
             }
             store.execute(query)
         }

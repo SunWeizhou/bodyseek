@@ -1,12 +1,43 @@
 import BodySeekCore
 import BodySeekFeatures
 import BodySeekHealth
+import BodySeekStore
 import ComposableArchitecture
 import Foundation
 import XCTest
 
 @MainActor
 final class TodayActionAndNutritionFeatureTests: XCTestCase {
+    func testClosingHistoricalNutritionDoesNotBorrowTodayOrInventZero() async throws {
+        let now = Date(timeIntervalSince1970: 1_790_000_000)
+        let date = now.physiologicalDayKey()
+        let prior = date.addingDays(-10)
+        let snapshot = BevelScoringEngine.computeWindow(
+            rawDays: [DailyRawMetrics(date: now, activeEnergyKcal: 425, steps: 6_000, dayKey: date)],
+            sleepGoalMinutes: 450, referenceDate: now, sourceLabel: "测试", isAuthorized: true
+        )
+        let database = try BodySeekDatabase.inMemory()
+        let executor = ActionExecutor(database: database)
+        let repository = BodySeekRepository(database: database)
+        var dependency = BodySeekStoreClient.previewValue
+        dependency.executeProposal = { try await executor.execute($0) }
+        dependency.loadNutritionLogs = { try await repository.loadNutritionLogs(from: $0, to: $1) }
+        let client = dependency
+        let store = TestStore(initialState: NutritionFeature.State(snapshot: snapshot, isPreviewMode: false)) {
+            NutritionFeature()
+        } withDependencies: {
+            $0.bodySeekStoreClient = client
+        }
+        store.exhaustivity = .off
+        await store.send(.daySelected(prior))
+        await store.send(.closeSelectedDayTapped(reviewSummary: nil))
+        await store.finish()
+        let logs = try await client.loadNutritionLogs(prior, prior)
+        XCTAssertEqual(logs.first?.dayKey, prior)
+        XCTAssertNil(logs.first?.steps)
+        XCTAssertNil(logs.first?.sportKcal)
+    }
+
     func testTodayActionAdoptionPersistsAndWritesAuditTrail() async throws {
         let now = Date(timeIntervalSince1970: 1_760_000_000)
         let snapshot = BevelScoringEngine.computeWindow(

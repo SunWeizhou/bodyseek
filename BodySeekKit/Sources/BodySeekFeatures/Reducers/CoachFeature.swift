@@ -13,6 +13,7 @@ public struct CoachFeature: Sendable {
         public var templates: [WorkoutTemplate]
         public var memories: [AthleteMemoryItem]
         public var tieredMemories: [TieredMemoryRecord]
+        public var deletedWorkoutUUIDs: Set<String> = []
         public var storedWorkouts: [StoredWorkoutRecord] = []
         public var annotationsByWorkoutUUID: [String: WorkoutAnnotationRecord] = [:]
         public var muscleLoads: [WorkoutMuscleLoadRecord] = []
@@ -34,6 +35,7 @@ public struct CoachFeature: Sendable {
         public var dismissedAnnotationProposalMessageIDs: Set<UUID> = []
         public var confirmedMemoryProposalMessageIDs: Set<UUID> = []
         public var confirmedAnnotationProposalMessageIDs: Set<UUID> = []
+        var pendingAnnotationDecisionMessageIDs: Set<UUID> = []
         public var lastError: String?
 
         public init(
@@ -114,6 +116,8 @@ public struct CoachFeature: Sendable {
         case confirmAnnotationProposalTapped(messageID: UUID, proposal: CoachWorkoutAnnotationProposal)
         case annotationProposalCommitted(messageID: UUID, proposal: CoachWorkoutAnnotationProposal)
         case dismissAnnotationProposalTapped(UUID)
+        case annotationProposalRejected(UUID)
+        case annotationDecisionFailed(UUID, String)
         case memorySheetPresented(Bool)
         case deleteMemoryTapped(UUID)
         case retireTieredMemoryTapped(UUID)
@@ -171,7 +175,7 @@ public struct CoachFeature: Sendable {
                 return .none
 
             case .newConversationTapped:
-                guard !state.isSending, !state.isResettingConversation else { return .none }
+                guard !state.isSending, !state.isResettingConversation, state.pendingAnnotationDecisionMessageIDs.isEmpty else { return .none }
                 state.isResettingConversation = true
                 return .run { send in
                     do {
@@ -274,33 +278,26 @@ public struct CoachFeature: Sendable {
                 return .none
 
             case let .confirmAnnotationProposalTapped(messageID, proposal):
-                return .run { send in
-                    do {
-                        let actionProposal = try ActionProposal(
-                            kind: .annotateWorkout,
-                            origin: .agent,
-                            encodablePayload: AnnotateWorkoutPayload(
-                                workoutUUID: proposal.workoutUUID,
-                                rawText: proposal.rawText,
-                                parserVersion: proposal.proposal.parserVersion,
-                                muscleLoads: proposal.muscleLoads,
-                                reviewState: .annotated
-                            ),
-                            rationale: "用户确认智能体解析的一句话训练标定"
-                        )
-                        _ = try await bodySeekStoreClient.executeProposal(actionProposal)
-                        await send(.annotationProposalCommitted(messageID: messageID, proposal: proposal))
-                    } catch {
-                        await send(.storeOperationFailed("写入训练标注提案失败：\(error.localizedDescription)"))
-                    }
-                }
+                return decideAnnotation(messageID: messageID, proposal: proposal, decision: .applied, state: &state)
 
             case let .annotationProposalCommitted(messageID, _):
+                state.pendingAnnotationDecisionMessageIDs.remove(messageID)
                 state.confirmedAnnotationProposalMessageIDs.insert(messageID)
                 return .send(.delegate(.workoutAnnotationCommitted))
 
             case let .dismissAnnotationProposalTapped(messageID):
+                guard let proposal = state.messages.first(where: { $0.id == messageID })?.workoutAnnotationProposal
+                else { return .none }
+                return decideAnnotation(messageID: messageID, proposal: proposal, decision: .rejected, state: &state)
+
+            case let .annotationProposalRejected(messageID):
+                state.pendingAnnotationDecisionMessageIDs.remove(messageID)
                 state.dismissedAnnotationProposalMessageIDs.insert(messageID)
+                return .none
+
+            case let .annotationDecisionFailed(messageID, message):
+                state.pendingAnnotationDecisionMessageIDs.remove(messageID)
+                state.lastError = message
                 return .none
 
             case let .memorySheetPresented(presented):
@@ -404,6 +401,37 @@ public struct CoachFeature: Sendable {
         }
     }
 
+    private func decideAnnotation(
+        messageID: UUID, proposal: CoachWorkoutAnnotationProposal, decision: ActionAuditDecision, state: inout State
+    ) -> Effect<Action> {
+        guard !state.isResettingConversation,
+              !state.confirmedAnnotationProposalMessageIDs.contains(messageID),
+              !state.dismissedAnnotationProposalMessageIDs.contains(messageID),
+              state.messages.first(where: { $0.id == messageID })?.annotationDecision == nil,
+              state.pendingAnnotationDecisionMessageIDs.insert(messageID).inserted
+        else { return .none }
+        return .run { send in
+            do {
+                let action = try ActionProposal(
+                    id: messageID, kind: .annotateWorkout, origin: .agent,
+                    encodablePayload: AnnotateWorkoutPayload(
+                        workoutUUID: proposal.workoutUUID, rawText: proposal.rawText,
+                        parserVersion: proposal.proposal.parserVersion, muscleLoads: proposal.muscleLoads,
+                        coachAnnotationDecision: decision
+                    )
+                )
+                let audit = try await bodySeekStoreClient.executeProposal(action)
+                if audit.decision == .rejected {
+                    await send(.annotationProposalRejected(messageID))
+                } else {
+                    await send(.annotationProposalCommitted(messageID: messageID, proposal: proposal))
+                }
+            } catch {
+                await send(.annotationDecisionFailed(messageID, "保存训练复盘决定失败：\(error.localizedDescription)"))
+            }
+        }
+    }
+
     private func enqueueQuestion(_ question: String, state: inout State) -> Effect<Action> {
         let userMsg = CoachMessage(id: uuid(), role: .user, text: question, timestamp: now)
         if state.isAtWelcome { state.messages = [] }
@@ -418,6 +446,7 @@ public struct CoachFeature: Sendable {
             memories: state.memories,
             tieredMemories: state.tieredMemories,
             storedWorkouts: state.storedWorkouts,
+            deletedWorkoutUUIDs: state.deletedWorkoutUUIDs,
             annotationsByWorkoutUUID: state.annotationsByWorkoutUUID,
             muscleLoads: state.muscleLoads,
             patternFindings: state.patternFindings,
@@ -427,16 +456,23 @@ public struct CoachFeature: Sendable {
             checkIns: state.checkIns,
             dominantHand: state.dominantHand,
             sleepGoalMinutes: state.sleepGoalMinutes,
-            asOf: userMsg.timestamp
+            asOf: userMsg.timestamp,
+            conversationHistory: Array(state.messages.dropLast().suffix(6))
         )
         return .run { send in
-            let reply = await coachAIClient.reply(question: question, context: context)
             var storeError: String?
             do {
                 try await fitnessStoreClient.appendMessage(userMsg)
-                try await fitnessStoreClient.appendMessage(reply)
             } catch {
                 storeError = "本地对话持久化失败：\(error.localizedDescription)"
+            }
+            let reply = await coachAIClient.reply(question: question, context: context)
+            if storeError == nil {
+                do {
+                    try await fitnessStoreClient.appendMessage(reply)
+                } catch {
+                    storeError = "本地对话持久化失败：\(error.localizedDescription)"
+                }
             }
             await send(.aiReplyReceived(reply, storeError: storeError))
         }

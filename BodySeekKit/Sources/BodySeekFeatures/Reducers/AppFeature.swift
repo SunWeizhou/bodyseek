@@ -122,7 +122,7 @@ public struct AppFeature: Sendable {
         case cachedDashboardLoaded(CachedDashboardState)
         case snapshotLoaded(BodySeekDashboardSnapshot)
         case persistenceFailed(String)
-        case backgroundSyncCompleted(String?)
+        case backgroundSyncCompleted(String?, workoutsDeleted: Bool = false)
         case supplementalContextLoaded(
             planItems: [PlanItemRecord],
             experimentPlanItems: [PlanItemRecord],
@@ -290,11 +290,11 @@ public struct AppFeature: Sendable {
                 state.today.lastError = message
                 return .none
 
-            case let .backgroundSyncCompleted(error):
+            case let .backgroundSyncCompleted(error, workoutsDeleted):
                 if let error {
                     state.today.lastError = error
                 }
-                return .none
+                return workoutsDeleted ? .send(.workout(.syncWatchWorkouts)) : .none
 
             case let .supplementalContextLoaded(planItems, experimentPlanItems, patterns, nutritionLog, nutritionPlan, nutritionLogs, checkIns, rollingDeficit7d, error):
                 let currentItems = planItems.filter { $0.dayKey == now.physiologicalDayKey() }
@@ -608,6 +608,7 @@ public struct AppFeature: Sendable {
                     state.workout.sessions = []
                     state.workout.templates = ExerciseCatalog.defaultTemplates
                     state.workout.storedWorkouts = []
+                    state.workout.deletedWorkoutUUIDs = []
                     state.workout.annotationsByWorkoutUUID = [:]
                     state.workout.muscleLoads = []
                     state.workout.reviewDraft = nil
@@ -762,7 +763,10 @@ public struct AppFeature: Sendable {
     private func triggerBackgroundBackfillEffect(goalMinutes: Int, referenceDate: Date) -> Effect<Action> {
         .run { send in
             do {
-                _ = try await bodySeekStoreClient.syncRecentWindow(goalMinutes, referenceDate)
+                let recent = try await bodySeekStoreClient.syncRecentWindow(goalMinutes, referenceDate)
+                if let recent, !recent.deletedWorkoutUUIDs.isEmpty {
+                    await send(.backgroundSyncCompleted(nil, workoutsDeleted: true))
+                }
                 _ = try await bodySeekStoreClient.runBackgroundBackfill(goalMinutes, referenceDate)
                 await send(.backgroundSyncCompleted(nil))
             } catch {
@@ -904,6 +908,7 @@ public struct AppFeature: Sendable {
             memories: state.memories,
             tieredMemories: state.tieredMemories,
             storedWorkouts: state.workout.storedWorkouts,
+            deletedWorkoutUUIDs: state.workout.deletedWorkoutUUIDs,
             annotationsByWorkoutUUID: state.workout.annotationsByWorkoutUUID,
             muscleLoads: state.workout.muscleLoads,
             patternFindings: state.trends.patternFindings,
@@ -994,6 +999,7 @@ public struct AppFeature: Sendable {
             + WorkoutFeature.State.storedRecords(from: Array(state.snapshot.historyDays.suffix(3)))
         let completedIDs = Set(workouts.filter {
             $0.start.physiologicalDayKey() == day && $0.end <= reference
+                && !state.workout.deletedWorkoutUUIDs.contains($0.hkUUID.lowercased())
         }.map { $0.hkUUID.lowercased() })
         let manual = state.workout.sessions.filter {
             $0.startedAt.physiologicalDayKey() == day && $0.completedAt <= reference
@@ -1019,6 +1025,7 @@ public struct AppFeature: Sendable {
         let annotations = state.workout.annotationsByWorkoutUUID
         let loads = state.workout.muscleLoads
         state.coach.storedWorkouts = workouts
+        state.coach.deletedWorkoutUUIDs = state.workout.deletedWorkoutUUIDs
         state.coach.annotationsByWorkoutUUID = annotations
         state.coach.muscleLoads = loads
         state.coach.dominantHand = state.preferences.dominantHand

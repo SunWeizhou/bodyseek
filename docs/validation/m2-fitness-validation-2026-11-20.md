@@ -107,3 +107,9 @@
 - 基线 `ed7ab2c2`，工作区含既有修改。新增回归先复现已存在训练档案时，新力量训练未进入待复盘列表。单测初次运行退出码 1，日志 `/tmp/bodyseek-nov20-recovery-red.log`。修复后，新跑步参与下肢恢复估算，新力量训练进入待复盘，已有用户复盘结果得以保留。
 - HealthKit 快照使用原始参考时刻。新请求替代过时的窗口刷新，缓存与同步回调均合并最新快照里的训练。恢复模型继续使用 `recovery-heuristic-v1`。
 - `swift test --package-path BodySeekKit --disable-automatic-resolution` 退出码 0。默认字号的 iPhone 17 Pro / iOS 26.5 上，`testM2WatchFirstReviewInboxMuscleRecoveryAndArchive` 通过。实际 Apple Watch 回流时延待真机验证。
+
+## 8. 2026-11-21 HealthKit 删除回流
+
+工作树基线为 `b03f2bb8`。复用现有 `HKAnchoredObjectQuery` 消费明确的已删训练 UUID。GRDB 迁移保留删除记录与原日期，防止旧快照重新写入，重试仍能重算受影响的日期。独立的手动训练保留。锚点数据缺少详细心率区间时保留已有区间。 [Apple HealthKit 删除对象](https://developer.apple.com/documentation/healthkit/hkdeletedobject)
+
+`swift test --package-path BodySeekKit --disable-automatic-resolution` 退出码 0。锚点测试覆盖首次删除、重试、旧训练回写与保留其他训练。真实 Apple Watch 和真机回流仍待实测。

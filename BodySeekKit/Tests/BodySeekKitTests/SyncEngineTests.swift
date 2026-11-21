@@ -5,6 +5,24 @@ import Foundation
 import XCTest
 
 final class SyncEngineTests: XCTestCase {
+    func testAnchoredWorkoutDeletionInvalidatesDayAndPreventsStaleSnapshotReimport() async throws {
+        let database = try BodySeekDatabase.inMemory()
+        let repo = BodySeekRepository(database: database)
+        let time = Date(timeIntervalSince1970: 1_790_000_000)
+        let removed = StoredWorkoutRecord(hkUUID: UUID().uuidString, type: "跑步", start: time, end: time, energy: 100)
+        let kept = StoredWorkoutRecord(hkUUID: UUID().uuidString, type: "手动", start: time, end: time, energy: 50)
+        try await repo.upsertWorkouts([removed, kept])
+        let batch = SyncBatch(deletedWorkoutUUIDs: [removed.hkUUID], nextAnchorData: Data([1]))
+        let engine = SyncEngine(repository: repo, source: MockHealthKitSyncSource(recentBatch: batch))
+        let first = try await engine.syncRecentWindow(referenceDate: time)
+        let retry = try await engine.syncRecentWindow(referenceDate: time)
+        try await repo.upsertWorkouts([removed])
+        let records = try await repo.loadWorkouts()
+        XCTAssertEqual(first.syncedDayKeys, [time.physiologicalDayKey()])
+        XCTAssertEqual(retry.syncedDayKeys, first.syncedDayKeys)
+        XCTAssertEqual(records.map(\.hkUUID), [kept.hkUUID])
+    }
+
     func testRecentSyncPersistsAnchorMergesSleepAndSeparatesWorkoutEffort() async throws {
         let db = try BodySeekDatabase.inMemory()
         let repo = BodySeekRepository(database: db)

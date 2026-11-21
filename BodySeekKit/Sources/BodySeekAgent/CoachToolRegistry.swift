@@ -32,12 +32,14 @@ public actor AgentCapturedSideEffects: Sendable {
 }
 
 public struct AgentExecutionContext: Sendable {
+    public let conversationHistory: [CoachMessage]
     public let snapshot: BodySeekDashboardSnapshot
     public let asOf: Date
     public let sessions: [LoggedWorkoutSession]
     public let templates: [WorkoutTemplate]
     public let memories: [AthleteMemoryItem]
     public let tieredMemories: [TieredMemoryRecord]
+    public let deletedWorkoutUUIDs: Set<String>
     public let storedWorkouts: [StoredWorkoutRecord]
     public let annotationsByWorkoutUUID: [String: WorkoutAnnotationRecord]
     public let muscleLoads: [WorkoutMuscleLoadRecord]
@@ -57,6 +59,7 @@ public struct AgentExecutionContext: Sendable {
         memories: [AthleteMemoryItem] = [],
         tieredMemories: [TieredMemoryRecord] = [],
         storedWorkouts: [StoredWorkoutRecord] = [],
+        deletedWorkoutUUIDs: Set<String> = [],
         annotationsByWorkoutUUID: [String: WorkoutAnnotationRecord] = [:],
         muscleLoads: [WorkoutMuscleLoadRecord] = [],
         patternFindings: [PatternFindingRecord] = [],
@@ -67,9 +70,11 @@ public struct AgentExecutionContext: Sendable {
         dominantHand: DominantHand = .right,
         sleepGoalMinutes: Int = 450,
         asOf: Date? = nil,
+        conversationHistory: [CoachMessage] = [],
         effects: AgentCapturedSideEffects = AgentCapturedSideEffects()
     ) {
         self.snapshot = snapshot
+        self.conversationHistory = Array(conversationHistory.suffix(6))
         self.asOf = asOf ?? snapshot.referenceDate
         self.sessions = sessions
         self.templates = templates
@@ -77,9 +82,9 @@ public struct AgentExecutionContext: Sendable {
         self.tieredMemories = tieredMemories.isEmpty && !memories.isEmpty
             ? MemoryContextSelector.bridgeFromLegacy(memories)
             : tieredMemories
-        self.storedWorkouts = storedWorkouts.isEmpty
-            ? Self.fallbackStoredWorkouts(from: snapshot)
-            : storedWorkouts
+        self.deletedWorkoutUUIDs = deletedWorkoutUUIDs
+        self.storedWorkouts = (storedWorkouts.isEmpty ? Self.fallbackStoredWorkouts(from: snapshot) : storedWorkouts)
+            .filter { !deletedWorkoutUUIDs.contains($0.hkUUID.lowercased()) }
         self.annotationsByWorkoutUUID = annotationsByWorkoutUUID
         self.muscleLoads = muscleLoads
         self.patternFindings = patternFindings
@@ -556,7 +561,8 @@ public enum CoachToolRegistry {
             manualSessions: context.sessions,
             historyDays: context.snapshot.historyDays,
             sleepGoalMinutes: context.sleepGoalMinutes,
-            dominantHand: context.dominantHand
+            dominantHand: context.dominantHand,
+            deletedWorkoutUUIDs: context.deletedWorkoutUUIDs
         )
 
         let filterClean = muscleFilter?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -647,9 +653,14 @@ public enum CoachToolRegistry {
         }
 
         let targetDay: DailyComputedDay
-        if let dayString, let parsed = DayKey(isoString: dayString),
-           let matched = context.snapshot.historyDays.first(where: { $0.dayKey == parsed })
-        {
+        if let dayString {
+            guard let parsed = DayKey(isoString: dayString),
+                  let matched = context.snapshot.historyDays.first(where: { $0.dayKey == parsed })
+                    ?? (context.snapshot.today.dayKey == parsed ? context.snapshot.today : nil)
+            else {
+                return encodeEnvelope(tool: "get_sleep_detail", state: "missing", coverage: 0,
+                                      reason: "指定日期无睡眠资料：\(dayString)", data: nil as SleepPayload?)
+            }
             targetDay = matched
         } else {
             targetDay = context.snapshot.today
@@ -760,20 +771,22 @@ public enum CoachToolRegistry {
         }
 
         let sortedDays = context.snapshot.historyDays.sorted { $0.dayKey < $1.dayKey }
-        let targetKey = dayString.flatMap(DayKey.init(isoString:)) ?? context.snapshot.today.dayKey
-        guard let targetDay = sortedDays.first(where: { $0.dayKey == targetKey }) ?? sortedDays.last else {
+        let targetKey = dayString ?? context.snapshot.today.dayKey.isoString
+        guard let parsedTarget = DayKey(isoString: targetKey),
+              let targetDay = sortedDays.first(where: { $0.dayKey == parsedTarget })
+        else {
             return encodeEnvelope(
-                tool: "find_similar_days",
-                state: "missing",
-                coverage: 0,
-                reason: "暂无历史生理数据",
-                data: SimilarDaysPayload(targetDayKey: targetKey.isoString, note: "", matches: [])
+                tool: "find_similar_days", state: "missing", coverage: 0,
+                reason: "指定日期无历史生理数据",
+                data: SimilarDaysPayload(targetDayKey: targetKey, note: "", matches: [])
             )
         }
 
-        // Strict no-future-leakage: only consider historical days BEFORE targetDay.dayKey, leaving room for next-day outcome < targetDay
-        let historicalCandidates = sortedDays.enumerated().filter { idx, day in
-            day.dayKey < targetDay.dayKey && idx + 1 < sortedDays.count
+        let daysByKey = Dictionary(sortedDays.map { ($0.dayKey, $0) }, uniquingKeysWith: { _, latest in latest })
+        let historicalCandidates = sortedDays.compactMap { day -> (day: DailyComputedDay, nextDay: DailyComputedDay)? in
+            let nextKey = day.dayKey.addingDays(1)
+            guard nextKey < targetDay.dayKey, let nextDay = daysByKey[nextKey] else { return nil }
+            return (day, nextDay)
         }
         guard historicalCandidates.count >= 3 else {
             return encodeEnvelope(
@@ -792,14 +805,14 @@ public enum CoachToolRegistry {
             return (mean, max(1e-3, sqrt(variance)))
         }
 
-        let priorDays = historicalCandidates.map(\.element)
+        let priorDays = historicalCandidates.map(\.day)
         let hrvStat = stats(priorDays.compactMap(\.raw.hrvMs))
         let rhrStat = stats(priorDays.compactMap(\.raw.restingHeartRateBpm))
         let sleepStat = stats(priorDays.compactMap { $0.raw.sleepAsleepMinutes.map(Double.init) })
         let strainStat = stats(priorDays.compactMap(\.raw.activeEnergyKcal))
 
         var scoredMatches: [SimilarDayOutcome] = []
-        for (idx, day) in historicalCandidates {
+        for (day, nextDay) in historicalCandidates {
             var sqSum = 0.0
             var dimCount = 0
 
@@ -826,7 +839,6 @@ public enum CoachToolRegistry {
 
             guard dimCount >= 2 else { continue }
             let rmsDistance = (sqrt(sqSum / Double(dimCount)) * 100).rounded() / 100
-            let nextDay = sortedDays[idx + 1]
             scoredMatches.append(
                 SimilarDayOutcome(
                     dayKey: day.dayKey.isoString,
@@ -869,6 +881,7 @@ public enum CoachToolRegistry {
 
     private static func eatingContextJSON(days: Int, context: AgentExecutionContext) -> String {
         struct DayNutritionSummary: Encodable {
+            let energy: MealEnergySummary
             let dayKey: String
             let mealCount: Int
             let estimatedEntryCount: Int
@@ -924,6 +937,7 @@ public enum CoachToolRegistry {
 
         let items = recent.map { log in
             DayNutritionSummary(
+                energy: MealEnergySummary(entries: log.entries),
                 dayKey: log.dayKey.isoString,
                 mealCount: log.entries.count,
                 estimatedEntryCount: log.entries.filter(\.isEstimated).count,

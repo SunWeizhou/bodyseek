@@ -740,6 +740,7 @@ public struct CoachMessage: Identifiable, Equatable, Sendable, Codable {
     public let memorySavedNote: String?
     public let memoryProposal: TieredMemoryRecord?
     public let workoutAnnotationProposal: CoachWorkoutAnnotationProposal?
+    public let annotationDecision: ActionAuditDecision?
     public let unverifiedNumbers: [String]
     public let toolsInvoked: [String]
 
@@ -754,6 +755,7 @@ public struct CoachMessage: Identifiable, Equatable, Sendable, Codable {
         case memorySavedNote
         case memoryProposal
         case workoutAnnotationProposal
+        case annotationDecision
         case unverifiedNumbers
         case toolsInvoked
     }
@@ -769,6 +771,7 @@ public struct CoachMessage: Identifiable, Equatable, Sendable, Codable {
         memorySavedNote: String? = nil,
         memoryProposal: TieredMemoryRecord? = nil,
         workoutAnnotationProposal: CoachWorkoutAnnotationProposal? = nil,
+        annotationDecision: ActionAuditDecision? = nil,
         unverifiedNumbers: [String] = [],
         toolsInvoked: [String] = []
     ) {
@@ -782,6 +785,7 @@ public struct CoachMessage: Identifiable, Equatable, Sendable, Codable {
         self.memorySavedNote = memorySavedNote
         self.memoryProposal = memoryProposal
         self.workoutAnnotationProposal = workoutAnnotationProposal
+        self.annotationDecision = annotationDecision
         self.unverifiedNumbers = unverifiedNumbers
         self.toolsInvoked = toolsInvoked
     }
@@ -798,6 +802,7 @@ public struct CoachMessage: Identifiable, Equatable, Sendable, Codable {
         self.memorySavedNote = try c.decodeIfPresent(String.self, forKey: .memorySavedNote)
         self.memoryProposal = try c.decodeIfPresent(TieredMemoryRecord.self, forKey: .memoryProposal)
         self.workoutAnnotationProposal = try c.decodeIfPresent(CoachWorkoutAnnotationProposal.self, forKey: .workoutAnnotationProposal)
+        self.annotationDecision = try c.decodeIfPresent(ActionAuditDecision.self, forKey: .annotationDecision)
         self.unverifiedNumbers = try c.decodeIfPresent([String].self, forKey: .unverifiedNumbers) ?? []
         self.toolsInvoked = try c.decodeIfPresent([String].self, forKey: .toolsInvoked) ?? []
     }

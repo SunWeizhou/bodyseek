@@ -59,7 +59,7 @@ public enum CoachAgentOrchestrator {
            - 长期偏好/短期伤病约束记忆 -> propose_memory（activeConstraint 默认 14 天过期；未经 confirmed 的 pattern_finding 不得提出 verifiedPattern）
            - 手表力量训练一句话标定 -> propose_workout_annotation
         6. 绝对不要输出 <tool_call>、<|DSML|> 等 XML 或内部标签，直接用简洁克制的中文回复。
-        7. 按工具提供的日期范围与单位比较。历史训练标注中的「今天」「昨天」以该条训练的 dayKey 为准。把用户确认记录、设备记录、估算和建议分开写。饮食未完成时只谈已记录部分，缺失日不计作零。
+        7. 按工具提供的日期范围与单位比较。历史训练标注中的「今天」「昨天」以该条训练的 dayKey 为准。把用户确认记录、设备记录、估算和建议分开写。饮食未完成时只谈已记录部分，缺失日不计作零。饮食工具返回热量区间时优先陈述上下限；kcal 中点仅供汇总。有缺项时称为已记录小计。历史聊天只用于理解指代，请用本轮工具核对数据。
         8. 先用一小段话回答问题。信息较多时用 Markdown 小标题和短列表分段，只在需要比较多项数据时使用简短表格。
 
         与本轮对话相关的已激活三层记忆：
@@ -68,6 +68,23 @@ public enum CoachAgentOrchestrator {
         今日背景摘要（请以工具返回的四态 JSON 为准）：
         \(context.snapshot.today.factualSummary)
         """
+    }
+
+    static func conversationTurns(_ context: AgentExecutionContext) -> [OpenAIChatMessage] {
+        context.conversationHistory.map {
+            OpenAIChatMessage(role: $0.role.rawValue, content: conversationText($0, limit: 1_200))
+        }
+    }
+
+    static func conversationText(_ message: CoachMessage, limit: Int) -> String {
+        guard let template = message.workoutProposal?.template else { return String(message.text.prefix(limit)) }
+        let exercises = template.exercises.map { exercise in
+            let name = ExerciseCatalog.find(id: exercise.exerciseID)?.name ?? exercise.exerciseID
+            return "\(name) \(exercise.targetSets)组×\(exercise.targetReps)次"
+        }.joined(separator: "，")
+        let summary = "上轮训练提案 \(template.title) · \(exercises)"
+        let plan = summary.prefix(limit * 2 / 3)
+        return String(message.text.prefix(limit - plan.count - 1)) + "\n" + plan
     }
 
     public static func runCloudCompletion(
@@ -86,8 +103,7 @@ public enum CoachAgentOrchestrator {
         )
         let messages = [
             OpenAIChatMessage(role: "system", content: systemPrompt),
-            OpenAIChatMessage(role: "user", content: question),
-        ]
+        ] + conversationTurns(context) + [OpenAIChatMessage(role: "user", content: question)]
 
         let completion = try await client.runChatCompletionLoop(
             endpointURL: endpointURL,
@@ -448,7 +464,8 @@ extension CoachAIClient: DependencyKey {
                         .init(name: "水煮蛋", amount: 100, unit: "g", meal: .breakfast,
                               reportedPortion: "2 个", isEstimatedPortion: true),
                         .init(name: "燕麦", amount: 20, unit: "g", meal: .breakfast,
-                              reportedPortion: "2 勺", isEstimatedPortion: true),
+                              reportedPortion: "2 勺", isEstimatedPortion: true,
+                              additionalEstimates: ["diet_minerals::镁": 20, "diet_vitamins::B1": 0.04]),
                         .init(name: "火锅", amount: nil, unit: nil, meal: .dinner,
                               reportedPortion: "人均 ¥120"),
                         .init(name: "少甜混合果汁", amount: 1_000, unit: "ml", meal: .dinner,
@@ -562,11 +579,23 @@ extension CoachAIClient: DependencyKey {
             FMProposeMemoryTool(context: context),
             FMProposePlanTool(context: context),
         ]
-        let session = LanguageModelSession(
-            model: SystemLanguageModel.default,
-            tools: tools,
-            instructions: instructions
-        )
+        let session: LanguageModelSession
+        if context.conversationHistory.isEmpty {
+            session = LanguageModelSession(model: .default, tools: tools, instructions: instructions)
+        } else {
+            let definitions = tools.map { Transcript.ToolDefinition(tool: $0) }
+            let instruction = Transcript.Entry.instructions(.init(
+                segments: [.text(.init(content: instructions))], toolDefinitions: definitions
+            ))
+            let turns: [Transcript.Entry] = context.conversationHistory.suffix(4).map { message in
+                let segments: [Transcript.Segment] = [.text(.init(content: CoachAgentOrchestrator.conversationText(message, limit: 450)))]
+                switch message.role {
+                case .user: return .prompt(.init(segments: segments))
+                case .assistant: return .response(.init(assetIDs: [], segments: segments))
+                }
+            }
+            session = LanguageModelSession(model: .default, tools: tools, transcript: Transcript(entries: [instruction] + turns))
+        }
         let response = try await session.respond(to: question)
         let cleaned = ToolMarkupScrubber.scrub(response.content).cleaned
         let toolOutputs = await context.effects.toolOutputs

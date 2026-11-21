@@ -61,6 +61,7 @@ public struct WorkoutFeature: Sendable {
         public var sessions: [LoggedWorkoutSession] = []
         public var dominantHand: DominantHand = .right
         public var sleepGoalMinutes: Int = 450
+        public var deletedWorkoutUUIDs: Set<String> = []
         public var storedWorkouts: [StoredWorkoutRecord] = []
         public var annotationsByWorkoutUUID: [String: WorkoutAnnotationRecord] = [:]
         public var muscleLoads: [WorkoutMuscleLoadRecord] = []
@@ -136,12 +137,15 @@ public struct WorkoutFeature: Sendable {
                 manualSessions: sessions,
                 historyDays: snapshot.historyDays,
                 sleepGoalMinutes: sleepGoalMinutes,
-                dominantHand: dominantHand
+                dominantHand: dominantHand,
+                deletedWorkoutUUIDs: deletedWorkoutUUIDs
             )
         }
 
         mutating func includeSnapshotWorkouts() {
-            var known = Set(storedWorkouts.map { $0.hkUUID.lowercased() })
+            let deleted = deletedWorkoutUUIDs
+            storedWorkouts.removeAll { deleted.contains($0.hkUUID.lowercased()) }
+            var known = deleted.union(storedWorkouts.map { $0.hkUUID.lowercased() })
             let incoming = Self.storedRecords(from: snapshot.historyDays).filter {
                 known.insert($0.hkUUID.lowercased()).inserted
             }
@@ -205,7 +209,8 @@ public struct WorkoutFeature: Sendable {
         case watchWorkoutsLoaded(
             workouts: [StoredWorkoutRecord],
             annotations: [WorkoutAnnotationRecord],
-            loads: [WorkoutMuscleLoadRecord]
+            loads: [WorkoutMuscleLoadRecord],
+            deletedWorkoutUUIDs: Set<String> = []
         )
         case watchSyncFailed(String)
         case openReviewTapped(StoredWorkoutRecord)
@@ -304,7 +309,8 @@ public struct WorkoutFeature: Sendable {
                     dominantHand: state.dominantHand
                 )
 
-            case let .watchWorkoutsLoaded(workouts, annotations, loads):
+            case let .watchWorkoutsLoaded(workouts, annotations, loads, deletedWorkoutUUIDs):
+                state.deletedWorkoutUUIDs.formUnion(deletedWorkoutUUIDs)
                 state.storedWorkouts = workouts
                 state.includeSnapshotWorkouts()
                 var map: [String: WorkoutAnnotationRecord] = [:]
@@ -929,7 +935,8 @@ public struct WorkoutFeature: Sendable {
                 await send(.watchWorkoutsLoaded(
                     workouts: finalWorkouts,
                     annotations: annotations,
-                    loads: loads
+                    loads: loads,
+                    deletedWorkoutUUIDs: try await bodySeekStoreClient.loadDeletedWorkoutUUIDs()
                 ))
             } catch {
                 await send(.watchSyncFailed("同步 Watch 训练与肌群归因失败：\(error.localizedDescription)"))

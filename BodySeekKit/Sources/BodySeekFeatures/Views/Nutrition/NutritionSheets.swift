@@ -5,11 +5,13 @@ import SwiftUI
 
 public struct NutritionMealLoggerSheet: View {
     @Bindable var store: StoreOf<NutritionFeature>
+    private let original: MealEntry?
 
     @State private var mealType: MealType = .lunch
     @State private var selectedFood: FoodLibraryItem?
     @State private var customFoodName: String = ""
     @State private var portionText: String = "150"
+    @State private var portionUnit = "g"
     @State private var customKcalText: String = ""
     @State private var customCarbsText: String = ""
     @State private var customProteinText: String = ""
@@ -17,24 +19,40 @@ public struct NutritionMealLoggerSheet: View {
     @State private var customWaterText: String = ""
     @State private var isPartial: Bool = false
     @State private var noteText: String = ""
+    @State private var confirmDeletion = false
 
-    public init(store: StoreOf<NutritionFeature>) {
+    public init(store: StoreOf<NutritionFeature>, original: MealEntry? = nil) {
         self.store = store
+        self.original = original
+        if let original {
+            _mealType = State(initialValue: original.mealType)
+            _customFoodName = State(initialValue: original.foodName)
+            _portionText = State(initialValue: original.portionAmount.map { String($0) } ?? "")
+            _portionUnit = State(initialValue: original.portionUnit)
+            _customKcalText = State(initialValue: original.kcal.map { String($0) } ?? "")
+            _customCarbsText = State(initialValue: original.carbsG.map { String($0) } ?? "")
+            _customProteinText = State(initialValue: original.proteinG.map { String($0) } ?? "")
+            _customFatText = State(initialValue: original.fatG.map { String($0) } ?? "")
+            _customWaterText = State(initialValue: original.waterMl.map { String($0) } ?? "")
+            _isPartial = State(initialValue: original.isExplicitlyPartial == true)
+        }
     }
 
     public var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    NavigationLink {
-                        NutritionMealAssistantView(store: store)
-                    } label: {
-                        Label("用 AI 记饮食", systemImage: "sparkles")
+                if original == nil {
+                    Section {
+                        NavigationLink {
+                            NutritionMealAssistantView(store: store)
+                        } label: {
+                            Label("用 AI 记饮食", systemImage: "sparkles")
+                        }
+                        .accessibilityIdentifier("nutrition-ai-entry")
                     }
-                    .accessibilityIdentifier("nutrition-ai-entry")
                 }
 
-                Section("餐次与日期（\(store.selectedDayKey.isoString)）") {
+                Section("餐次与日期（\((original?.dayKey ?? store.selectedDayKey).isoString)）") {
                     Picker("餐次", selection: $mealType) {
                         ForEach(MealType.allCases, id: \.self) { type in
                             Text(type.title).tag(type)
@@ -53,8 +71,12 @@ public struct NutritionMealLoggerSheet: View {
                     )
                     .accessibilityIdentifier("nutrition-meal-search")
 
-                    ForEach(store.foodLibrary.prefix(12)) { item in
+                    ForEach(store.foodLibrary.prefix(original != nil && store.foodSearchQuery.isEmpty ? 0 : 12)) { item in
                         Button {
+                            if portionUnit.caseInsensitiveCompare(item.basisUnit) != .orderedSame {
+                                portionText = ""
+                            }
+                            portionUnit = item.basisUnit
                             selectedFood = item
                             customFoodName = item.name
                             if mealType == .water { mealType = .lunch }
@@ -80,48 +102,54 @@ public struct NutritionMealLoggerSheet: View {
                 }
 
                 Section("份量与营养预览") {
-                    if let selectedFood {
-                        let amount = max(1, Double(portionText) ?? 100)
-                        let scaled = selectedFood.makeMealEntry(
-                            dayKey: store.selectedDayKey,
-                            mealType: mealType,
-                            portionAmount: amount
-                        )
-                        HStack {
-                            Text("摄入克数/毫升")
-                            Spacer()
-                            TextField("150", text: $portionText)
-                                .multilineTextAlignment(.trailing)
-                                .accessibilityIdentifier("nutrition-portion-input")
-                            Text(selectedFood.basisUnit)
-                                .foregroundStyle(BevelTheme.inkSecondary)
-                        }
-                        LabeledContent("换算热量", value: scaled.kcal.map { "\(Int($0.rounded())) kcal" } ?? "--")
-                        LabeledContent("换算碳水/蛋白/脂肪", value: "\(scaled.carbsG.map { String(format: "%.1f", $0) } ?? "--")g / \(scaled.proteinG.map { String(format: "%.1f", $0) } ?? "--")g / \(scaled.fatG.map { String(format: "%.1f", $0) } ?? "--")g")
+                    if let food = selectedFood, mealType != .water {
+                        catalogPortionFields(food)
                     } else if mealType == .water {
-                        TextField("饮水量（mL，例如 350）", text: $customWaterText)
-                        TextField("饮品备注（默认 温白开）", text: $customFoodName)
+                        mealAmountField("饮水量（mL）", text: $customWaterText)
+                        TextField("饮品名称（选填）", text: $customFoodName)
                     } else {
                         TextField("自定义食物名称", text: $customFoodName)
                             .accessibilityIdentifier("nutrition-custom-food-name")
-                        TextField("份量（g/mL）", text: $portionText)
-                        TextField("热量（kcal，选填）", text: $customKcalText)
-                        TextField("碳水（g，选填）", text: $customCarbsText)
-                        TextField("蛋白（g，选填）", text: $customProteinText)
-                        TextField("脂肪（g，选填）", text: $customFatText)
+                        mealAmountField("份量", text: $portionText)
+                        Picker("单位", selection: $portionUnit) {
+                            Text("g").tag("g")
+                            Text("mL").tag("mL")
+                            if portionUnit != "g" && portionUnit != "mL" { Text(portionUnit).tag(portionUnit) }
+                        }
+                        mealAmountField("热量（kcal）", text: $customKcalText)
+                        mealAmountField("碳水（g）", text: $customCarbsText)
+                        mealAmountField("蛋白质（g）", text: $customProteinText)
+                        mealAmountField("脂肪（g）", text: $customFatText)
                     }
 
-                    Toggle("本餐含未拆清估算项（标为 partial）", isOn: $isPartial)
+                    Toggle("仍有食物或份量待补", isOn: $isPartial)
                     TextField("备注（如：少油、含壳核重，选填）", text: $noteText)
                 }
+                if original != nil {
+                    Section {
+                        Button("删除这条记录", role: .destructive) { confirmDeletion = true }
+                            .disabled(store.isSaving)
+                    }
+                }
+                if let error = store.lastError {
+                    Text(error).foregroundStyle(BevelTheme.dangerColor)
+                }
             }
-            .navigationTitle("记录一餐")
+            .navigationTitle(original == nil ? "记录一餐" : "编辑饮食")
             .bodyseekNavigationBarInline()
+            .interactiveDismissDisabled(store.isSaving)
+            .alert("删除这条饮食记录？", isPresented: $confirmDeletion) {
+                Button("删除", role: .destructive) {
+                    if let original { store.send(.mealDeleteConfirmed(original)) }
+                }
+                Button("取消", role: .cancel) {}
+            }
             .toolbar {
                 ToolbarItem(placement: .bodyseekLeading) {
                     Button("取消") {
                         store.send(.mealLoggerPresented(false))
                     }
+                    .disabled(store.isSaving)
                 }
                 ToolbarItem(placement: .bodyseekTrailing) {
                     Button("保存") {
@@ -134,25 +162,67 @@ public struct NutritionMealLoggerSheet: View {
         }
     }
 
+    private func mealAmountField(_ title: String, text: Binding<String>) -> some View {
+        LabeledContent(title) {
+            TextField("选填", text: text)
+                .multilineTextAlignment(.trailing)
+                .accessibilityLabel(title)
+        }
+    }
+
+    private func catalogPortionFields(_ food: FoodLibraryItem) -> some View {
+        let portion = amount(from: portionText)
+        let scaled = portion.map {
+            food.makeMealEntry(dayKey: original?.dayKey ?? store.selectedDayKey, mealType: mealType, portionAmount: $0)
+        }
+        let heat = scaled?.kcal.map { "\(Int($0.rounded())) kcal" } ?? "--"
+        let macros = [scaled?.carbsG, scaled?.proteinG, scaled?.fatG].map { value in
+            value.map { String(format: "%.1f", $0) + " g" } ?? "--"
+        }
+        return Group {
+            HStack {
+                Text("摄入克数/毫升")
+                Spacer()
+                TextField("150", text: $portionText)
+                    .multilineTextAlignment(.trailing)
+                    .accessibilityIdentifier("nutrition-portion-input")
+                Text(food.basisUnit).foregroundStyle(BevelTheme.inkSecondary)
+            }
+            Button("清除食物库匹配") { selectedFood = nil }
+            LabeledContent("换算热量", value: heat)
+            LabeledContent("换算碳水/蛋白/脂肪", value: macros.joined(separator: " / "))
+        }
+    }
+
+    private func amount(from text: String, allowZero: Bool = false) -> Double? {
+        guard let value = Double(text.trimmingCharacters(in: .whitespacesAndNewlines)), value.isFinite,
+              value <= 10_000, allowZero ? value >= 0 : value > 0 else { return nil }
+        return value
+    }
+
     private var canSubmit: Bool {
-        if selectedFood != nil { return true }
-        if mealType == .water { return (Double(customWaterText) ?? 0) > 0 }
-        return !customFoodName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        if mealType == .water { return amount(from: customWaterText) != nil }
+        let portionValid = portionText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || amount(from: portionText) != nil
+        if selectedFood != nil { return portionValid && amount(from: portionText) != nil }
+        let nutrientsValid = [customKcalText, customCarbsText, customProteinText, customFatText].allSatisfy {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || amount(from: $0, allowZero: true) != nil
+        }
+        return portionValid && nutrientsValid && !customFoodName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private func submitMeal() {
-        let amount = max(1, Double(portionText) ?? 100)
-        if let food = selectedFood {
+        let portion = amount(from: portionText)
+        if mealType != .water, let food = selectedFood, let portion {
             let scaled = food.makeMealEntry(
                 dayKey: store.selectedDayKey,
                 mealType: mealType,
-                portionAmount: amount
+                portionAmount: portion
             )
             store.send(.logMealSubmitted(
                 mealType: mealType,
                 foodName: food.name,
                 foodID: food.foodID,
-                portionAmount: amount,
+                portionAmount: portion,
                 portionUnit: food.basisUnit,
                 kcal: scaled.kcal,
                 carbsG: scaled.carbsG,
@@ -167,7 +237,7 @@ public struct NutritionMealLoggerSheet: View {
                 note: noteText.isEmpty ? nil : noteText
             ))
         } else if mealType == .water {
-            let ml = Double(customWaterText) ?? 300
+            guard let ml = amount(from: customWaterText) else { return }
             let title = customFoodName.trimmingCharacters(in: .whitespacesAndNewlines)
             store.send(.logMealSubmitted(
                 mealType: .water,
@@ -191,13 +261,14 @@ public struct NutritionMealLoggerSheet: View {
             store.send(.logMealSubmitted(
                 mealType: mealType,
                 foodName: customFoodName.trimmingCharacters(in: .whitespacesAndNewlines),
-                foodID: nil,
-                portionAmount: amount,
-                portionUnit: "g",
-                kcal: Double(customKcalText),
-                carbsG: Double(customCarbsText),
-                proteinG: Double(customProteinText),
-                fatG: Double(customFatText),
+                foodID: customFoodName == original?.foodName && portion == original?.portionAmount
+                    && portionUnit == original?.portionUnit ? original?.foodID : nil,
+                portionAmount: portion,
+                portionUnit: portionUnit,
+                kcal: amount(from: customKcalText, allowZero: true),
+                carbsG: amount(from: customCarbsText, allowZero: true),
+                proteinG: amount(from: customProteinText, allowZero: true),
+                fatG: amount(from: customFatText, allowZero: true),
                 fiberG: nil,
                 waterMl: nil,
                 vitamins: [:],

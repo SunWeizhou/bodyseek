@@ -4,10 +4,37 @@ import Foundation
 import XCTest
 
 final class BodySeekStoreTests: XCTestCase {
+    func testCoachAnnotationDecisionSurvivesReloadAndOldActionCannotOverwriteCorrection() async throws {
+        let database = try BodySeekDatabase.inMemory()
+        let repo = BodySeekRepository(database: database)
+        let executor = ActionExecutor(database: database)
+        let now = Date()
+        let workout = StoredWorkoutRecord(hkUUID: UUID().uuidString, type: "力量", start: now, end: now, energy: 200)
+        try await repo.upsertWorkouts([workout])
+        let parsed = WorkoutAnnotationProposal(rawText: "练胸", primaryMuscles: [.chest])
+        let draft = CoachWorkoutAnnotationProposal(workoutUUID: workout.hkUUID, workoutTitle: workout.type,
+                                                   rawText: parsed.rawText, proposal: parsed, muscleLoads: [])
+        let message = CoachMessage(role: .assistant, text: "复盘提议", workoutAnnotationProposal: draft)
+        try await repo.appendMessage(message)
+        let first = try ActionProposal(id: message.id, kind: .annotateWorkout, origin: .agent,
+                                      encodablePayload: AnnotateWorkoutPayload(workoutUUID: workout.hkUUID, rawText: "练胸",
+                                                                               coachAnnotationDecision: .applied))
+        let audit = try await executor.execute(first)
+        let correction = try ActionProposal(kind: .annotateWorkout, origin: .user,
+                                            encodablePayload: AnnotateWorkoutPayload(workoutUUID: workout.hkUUID, rawText: "练腿"))
+        _ = try await executor.execute(correction)
+        let retry = try await executor.execute(first)
+        let messages = try await repo.loadMessages()
+        let annotations = try await repo.loadWorkoutAnnotations(workoutUUID: workout.hkUUID)
+        XCTAssertEqual(retry.id, audit.id)
+        XCTAssertEqual(messages.first?.annotationDecision, .applied)
+        XCTAssertEqual(annotations.count, 2)
+    }
+
     func testMigrationIdentifiersAreStable() {
         XCTAssertEqual(
             BodySeekDatabase.migrator.migrations,
-            ["v1_initial_schema", "v2_nutrition_schema", "v3_allow_unknown_meal_portions"]
+            ["v1_initial_schema", "v2_nutrition_schema", "v3_allow_unknown_meal_portions", "v4_healthkit_workout_deletions"]
         )
     }
 

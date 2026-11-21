@@ -200,10 +200,10 @@ public struct CoachView: View {
                     memoryProposalCard(memProposal, messageID: msg.id)
                 }
 
-                if let annotationProposal = msg.workoutAnnotationProposal,
+                if let annotationProposal = msg.workoutAnnotationProposal, msg.annotationDecision != .rejected,
                    !store.dismissedAnnotationProposalMessageIDs.contains(msg.id)
                 {
-                    workoutAnnotationProposalCard(annotationProposal, messageID: msg.id)
+                    workoutAnnotationProposalCard(annotationProposal, messageID: msg.id, applied: msg.annotationDecision == .applied)
                 }
 
                 if let metric = msg.evidenceMetric {
@@ -284,8 +284,8 @@ public struct CoachView: View {
         .accessibilityIdentifier("coach-memory-proposal-card")
     }
 
-    private func workoutAnnotationProposalCard(_ proposal: CoachWorkoutAnnotationProposal, messageID: UUID) -> some View {
-        let isCommitted = store.confirmedAnnotationProposalMessageIDs.contains(messageID)
+    private func workoutAnnotationProposalCard(_ proposal: CoachWorkoutAnnotationProposal, messageID: UUID, applied: Bool) -> some View {
+        let isCommitted = applied || store.confirmedAnnotationProposalMessageIDs.contains(messageID)
         return BevelCard(padding: 12) {
             VStack(alignment: .leading, spacing: 8) {
                 Label("保存这次训练复盘？", systemImage: "text.bubble.fill")

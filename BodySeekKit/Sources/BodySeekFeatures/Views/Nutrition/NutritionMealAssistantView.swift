@@ -78,6 +78,10 @@ struct NutritionMealAssistantView: View {
                 }
                 if !rows.isEmpty {
                     Button("重新分析", systemImage: "sparkles") { analyze() }
+                    if analysis != nil { ProgressView("正在识别餐食…") }
+                    if let errorMessage {
+                        Text(errorMessage).font(.footnote).foregroundStyle(BevelTheme.dangerColor)
+                    }
                 }
             }
             .disabled(analysis != nil || store.isSaving)
@@ -116,10 +120,10 @@ struct NutritionMealAssistantView: View {
                         store.send(.mealDraftConfirmed(entries, fromPhoto: jpeg != nil))
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(store.isSaving || rows.contains(where: \.hasInvalidPortion))
+                    .disabled(analysis != nil || store.isSaving || rows.contains(where: \.hasInvalidValues))
                     .accessibilityIdentifier("nutrition-ai-confirm")
                 } footer: {
-                    Text("份量或配方不清楚的条目也可以保存。缺少的营养值会留空。")
+                    Text("可直接保存 AI 粗估，也可修改份量或手动补充营养。缺乏估算依据的值会留空。")
                 }
             }
         }
@@ -209,15 +213,10 @@ struct NutritionMealAssistantView: View {
         return VStack(alignment: .leading, spacing: 5) {
             Text("营养小计").font(.subheadline.weight(.semibold))
             if let kcal = log.dietKcal {
-                let estimates = entries.compactMap(\.energyEstimate)
-                if estimates.isEmpty {
-                    Text("约 \(kcal.formatted(.number.precision(.fractionLength(0)))) kcal")
-                        .font(.title3.monospacedDigit())
+                if let range = MealEnergySummary(entries: entries).displayRange {
+                    Text("粗估 \(range) kcal").font(.title3.monospacedDigit())
                 } else {
-                    let base = entries.filter { $0.energyEstimate == nil }.compactMap(\.kcal).reduce(0, +)
-                    let lower = estimates.reduce(base) { $0 + $1.lowerKcal }
-                    let upper = estimates.reduce(base) { $0 + $1.upperKcal }
-                    Text("粗估 \(lower.formatted(.number.precision(.fractionLength(0))))–\(upper.formatted(.number.precision(.fractionLength(0)))) kcal")
+                    Text("约 \(kcal.formatted(.number.precision(.fractionLength(0)))) kcal")
                         .font(.title3.monospacedDigit())
                 }
                 let macros = [
@@ -293,8 +292,33 @@ struct NutritionMealAssistantView: View {
                 Text(macros.joined(separator: " · "))
                     .font(.subheadline)
             }
-            if let source = item.food?.sourceName, entry.kcal != nil {
-                Text(source).font(.footnote).foregroundStyle(.secondary)
+            let additional = DraftNutrient.additional.filter { entry[keyPath: $0.keyPath] != nil }
+            if !additional.isEmpty {
+                DisclosureGroup("更多营养（\(additional.count) 项）") {
+                    ForEach(additional, id: \.self) { nutrient in
+                        if let value = entry[keyPath: nutrient.keyPath] {
+                            LabeledContent(nutrient.title, value: (entry.aiEstimatedNutrientIDs?.contains(nutrient.metricID) == true ? "约 " : "")
+                                + value.formatted(.number.precision(.significantDigits(1...3))))
+                        }
+                    }
+                }
+            }
+            DisclosureGroup("手动补充营养") {
+                ForEach(DraftNutrient.basic, id: \.self) { nutrient in
+                    nutrientField(nutrient, row: row)
+                }
+                DisclosureGroup("更多指标") {
+                    ForEach(DraftNutrient.additional, id: \.self) { nutrient in
+                        nutrientField(nutrient, row: row)
+                    }
+                }
+            }
+            if !item.overrides.values.allSatisfy({ $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) {
+                Text("已填写的值优先保存。").font(.footnote).foregroundStyle(.secondary)
+            } else if item.food != nil, item.amount != nil, let note = entry.estimationNote {
+                Text(note).font(.footnote).foregroundStyle(.secondary)
+            } else if entry.energyEstimate == nil && !macros.isEmpty {
+                Text("宏量营养素为 AI 粗估。").font(.footnote).foregroundStyle(.secondary)
             } else if item.food == nil && entry.energyEstimate == nil {
                 Text(item.matches.isEmpty ? "食物库暂无匹配" : "选用食物库参考项后可换算营养")
                     .font(.footnote)
@@ -312,7 +336,17 @@ struct NutritionMealAssistantView: View {
                 row.portion.wrappedValue = ""
             }
         }
-        .disabled(store.isSaving)
+        .disabled(analysis != nil || store.isSaving)
+    }
+
+    private func nutrientField(_ nutrient: DraftNutrient, row: Binding<DraftRow>) -> some View {
+        LabeledContent(nutrient.title) {
+            TextField("沿用估算或食物库", text: Binding(
+                get: { row.wrappedValue.overrides[nutrient] ?? "" },
+                set: { row.wrappedValue.overrides[nutrient] = $0 }
+            ))
+            .multilineTextAlignment(.trailing)
+        }
     }
 
     private func analyze() {
@@ -324,7 +358,6 @@ struct NutritionMealAssistantView: View {
             return
         }
         errorMessage = nil
-        rows = []
         let image = jpeg
         let selectedPhotoMeal = image != nil && text.isEmpty ? mealType : nil
         analysis = Task {
@@ -367,6 +400,43 @@ struct NutritionMealAssistantView: View {
     }
 }
 
+private enum DraftNutrient: Hashable {
+    case kcal, protein, carbs, fat
+    case additional(String)
+
+    static let basic: [Self] = [.kcal, .protein, .carbs, .fat]
+    static let additional = MealEntry.additionalNutrientIDs.map(Self.additional)
+
+    var metricID: String {
+        switch self {
+        case .kcal: "diet_kcal"
+        case .protein: "diet_protein_g"
+        case .carbs: "diet_carbs_g"
+        case .fat: "diet_fat_g"
+        case let .additional(id): id
+        }
+    }
+
+    var title: String {
+        guard let descriptor = NutritionCatalog.allKnownDescriptors[metricID] else { return metricID }
+        return "\(descriptor.component ?? descriptor.name)（\(descriptor.rawUnit ?? descriptor.unit)）"
+    }
+
+    var keyPath: WritableKeyPath<MealEntry, Double?> {
+        switch self {
+        case .kcal: return \MealEntry.kcal
+        case .protein: return \MealEntry.proteinG
+        case .carbs: return \MealEntry.carbsG
+        case .fat: return \MealEntry.fatG
+        case let .additional(id):
+            guard let keyPath = MealEntry.additionalNutrientKeyPath(id) else {
+                preconditionFailure("Unmapped meal nutrient: \(id)")
+            }
+            return keyPath
+        }
+    }
+}
+
 private struct DraftRow: Identifiable {
     let id = UUID()
     let recordedAt = Date()
@@ -376,10 +446,13 @@ private struct DraftRow: Identifiable {
     let reportedPortion: String?
     let isEstimatedPortion: Bool
     let suggestedEnergyEstimate: MealEnergyEstimate?
+    let suggestedMacros: MealMacroEstimate?
+    let additionalEstimates: [String: Double]
     let originalAmount: Double?
     var meal: MealType
     var foodID: String?
     var portion: String
+    var overrides: [DraftNutrient: String] = [:]
 
     init(candidate: MealDraftCandidate, matches: [FoodLibraryItem], meal: MealType) {
         name = candidate.name
@@ -390,6 +463,8 @@ private struct DraftRow: Identifiable {
         isEstimatedPortion = candidate.isEstimatedPortion == true
         self.meal = meal
         suggestedEnergyEstimate = candidate.energyEstimate
+        suggestedMacros = candidate.macroEstimate
+        additionalEstimates = candidate.additionalEstimates ?? [:]
         originalAmount = candidate.amount
         let exact = matches.filter { $0.name == candidate.name || $0.aliases.contains(candidate.name) }
         let match = exact.count == 1 ? exact.first : nil
@@ -404,7 +479,17 @@ private struct DraftRow: Identifiable {
     var food: FoodLibraryItem? { matches.first { $0.foodID == foodID } }
     var unit: String { food?.basisUnit ?? suggestedUnit }
     private var trimmedPortion: String { portion.trimmingCharacters(in: .whitespacesAndNewlines) }
-    var hasInvalidPortion: Bool { !trimmedPortion.isEmpty && amount == nil }
+    var hasInvalidValues: Bool {
+        (!trimmedPortion.isEmpty && amount == nil) || overrides.values.contains {
+            let input = $0.trimmingCharacters(in: .whitespacesAndNewlines)
+            return !input.isEmpty && Self.nutrientValue(input) == nil
+        }
+    }
+
+    private static func nutrientValue(_ input: String) -> Double? {
+        guard let value = Double(input), value.isFinite, (0...10_000).contains(value) else { return nil }
+        return value
+    }
 
     var amount: Double? {
         guard let value = Double(trimmedPortion), value.isFinite, value > 0, value <= 10_000 else { return nil }
@@ -412,25 +497,89 @@ private struct DraftRow: Identifiable {
     }
 
     func entry(day: DayKey) -> MealEntry {
+        var entry = estimatedEntry(day: day)
+        var supplied: [String] = []
+        var estimatedIDs: Set<String> = []
+        if let factor = estimateScale {
+            for nutrient in DraftNutrient.additional where entry[keyPath: nutrient.keyPath] == nil {
+                guard let estimate = additionalEstimates[nutrient.metricID] else { continue }
+                entry[keyPath: nutrient.keyPath] = estimate * factor
+                estimatedIDs.insert(nutrient.metricID)
+            }
+        }
+        for nutrient in DraftNutrient.basic + DraftNutrient.additional {
+            guard let input = overrides[nutrient]?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  let value = Self.nutrientValue(input) else { continue }
+            entry[keyPath: nutrient.keyPath] = value
+            estimatedIDs.remove(nutrient.metricID)
+            if nutrient == .kcal { entry.energyEstimate = nil }
+            supplied.append(nutrient.title)
+        }
+        if !supplied.isEmpty {
+            entry.estimationNote = "手动填写：\(supplied.joined(separator: "、"))。其余已有营养值沿用估算或食物库。"
+        }
+        if !estimatedIDs.isEmpty {
+            entry.aiEstimatedNutrientIDs = estimatedIDs
+            let detail = "部分额外营养指标为 AI 粗估。"
+            entry.estimationNote = entry.estimationNote.map { $0 + " " + detail } ?? detail
+        }
+        return entry
+    }
+
+    private var estimateScale: Double? {
+        guard unit.caseInsensitiveCompare(suggestedUnit) == .orderedSame else { return nil }
+        if amount == originalAmount { return 1 }
+        guard let amount, let originalAmount, (0.25...4).contains(amount / originalAmount) else { return nil }
+        return amount / originalAmount
+    }
+
+    private func estimatedEntry(day: DayKey) -> MealEntry {
         let description = amount.map {
             let value = $0.formatted(.number.precision(.fractionLength(0...1)))
-            return "\(isEstimatedPortion ? "约 " : "")\(value) \(unit)"
+            return "\(isEstimatedPortion && amount == originalAmount ? "约 " : "")\(value) \(unit)"
         }
         let portionText = [reportedPortion, description].compactMap { $0 }.joined(separator: " · ")
+        let scale = estimateScale
+        let estimate = scale.flatMap { factor in
+            suggestedEnergyEstimate.map {
+                MealEnergyEstimate(lowerKcal: $0.lowerKcal * factor, upperKcal: $0.upperKcal * factor,
+                                   assumptions: factor == 1 ? $0.assumptions : $0.assumptions + "。已按修改后的份量等比例换算。")
+            }
+        }
+        let macros = scale == nil ? nil : suggestedMacros
+        let factor = scale ?? 1
         if let food, let amount {
             var entry = food.makeMealEntry(dayKey: day, mealType: meal, portionAmount: amount,
                                            portionDescription: portionText, isEstimated: true, recordedAt: recordedAt, id: id)
             entry.foodName = name
-            entry.estimationNote = "营养值由 \(food.sourceName) 换算。"
+            entry.estimationNote = "可匹配的数据由 \(food.sourceName) 换算。"
+            var usedFallback = false
+            if entry.kcal == nil, let estimate {
+                entry.kcal = estimate.midpointKcal
+                entry.energyEstimate = estimate
+                usedFallback = true
+            }
+            let macroValues: [(WritableKeyPath<MealEntry, Double?>, Double?)] = [
+                (\.proteinG, macros?.proteinG), (\.carbsG, macros?.carbsG), (\.fatG, macros?.fatG)
+            ]
+            for (field, value) in macroValues where entry[keyPath: field] == nil {
+                guard let value else { continue }
+                entry[keyPath: field] = value * factor
+                usedFallback = true
+            }
+            if usedFallback { entry.estimationNote = (entry.estimationNote ?? "") + "食物库缺项由 AI 粗估补充。" }
             return entry
         }
-        let estimate = amount == originalAmount && unit.caseInsensitiveCompare(suggestedUnit) == .orderedSame
-            ? suggestedEnergyEstimate : nil
         var entry = MealEntry(
             id: id, dayKey: day, mealType: meal, foodID: food?.foodID, foodName: name,
             portionAmount: amount, portionUnit: unit, portionDescription: portionText.isEmpty ? nil : portionText,
-            kcal: estimate?.midpointKcal, isEstimated: true,
-            estimationNote: estimate.map { "AI 粗估。\($0.assumptions)" } ?? "份量或营养资料待补。",
+            kcal: estimate?.midpointKcal,
+            carbsG: macros?.carbsG.map { $0 * factor },
+            proteinG: macros?.proteinG.map { $0 * factor },
+            fatG: macros?.fatG.map { $0 * factor },
+            isEstimated: true,
+            estimationNote: estimate.map { "AI 粗估。\($0.assumptions)" }
+                ?? (macros == nil ? "份量或营养资料待补。" : "宏量营养素为 AI 粗估。"),
             recordedAt: recordedAt
         )
         entry.energyEstimate = estimate

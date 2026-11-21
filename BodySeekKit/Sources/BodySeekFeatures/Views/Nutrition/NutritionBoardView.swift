@@ -96,6 +96,8 @@ public struct NutritionBoardView: View {
             switch logger {
             case .manual:
                 NutritionMealLoggerSheet(store: store)
+            case let .edit(entry):
+                NutritionMealLoggerSheet(store: store, original: entry)
             case .assistant:
                 NavigationStack {
                     NutritionMealAssistantView(store: store)
@@ -194,9 +196,10 @@ public struct NutritionBoardView: View {
         let log = store.selectedDayLog
         let isClosed = log?.dietDayComplete == true
         let intake = log?.dietKcal
+        let energy = log.map { MealEnergySummary(entries: $0.entries) }
         let expenditure: Double? = {
             if let bmr = log?.bmrKcalUsed ?? store.profile?.bmrKcalReference, bmr > 0,
-               let active = log?.sportKcal ?? store.snapshot.today.raw.activeEnergyKcal, active >= 0 {
+               let active = log?.sportKcal ?? store.selectedHealthDay?.raw.activeEnergyKcal, active >= 0 {
                 return bmr + active
             }
             return nil
@@ -229,8 +232,8 @@ public struct NutritionBoardView: View {
 
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                     energyMetricTile(
-                        label: "饮食摄入",
-                        value: intake.map { "\(Int($0.rounded()))" } ?? "--",
+                        label: energy?.displayRange != nil || (energy?.missingEntryCount ?? 0) > 0 ? "已记录摄入" : "饮食摄入",
+                        value: energy?.displayRange ?? intake.map { "\(Int($0.rounded()))" } ?? "--",
                         unit: "kcal",
                         tint: BevelTheme.brand
                     )
@@ -252,6 +255,19 @@ public struct NutritionBoardView: View {
                         unit: "kcal",
                         tint: BevelTheme.ink
                     )
+                }
+
+                if let energy {
+                    if energy.displayRange != nil, let known = energy.knownKcalSubtotal {
+                        Text("已有数值小计 \(known.formatted(.number.precision(.fractionLength(0)))) kcal")
+                            .font(.footnote)
+                            .foregroundStyle(BevelTheme.inkSecondary)
+                    }
+                    if energy.missingEntryCount > 0 {
+                        Text("\(energy.missingEntryCount) 项热量待补")
+                            .font(.footnote)
+                            .foregroundStyle(BevelTheme.inkSecondary)
+                    }
                 }
 
                 if !isClosed {
@@ -531,6 +547,17 @@ public struct NutritionBoardView: View {
                     Text(entry.isEstimated ? "约 \(amount)" : amount)
                         .font(.footnote.monospacedDigit())
                 }
+                Button {
+                    store.send(.mealEditTapped(entry))
+                } label: {
+                    Image(systemName: "pencil")
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel("编辑 \(entry.foodName)")
+                .accessibilityIdentifier("nutrition-entry-edit-\(entry.id)")
+                .disabled(store.isSaving)
             }
             .foregroundStyle(BevelTheme.ink)
             Text(entry.portionDescription)
@@ -546,6 +573,25 @@ public struct NutritionBoardView: View {
                 Text(nutrients.joined(separator: " · "))
                     .font(.footnote.monospacedDigit())
                     .foregroundStyle(BevelTheme.inkSecondary)
+            }
+            let extraIDs = MealEntry.additionalNutrientIDs.filter { id in
+                MealEntry.additionalNutrientKeyPath(id).flatMap { entry[keyPath: $0] } != nil
+            }
+            if !extraIDs.isEmpty {
+                DisclosureGroup("更多营养（\(extraIDs.count) 项）") {
+                    ForEach(extraIDs, id: \.self) { id in
+                        if let descriptor = NutritionCatalog.allKnownDescriptors[id],
+                           let field = MealEntry.additionalNutrientKeyPath(id),
+                           let value = entry[keyPath: field] {
+                            let prefix = entry.aiEstimatedNutrientIDs?.contains(id) == true ? "约 " : ""
+                            let amount = value.formatted(.number.precision(.significantDigits(1...3)))
+                            LabeledContent(descriptor.component ?? descriptor.name,
+                                           value: "\(prefix)\(amount) \(descriptor.rawUnit ?? descriptor.unit)")
+                                .font(.footnote)
+                        }
+                    }
+                }
+                .font(.footnote)
             }
             if let note = entry.estimationNote, !note.isEmpty {
                 Text(note)
@@ -609,7 +655,8 @@ public struct NutritionBoardView: View {
                                         .font(.caption.weight(.semibold))
                                         .foregroundStyle(BevelTheme.ink)
                                     Spacer()
-                                    Text(dayEval.value.map { "\(formatMetric($0)) \(dayEval.displayUnit)" } ?? "--")
+                                    let prefix = selectedLog?.entries.contains { $0.aiEstimatedNutrientIDs?.contains(avg.metricID) == true } == true ? "约 " : ""
+                                    Text(dayEval.value.map { "\(prefix)\(formatMetric($0)) \(dayEval.displayUnit)" } ?? "--")
                                         .font(.caption.weight(.semibold).monospacedDigit())
                                         .fontDesign(.rounded)
                                         .foregroundStyle(BevelTheme.ink)

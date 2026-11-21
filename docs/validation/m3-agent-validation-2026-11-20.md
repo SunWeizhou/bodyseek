@@ -129,3 +129,37 @@
 
 - `swift test --package-path BodySeekKit --disable-automatic-resolution` 退出码 `0`，57 项包测试和 16 项 Agent 测试通过（`/tmp/bodyseek-meal-reply-unit.log`）。
 - Vela Debug 通用 iOS 构建退出码 `0`（`/tmp/bodyseek-meal-reply-build.log`）。安装到 iPhone 16 Pro，序列 `1828`。自动启动被锁屏挡住，未验证该账号的实时模型回复。
+
+## 9. 2026-11-21 质量修复复测
+
+起点为干净的 `b03f2bb8` 工作树。本节记录本地实现与回归。
+
+- 饮食结账只读同日期的健康数据。缺失活动消耗保留为空，真实零值继续可用。过去七天的平均缺口使用日历窗口，今日摘要以今天为终点。
+- 全天解析若含有无法读取的必填条目，使用现有重试，并在仍失败时保留原文和此前草稿。已保存餐食复用手动表单编辑，同一条目沿用原 ID。删除须确认，删除后重新打开日结状态。已修改餐次的缺项按当前条目重算。
+- AI 粗估保留区间，日汇总和饮食工具提供区间、已有数值小计和缺项计数。历史库仍保留中点字段供兼容的汇总读取。
+- Coach 云端复用当前聊天接口最近最多六条消息，端侧用原生会话记录恢复最近最多四条。历史仅供理解追问，当前数值仍由本轮工具核实。训练复盘提案以消息 ID 复用 GRDB 审计事务，即使重试也只生效一次。旧版只记录成功动作的提案按内容及审计时间恢复确认状态。 [GRDB 事务接口](https://github.com/groue/GRDB.swift/blob/master/GRDB/Core/DatabaseWriter.swift) · [Foundation Models 会话记录](https://developer.apple.com/documentation/foundationmodels/inspecting-session-transcripts-and-reporting-model-feedback)
+- `swift test --package-path BodySeekKit --disable-automatic-resolution` 退出码 0，62 项包测试、20 项 Agent 测试通过。回归包含错日结账、餐食编辑与删除、Coach 提案重开及重试、混合有效性模型响应、饮食热量区间和历史日期查询。日志 `/tmp/bodyseek-quality-fix-final.log`。
+
+- 默认字号的 iPhone 17 Pro / iOS 26.5 模拟器上，4 项集成测试以及 Watch 复盘、Coach 记忆与隐私、全天草稿确认、展开早餐用例均通过。编辑入口从菜单改为直接按钮后，单独复跑编辑用例退出码 0，已验证把保存的早餐条目移到加餐并保存。结果为 `/tmp/bodyseek-quality-fix-edit-labels.xcresult`，截图在 `/tmp/bodyseek-quality-edit-labels-ui`。线上服务和真机同步未实测。
+
+### 复查发现
+
+- 设置页「重置训练日志、记忆与设置」实际还会删除饮食、聊天和打卡。入口缺少二次确认，正在处理的聊天也可能在重置后再写回。真实设备上未触发重置。
+- 前台刷新用 60 天窗口计算并持久化历史分数。窗口开头最多 28 天可能缺基线，覆盖原先基线更完整的同版本分数。应补全计算窗口并用固定输入对拍前台与回填结果。
+- Coach 趋势覆盖率使用返回记录数作分母。数据稀疏时仍可能显示高覆盖率，应按日历窗口统计有效数据天数，并统一已知零的口径。
+
+### iPhone 16 Pro 安装
+
+基于 `b03f2bb8` 加本地质量修复。Vela Debug 通用 iOS 构建退出码 0，日志 `/tmp/bodyseek-quality-phone-build.log`。CoreDevice 原地安装成功，安装序列 `1908`，启动命令退出码 0。实际 Apple Watch 删除回流和线上模型追问仍待实测。
+
+### AI 记餐的可选补充与估算
+
+在 `b03f2bb8` 加本地质量修复上，餐食草稿优先采用手动填写，其次采用食物库换算，并用带标记的 AI 粗估补齐可估算的份量、热量和宏量营养。修改同单位份量时，在合理比例内换算原估算。极端或缺乏依据的值继续留空。包测试 83 项通过，覆盖宏量估算字段的有效性。默认字号 iPhone 17 Pro 模拟器的全天草稿确认用例通过。此后补充的食物库单项缺失回退通过包测试。该阶段的真机安装见下方扩展估算版记录。
+
+### 扩展 AI 营养估算
+
+基线为 `b03f2bb8` 和既有本地改动。估算扩展到看板的膳食纤维、ALA、EPA＋DHA、14 项维生素和 15 项矿物质，饮水只计明确可识别的白水。提示词直接引用现有指标和单位合同，解析校验标识、单位与份量。手动值优先于食物库和 AI 粗估。逐项记录估算标记，日看板显示估算量，但该值不触发营养达标或限量判定，也不纳入有效周期均值。
+
+`swift test --package-path BodySeekKit --disable-automatic-resolution` 退出码 0，63 项包测试和 22 项 Agent 测试通过。iPhone 17 Pro / iOS 26.5 模拟器的全天草稿确认回归通过，产物为 `/tmp/bodyseek-micro-ui.xcresult`。在线模型的估算质量待实测。
+
+扩展估算版的 Vela Debug 通用 iOS 构建成功，日志 `/tmp/bodyseek-micro-phone-build.log`。已覆盖安装至 iPhone 16 Pro，安装序列 `1916`。启动请求被设备锁屏拦截，线上估算仍待实测。

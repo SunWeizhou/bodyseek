@@ -167,6 +167,7 @@ public struct BodySeekStoreClient: Sendable {
     public var searchFoodLibrary: @Sendable (_ query: String) async throws -> [FoodLibraryItem] = { _ in [] }
     public var seedStarterFoodLibraryIfNeeded: @Sendable () async throws -> Void
     public var saveFoodLibraryItem: @Sendable (_ item: FoodLibraryItem) async throws -> Void
+    public var loadDeletedWorkoutUUIDs: @Sendable () async throws -> Set<String> = { [] }
     public var loadStoredWorkouts: @Sendable (_ limit: Int?) async throws -> [StoredWorkoutRecord] = { _ in [] }
     public var upsertStoredWorkouts: @Sendable (_ workouts: [StoredWorkoutRecord], _ symbolByUUID: [String: String]) async throws -> Void
     public var loadWorkoutAnnotations: @Sendable (_ workoutUUID: String?) async throws -> [WorkoutAnnotationRecord] = { _ in [] }
@@ -350,6 +351,10 @@ extension BodySeekStoreClient: DependencyKey {
                 let repo = try await liveOrPreviewRepo(preview: preview)
                 try await repo.saveFoodLibraryItem(item)
             },
+            loadDeletedWorkoutUUIDs: {
+                let repo = try await liveOrPreviewRepo(preview: preview)
+                return try await repo.loadDeletedWorkoutUUIDs()
+            },
             loadStoredWorkouts: { limit in
                 let repo = try await liveOrPreviewRepo(preview: preview)
                 return try await repo.loadWorkouts(limit: limit)
@@ -456,6 +461,10 @@ extension BodySeekStoreClient: DependencyKey {
             saveFoodLibraryItem: { item in
                 let (_, repo, _, _) = try await preview.resolve()
                 try await repo.saveFoodLibraryItem(item)
+            },
+            loadDeletedWorkoutUUIDs: {
+                let (_, repo, _, _) = try await preview.resolve()
+                return try await repo.loadDeletedWorkoutUUIDs()
             },
             loadStoredWorkouts: { limit in
                 let (_, repo, _, _) = try await preview.resolve()
