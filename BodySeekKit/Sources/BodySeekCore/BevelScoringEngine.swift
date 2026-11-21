@@ -254,20 +254,32 @@ public enum BevelScoringEngine {
         defer { BodySeekSignposts.shared.end(.trendsSeriesCompute, signpost) }
 
         var byHorizon: [TrendHorizon: [MetricKind: ChartSeriesSnapshot]] = [:]
+        let byDay = makeChartDayMap(days: days, calendar: calendar)
         for horizon in TrendHorizon.allCases {
             var byKind: [MetricKind: ChartSeriesSnapshot] = [:]
             for kind in MetricKind.allCases {
                 byKind[kind] = buildChartSeriesSnapshotInternal(
                     for: kind,
                     horizon: horizon,
-                    days: days,
                     referenceDate: referenceDate,
-                    calendar: calendar
+                    calendar: calendar,
+                    byDay: byDay
                 )
             }
             byHorizon[horizon] = byKind
         }
         return byHorizon
+    }
+
+    /// Day-indexed lookup shared by every metric/horizon combination in one build.
+    private static func makeChartDayMap(
+        days: [DailyComputedDay],
+        calendar: Calendar
+    ) -> [Date: DailyComputedDay] {
+        Dictionary(
+            days.map { (calendar.startOfDay(for: $0.date), $0) },
+            uniquingKeysWith: { _, latest in latest }
+        )
     }
 
     public static func buildChartSeriesSnapshot(
@@ -296,12 +308,24 @@ public enum BevelScoringEngine {
         referenceDate: Date,
         calendar: Calendar
     ) -> ChartSeriesSnapshot {
+        buildChartSeriesSnapshotInternal(
+            for: kind,
+            horizon: horizon,
+            referenceDate: referenceDate,
+            calendar: calendar,
+            byDay: makeChartDayMap(days: days, calendar: calendar)
+        )
+    }
+
+    private static func buildChartSeriesSnapshotInternal(
+        for kind: MetricKind,
+        horizon: TrendHorizon,
+        referenceDate: Date,
+        calendar: Calendar,
+        byDay: [Date: DailyComputedDay]
+    ) -> ChartSeriesSnapshot {
         let end = calendar.startOfDay(for: referenceDate)
         let start = calendar.date(byAdding: .day, value: -(horizon.dayCount - 1), to: end) ?? end
-        let byDay = Dictionary(
-            days.map { (calendar.startOfDay(for: $0.date), $0) },
-            uniquingKeysWith: { _, latest in latest }
-        )
 
         var rawPoints: [(dayKey: DayKey, date: Date, value: Double?, availability: MetricAvailability)] = []
         rawPoints.reserveCapacity(horizon.dayCount)

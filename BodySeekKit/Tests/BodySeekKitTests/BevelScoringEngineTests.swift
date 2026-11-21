@@ -2,6 +2,40 @@ import BodySeekCore
 import XCTest
 
 final class BevelScoringEngineTests: XCTestCase {
+
+    func testChartSnapshotBuildAllMatchesIndividualSnapshots() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Shanghai"))
+        let now = Date(timeIntervalSince1970: 1_795_000_000)
+        let raw = PreviewSeedFactory.makeRawWindow(endingAt: now, days: 200, calendar: calendar)
+        let snapshot = BevelScoringEngine.computeWindow(
+            rawDays: raw,
+            sleepGoalMinutes: 450,
+            referenceDate: now,
+            sourceLabel: "Parity",
+            isAuthorized: true,
+            calendar: calendar
+        )
+        let all = BevelScoringEngine.buildAllChartSnapshots(
+            days: snapshot.historyDays,
+            referenceDate: now,
+            calendar: calendar
+        )
+        for horizon in TrendHorizon.allCases {
+            for kind in MetricKind.allCases {
+                let single = BevelScoringEngine.buildChartSeriesSnapshot(
+                    for: kind,
+                    horizon: horizon,
+                    days: snapshot.historyDays,
+                    referenceDate: now,
+                    calendar: calendar
+                )
+                XCTAssertEqual(all[horizon]?[kind], single, "parity mismatch \(kind)/\(horizon)")
+            }
+        }
+    }
+
+
     func testEmptyWindowMarksAllMetricsMissingNeverZero() {
         let now = Date(timeIntervalSince1970: 1_760_000_000)
         let snapshot = BevelScoringEngine.computeWindow(
