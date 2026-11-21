@@ -502,6 +502,13 @@ public struct DailyComputedDay: Identifiable, Hashable, Sendable, Codable {
     }
 }
 
+/// Statistical bucket granularity used for the capsule visualization of a horizon.
+public enum TrendBucketUnit: String, Hashable, Sendable, Codable {
+    case day
+    case week
+    case month
+}
+
 public enum TrendHorizon: String, CaseIterable, Identifiable, Hashable, Sendable, Codable {
     case week
     case month
@@ -528,10 +535,12 @@ public enum TrendHorizon: String, CaseIterable, Identifiable, Hashable, Sendable
         }
     }
 
-    public var usesRangeCapsules: Bool {
+    /// Granularity of the distribution capsules shown for this horizon.
+    public var bucketUnit: TrendBucketUnit {
         switch self {
-        case .week, .month: false
-        case .sixMonths, .threeYears: true
+        case .week: .day
+        case .month, .sixMonths: .week
+        case .threeYears: .month
         }
     }
 }

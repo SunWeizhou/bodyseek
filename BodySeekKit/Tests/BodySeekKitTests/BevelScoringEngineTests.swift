@@ -239,6 +239,29 @@ final class BevelScoringEngineTests: XCTestCase {
         XCTAssertFalse(sixMonthChart.capsules.isEmpty)
         XCTAssertEqual(sixMonthChart.totalDays, 180)
 
+        // 7 天按日胶囊与 30 天按周胶囊（趋势页统一胶囊视觉）。
+        let weekChart = BevelScoringEngine.buildChartSeriesSnapshot(
+            for: .recovery,
+            horizon: .week,
+            days: fullSnap.historyDays,
+            referenceDate: now,
+            calendar: calendar
+        )
+        XCTAssertEqual(weekChart.totalDays, 7)
+        XCTAssertEqual(weekChart.capsules.count, 7)
+        XCTAssertTrue(weekChart.capsules.allSatisfy { $0.p25 == $0.p75 && $0.sampleCount == 1 })
+
+        let monthChart = BevelScoringEngine.buildChartSeriesSnapshot(
+            for: .recovery,
+            horizon: .month,
+            days: fullSnap.historyDays,
+            referenceDate: now,
+            calendar: calendar
+        )
+        XCTAssertEqual(monthChart.totalDays, 30)
+        XCTAssertGreaterThanOrEqual(monthChart.capsules.count, 4)
+        XCTAssertTrue(monthChart.capsules.allSatisfy { $0.totalDays >= 2 })
+
         let threeYearRaw = PreviewSeedFactory.makeRawWindow(endingAt: now, days: 1095, calendar: calendar)
         let threeYearSnap = BevelScoringEngine.computeWindow(
             rawDays: threeYearRaw,

@@ -404,8 +404,6 @@ public enum BevelScoringEngine {
         horizon: TrendHorizon,
         calendar: Calendar
     ) -> [RangeCapsuleBucket] {
-        guard horizon.usesRangeCapsules else { return [] }
-
         struct BucketAccumulator {
             let id: String
             let label: String
@@ -418,21 +416,24 @@ public enum BevelScoringEngine {
         for pt in points {
             let key: String
             let label: String
-            switch horizon {
-            case .sixMonths:
+            switch horizon.bucketUnit {
+            case .day:
+                key = pt.dayKey.isoString
+                let month = calendar.component(.month, from: pt.date)
+                let day = calendar.component(.day, from: pt.date)
+                label = "\(month)/\(day)"
+            case .week:
                 let year = calendar.component(.yearForWeekOfYear, from: pt.date)
                 let week = calendar.component(.weekOfYear, from: pt.date)
                 key = String(format: "%04d-W%02d", year, week)
                 let month = calendar.component(.month, from: pt.date)
                 let day = calendar.component(.day, from: pt.date)
                 label = "\(month)/\(day)"
-            case .threeYears:
+            case .month:
                 let year = calendar.component(.year, from: pt.date)
                 let month = calendar.component(.month, from: pt.date)
                 key = String(format: "%04d-%02d", year, month)
                 label = "\(year % 100)/\(month)月"
-            case .week, .month:
-                continue
             }
 
             if grouped[key] == nil {
