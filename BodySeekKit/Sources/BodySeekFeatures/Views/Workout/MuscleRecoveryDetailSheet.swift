@@ -40,7 +40,7 @@ public struct MuscleRecoveryDetailSheet: View {
 
                             HStack(alignment: .firstTextBaseline, spacing: 8) {
                                 Text("\(est.recoveryPercent)%")
-                                    .font(.system(size: 40, weight: .bold, design: .rounded))
+                                    .font(.system(.largeTitle, design: .rounded).weight(.bold))
                                     .monospacedDigit()
                                     .foregroundStyle(recoveryColor)
                                     .contentTransition(.numericText())
