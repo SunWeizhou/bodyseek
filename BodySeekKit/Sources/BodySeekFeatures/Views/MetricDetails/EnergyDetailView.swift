@@ -64,17 +64,16 @@ public struct EnergyDetailView: View {
 
             BevelCard {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text(activeChartSnapshot.horizon.usesRangeCapsules ? "能量储备分布胶囊" : "每日能量趋势")
+                    Text("能量储备趋势")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(BevelTheme.energyColor)
 
-                    if activeChartSnapshot.horizon.usesRangeCapsules {
-                        RangeCapsuleChart(snapshot: activeChartSnapshot, tint: BevelTheme.energyColor) { bucket in
-                            onSelectDate(bucket?.endDate)
-                        }
-                    } else {
-                        TrendLineChart(snapshot: activeChartSnapshot, tint: BevelTheme.energyColor, onSelectDate: onSelectDate)
-                    }
+                    TrendHorizonChart(
+                        snapshot: activeChartSnapshot,
+                        tint: BevelTheme.energyColor,
+                        onSelectDate: onSelectDate,
+                        onSelectBucket: { bucket in onSelectDate(bucket?.endDate) }
+                    )
                 }
             }
         }

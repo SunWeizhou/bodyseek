@@ -53,6 +53,7 @@ public struct RangeCapsuleChart: View {
                         onSelectBucket?(nil)
                     }
                 )
+                .accessibilityIdentifier("trends-capsule-chart-readout")
 
                 Chart {
                     if let band = snapshot.baselineBand {
@@ -73,29 +74,49 @@ public struct RangeCapsuleChart: View {
                         let mid = midpointDate(for: bucket)
                         let isSelected = selectedBucket?.id == bucket.id
 
-                        RuleMark(
-                            x: .value("周期", mid),
-                            yStart: .value("极小", bucket.min),
-                            yEnd: .value("极大", bucket.max)
-                        )
-                        .lineStyle(StrokeStyle(lineWidth: 1.3, lineCap: .round))
-                        .foregroundStyle(tint.opacity(isSelected ? 0.6 : 0.28))
+                        if bucket.p25 == bucket.p75, bucket.sampleCount == 1 {
+                            // Single-day bucket (7 天窗口按日) degenerates to a day
+                            // column: soft column from zero plus a median dot.
+                            BarMark(
+                                x: .value("周期", mid),
+                                yStart: .value("底", 0),
+                                yEnd: .value("值", bucket.median),
+                                width: .fixed(capsuleWidth)
+                            )
+                            .cornerRadius(capsuleWidth / 2)
+                            .foregroundStyle(tint.opacity(isSelected ? 0.9 : 0.38))
 
-                        BarMark(
-                            x: .value("周期", mid),
-                            yStart: .value("P25", bucket.p25),
-                            yEnd: .value("P75", bucket.p75),
-                            width: .fixed(capsuleWidth)
-                        )
-                        .cornerRadius(capsuleWidth / 2)
-                        .foregroundStyle(tint.opacity(isSelected ? 0.95 : 0.48))
+                            PointMark(
+                                x: .value("周期", mid),
+                                y: .value("中位", bucket.median)
+                            )
+                            .symbolSize(isSelected ? 46 : 22)
+                            .foregroundStyle(isSelected ? BevelTheme.ink : tint)
+                        } else {
+                            RuleMark(
+                                x: .value("周期", mid),
+                                yStart: .value("极小", bucket.min),
+                                yEnd: .value("极大", bucket.max)
+                            )
+                            .lineStyle(StrokeStyle(lineWidth: 1.3, lineCap: .round))
+                            .foregroundStyle(tint.opacity(isSelected ? 0.6 : 0.28))
 
-                        PointMark(
-                            x: .value("周期", mid),
-                            y: .value("中位", bucket.median)
-                        )
-                        .symbolSize(isSelected ? 46 : 22)
-                        .foregroundStyle(isSelected ? BevelTheme.ink : tint)
+                            BarMark(
+                                x: .value("周期", mid),
+                                yStart: .value("P25", bucket.p25),
+                                yEnd: .value("P75", bucket.p75),
+                                width: .fixed(capsuleWidth)
+                            )
+                            .cornerRadius(capsuleWidth / 2)
+                            .foregroundStyle(tint.opacity(isSelected ? 0.95 : 0.48))
+
+                            PointMark(
+                                x: .value("周期", mid),
+                                y: .value("中位", bucket.median)
+                            )
+                            .symbolSize(isSelected ? 46 : 22)
+                            .foregroundStyle(isSelected ? BevelTheme.ink : tint)
+                        }
                     }
                 }
                 .chartXScale(domain: domain)
@@ -148,6 +169,8 @@ public struct RangeCapsuleChart: View {
 
                 axisFooter(domain: domain)
             }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("trends-capsule-chart")
         }
     }
 
@@ -193,37 +216,70 @@ public struct RangeCapsuleChart: View {
 
     /// Swift Charts drops trailing axis labels when the domain is much wider than the
     /// data, so render the horizon's start / middle / end labels ourselves.
+    @ViewBuilder
     private func axisFooter(domain: ClosedRange<Date>) -> some View {
-        let middle = domain.lowerBound.addingTimeInterval(
-            domain.upperBound.timeIntervalSince(domain.lowerBound) / 2.0
-        )
-        return HStack(spacing: 0) {
-            Text(ChartAxisSupport.formatAxisDate(domain.lowerBound, horizon: snapshot.horizon))
-            Spacer(minLength: 8)
-            Text(ChartAxisSupport.formatAxisDate(middle, horizon: snapshot.horizon))
-            Spacer(minLength: 8)
-            Text(ChartAxisSupport.formatAxisDate(domain.upperBound, horizon: snapshot.horizon))
+        if snapshot.horizon.bucketUnit == .day {
+            // 7 天窗口按日：每个日胶囊正下方放一个日期标签。日点是等距的，
+            // 均分 HStack 与图表 x 位置对齐。
+            HStack(spacing: 0) {
+                ForEach(snapshot.dailyPoints) { pt in
+                    Text(dayLabel(for: pt.date))
+                        .frame(maxWidth: .infinity)
+                }
+            }
+            .font(.caption2.monospacedDigit())
+            .fontDesign(.rounded)
+            .foregroundStyle(BevelTheme.inkSecondary)
+            .accessibilityHidden(true)
+        } else {
+            let middle = domain.lowerBound.addingTimeInterval(
+                domain.upperBound.timeIntervalSince(domain.lowerBound) / 2.0
+            )
+            HStack(spacing: 0) {
+                Text(ChartAxisSupport.formatAxisDate(domain.lowerBound, horizon: snapshot.horizon))
+                Spacer(minLength: 8)
+                Text(ChartAxisSupport.formatAxisDate(middle, horizon: snapshot.horizon))
+                Spacer(minLength: 8)
+                Text(ChartAxisSupport.formatAxisDate(domain.upperBound, horizon: snapshot.horizon))
+            }
+            .font(.caption2.monospacedDigit())
+            .fontDesign(.rounded)
+            .foregroundStyle(BevelTheme.inkSecondary)
+            .accessibilityHidden(true)
         }
-        .font(.caption2.monospacedDigit())
-        .fontDesign(.rounded)
-        .foregroundStyle(BevelTheme.inkSecondary)
-        .accessibilityHidden(true)
+    }
+
+    private func dayLabel(for date: Date) -> String {
+        let calendar = Calendar.current
+        return "\(calendar.component(.month, from: date))/\(calendar.component(.day, from: date))"
+    }
+
+    private var bucketUnitTitle: String {
+        switch snapshot.horizon.bucketUnit {
+        case .day: "日"
+        case .week: "周"
+        case .month: "月"
+        }
     }
 
     private func headerStrings(buckets: [RangeCapsuleBucket]) -> (primary: String, secondary: String) {
         if let b = selectedBucket {
             let med = Int(b.median.rounded())
-            let p25 = Int(b.p25.rounded())
-            let p75 = Int(b.p75.rounded())
+            let spanText: String
+            if b.p25 == b.p75 {
+                spanText = "单日样本"
+            } else {
+                spanText = "P25–P75 \(Int(b.p25.rounded()))–\(Int(b.p75.rounded()))"
+            }
             return (
                 "\(b.label) · 中位 \(med)\(unitLabel)",
-                "P25–P75 \(p25)–\(p75) · 覆盖 \(b.sampleCount)/\(b.totalDays)天"
+                "\(spanText) · 覆盖 \(b.sampleCount)/\(b.totalDays)天"
             )
         }
         let medText = snapshot.medianValue.map { "中位 \(Int($0.rounded())) \(unitLabel)" } ?? "--"
         return (
             medText,
-            "\(buckets.count) 个\(snapshot.horizon == .sixMonths ? "周" : "月")胶囊 · \(snapshot.coveredDays)/\(snapshot.totalDays)天"
+            "\(buckets.count) 个\(bucketUnitTitle)胶囊 · \(snapshot.coveredDays)/\(snapshot.totalDays)天"
         )
     }
 }

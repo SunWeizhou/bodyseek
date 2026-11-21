@@ -28,17 +28,16 @@ public struct StrainDetailView: View {
 
             BevelCard {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text(activeChartSnapshot.horizon.usesRangeCapsules ? "训练负荷分布胶囊" : "每日训练负荷趋势")
+                    Text("训练负荷趋势")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(BevelTheme.strainColor)
 
-                    if activeChartSnapshot.horizon.usesRangeCapsules {
-                        RangeCapsuleChart(snapshot: activeChartSnapshot, tint: BevelTheme.strainColor) { bucket in
-                            onSelectDate(bucket?.endDate)
-                        }
-                    } else {
-                        TrendLineChart(snapshot: activeChartSnapshot, tint: BevelTheme.strainColor, onSelectDate: onSelectDate)
-                    }
+                    TrendHorizonChart(
+                        snapshot: activeChartSnapshot,
+                        tint: BevelTheme.strainColor,
+                        onSelectDate: onSelectDate,
+                        onSelectBucket: { bucket in onSelectDate(bucket?.endDate) }
+                    )
 
                     Text(activeChartSnapshot.statusSummary)
                         .font(.caption)

@@ -45,17 +45,16 @@ public struct StressDetailView: View {
 
             BevelCard {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text(activeChartSnapshot.horizon.usesRangeCapsules ? "压力趋势分布胶囊" : "每日压力趋势")
+                    Text("压力趋势")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(BevelTheme.stressColor)
 
-                    if activeChartSnapshot.horizon.usesRangeCapsules {
-                        RangeCapsuleChart(snapshot: activeChartSnapshot, tint: BevelTheme.stressColor) { bucket in
-                            onSelectDate(bucket?.endDate)
-                        }
-                    } else {
-                        TrendLineChart(snapshot: activeChartSnapshot, tint: BevelTheme.stressColor, onSelectDate: onSelectDate)
-                    }
+                    TrendHorizonChart(
+                        snapshot: activeChartSnapshot,
+                        tint: BevelTheme.stressColor,
+                        onSelectDate: onSelectDate,
+                        onSelectBucket: { bucket in onSelectDate(bucket?.endDate) }
+                    )
                 }
             }
         }

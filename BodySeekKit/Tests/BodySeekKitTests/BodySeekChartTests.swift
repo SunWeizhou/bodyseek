@@ -66,6 +66,20 @@ final class BodySeekChartTests: XCTestCase {
             referenceDate: now,
             calendar: calendar
         )
+        let weekCapsules = BevelScoringEngine.buildChartSeriesSnapshot(
+            for: .recovery,
+            horizon: .week,
+            days: snap365.historyDays,
+            referenceDate: now,
+            calendar: calendar
+        )
+        let monthCapsules = BevelScoringEngine.buildChartSeriesSnapshot(
+            for: .strain,
+            horizon: .month,
+            days: snap365.historyDays,
+            referenceDate: now,
+            calendar: calendar
+        )
 
         // Sparse + knownZero + excluded variant
         let mixedPoints: [ChartPointSnapshot] = (0..<14).map { idx in
@@ -183,6 +197,16 @@ final class BodySeekChartTests: XCTestCase {
             XCTAssertNotNil(
                 renderCGImage(applyVariant(RangeCapsuleChart(snapshot: capsuleInput, tint: BevelTheme.sleepColor), variant)),
                 "RangeCapsuleChart failed for \(variant.rawValue)"
+            )
+
+            // 7 天按日胶囊（单样本日柱 + 中位点）与 30 天按周胶囊（极值须 + P25–P75）。
+            XCTAssertNotNil(
+                renderCGImage(applyVariant(RangeCapsuleChart(snapshot: weekCapsules, tint: BevelTheme.recoveryColor), variant)),
+                "RangeCapsuleChart day buckets failed for \(variant.rawValue)"
+            )
+            XCTAssertNotNil(
+                renderCGImage(applyVariant(RangeCapsuleChart(snapshot: monthCapsules, tint: BevelTheme.strainColor), variant)),
+                "RangeCapsuleChart week buckets failed for \(variant.rawValue)"
             )
 
             // 3. SleepStageChart

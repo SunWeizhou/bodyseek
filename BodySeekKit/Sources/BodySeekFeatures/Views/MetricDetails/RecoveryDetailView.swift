@@ -27,17 +27,16 @@ public struct RecoveryDetailView: View {
         VStack(alignment: .leading, spacing: 16) {
             BevelCard {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text(activeChartSnapshot.horizon.usesRangeCapsules ? "恢复储备分布胶囊" : "恢复储备与个人基线")
+                    Text("恢复储备趋势")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(BevelTheme.recoveryColor)
 
-                    if activeChartSnapshot.horizon.usesRangeCapsules {
-                        RangeCapsuleChart(snapshot: activeChartSnapshot, tint: BevelTheme.recoveryColor) { bucket in
-                            onSelectDate(bucket?.endDate)
-                        }
-                    } else {
-                        TrendLineChart(snapshot: activeChartSnapshot, tint: BevelTheme.recoveryColor, onSelectDate: onSelectDate)
-                    }
+                    TrendHorizonChart(
+                        snapshot: activeChartSnapshot,
+                        tint: BevelTheme.recoveryColor,
+                        onSelectDate: onSelectDate,
+                        onSelectBucket: { bucket in onSelectDate(bucket?.endDate) }
+                    )
 
                     Text(activeChartSnapshot.statusSummary)
                         .font(.caption)

@@ -47,17 +47,16 @@ public struct SleepDetailView: View {
 
             BevelCard {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text(activeChartSnapshot.horizon.usesRangeCapsules ? "睡眠质量分布胶囊" : "睡眠趋势")
+                    Text("睡眠质量趋势")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(BevelTheme.sleepColor)
 
-                    if activeChartSnapshot.horizon.usesRangeCapsules {
-                        RangeCapsuleChart(snapshot: activeChartSnapshot, tint: BevelTheme.sleepColor) { bucket in
-                            onSelectDate(bucket?.endDate)
-                        }
-                    } else {
-                        TrendLineChart(snapshot: activeChartSnapshot, tint: BevelTheme.sleepColor, onSelectDate: onSelectDate)
-                    }
+                    TrendHorizonChart(
+                        snapshot: activeChartSnapshot,
+                        tint: BevelTheme.sleepColor,
+                        onSelectDate: onSelectDate,
+                        onSelectBucket: { bucket in onSelectDate(bucket?.endDate) }
+                    )
                 }
             }
         }

@@ -155,21 +155,14 @@ public struct TrendsView: View {
                     }
                 }
 
-                if store.horizon.usesRangeCapsules {
-                    RangeCapsuleChart(
-                        snapshot: store.activeChartSnapshot,
-                        tint: tint
-                    ) { bucket in
+                // 统一的分周期胶囊图：7 天按日、30 天/6 个月按周、3 年按月。
+                TrendHorizonChart(
+                    snapshot: store.activeChartSnapshot,
+                    tint: tint,
+                    onSelectBucket: { bucket in
                         store.send(.selectedDateChanged(bucket?.endDate))
                     }
-                } else {
-                    TrendLineChart(
-                        snapshot: store.activeChartSnapshot,
-                        tint: tint
-                    ) { date in
-                        store.send(.selectedDateChanged(date))
-                    }
-                }
+                )
             }
         }
     }
