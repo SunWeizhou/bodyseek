@@ -1,11 +1,11 @@
-# Vela 文档导航与权威层级（Documentation Map）
+# BodySeek 文档导航
 
 > Status: Canonical
-> Last reviewed: 2026-10-06（现行版本锁定；根目录旧文稿已归档）
+> Last reviewed: 2026-11-21（更新 V5 开发入口与 Coach 顶层设计）
 > Scope: Vela 仓库文档信息架构、权威层级、阅读顺序与冲突裁决原则
 > Does not define: 产品业务细节、代码实现细节
 
-> Platform status: Accepted ADR 0017 确定 iOS 17 / watchOS 10 shipping floor；ADR 0013–0016 已被取代。工具链由 `.xcode-version` 与 CI 指定。
+> Platform status: Accepted ADR 0018 确定 iOS 26 平台，ADR 0019 确定 BodySeekKit、GRDB 和 Watch-First 采集架构。工具链由 `.xcode-version` 与 CI 指定。
 
 ---
 
@@ -24,8 +24,9 @@
        ↓
 5. 专项文档 (AI/评分/设计)       # 第五步：查阅对应模块的实现与协议
    ├── docs/VELA_DESIGN_LANGUAGE.md
-   ├── docs/AI_AGENT_SPEC.md
-   └── docs/SCORING_SYSTEM_V1_0.md
+   ├── docs/AI_AGENT_SPEC.md       # Coach、今日 AI 建议与 AI 记饮食的现有实现
+   ├── docs/design/coach-agent.md  # Coach 后续设计、Ontology 与验收
+   └── docs/model_cards/        # 对照当前评分引擎与算法版本
 ```
 
 ---
@@ -37,12 +38,13 @@
 
 | 文档 | 职责范围 | 状态 |
 | :--- | :--- | :--- |
-| [`docs/PRD.md`](PRD.md) | **唯一当前产品规格**：产品定位、Primary User、四大 Tab、北极星指标、功能与非目标 | Canonical |
+| [`docs/PRD.md`](PRD.md) | **唯一当前产品规格**：产品定位、Primary User、五个一级表面、北极星指标、功能与非目标 | Canonical |
 | [`CONTEXT.md`](../CONTEXT.md) | **唯一领域术语表**：Health Signal, Baseline, Brief, Body State, Lived State, Training Decision 等语言定义 | Canonical |
-| [`docs/TECH_ARCHITECTURE.md`](TECH_ARCHITECTURE.md) | **技术实现架构**：实际代码架构、SwiftData/HealthKit 数据流、状态管理与管道 | Canonical |
+| [`docs/TECH_ARCHITECTURE.md`](TECH_ARCHITECTURE.md) | **技术实现架构**：实际代码架构、GRDB/HealthKit 数据流、状态管理与管道 | Canonical |
 | [`docs/VELA_DESIGN_LANGUAGE.md`](VELA_DESIGN_LANGUAGE.md) | **设计系统与交互规范**：Rhythm 视觉语言、色板、排版、组件规范、动效与无障碍原则 | Canonical |
-| [`docs/AI_AGENT_SPEC.md`](AI_AGENT_SPEC.md) | **AI Agent 与上下文规格**：Canonical Fact Snapshot、Prompting、Wiki 记忆体系与安全协议 | Canonical |
-| [`docs/SCORING_SYSTEM_V1_0.md`](SCORING_SYSTEM_V1_0.md) | **旧版评分设计参考**：需要逐项对照当前 `VelaApp/Scoring`；不作为最新输出字段或公式依据 | Historical / reconciliation pending |
+| [`docs/AI_AGENT_SPEC.md`](AI_AGENT_SPEC.md) | **V5 AI Agent 开发指南**：生产入口、分路由工具与证据、提案确认、营养估算及验证边界 | Canonical |
+| [Coach Agent 顶层设计](design/coach-agent.md) | 私人健康助手、Ontology、数据治理、对话授权与持续跟进 | 已确认设计，待分阶段实现 |
+| [`docs/SCORING_SYSTEM_V1_0.md`](SCORING_SYSTEM_V1_0.md) | **旧版评分设计参考**。当前字段与公式对照 `BodySeekCore/BevelScoringEngine.swift` 和对应版本模型卡 | Historical / reconciliation pending |
 | [`docs/adr/README.md`](adr/README.md) | **架构决策记录索引**：Accepted 决策为当前依据，Superseded 决策仅供追溯 | Canonical |
 
 ### 2.2 辅助材料（Supporting Materials）
@@ -68,11 +70,13 @@
 
 ---
 
+旧版 [AI Coach 规格（2026-08-23）](archive/product-eras/AI_AGENT_SPEC-2026-08-23.md) 保留 L1–L4、Wiki 与固定报告设计供追溯。
+
 ## 3. 文档冲突裁决规则（Conflict Resolution）
 
 当不同文档之间出现描述不一致时，严格遵循以下优先级判定：
 
-1. **文档与现行源码冲突**：以当前 App 源码为准，改正文档，不改代码去迁就过时文稿；
+1. **已实现行为**按当前生产接线、工作树与对应验证记录确认。产品目标和约束以现行规格与有效 ADR 为准。
 2. **产品定位与需求冲突**：以 [`docs/PRD.md`](PRD.md) 为最高准则；
 3. **术语与概念冲突**：以 [`CONTEXT.md`](../CONTEXT.md) 为最高准则；
 4. **实现描述冲突**：以当前代码实际实现与 [`docs/TECH_ARCHITECTURE.md`](TECH_ARCHITECTURE.md) 为准；

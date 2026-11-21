@@ -4,6 +4,8 @@
 - **Date**: 2026-11-19
 - **Supersedes / Updates**: Updates ADR 0012 (primary Tab layout & plan surface placement), ADR 0017 (legacy `BodySeekDomain` / SwiftData wording), and ADR 0018 (SwiftData V3 32-model preservation & Tab 2 Plan wording); keeps ADR 0001–0011 core domain/safety/AI-ownership invariants intact.
 
+> 2026-11-21 实现指引：现行一级表面见 [PRD](../PRD.md)。§7 记录决策时的工具计划，含饮食工具在内的实际接线与数据范围见 [V5 AI Agent 开发指南](../AI_AGENT_SPEC.md)。
+
 ## Context
 
 Between 2026-11-16 and 2026-11-19, the BodySeek/Vela repository underwent a major structural reset (`commit a9f32e64`): ~60k lines of legacy handwritten UI/domain code (`VelaApp/`, `BodySeekDomain/`, `VelaWatch/`) were replaced by a modular Swift 6 package `BodySeekKit` built on Point-Free TCA and Stanford `SpeziHealthKit`, with the four root iOS 26 Liquid Glass tabs becoming `今日` / `健身` / `趋势` / `问身体`.

@@ -1,7 +1,7 @@
 # BodySeek (Vela) Product Requirements Document (PRD)
 
 > Status: Canonical
-> Last verified: 2026-11-19
+> Last reviewed: 2026-11-21（健身刷新、营养与 Coach 顶层设计）
 > Scope: 现行 BodySeek 的唯一正式产品规格、核心主线、iOS 26 原生信息架构与功能边界
 > External product name: BodySeek; home-screen name: BodySeek; bundle: `com.sunweizhou.Vela4`; engineering/repository identity: Vela
 > Does not define: 领域术语严格定义（见 [../CONTEXT.md](../CONTEXT.md)）、技术代码架构细节（见 [TECH_ARCHITECTURE.md](TECH_ARCHITECTURE.md)）、架构决策背景（见 [adr/0019-bodyseek-v5-architecture-and-modeling-baseline.md](adr/0019-bodyseek-v5-architecture-and-modeling-baseline.md)）
@@ -108,15 +108,15 @@ BodySeek iOS 26 App (IPHONEOS_DEPLOYMENT_TARGET = 26.0)
 - **L1/L2 结构**：
   - **待复盘 Inbox**：Apple Watch 体能训练结束后自动同步时长、Z1–Z5 心率区间、`WorkoutEffortScore`（区分系统 `EstimatedWorkoutEffortScore`）。用户只需输入或听写一句话练后复盘，经 `FoundationModels` + 中文词典兜底解析成结构化肌群负荷提案，确认后写入账本与审计日志；
   - **交互式肌群恢复热图（`MuscleMap`）**：基于 `recovery-heuristic-v1`（$F_m(t)=\sum L_{m,i}e^{-\Delta t/(\tau_m\alpha)}$，$R_m=e^{-F_m}$，$\alpha$ 仅读取前一晚睡眠与 HRV 偏差）着色，UI 显式标注“启发式估计”；跑步/步行按配速与心率自动分配下肢负荷，羽毛球结合 `dominantHand`（默认右手）分配肩袖/前臂与下肢负荷；
-  - HealthKit 新训练到达或复盘保存后，当前健身页更新恢复估算。页面在前台每 30 秒按当前时间重算，热图显示估算时刻。
+  - HealthKit 新训练同步到 App 或复盘保存后，健身页更新恢复估算。页面在前台每 30 秒按当前时间重算，热图显示估算时刻。HealthKit 明确删除的训练从计算中移除，独立手动训练保留。Watch 到手机的同步时延见 [健身验证记录](validation/m2-fitness-validation-2026-11-20.md#7-新训练到达后的前台刷新)。
   - **负荷节律卡与二级页**：ACWR 甜蜜区与柔性肌群轮转进度，训练档案时间线、动作参考库与手动记组补录统一收进 L2 二级页。
 
 ### 5.4 Coach
-- **核心定位**：绑定强类型健康数据与受控写回提案的个人身体科学家助手。
+- **产品目标**：Coach 是贯穿今日、健身、营养、趋势和聊天的私人健康助手，结合个人记忆与证据解释变化、落实授权更新并跟进交办事项。阶段性目标、Ontology、授权范围和验收见 [Coach Agent 顶层设计](design/coach-agent.md)。
 - **入口与连续性**：
   - 从底栏最右侧一键打开；Today、Workout、Trends 与五项详情页携带语义上下文打开 Coach；
   - 欢迎页提供恢复、睡眠、训练和饮食快捷提问。长回复从开头展示，查看旧消息时可手动回到底部。清空本地对话记录前须确认。
-  - 工作台采用自定义 `OpenAICompatibleClient`（默认 DeepSeek，API Key 存 Keychain，仅发送任务型工具聚合结果）与端侧 `FoundationModels`（显式降级日志），支持任务型工具（含 `find_similar_days` 历史相似日、预留 `get_eating_context`）、数字溯源核验（未命中本轮工具结果标注“未核实”）、三层可审阅记忆及可关闭的主动洞察（每日最多 2 条）。
+  - **当前实现**中，Coach 读取本地评分、趋势、睡眠、训练和饮食等证据，支持近期追问。训练计划、记忆及练后标注以待确认提案呈现，练后标注确认状态随聊天保留。云端和端侧支持范围、数字溯源与已知缺口见 [V5 AI Agent 开发指南](AI_AGENT_SPEC.md)。
 
 ### 5.5 个人空间与信任控制（Settings）
 - 由 Today 工具栏头像或快捷菜单拉起；
@@ -128,8 +128,9 @@ BodySeek iOS 26 App (IPHONEOS_DEPLOYMENT_TARGET = 26.0)
 ### 5.7 营养与能量平衡（Nutrition）
 
 「营养」拥有独立底栏入口，首屏展示所选日期的餐次和「AI 记饮食」「手动记录」，默认选中今天。「今日」的营养摘要直达营养页当天。
-- 「AI 记饮食」接受一段全天饮食描述，识别早餐、午餐、晚餐和加餐。草稿展示食物、饮品、报告份量、食品成分来源及分餐和全天已知营养小计。缺份量或成分资料的条目仍可保存为待补，整份草稿经用户确认后写入所选日期。
-- 基于用户已验证的 `每日营养素` 三重角色协作闭环（营养库 / 每日记录 / 健康教练），于 GRDB Schema v2 建立可追溯食物营养库（含宏量、脂肪细分、区分化学形态的 14 项维生素与 15 项矿物质）、个人档案与已采纳营养目标（min/max/range 与独立 UL 安全上限校验），支持餐食录入、日终收尾与热量盈余核算（仅在日收尾、BMR 参考及全天消耗齐备时计算），并与周/月圆圈看板及 Coach Agent 工具联动。
+- 「AI 记饮食」接受一段全天饮食描述，识别早餐、午餐、晚餐和加餐。用户可直接确认草稿，也可先补份量和营养。手工值优先，其次采用食物库换算，再由 AI 补齐可合理估算的缺项。估算覆盖热量、宏量、膳食纤维、ALA、EPA＋DHA、14 项维生素及 15 项矿物质。饮水只计明确可识别的白水。无法合理估算的值可留待补充。
+- 草稿按餐展示来源、估算值和已记录小计，热量粗估保留区间。确认后写入所选生理日，保存条目可编辑、调整餐次或确认删除。AI 粗估在看板逐项标记，粗估部分不用于达标、限量或有效周期均值。
+- 基于用户已验证的 `每日营养素` 三重角色协作闭环（营养库 / 每日记录 / 健康教练），使用 GRDB 持久化可追溯食物营养库（含宏量、脂肪细分、区分化学形态的 14 项维生素与 15 项矿物质）、个人档案与已采纳营养目标（min/max/range 与独立 UL 安全上限校验），支持餐食录入、日终收尾与热量盈余核算（仅在日收尾、BMR 参考及全天消耗齐备时计算），并与周/月圆圈看板及 Coach Agent 工具联动。
 
 ---
 
@@ -140,7 +141,7 @@ BodySeek iOS 26 App (IPHONEOS_DEPLOYMENT_TARGET = 26.0)
 | **健康评分** | 唯一负责（`BodySeekCore` `score-v2` 确定性计算 0–100） | **禁止重算**；仅读取并引用已有分数，回复数字须可溯源至本轮工具结果 |
 | **偏离与缺失** | 严格区分 `available` / `knownZero` / `missing` / `excluded` | 不得把 `--` 编造成 0 或正常值；不得把“对你而言不寻常”夸大成医疗诊断 |
 | **原因解释与关联** | 计算统计基线偏离、规律置信区间与历史相似日 | 提出“候选影响因素”与“观察到的关联”，禁止对观测模型宣称因果或反事实 |
-| **每日计划与记录** | 生成默认本地行动建议与安全约束 | 实质调整、记忆写入与练后标注只生成可审查 `ActionProposal`，**必须经用户显式确认** |
+| **每日计划与记录** | 生成默认本地行动建议，校验授权与业务约束 | 当前 Coach 通过 `ActionProposal` 请求确认。目标交互支持按用户明确指令执行低风险、可撤销的编辑。Coach 主动提出的实质调整及高影响操作仍须显式确认。 |
 
 ---
 
@@ -150,5 +151,5 @@ BodySeek iOS 26 App (IPHONEOS_DEPLOYMENT_TARGET = 26.0)
 2. **不做训练中手机手动记组工具**：现场采集交给 Apple Watch，手机专注事前决策与事后洞察；
 3. **不做强制热量记账与惩罚性代偿运动**：不以“惩罚有氧”抵消饮食波动；
 4. **不做医疗诊断**：所有指标仅作个人健康节律参考；
-5. **不静默改写用户计划或长期记忆**：必须经过用户显式确认。
+5. **用户拥有计划与长期记忆。** 当前操作沿用提案确认。目标交互按 [对话授权规则](design/coach-agent.md#3-对话操作与授权) 区分用户明确授权的编辑与 Coach 提议。
 6. **取消独立大字版**。发布和验收统一以 iOS 默认字号为基线。本轮停止大字版专门布局与专项验收，标准版文字沿用 iOS 系统设置。

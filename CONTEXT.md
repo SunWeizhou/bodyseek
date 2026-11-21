@@ -1,7 +1,7 @@
 # Vela Health Intelligence — Domain Glossary
 
 > Status: Canonical
-> Last verified: 2026-11-19
+> Last reviewed: 2026-11-21（补充 Coach 设计术语）
 > Scope: Vela 全局唯一领域术语定义与受控词汇表（Domain Ubiquitous Language）
 > Does not define: 页面结构与 UI 组件（见 [docs/PRD.md](docs/PRD.md)）、代码实现细节（见 [docs/TECH_ARCHITECTURE.md](docs/TECH_ARCHITECTURE.md)）与架构决策（见 [docs/adr/0019-bodyseek-v5-architecture-and-modeling-baseline.md](docs/adr/0019-bodyseek-v5-architecture-and-modeling-baseline.md)）
 
@@ -166,7 +166,20 @@ _Avoid_: Mandatory workout log, active set tracking, training diary
 A low-friction account of perceived effort, fatigue, pain, and relevant context after a Training Session. It forms the subjective part of a Session Annotation, may be skipped or completed later, and never blocks importing or analysing the session.
 _Avoid_: Workout logger, set log, mandatory feedback
 
-### Coach memory
+### Coach and health data
+
+**Health Ontology**:
+BodySeek 健康对象、关系及操作语义的共享定义。它统一解释一条记录属于什么、能作为哪种证据，以及不同页面如何引用同一对象。
+
+**Health Goal**:
+用户希望在指定期限达到的健康或训练结果，包含衡量标准及生效范围。每日行动可以服务某个目标，实际记录用于核对进展。
+
+**Personal Health Rule**:
+用户定义的一组可核对条件，用于给健康记录或生理日分类，例如「赶工夜」。
+
+**Coach Follow-up**:
+用户交办给 Coach 的有期限事项，带观察对象、触发条件和预期反馈。一个事项可在跟进期间持续纳入新证据。
+
 
 **Agent Fact Snapshot**:
 The locale-neutral, deterministic projection used by every AI workflow. It includes the five Scored Health Evidence results and contributors, Personal Baselines and deviations, multi-scale findings, recent daily aggregates, Data Coverage and freshness, Lived State, Training Observations, Daily Operating Plan edits, and confirmed memory or Personal Response Insights. Its semantic content hash excludes snapshot creation time; workflows may query bounded time-series detail through tools instead of uploading raw HealthKit samples.

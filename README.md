@@ -2,15 +2,15 @@
 
 个人身体面板与 AI 健康分析助手：建立在 Apple 健康之上，帮助看见当前身体状态和长期趋势，理解变化原因，并将理解转化为训练与生活调整建议。
 
-现行版本的主屏幕名是 BodySeek，四个一级表面是 Today / Trends / Plan / Coach，部署底线是 iOS 17 / watchOS 10。工程 bundle 仍是 `com.sunweizhou.Vela4`。
+现行版本使用 iOS 26 及以上。五个一级表面为今日、健身、营养、趋势、Coach。工程 bundle 为 `com.sunweizhou.Vela4`。
 
 > 产品规格与领域语言以 `docs/PRD.md` 与 `CONTEXT.md` 为唯一权威；工程规范见 [CLAUDE.md](CLAUDE.md)。
 
 ## 技术栈
 
-- **平台与部署基准**：**iOS 17+ / watchOS 10+** · SwiftUI + SwiftData + HealthKit · Swift 6；根据 [ADR 0017](docs/adr/0017-bodyseek-architecture-and-product-baseline-v2.md) 确立，对外产品名为 **BodySeek**（工程内部与 bundle 保持 Vela），较高系统能力渐进增强，不作为发布门槛。
-- 本地确定性评分（`VelaApp/Scoring`）→ 多尺度趋势（`HealthTrendEngine`）→ 权威简报（`PersonalHealthBrief`）→ 四个 canonical surface（Today / Trends / Plan / Coach）
-- AI Coach 直连 DeepSeek API（Keychain 存 Key）；原始健康采样永不上传，仅发送裁剪的 `AgentFactSnapshot`
+- VelaApp 薄壳与 Swift 6 `BodySeekKit`，采用 SwiftUI、TCA、GRDB 和 HealthKit。平台及模块边界见 [ADR 0018/0019](docs/adr/README.md)。
+- Apple Watch 训练由系统「体能训练」采集，经 HealthKit 进入 iPhone 力量复盘与肌群恢复流程。
+- Coach 使用本地评分与任务型工具，可通过用户配置的 OpenAI 兼容模型或 Apple Foundation Models 回复。模型、数据和权限边界见 [V5 AI Agent 开发指南](docs/AI_AGENT_SPEC.md)。
 
 ## 构建与测试
 
@@ -32,7 +32,7 @@ CI 配置见 [`.github/workflows/quality.yml`](.github/workflows/quality.yml)：
 - `CONTEXT.md` — 领域术语表（唯一权威）
 - `docs/TECH_ARCHITECTURE.md` — 技术架构与数据流
 - `docs/adr/` — 架构决策记录（以 README 中的 Accepted 为当前依据；Superseded 仅供追溯）
-- `docs/AI_AGENT_SPEC.md` — Coach Agent 协议与上下文规格
+- [`docs/AI_AGENT_SPEC.md`](docs/AI_AGENT_SPEC.md) — Coach、今日 AI 建议和 AI 记饮食的现行开发指南
 - `docs/validation/` — 验证与审计证据（含 2026-08-23 工程标准审计报告）
 - `docs/collaboration/` — 双人 GitHub 工作流、算法/UI 分工、任务与交接模板
 

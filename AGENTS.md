@@ -1,8 +1,9 @@
 # BodySeek / Vela 工程约定
 
-- 权威产品与术语文档：`docs/PRD.md`、`CONTEXT.md`；平台与架构以 Accepted ADR（特别是 `docs/adr/0017-bodyseek-architecture-and-product-baseline-v2.md`）为准，旧平台描述不覆盖 ADR 0017。
+- 产品读 [PRD](docs/PRD.md)，术语读 [CONTEXT](CONTEXT.md)，平台与架构读 [ADR 0018/0019](docs/adr/README.md) 和 [技术架构](docs/TECH_ARCHITECTURE.md)。现行基线为 iOS 26、BodySeekKit 与 GRDB。
+- Coach、今日 AI 建议或 AI 记饮食任务先读 [V5 AI Agent 开发指南](docs/AI_AGENT_SPEC.md)，再核对生产入口及当前工作树。涉及对话写入、Ontology 或持续跟进时读 [Coach 顶层设计](docs/design/coach-agent.md)。旧版设计由 [文档导航](docs/README.md) 指向归档。
 - 对外产品名 BodySeek；GitHub 仓库为 `SunWeizhou/bodyseek`，本地目录、Xcode 工程、bundle 与 Swift 标识保持 Vela。Today、Trends、五项详情优先，不新增总健康分或扩张产品线。
-- 先核对当前源码和生产入口；`BodySeekDomain` 测试不能替代 Vela iOS 生产评分验证。区分 unknown、known zero、excluded(reason)，不得把缺失静默当零。
+- 按当前 BodySeekKit 生产入口核对实现。使用 available、knownZero、missing、excluded(reason) 四态，保留各自的覆盖与来源。
 - 记录 HEAD、dirty 状态、命令、退出码、配置与产物；不 reset/clean/stash/pull/merge/push/真机部署或发布，除非明确授权。保留用户改动。
 - HealthKit→snapshot→持久化→计算→UI 的时间、来源、覆盖与原因必须可追溯；历史评分不得使用未来数据。算法/输入语义变化要分版本。
 - 回归遵循先复现、最小修复、再回归；写入失败不得吞掉。UI 验收需真实 SwiftUI 证据；合成样例不等于临床有效性。

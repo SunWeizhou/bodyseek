@@ -1,13 +1,13 @@
 # CLAUDE.md — Agent & Developer Workspace Handbook
 
 > Status: Canonical
-> Last reviewed: 2026-11-20（ADR 0019 / V5 基线、iOS 26 五个一级表面、BodySeekKit 六模块；未重新验证全文）
+> Last reviewed: 2026-11-21（更新 V5 Agent、营养和接手入口，其他章节沿用原核对记录）
 > Scope: Agent 工作方式、构建/测试/部署命令、工程规则与关键代码入口
 > Does not define: 产品业务需求（见 [docs/PRD.md](docs/PRD.md)）、领域语言定义（见 [CONTEXT.md](CONTEXT.md)）
 
 > 平台状态：ADR 0018 将 iPhone 部署底线提升到 iOS 26.0；ADR 0019 是当前 V5 架构、GRDB 持久化与个人建模基线（Accepted）。ADR 0017 及更早的平台/UI 方案已被 0018/0019 取代。Watch 端不设独立 target，训练由系统「体能训练」采集后经 HealthKit 汇入。Xcode / Swift 版本以 `.xcode-version`、`project.yml` 和 CI 为准。
 >
-> 现行版本：主屏幕名 BodySeek，bundle `com.sunweizhou.Vela4`。五个一级表面：今日 / 健身 / 营养 / 趋势 / Coach。五项分数各自独立，`score-v2` 在 `BodySeekCore.BevelScoringEngine`；生产装配由 `AppFeature` 直接读取 GRDB ReadModel；睡眠合并在 `BodySeekCore.SleepMergePolicy`。文档与源码冲突时改文档。
+> 现行版本：主屏幕名 BodySeek，bundle `com.sunweizhou.Vela4`。五个一级表面：今日 / 健身 / 营养 / 趋势 / Coach。五项分数各自独立，`score-v2` 在 `BodySeekCore.BevelScoringEngine`；生产装配由 `AppFeature` 直接读取 GRDB ReadModel；睡眠合并在 `BodySeekCore.SleepMergePolicy`。以生产源码和工作树确认已实现行为，以 PRD 和有效 ADR 确认产品目标及约束。
 
 ---
 
@@ -23,7 +23,7 @@
 6. 专项文档：
    - 设计语言：[`docs/VELA_DESIGN_LANGUAGE.md`](docs/VELA_DESIGN_LANGUAGE.md)
    - 图表规范：[`docs/design/chart-grammar.md`](docs/design/chart-grammar.md)
-   - AI 上下文与 Agent 协议：[`docs/AI_AGENT_SPEC.md`](docs/AI_AGENT_SPEC.md)
+   - [V5 AI Agent 开发指南](docs/AI_AGENT_SPEC.md)（Coach、今日 AI 建议、AI 记饮食）
 
 > [`docs/SCORING_SYSTEM_V1_0.md`](docs/SCORING_SYSTEM_V1_0.md) 是历史协议；公式以 `BodySeekCore/BevelScoringEngine.swift` 与 `docs/model_cards/` 为准。
 
@@ -59,7 +59,7 @@
    - TCA reducer 与视图状态在 `@MainActor`；跨并发域只传 DTO / 值类型，禁止传递数据库句柄或 SwiftData live object。
 4. **HealthKit 数据合规**：
    - 原始健康采样数据永不上传云端；
-   - 仅向用户配置的 LLM Provider（如 DeepSeek）发送裁剪后的结构化 `AgentExecutionContext` 或 `bodyseek-evidence-v1` 工具结果；
+   - Coach 云端请求的对话窗口、摘要和按需工具结果见 [AI Agent 开发指南](docs/AI_AGENT_SPEC.md#2-coach-可使用的证据)；
    - 缺失数据客观表达（`--`），`available` / `knownZero` / `missing` / `excluded(reason)` 四态严格区分，严禁在算法或 UI 中伪造生理数据；
    - API Key 只存 Keychain，不得回落到 `UserDefaults`。
 
