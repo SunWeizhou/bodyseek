@@ -331,13 +331,16 @@ public struct CoachFeature: Sendable {
                 return .send(.delegate(.workoutAnnotationCommitted))
 
             case let .dismissAnnotationProposalTapped(messageID):
-                guard let proposal = state.messages.first(where: { $0.id == messageID })?.workoutAnnotationProposal
-                else { return .none }
+                let proposal = state.messages.first(where: { $0.id == messageID })?.workoutAnnotationProposal
+                    ?? state.annotationCandidateSelections[messageID]
+                guard let proposal else { return .none }
+                state.annotationCandidateSelections[messageID] = nil
                 return decideAnnotation(messageID: messageID, proposal: proposal, decision: .rejected, state: &state)
 
             case let .annotationProposalRejected(messageID):
                 state.pendingAnnotationDecisionMessageIDs.remove(messageID)
                 state.dismissedAnnotationProposalMessageIDs.insert(messageID)
+                state.annotationCandidateSelections[messageID] = nil
                 return .none
 
             case let .annotationDecisionFailed(messageID, message):

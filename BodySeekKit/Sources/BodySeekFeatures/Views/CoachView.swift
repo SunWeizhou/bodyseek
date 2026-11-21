@@ -416,7 +416,7 @@ public struct CoachView: View {
                                 .foregroundStyle(BevelTheme.dangerColor)
                         }
                         .buttonStyle(.plain)
-                        .disabled(store.pendingAnnotationDecisionMessageIDs.contains(messageID))
+                        .disabled(store.pendingAnnotationUndoMessageIDs.contains(messageID))
                         .accessibilityIdentifier("coach-annotation-undo")
                     }
                 } else {

@@ -245,6 +245,9 @@ final class WorkoutAndCoachReducerTests: XCTestCase {
         await store.send(.selectAnnotationCandidate(messageID: messageID, candidate: candidate))
         XCTAssertEqual(store.state.annotationCandidateSelections[messageID]?.workoutUUID, "W-COACH-1")
         XCTAssertEqual(store.state.annotationCandidateSelections[messageID]?.recordState?.latestAnnotationID, nil)
+
+        await store.send(.dismissAnnotationProposalTapped(messageID))
+        XCTAssertNil(store.state.annotationCandidateSelections[messageID])
     }
 
     func testCoachCandidatePatternPromotionAndTodayProactiveInsights() async throws {
