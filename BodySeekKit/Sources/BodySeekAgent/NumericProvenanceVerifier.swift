@@ -143,15 +143,24 @@ public enum NumericProvenanceVerifier {
     // MARK: - Helpers
 
     // Compiling these once avoids re-compiling on every candidate number in a reply.
-    private static let unitRegex = try? NSRegularExpression(
-        pattern: #"(?i)(?:\s*)(%|ms|bpm|kcal|大卡|千卡|小时|分钟|h|kg|km|公里|ml|毫升|mg|毫克|μg|ug|步|分)(?=[\s。；;，,）)]|$)"#
+    private static let unitRegex = compileRegex(
+        #"(?i)(?:\s*)(%|ms|bpm|kcal|大卡|千卡|小时|分钟|h|kg|km|公里|ml|毫升|mg|毫克|μg|ug|步|分)(?=[\s。；;，,）)]|$)"#
     )
-    private static let dayRegex = try? NSRegularExpression(
-        pattern: #"(\d{4})-(\d{2})-(\d{2})|(\d{1,2})月(\d{1,2})日"#
+    private static let dayRegex = compileRegex(
+        #"(\d{4})-(\d{2})-(\d{2})|(\d{1,2})月(\d{1,2})日"#
     )
-    private static let numberRegex = try? NSRegularExpression(
-        pattern: #"(?<![A-Za-z])-?\d+(?:\.\d+)?"#
+    private static let numberRegex = compileRegex(
+        #"(?<![A-Za-z])-?\d+(?:\.\d+)?"#
     )
+
+    private static func compileRegex(_ pattern: String) -> NSRegularExpression? {
+        do {
+            return try NSRegularExpression(pattern: pattern)
+        } catch {
+            logger.error("Invalid provenance regex \(pattern, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
+    }
 
     // MARK: - Typed evidence
 
@@ -165,10 +174,15 @@ public enum NumericProvenanceVerifier {
     private static func collectTypedFacts(from toolOutputs: [String]) -> [TypedEvidenceFact] {
         var facts: [TypedEvidenceFact] = []
         for text in toolOutputs {
-            guard let data = text.data(using: .utf8),
-                  let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let evidence = object["evidence"] as? [[String: Any]]
-            else { continue }
+            guard let data = text.data(using: .utf8) else { continue }
+            let object: [String: Any]
+            do {
+                guard let parsed = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { continue }
+                object = parsed
+            } catch {
+                continue
+            }
+            guard let evidence = object["evidence"] as? [[String: Any]] else { continue }
             for item in evidence {
                 guard let value = (item["value"] as? NSNumber)?.doubleValue,
                       let unit = item["unit"] as? String,
