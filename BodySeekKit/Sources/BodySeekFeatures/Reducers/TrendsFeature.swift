@@ -33,9 +33,21 @@ public struct TrendsFeature: Sendable {
 
         public var selectedDate: Date?
         public var showCoverageSheet: Bool = false
-        public var snapshot: BodySeekDashboardSnapshot
+        public var snapshot: BodySeekDashboardSnapshot {
+            didSet {
+                if oldValue != snapshot {
+                    refreshExperimentEvaluations()
+                }
+            }
+        }
         public var patternFindings: [PatternFindingRecord] = []
-        public var experimentPlanItems: [PlanItemRecord] = []
+        public var experimentPlanItems: [PlanItemRecord] = [] {
+            didSet {
+                if oldValue != experimentPlanItems {
+                    refreshExperimentEvaluations()
+                }
+            }
+        }
         public var eatingAvailableDayKeys: Set<DayKey> = []
         public var personalForecast: PersonalForecastState
         public var lastError: String?
@@ -45,11 +57,33 @@ public struct TrendsFeature: Sendable {
         public var activeSeries: TrendSeries
         public var allMetricSeries: [TrendSeries]
 
+        /// N-of-1 实验的解码与评估结果。原先每次 body 渲染都重新解码 JSON 并重跑评估，
+        /// 现在只在快照或实验条目变化时计算一次。
+        private var experimentEvaluations: [EvaluatedExperimentRow] = []
+
         public var evaluatedExperiments: [EvaluatedExperimentRow] {
+            experimentEvaluations
+        }
+
+        private mutating func refreshExperimentEvaluations() {
+            experimentEvaluations = Self.evaluateExperiments(
+                planItems: experimentPlanItems,
+                snapshot: snapshot
+            )
+        }
+
+        private static let experimentLogger = Logger(
+            subsystem: "com.sunweizhou.Vela4",
+            category: "TrendsFeature"
+        )
+
+        private static func evaluateExperiments(
+            planItems: [PlanItemRecord],
+            snapshot: BodySeekDashboardSnapshot
+        ) -> [EvaluatedExperimentRow] {
             let decoder = JSONDecoder()
-            let logger = Logger(subsystem: "com.sunweizhou.Vela4", category: "TrendsFeature")
             let referenceKey = snapshot.referenceDate.physiologicalDayKey()
-            return experimentPlanItems.compactMap { item in
+            return planItems.compactMap { item in
                 guard item.kind == .experiment,
                       let data = item.payloadJSON.data(using: .utf8) else {
                     return nil
@@ -63,7 +97,7 @@ public struct TrendsFeature: Sendable {
                     )
                     return EvaluatedExperimentRow(planItem: item, record: rec, evaluation: eval)
                 } catch {
-                    logger.error("Failed decoding NOfOneExperimentRecord: \(error.localizedDescription, privacy: .public)")
+                    experimentLogger.error("Failed decoding NOfOneExperimentRecord: \(error.localizedDescription, privacy: .public)")
                     return nil
                 }
             }
@@ -105,6 +139,10 @@ public struct TrendsFeature: Sendable {
             self.allMetricSnapshots = slices.allSnapshots
             self.activeSeries = slices.activeSeries
             self.allMetricSeries = slices.allSeries
+            self.experimentEvaluations = Self.evaluateExperiments(
+                planItems: self.experimentPlanItems,
+                snapshot: snapshot
+            )
         }
 
         public mutating func updateSnapshot(
