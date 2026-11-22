@@ -231,7 +231,7 @@ public enum CoachToolRegistry {
         )),
         OpenAIToolDefinition(function: OpenAIFunctionDefinition(
             name: "get_eating_context",
-            description: "读取近N天饮食热量、宏量营养素与能量平衡记录；未记录时如实返回缺失。",
+            description: "读取近N天饮食热量、宏量/微量营养素、达标与能量平衡记录；AI 估算与记录不完整会单独标注；未记录时如实返回缺失。",
             parameters: OpenAIToolParametersObject(
                 properties: [
                     "days": OpenAIToolParameterSchema(type: "integer", description: "查询天数，默认7"),
@@ -962,6 +962,26 @@ public enum CoachToolRegistry {
     }
 
     private static func eatingContextJSON(days: Int, context: AgentExecutionContext) -> String {
+        struct NutrientAdequacy: Encodable {
+            let metricID: String
+            let name: String
+            let unit: String
+            let value: Double?
+            let status: String
+            let targetSummary: String
+            let isEstimated: Bool
+        }
+        struct RecentNutrientAdequacy: Encodable {
+            let metricID: String
+            let name: String
+            let unit: String
+            let metDays: Int
+            let lowDays: Int
+            let overDays: Int
+            let unknownDays: Int
+            let estimatedDays: Int
+            let averageValue: Double?
+        }
         struct DayNutritionSummary: Encodable {
             let energy: MealEnergySummary
             let dayKey: String
@@ -977,11 +997,13 @@ public enum CoachToolRegistry {
             let waterMl: Double?
             let complete: Bool
             let calorieSurplusKcal: Double?
+            let adequacy: [NutrientAdequacy]
         }
         struct EatingPayload: Encodable {
             let targetPlanVersion: String?
             let targetEffectiveFrom: String?
             let targets: [NutritionTargetItem]
+            let recentAdequacy: [RecentNutrientAdequacy]
             let trackedDays: Int
             let completedDays: Int
             let startDayKey: String
@@ -998,8 +1020,49 @@ public enum CoachToolRegistry {
             .sorted { $0.dayKey > $1.dayKey }
         let targetPlan = context.nutritionTargetPlan
         let validated = NutritionTargetEvaluator.validate(plan: targetPlan, on: end)
-        let targetIDs = ["diet_kcal", "diet_protein_g", "diet_carbs_g", "diet_fat_g", "diet_fiber_g", "diet_water_ml"]
-        let targets = validated.isActive ? targetIDs.compactMap { validated.validAdoptedItems[$0] } : []
+        let adoptedIDs = validated.validAdoptedItems.keys.sorted()
+        let targets = validated.isActive ? adoptedIDs.compactMap { validated.validAdoptedItems[$0] } : []
+        let recentAdequacy: [RecentNutrientAdequacy] = adoptedIDs.compactMap { metricID in
+            let descriptor = NutritionCatalog.descriptor(forID: metricID)
+            var met = 0
+            var low = 0
+            var over = 0
+            var unknown = 0
+            var estimated = 0
+            var sum = 0.0
+            var count = 0
+            for log in recent {
+                let eval = NutritionTargetEvaluator.evaluate(
+                    metricID: metricID,
+                    log: log,
+                    validatedPlan: validated,
+                    allowEstimates: true
+                )
+                switch eval.status {
+                case .met: met += 1
+                case .low: low += 1
+                case .over: over += 1
+                case .unknown: unknown += 1
+                }
+                if eval.status != .unknown, let value = eval.value {
+                    sum += value
+                    count += 1
+                    if eval.isEstimated { estimated += 1 }
+                }
+            }
+            guard met + low + over + unknown > 0 else { return nil }
+            return RecentNutrientAdequacy(
+                metricID: metricID,
+                name: descriptor?.name ?? metricID,
+                unit: validated.validAdoptedItems[metricID]?.unit ?? descriptor?.unit ?? "",
+                metDays: met,
+                lowDays: low,
+                overDays: over,
+                unknownDays: unknown,
+                estimatedDays: estimated,
+                averageValue: count > 0 ? sum / Double(count) : nil
+            )
+        }
 
         guard !recent.isEmpty else {
             return encodeEnvelope(
@@ -1011,6 +1074,7 @@ public enum CoachToolRegistry {
                     targetPlanVersion: validated.isActive ? targetPlan?.targetVersion : nil,
                     targetEffectiveFrom: validated.isActive ? targetPlan?.effectiveFrom?.isoString : nil,
                     targets: targets,
+                    recentAdequacy: recentAdequacy,
                     trackedDays: 0, completedDays: 0, startDayKey: start.isoString, endDayKey: end.isoString,
                     logs: []
                 )
@@ -1033,7 +1097,26 @@ public enum CoachToolRegistry {
                 waterMl: log.dietWaterMl,
                 complete: log.dietDayComplete ?? false,
                 calorieSurplusKcal: log.dietDayComplete == true && log.dietPartialFields.isEmpty
-                    ? log.calorieSurplusKcal : nil
+                    ? log.calorieSurplusKcal : nil,
+                adequacy: adoptedIDs.compactMap { metricID in
+                    let eval = NutritionTargetEvaluator.evaluate(
+                        metricID: metricID,
+                        log: log,
+                        validatedPlan: validated,
+                        allowEstimates: true
+                    )
+                    guard eval.status != .unknown || eval.value != nil else { return nil }
+                    let descriptor = NutritionCatalog.descriptor(forID: metricID)
+                    return NutrientAdequacy(
+                        metricID: metricID,
+                        name: descriptor?.name ?? metricID,
+                        unit: eval.displayUnit,
+                        value: eval.value,
+                        status: eval.status.rawValue,
+                        targetSummary: eval.targetSummary,
+                        isEstimated: eval.isEstimated
+                    )
+                }
             )
         }
         return encodeEnvelope(
@@ -1046,6 +1129,7 @@ public enum CoachToolRegistry {
                 targetPlanVersion: validated.isActive ? targetPlan?.targetVersion : nil,
                 targetEffectiveFrom: validated.isActive ? targetPlan?.effectiveFrom?.isoString : nil,
                 targets: targets,
+                recentAdequacy: recentAdequacy,
                 trackedDays: items.count,
                 completedDays: items.filter { $0.complete && $0.partialFields.isEmpty }.count,
                 startDayKey: start.isoString, endDayKey: end.isoString,

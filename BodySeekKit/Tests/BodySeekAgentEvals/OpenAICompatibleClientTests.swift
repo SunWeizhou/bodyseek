@@ -269,6 +269,130 @@ final class OpenAICompatibleClientTests: XCTestCase {
         XCTAssertTrue(proposed?.muscleLoads.contains(where: { $0.muscle == .chest }) == true)
     }
 
+    func testNutritionEvaluationSeparatesEstimatedFromConfirmed() throws {
+        let day = DayKey(year: 2026, month: 11, day: 20)
+        let plan = NutritionTargetPlan(
+            nutritionSchema: 1,
+            targetStatus: .active,
+            targetVersion: "test-v1",
+            effectiveFrom: day,
+            items: [
+                NutritionTargetItem(
+                    id: "diet_vitamins::C",
+                    unit: "mg",
+                    mode: .min,
+                    lower: 100,
+                    source: "DRIs 2023",
+                    referenceType: "RNI",
+                    adopted: true
+                ),
+            ]
+        )
+        let validated = NutritionTargetEvaluator.validate(plan: plan, on: day)
+        XCTAssertTrue(validated.isActive)
+
+        var entry = MealEntry(
+            dayKey: day,
+            mealType: .breakfast,
+            foodName: "彩椒",
+            portionAmount: 100,
+            portionUnit: "g",
+            kcal: 30,
+            carbsG: 6,
+            proteinG: 1,
+            fatG: 0.3
+        )
+        entry.vitamins = ["C": 120]
+        entry.aiEstimatedNutrientIDs = ["diet_vitamins::C"]
+        var log = DailyNutritionLog(dayKey: day, entries: [entry])
+        log.dietDayComplete = true
+        log.dietPartialFields = []
+        log.recalculateTotals()
+
+        let confirmedOnly = NutritionTargetEvaluator.evaluate(
+            metricID: "diet_vitamins::C",
+            log: log,
+            validatedPlan: validated
+        )
+        XCTAssertEqual(confirmedOnly.status, NutritionReadingStatus.unknown)
+        XCTAssertFalse(confirmedOnly.isEstimated)
+
+        let estimated = NutritionTargetEvaluator.evaluate(
+            metricID: "diet_vitamins::C",
+            log: log,
+            validatedPlan: validated,
+            allowEstimates: true
+        )
+        XCTAssertEqual(estimated.status, NutritionReadingStatus.met)
+        XCTAssertTrue(estimated.isEstimated)
+
+        log.dietPartialFields = ["breakfast"]
+        let partial = NutritionTargetEvaluator.evaluate(
+            metricID: "diet_vitamins::C",
+            log: log,
+            validatedPlan: validated,
+            allowEstimates: true
+        )
+        XCTAssertEqual(partial.status, NutritionReadingStatus.unknown, "partial meals must not be judged")
+    }
+
+    func testEatingContextIncludesMicronutrientAdequacy() async throws {
+        let day = DayKey(year: 2026, month: 11, day: 20)
+        let plan = NutritionTargetPlan(
+            nutritionSchema: 1,
+            targetStatus: .active,
+            targetVersion: "test-v1",
+            effectiveFrom: day,
+            items: [
+                NutritionTargetItem(
+                    id: "diet_vitamins::C", unit: "mg", mode: .min,
+                    lower: 100, source: "DRIs 2023", referenceType: "RNI", adopted: true
+                ),
+                NutritionTargetItem(
+                    id: "diet_minerals::钙", unit: "mg", mode: .min,
+                    lower: 800, source: "DRIs 2023", referenceType: "RNI", adopted: true
+                ),
+            ]
+        )
+        var entry = MealEntry(
+            dayKey: day, mealType: .breakfast, foodName: "彩椒与豆腐",
+            portionAmount: 200, portionUnit: "g",
+            kcal: 180, carbsG: 10, proteinG: 12, fatG: 8
+        )
+        entry.vitamins = ["C": 150]
+        entry.minerals = ["钙": 400]
+        var log = DailyNutritionLog(dayKey: day, entries: [entry])
+        log.dietDayComplete = true
+        log.dietPartialFields = []
+        log.recalculateTotals()
+
+        let context = AgentExecutionContext(
+            snapshot: sampleContext(referenceDate: day.startDate().addingTimeInterval(12 * 3600)).snapshot,
+            nutritionTargetPlan: plan,
+            nutritionLogs: [log]
+        )
+        let json = await CoachToolRegistry.execute(
+            name: "get_eating_context",
+            argumentsJSON: #"{"days":7}"#,
+            context: context
+        )
+        XCTAssertTrue(json.contains(#""recentAdequacy""#), json)
+        XCTAssertTrue(json.contains(#""diet_vitamins::C""#), json)
+        XCTAssertTrue(json.contains(#""metDays":1"#), json)
+        XCTAssertTrue(json.contains(#""status":"met""#), json)
+    }
+
+    func testCoachPromptRequiresDietContextForNutritionQuestions() {
+        let context = sampleContext()
+        let prompt = CoachAgentOrchestrator.buildSystemPrompt(
+            query: "我最近的维生素和矿物质够吗？",
+            context: context
+        )
+        XCTAssertTrue(prompt.contains("get_eating_context"))
+        XCTAssertTrue(prompt.contains("recentAdequacy"))
+        XCTAssertTrue(prompt.contains("AI 估算"))
+    }
+
     func testMealPhotoUsesConfiguredEndpointAndOmitsPrivateContentFromAudit() async throws {
         let output = #"{"choices":[{"message":{"role":"assistant","content":"{\"items\":[{\"name\":\"白米饭\",\"amount\":150,\"unit\":\"g\"},{\"name\":\"鸡蛋\",\"amount\":2,\"unit\":\"个\"}]}"}}]}"#
         let transport = MockAgentTransport(steps: [.data(statusCode: 200, body: output)])
