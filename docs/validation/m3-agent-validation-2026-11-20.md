@@ -408,7 +408,7 @@
 按用户审计的 10 个可复现问题 + 1 个发布配置缺口逐项修复。
 
 - **P0 清空后旧数据重现**：`LegacyDataImporter` 新增持久化 `legacy_import_v3_dismissed` 标记；清空流程在 `resetAll` 后写入标记、删除保留的 SwiftData legacy store，并重置偏好；导入器先检查标记，旧库存在也不会再导入。新增「导入 → 清空 → 再导入」回归。
-- **P1 同步乱序回退**：`SyncEngine` 增加 FIFO `SyncGate` 和 generation，跨 `await` 的同步/回填互斥；提交前拒绝已被更新 generation 超越的请求；共享存储复用同一 `SyncEngine`，游标仍最后提交，失败/取消不会推进。新增「旧请求更慢、两个并发同步最终游标为新值」回归。
+- **P1 同步乱序回退**：`SyncEngine` 增加 FIFO `SyncGate` 和 generation，跨 `await` 的同步/回填互斥；提交前拒绝已被更新 generation 超越的请求；共享存储复用同一 `SyncEngine`；`saveComputedDays` 与 SyncAnchor 在同一事务提交，游标不会领先于衍生分数，失败/取消不会推进。新增「旧请求更慢、两个并发同步最终游标为新值」回归。
 - **P1 睡眠空刷新**：`SyncBatch` 新增 `sleepFetchState`（notQueried/fetched/failed）与 `sleepReplacementDays`。成功但为空的查询视为确认删除，清掉旧分期与日聚合；失败保留缓存；只对真正清理过的日期重算。新增删除/失败两条回归。
 - **P1 excluded 泄漏**：`loadRawDaysSync` 只投影 available/knownZero，excluded/missing 的残留值不再进入评分输入。新增 excluded HRV 190 回归。
 - **P1 today 回退昨天**：`computeWindow`/`recomputeIncremental` 按 `04:00` 生理日 key 选当天；缺当天行时生成当天缺失快照，不再拿昨天顶替。新增参考日无记录回归。

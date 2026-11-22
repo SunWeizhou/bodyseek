@@ -255,18 +255,19 @@ public actor SyncEngine {
         guard generation > committedGeneration else {
             throw CancellationError()
         }
-        let summary = try await persistAndRecompute(batch: batch, referenceDate: referenceDate)
-
-        if let nextAnchor = batch.nextAnchorData {
-            try await repository.saveSyncAnchor(
-                SyncAnchorState(
-                    type: Self.recentAnchorType,
-                    anchorData: nextAnchor,
-                    backfillCursor: anchorState?.backfillCursor,
-                    updatedAt: referenceDate
-                )
+        let nextAnchor = batch.nextAnchorData.map { data in
+            SyncAnchorState(
+                type: Self.recentAnchorType,
+                anchorData: data,
+                backfillCursor: anchorState?.backfillCursor,
+                updatedAt: referenceDate
             )
         }
+        let summary = try await persistAndRecompute(
+            batch: batch,
+            referenceDate: referenceDate,
+            syncAnchor: nextAnchor
+        )
         committedGeneration = generation
         return summary
     }
@@ -395,7 +396,8 @@ public actor SyncEngine {
 
     private func persistAndRecompute(
         batch: SyncBatch,
-        referenceDate: Date
+        referenceDate: Date,
+        syncAnchor: SyncAnchorState? = nil
     ) async throws -> SyncRunSummary {
         var dirtyKeys = batch.affectedDayKeys
         dirtyKeys.formUnion(try await repository.applyWorkoutDeletions(batch.deletedWorkoutUUIDs))
@@ -520,6 +522,9 @@ public actor SyncEngine {
         }
 
         guard !dirtyKeys.isEmpty else {
+            if let syncAnchor {
+                try await repository.saveSyncAnchor(syncAnchor)
+            }
             return SyncRunSummary(
                 syncedDayKeys: [],
                 sleepEpisodesSaved: mergedEpisodes.count,
@@ -562,7 +567,10 @@ public actor SyncEngine {
             }
         }
 
-        try await repository.saveComputedDays(daysToSave.isEmpty ? snapshot.historyDays : daysToSave)
+        try await repository.saveComputedDays(
+            daysToSave.isEmpty ? snapshot.historyDays : daysToSave,
+            committingSyncAnchor: syncAnchor
+        )
 
         return SyncRunSummary(
             syncedDayKeys: dirtyKeys,

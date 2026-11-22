@@ -819,6 +819,33 @@ public final class BodySeekRepository: Sendable {
     public func saveComputedDays(_ days: [DailyComputedDay], computedAt: Date = Date()) async throws {
         guard !days.isEmpty else { return }
         try await database.writer.write { db in
+            try Self.saveComputedDaysSync(db: db, days: days, computedAt: computedAt)
+        }
+    }
+
+    /// Commits derived scores and the HealthKit cursor in one transaction. The
+    /// cursor can never advance ahead of the scores it describes.
+    public func saveComputedDays(
+        _ days: [DailyComputedDay],
+        committingSyncAnchor anchor: SyncAnchorState?,
+        computedAt: Date = Date()
+    ) async throws {
+        guard !days.isEmpty || anchor != nil else { return }
+        try await database.writer.write { db in
+            if !days.isEmpty {
+                try Self.saveComputedDaysSync(db: db, days: days, computedAt: computedAt)
+            }
+            if let anchor {
+                try Self.saveSyncAnchorSync(db: db, state: anchor)
+            }
+        }
+    }
+
+    private static func saveComputedDaysSync(
+        db: Database,
+        days: [DailyComputedDay],
+        computedAt: Date
+    ) throws {
             let nowEpoch = computedAt.timeIntervalSince1970
             let scoreStatement = try db.cachedStatement(sql: """
                 INSERT INTO score_snapshot (
@@ -893,7 +920,6 @@ public final class BodySeekRepository: Sendable {
                     day.sleepGoalMinutes,
                 ])
             }
-        }
     }
 
     /// Loads cached `score-v2` computed days plus their raw inputs. SyncEngine uses this
