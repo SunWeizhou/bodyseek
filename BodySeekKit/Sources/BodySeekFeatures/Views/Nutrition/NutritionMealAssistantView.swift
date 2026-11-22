@@ -142,8 +142,15 @@ struct NutritionMealAssistantView: View {
             jpeg = nil
             defer { loadingPhoto = false }
             do {
-                guard let data = try await photo.loadTransferable(type: Data.self),
-                      let prepared = Self.prepareJPEG(data) else { throw MealDraftAnalysisError.imageTooLarge }
+                guard let data = try await photo.loadTransferable(type: Data.self) else {
+                    throw MealDraftAnalysisError.imageTooLarge
+                }
+                // Downscaling + JPEG encoding a 48MP photo on the MainActor visibly
+                // stalls the sheet before the request even starts.
+                let prepared = await Task.detached(priority: .userInitiated) {
+                    NutritionMealAssistantView.prepareJPEG(data)
+                }.value
+                guard let prepared else { throw MealDraftAnalysisError.imageTooLarge }
                 try Task.checkCancellation()
                 jpeg = prepared
                 errorMessage = nil
@@ -167,8 +174,14 @@ struct NutritionMealAssistantView: View {
                 if let captured {
                     photo = nil
                     rows = []
-                    jpeg = Self.prepareJPEG(captured)
-                    errorMessage = jpeg == nil ? "照片无法处理，请重新拍摄。" : nil
+                    jpeg = nil
+                    Task {
+                        let prepared = await Task.detached(priority: .userInitiated) {
+                            NutritionMealAssistantView.prepareJPEG(captured)
+                        }.value
+                        jpeg = prepared
+                        errorMessage = prepared == nil ? "照片无法处理，请重新拍摄。" : nil
+                    }
                 }
             }
             .ignoresSafeArea()
@@ -201,6 +214,13 @@ struct NutritionMealAssistantView: View {
             .disabled(analysis != nil || loadingPhoto || store.isSaving
                 || (input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && jpeg == nil))
             .accessibilityIdentifier("nutrition-ai-analyze")
+
+            if analysis != nil {
+                Text("通常需要 10–30 秒；图片或长文本会更久，请保持页面打开。")
+                    .font(.caption2)
+                    .foregroundStyle(BevelTheme.inkSecondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
@@ -364,18 +384,35 @@ struct NutritionMealAssistantView: View {
             defer { analysis = nil }
             do {
                 let candidates = try await coach.analyzeMeal(text, image)
-                var drafts: [DraftRow] = []
-                for candidate in candidates {
-                    var results = try await foodStore.searchFoodLibrary(candidate.name)
-                    if let lookup = candidate.catalogSearchName, lookup != candidate.name {
-                        let known = Set(results.map(\.foodID))
-                        results += try await foodStore.searchFoodLibrary(lookup).filter { !known.contains($0.foodID) }
+                let search = foodStore
+                // 6–12 个候选逐条查食物库会把网格等待叠加在模型延迟之后；
+                // 并行查询后按原顺序组装草稿。
+                let matchesByCandidate = try await withThrowingTaskGroup(
+                    of: (Int, [FoodLibraryItem]).self
+                ) { group in
+                    for (index, candidate) in candidates.enumerated() {
+                        group.addTask {
+                            var results = try await search.searchFoodLibrary(candidate.name)
+                            if let lookup = candidate.catalogSearchName, lookup != candidate.name {
+                                let known = Set(results.map(\.foodID))
+                                results += try await search.searchFoodLibrary(lookup)
+                                    .filter { !known.contains($0.foodID) }
+                            }
+                            return (index, Array(results.filter(\.usable).prefix(8)))
+                        }
                     }
-                    drafts.append(DraftRow(candidate: candidate, matches: Array(results.filter(\.usable).prefix(8)),
-                                           meal: selectedPhotoMeal ?? candidate.meal ?? .snack))
+                    var matches = Array(repeating: [FoodLibraryItem](), count: candidates.count)
+                    for try await (index, items) in group where index < matches.count {
+                        matches[index] = items
+                    }
+                    return matches
                 }
                 try Task.checkCancellation()
-                rows = drafts
+                rows = candidates.enumerated().map { index, candidate in
+                    DraftRow(candidate: candidate,
+                             matches: matchesByCandidate[index],
+                             meal: selectedPhotoMeal ?? candidate.meal ?? .snack)
+                }
             } catch is CancellationError {
                 return
             } catch {
@@ -385,7 +422,7 @@ struct NutritionMealAssistantView: View {
         }
     }
 
-    private static func prepareJPEG(_ input: Data) -> Data? {
+    nonisolated private static func prepareJPEG(_ input: Data) -> Data? {
         guard let source = CGImageSourceCreateWithData(input as CFData, nil),
               let thumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, [
                 kCGImageSourceCreateThumbnailFromImageAlways: true,
