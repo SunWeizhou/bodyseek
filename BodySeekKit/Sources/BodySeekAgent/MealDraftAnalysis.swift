@@ -188,6 +188,15 @@ struct MealDraftAnalysis {
         return "\(id)=\(descriptor.rawUnit ?? descriptor.unit)"
     }.joined(separator: "，")
 
+    /// 首次回复被截断或格式不完整时的紧凑重试：只保留条目、餐次、份量与热量区间，
+    /// 不再要求微量营养素，显著缩短第二次生成时间，避免一次失败变成两次长等待。
+    static let compactRetryInstructions = """
+        只输出紧凑 JSON，根字段 items，最多 12 项：
+        {"items":[{"name":"水煮蛋","meal":"breakfast","reportedPortion":"2 个","amount":100,"unit":"g","isEstimatedPortion":false,"energyEstimate":{"lowerKcal":60,"upperKcal":90,"assumptions":"按两个蛋估算"}}]}。
+        只填 name、meal、reportedPortion、amount、unit、isEstimatedPortion、energyEstimate。不要输出 nutrients、macroEstimate、catalogSearchName。
+        无法确定的字段用 null。meal 只能是 breakfast、lunch、dinner、snack。先完整闭合 JSON，不得截断。
+        """
+
     static let instructions = """
         将用户的一天饮食拆成条目，只输出 JSON：
         {"items":[{"name":"水煮蛋","meal":"breakfast","reportedPortion":"2 个","amount":100,"unit":"g","isEstimatedPortion":true}]}。

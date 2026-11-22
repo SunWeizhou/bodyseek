@@ -163,6 +163,34 @@ final class OpenAICompatibleClientTests: XCTestCase {
         XCTAssertEqual(items.first?.name, "火锅")
         let requestCount = await transport.recordedRequestCount()
         XCTAssertEqual(requestCount, 2)
+        let requests = await transport.capturedRequests
+        XCTAssertEqual(requests.first?.timeoutInterval, 120)
+        let retryBody = try XCTUnwrap(requests.last?.httpBody)
+        let retryPayload = try XCTUnwrap(JSONSerialization.jsonObject(with: retryBody) as? [String: Any])
+        let retryMessages = try XCTUnwrap(retryPayload["messages"] as? [[String: Any]])
+        XCTAssertTrue((retryMessages.first?["content"] as? String)?.contains("不要输出 nutrients") == true)
+    }
+
+    func testMealAnalysisTimeoutIsNotRetried() async throws {
+        let transport = MockAgentTransport(steps: [
+            .error(NSError(domain: NSURLErrorDomain, code: NSURLErrorTimedOut)),
+            .data(statusCode: 200, body: #"{"choices":[{"message":{"role":"assistant","content":"{\"items\":[{\"name\":\"米饭\"}]}"}}]}"#),
+        ])
+        let client = OpenAICompatibleClient(transport: transport)
+        do {
+            _ = try await client.analyzeMeal(
+                endpointURL: "https://api.example.com/v1",
+                apiKey: "mock",
+                modelName: "mock",
+                input: "午饭吃了米饭",
+                jpeg: nil
+            )
+            XCTFail("expected timeout to surface")
+        } catch let error as MealDraftAnalysisError {
+            XCTAssertEqual(error, .serviceUnavailable)
+        }
+        let requestCount = await transport.recordedRequestCount()
+        XCTAssertEqual(requestCount, 1, "a timed-out meal generation must not be retried")
     }
 
     func testMealDraftSupportsScenarioEstimatesWithoutWeightAndRejectsInvalidRanges() throws {

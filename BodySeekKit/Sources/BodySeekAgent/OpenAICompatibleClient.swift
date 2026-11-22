@@ -644,6 +644,7 @@ public struct OpenAICompatibleClient: Sendable {
     public let transport: any AgentHTTPTransport
     public let payloadRecorder: AgentPayloadRecorder
     public let timeoutSeconds: TimeInterval
+    public let mealAnalysisTimeoutSeconds: TimeInterval
     public let maxRetries: Int
     public let retryBaseDelayNanoseconds: UInt64
     public let maxToolRounds: Int
@@ -652,6 +653,7 @@ public struct OpenAICompatibleClient: Sendable {
         transport: any AgentHTTPTransport = URLSessionAgentTransport(),
         payloadRecorder: AgentPayloadRecorder = .shared,
         timeoutSeconds: TimeInterval = 30,
+        mealAnalysisTimeoutSeconds: TimeInterval = 120,
         maxRetries: Int = 2,
         retryBaseDelayNanoseconds: UInt64 = 250_000_000,
         maxToolRounds: Int = 6
@@ -659,6 +661,7 @@ public struct OpenAICompatibleClient: Sendable {
         self.transport = transport
         self.payloadRecorder = payloadRecorder
         self.timeoutSeconds = timeoutSeconds
+        self.mealAnalysisTimeoutSeconds = mealAnalysisTimeoutSeconds
         self.maxRetries = maxRetries
         self.retryBaseDelayNanoseconds = retryBaseDelayNanoseconds
         self.maxToolRounds = maxToolRounds
@@ -693,6 +696,11 @@ public struct OpenAICompatibleClient: Sendable {
 
     func analyzeMeal(endpointURL: String, apiKey: String, modelName: String,
                      input: String, jpeg: Data?) async throws -> [MealDraftCandidate] {
+        let started = ContinuousClock.now
+        defer {
+            let elapsed = ContinuousClock.now - started
+            Self.logger.info("Meal analysis finished in \(elapsed.description, privacy: .public)")
+        }
         guard let url = EndpointURLNormalizer.normalizeBaseURL(endpointURL),
               url.scheme?.lowercased() == "https", url.host != nil,
               !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
@@ -712,14 +720,21 @@ public struct OpenAICompatibleClient: Sendable {
         do {
             for attempt in 0...1 {
                 let instructions = attempt == 0 ? MealDraftAnalysis.instructions
-                    : MealDraftAnalysis.instructions + "\n上次回复无法读取。仅输出紧凑的 JSON 对象，根字段为 items。食物名优先，无法填的字段用 null。先完整闭合 JSON。"
+                    : MealDraftAnalysis.compactRetryInstructions
                 let payload = OpenAIChatRequest(
                     model: modelName, messages: [.init(role: "system", content: instructions), user],
-                    maxTokens: attempt == 0 ? 4_096 : 6_144, stream: false
+                    maxTokens: 4_096, stream: false
                 )
-                let request = try buildURLRequest(url: chatURL, apiKey: apiKey, payload: payload)
+                var request = try buildURLRequest(url: chatURL, apiKey: apiKey, payload: payload)
+                // Structured meal JSON is non-streaming and can legitimately exceed the
+                // 30s chat timeout; a timed-out generation must not be retried in a loop.
+                request.timeoutInterval = mealAnalysisTimeoutSeconds
                 do {
-                    let result = try await executeDataWithRetry(request: request)
+                    let result = try await executeDataWithRetry(
+                        request: request,
+                        maxRetries: 1,
+                        retryOnTimeout: false
+                    )
                     try Task.checkCancellation()
                     return try MealDraftAnalysis.decode(result.text)
                 } catch MealDraftAnalysisError.invalidReply where attempt == 0 {
@@ -869,7 +884,12 @@ public struct OpenAICompatibleClient: Sendable {
         )
     }
 
-    private func executeDataWithRetry(request: URLRequest) async throws -> (text: String, toolCalls: [OpenAIToolCall]) {
+    private func executeDataWithRetry(
+        request: URLRequest,
+        maxRetries: Int? = nil,
+        retryOnTimeout: Bool = true
+    ) async throws -> (text: String, toolCalls: [OpenAIToolCall]) {
+        let retryLimit = maxRetries ?? self.maxRetries
         var attempt = 0
         while true {
             do {
@@ -879,7 +899,7 @@ public struct OpenAICompatibleClient: Sendable {
                 }
                 let errBody = String(data: data.prefix(240), encoding: .utf8) ?? ""
                 let httpErr = OpenAICompatibleClientError.httpStatus(status, errBody)
-                if isTransientHTTPStatus(status), attempt < maxRetries {
+                if isTransientHTTPStatus(status), attempt < retryLimit {
                     attempt += 1
                     Self.logger.warning("Transient HTTP \(status, privacy: .public), retrying attempt \(attempt, privacy: .public)")
                     try await sleepBackoff(attempt: attempt)
@@ -889,7 +909,10 @@ public struct OpenAICompatibleClient: Sendable {
             } catch let error as OpenAICompatibleClientError {
                 throw error
             } catch {
-                if isTransientTransportError(error), attempt < maxRetries {
+                let timedOut = isTimeoutError(error)
+                if isTransientTransportError(error),
+                   !(timedOut && !retryOnTimeout),
+                   attempt < retryLimit {
                     attempt += 1
                     Self.logger.warning("Transient transport failure (\(error.localizedDescription, privacy: .public)), retrying attempt \(attempt, privacy: .public)")
                     try await sleepBackoff(attempt: attempt)
@@ -898,6 +921,11 @@ public struct OpenAICompatibleClient: Sendable {
                 throw OpenAICompatibleClientError.transportFailure(error.localizedDescription)
             }
         }
+    }
+
+    private func isTimeoutError(_ error: Error) -> Bool {
+        let nsError = error as NSError
+        return nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorTimedOut
     }
 
     private func executeStreamWithRetry(request: URLRequest) async throws -> (text: String, toolCalls: [OpenAIToolCall]) {
