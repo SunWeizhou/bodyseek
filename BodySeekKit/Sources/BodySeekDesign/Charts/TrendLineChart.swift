@@ -2,7 +2,7 @@ import BodySeekCore
 import Charts
 import SwiftUI
 
-/// Native Swift Charts trend line for 7d / 30d horizons with baseline band, honest gaps, knownZero dots, and excluded hatch marks.
+/// Native Swift Charts trend line for 7d / 30d horizons with adaptive Y scaling, baseline band, honest gaps, knownZero dots, and native `.chartXSelection`.
 public struct TrendLineChart: View {
     public let snapshot: ChartSeriesSnapshot
     public let tint: Color
@@ -10,6 +10,7 @@ public struct TrendLineChart: View {
     public let height: CGFloat
     public let onSelectDate: (@MainActor (Date?) -> Void)?
 
+    @State private var rawSelectedDate: Date?
     @State private var scrubbedPoint: ChartPointSnapshot?
 
     public init(
@@ -39,6 +40,13 @@ public struct TrendLineChart: View {
                 height: height
             )
         } else {
+            let yDomain = ChartAxisSupport.smartYDomain(
+                values: segments.map(\.numericValue),
+                baseline: snapshot.baselineBand,
+                clampRange: 0...100,
+                minSpan: 20
+            )
+            let yTicks = ChartAxisSupport.yAxisTicks(for: yDomain, count: 3)
             let tickDates = ChartAxisSupport.explicitTickDates(from: snapshot.dailyPoints.map(\.date), maxTicks: 4)
             let header = headerStrings(segments: segments)
 
@@ -49,6 +57,7 @@ public struct TrendLineChart: View {
                     tint: tint,
                     isLocked: scrubbedPoint != nil,
                     onClear: scrubbedPoint == nil ? nil : {
+                        rawSelectedDate = nil
                         scrubbedPoint = nil
                         onSelectDate?(nil)
                     }
@@ -56,9 +65,11 @@ public struct TrendLineChart: View {
 
                 Chart {
                     if let band = snapshot.baselineBand {
+                        let clampedLow = min(yDomain.upperBound, max(yDomain.lowerBound, band.lower))
+                        let clampedHigh = max(clampedLow, min(yDomain.upperBound, band.upper))
                         RectangleMark(
-                            yStart: .value("基线下界", max(0, band.lower)),
-                            yEnd: .value("基线上界", min(100, band.upper))
+                            yStart: .value("基线下界", clampedLow),
+                            yEnd: .value("基线上界", clampedHigh)
                         )
                         .foregroundStyle(tint.opacity(0.09))
                     }
@@ -73,8 +84,8 @@ public struct TrendLineChart: View {
                         RectangleMark(
                             xStart: .value("排除起", excluded.date.addingTimeInterval(-10 * 3600)),
                             xEnd: .value("排除止", excluded.date.addingTimeInterval(10 * 3600)),
-                            yStart: .value("下", 0),
-                            yEnd: .value("上", 100)
+                            yStart: .value("下", yDomain.lowerBound),
+                            yEnd: .value("上", yDomain.upperBound)
                         )
                         .foregroundStyle(BevelTheme.inkSecondary.opacity(0.10))
                     }
@@ -82,7 +93,8 @@ public struct TrendLineChart: View {
                     ForEach(segments) { item in
                         AreaMark(
                             x: .value("日期", item.point.date),
-                            y: .value(snapshot.kind.title, item.numericValue),
+                            yStart: .value("底", yDomain.lowerBound),
+                            yEnd: .value(snapshot.kind.title, item.numericValue),
                             series: .value("分段", item.segmentID)
                         )
                         .interpolationMethod(.monotone)
@@ -117,34 +129,51 @@ public struct TrendLineChart: View {
                         }
                     }
 
-                    if let scrubbedPoint, let value = scrubbedPoint.value {
+                    if let scrubbedPoint {
                         RuleMark(x: .value("选中日", scrubbedPoint.date))
-                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
-                            .foregroundStyle(tint.opacity(0.7))
+                            .lineStyle(StrokeStyle(lineWidth: 1.2, dash: [3, 3]))
+                            .foregroundStyle(tint.opacity(0.75))
+                            .annotation(
+                                position: .top,
+                                spacing: 6,
+                                overflowResolution: .init(x: .fit(to: .chart), y: .disabled)
+                            ) {
+                                calloutView(for: scrubbedPoint)
+                            }
 
-                        PointMark(
-                            x: .value("选中日", scrubbedPoint.date),
-                            y: .value("选中值", value)
-                        )
-                        .symbolSize(64)
-                        .foregroundStyle(tint)
+                        if let value = scrubbedPoint.value {
+                            PointMark(
+                                x: .value("选中日", scrubbedPoint.date),
+                                y: .value("选中值", value)
+                            )
+                            .symbol {
+                                Circle()
+                                    .fill(tint)
+                                    .overlay(Circle().strokeBorder(BevelTheme.card, lineWidth: 2))
+                                    .frame(width: 10, height: 10)
+                            }
+                        }
                     } else if let latest = segments.last {
                         PointMark(
                             x: .value("最新", latest.point.date),
                             y: .value("最新值", latest.numericValue)
                         )
-                        .symbolSize(38)
-                        .foregroundStyle(tint)
+                        .symbol {
+                            Circle()
+                                .fill(tint)
+                                .overlay(Circle().strokeBorder(BevelTheme.card, lineWidth: 1.8))
+                                .frame(width: 8, height: 8)
+                        }
                     }
                 }
-                .chartYScale(domain: 0...100)
+                .chartYScale(domain: yDomain)
                 .chartYAxis {
-                    AxisMarks(position: .trailing, values: [0, 50, 100]) { value in
+                    AxisMarks(position: .trailing, values: yTicks) { value in
                         AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
                             .foregroundStyle(BevelTheme.hairline.opacity(0.7))
                         AxisValueLabel {
-                            if let v = value.as(Int.self) {
-                                Text("\(v)")
+                            if let v = value.as(Double.self) {
+                                Text(ChartAxisSupport.formatYAxisTick(v))
                                     .font(.caption2.monospacedDigit())
                                     .fontDesign(.rounded)
                                     .foregroundStyle(BevelTheme.inkSecondary)
@@ -164,24 +193,9 @@ public struct TrendLineChart: View {
                         }
                     }
                 }
-                .chartOverlay { proxy in
-                    GeometryReader { geometry in
-                        Rectangle()
-                            .fill(.clear)
-                            .contentShape(Rectangle())
-                            .gesture(
-                                DragGesture(minimumDistance: 8)
-                                    .onChanged { value in
-                                        selectNearestPoint(at: value.location, proxy: proxy, geometry: geometry)
-                                    }
-                            )
-                            .simultaneousGesture(
-                                SpatialTapGesture()
-                                    .onEnded { value in
-                                        selectNearestPoint(at: value.location, proxy: proxy, geometry: geometry)
-                                    }
-                            )
-                    }
+                .chartXSelection(value: $rawSelectedDate)
+                .onChange(of: rawSelectedDate) { _, newValue in
+                    handleSelectionChange(newValue)
                 }
                 .frame(height: height)
                 .bodyseekSelectionHaptic(trigger: scrubbedPoint?.id)
@@ -193,22 +207,23 @@ public struct TrendLineChart: View {
                             (ChartAxisSupport.formatAxisDate($0.point.date, horizon: snapshot.horizon), $0.numericValue)
                         },
                         yAxisTitle: unitLabel,
-                        yRange: 0...100
+                        yRange: yDomain
                     )
                 )
             }
         }
     }
 
-    private func selectNearestPoint(at location: CGPoint, proxy: ChartProxy, geometry: GeometryProxy) {
-        guard let plotFrame = proxy.plotFrame else { return }
-        let frame = geometry[plotFrame]
-        let xInPlot = location.x - frame.origin.x
-        guard xInPlot >= 0, xInPlot <= frame.size.width else { return }
-        guard let tappedDate: Date = proxy.value(atX: xInPlot) else { return }
-
+    private func handleSelectionChange(_ date: Date?) {
+        guard let date else {
+            if scrubbedPoint != nil {
+                scrubbedPoint = nil
+                onSelectDate?(nil)
+            }
+            return
+        }
         guard let nearest = snapshot.dailyPoints.min(by: {
-            abs($0.date.timeIntervalSince(tappedDate)) < abs($1.date.timeIntervalSince(tappedDate))
+            abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date))
         }) else { return }
 
         if scrubbedPoint?.id != nearest.id {
@@ -218,13 +233,28 @@ public struct TrendLineChart: View {
         }
     }
 
+    private func calloutView(for point: ChartPointSnapshot) -> some View {
+        let dateStr = ChartAxisSupport.formatReadoutDate(point.date, horizon: snapshot.horizon)
+        let primary: String = switch point.availability {
+        case .available:
+            point.value.map { "\(Int($0.rounded())) \(unitLabel)" } ?? "--"
+        case .knownZero:
+            "0 \(unitLabel)"
+        case .missing:
+            "缺失"
+        case .excluded:
+            "已排除"
+        }
+        return ChartSelectionCallout(valueText: primary, subtitleText: dateStr, tint: tint)
+    }
+
     private func headerStrings(segments: [ChartAxisSupport.ContiguousPoint]) -> (primary: String, secondary: String) {
         if let point = scrubbedPoint {
             let dateStr = ChartAxisSupport.formatReadoutDate(point.date, horizon: snapshot.horizon)
             switch point.availability {
             case .available:
                 let valStr = point.value.map { "\(Int($0.rounded())) \(unitLabel)" } ?? "--"
-                return (valStr, "\(dateStr) · 已锁读数")
+                return (valStr, "\(dateStr) · 选定")
             case let .knownZero(reason):
                 return ("0 \(unitLabel)", "\(dateStr) · 已知零值（\(reason)）")
             case let .missing(reason):

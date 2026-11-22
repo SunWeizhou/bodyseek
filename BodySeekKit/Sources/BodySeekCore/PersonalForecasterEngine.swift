@@ -78,6 +78,20 @@ public enum PersonalForecasterError: Error, LocalizedError, Sendable {
     }
 }
 
+public struct PersonalForecastDriver: Identifiable, Equatable, Hashable, Codable, Sendable {
+    public let id: String
+    public let label: String
+    public let contribution: Double
+    public let unit: String
+
+    public init(id: String, label: String, contribution: Double, unit: String) {
+        self.id = id
+        self.label = label
+        self.contribution = contribution
+        self.unit = unit
+    }
+}
+
 public struct PersonalForecastTargetResult: Identifiable, Equatable, Hashable, Codable, Sendable {
     public var id: String { name }
     public let name: String
@@ -91,6 +105,7 @@ public struct PersonalForecastTargetResult: Identifiable, Equatable, Hashable, C
     public let walkForwardBestBaseline: String
     public let walkForwardMAE: Double
     public let walkForwardCov80: Double
+    public let drivers: [PersonalForecastDriver]
 
     public init(
         name: String,
@@ -103,7 +118,8 @@ public struct PersonalForecastTargetResult: Identifiable, Equatable, Hashable, C
         interval90High: Double,
         walkForwardBestBaseline: String,
         walkForwardMAE: Double,
-        walkForwardCov80: Double
+        walkForwardCov80: Double,
+        drivers: [PersonalForecastDriver] = []
     ) {
         self.name = name
         self.title = title
@@ -116,6 +132,38 @@ public struct PersonalForecastTargetResult: Identifiable, Equatable, Hashable, C
         self.walkForwardBestBaseline = walkForwardBestBaseline
         self.walkForwardMAE = walkForwardMAE
         self.walkForwardCov80 = walkForwardCov80
+        self.drivers = drivers
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case name
+        case title
+        case unit
+        case point
+        case interval80Low
+        case interval80High
+        case interval90Low
+        case interval90High
+        case walkForwardBestBaseline
+        case walkForwardMAE
+        case walkForwardCov80
+        case drivers
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        name = try container.decode(String.self, forKey: .name)
+        title = try container.decode(String.self, forKey: .title)
+        unit = try container.decode(String.self, forKey: .unit)
+        point = try container.decode(Double.self, forKey: .point)
+        interval80Low = try container.decode(Double.self, forKey: .interval80Low)
+        interval80High = try container.decode(Double.self, forKey: .interval80High)
+        interval90Low = try container.decode(Double.self, forKey: .interval90Low)
+        interval90High = try container.decode(Double.self, forKey: .interval90High)
+        walkForwardBestBaseline = try container.decode(String.self, forKey: .walkForwardBestBaseline)
+        walkForwardMAE = try container.decode(Double.self, forKey: .walkForwardMAE)
+        walkForwardCov80 = try container.decode(Double.self, forKey: .walkForwardCov80)
+        drivers = try container.decodeIfPresent([PersonalForecastDriver].self, forKey: .drivers) ?? []
     }
 }
 
@@ -249,8 +297,17 @@ public enum PersonalForecasterEngine {
         return try JSONDecoder().decode(PersonalForecasterSpec.self, from: data)
     }
 
-    /// Reference pure-Swift linear/Banister evaluation matching `PersonalForecasterSpec` & `coreml_export.py`.
-    public static func predictRawLinear(features: [Double], spec: PersonalForecasterSpec) throws -> [Double] {
+    private static let driverGroups: [(id: String, label: String, range: ClosedRange<Int>)] = [
+        ("hrv", "HRV 节律", 0...4),
+        ("rhr", "静息心率趋势", 5...9),
+        ("sleep", "昨夜睡眠与效率", 10...16),
+        ("activity", "日活动与训练时长", 17...18),
+        ("acwr", "急慢性负荷与 ACWR", 19...21),
+        ("banister", "体能与疲劳平衡", 22...23),
+        ("effort_cycle", "训练用力与星期节律", 24...30),
+    ]
+
+    private static func normalizedFeatures(features: [Double], spec: PersonalForecasterSpec) throws -> [Double] {
         let dim = spec.featureColumns.count
         guard features.count == dim else {
             throw PersonalForecasterError.invalidFeatureVectorLength(expected: dim, actual: features.count)
@@ -261,6 +318,13 @@ public enum PersonalForecasterEngine {
             let z = (features[i] - spec.featureMeans[i]) / std
             normalized[i] = min(spec.zClip, max(-spec.zClip, z))
         }
+        return normalized
+    }
+
+    /// Reference pure-Swift linear/Banister evaluation matching `PersonalForecasterSpec` & `coreml_export.py`.
+    public static func predictRawLinear(features: [Double], spec: PersonalForecasterSpec) throws -> [Double] {
+        let normalized = try normalizedFeatures(features: features, spec: spec)
+        let dim = normalized.count
         return spec.targets.map { target in
             var sum = target.bias
             for i in 0..<min(dim, target.weights.count) {
@@ -268,6 +332,29 @@ public enum PersonalForecasterEngine {
             }
             return min(target.clipMax, max(target.clipMin, sum))
         }
+    }
+
+    /// Computes exact linear group attributions whose sum equals `(unclippedLinearPoint - target.bias)`.
+    public static func computeDrivers(
+        features: [Double],
+        spec: PersonalForecasterSpec,
+        target: PersonalForecasterTargetSpec
+    ) throws -> [PersonalForecastDriver] {
+        let normalized = try normalizedFeatures(features: features, spec: spec)
+        let limit = min(normalized.count, target.weights.count)
+        return driverGroups.map { group in
+            var contribution = 0.0
+            for idx in group.range where idx < limit {
+                contribution += normalized[idx] * target.weights[idx]
+            }
+            return PersonalForecastDriver(
+                id: group.id,
+                label: group.label,
+                contribution: contribution,
+                unit: target.unit
+            )
+        }
+        .sorted { abs($0.contribution) > abs($1.contribution) }
     }
 
     /// Build the 31-dimensional causal feature vector at `referenceDayKey` using only days `<= referenceDayKey`.
@@ -514,6 +601,17 @@ public enum PersonalForecasterEngine {
             let high80 = min(targetSpec.clipMax, max(targetSpec.clipMin, point + targetSpec.q80HalfWidth))
             let low90 = min(targetSpec.clipMax, max(targetSpec.clipMin, point - targetSpec.q90HalfWidth))
             let high90 = min(targetSpec.clipMax, max(targetSpec.clipMin, point + targetSpec.q90HalfWidth))
+            let topDrivers: [PersonalForecastDriver]
+            do {
+                let allDrivers = try computeDrivers(features: features, spec: spec, target: targetSpec)
+                let threshold = targetSpec.name == "sleep_efficiency" ? 0.002 : 0.05
+                let nonTrivial = allDrivers.filter { abs($0.contribution) >= threshold }
+                topDrivers = nonTrivial.isEmpty
+                    ? Array(allDrivers.prefix(2))
+                    : Array(nonTrivial.prefix(4))
+            } catch {
+                topDrivers = []
+            }
             return PersonalForecastTargetResult(
                 name: targetSpec.name,
                 title: targetSpec.title,
@@ -525,7 +623,8 @@ public enum PersonalForecasterEngine {
                 interval90High: high90,
                 walkForwardBestBaseline: targetSpec.walkForwardBestBaseline,
                 walkForwardMAE: targetSpec.walkForwardMAE,
-                walkForwardCov80: targetSpec.walkForwardCov80
+                walkForwardCov80: targetSpec.walkForwardCov80,
+                drivers: topDrivers
             )
         }
 

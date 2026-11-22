@@ -140,6 +140,130 @@ public enum ChartAxisSupport {
         }
         return result
     }
+
+    /// Computes an Apple Health-style adaptive Y-axis domain with breathing room and clean tick snapping.
+    public static func smartYDomain(
+        values: [Double],
+        baseline: BaselineBand? = nil,
+        clampRange: ClosedRange<Double>? = 0...100,
+        minSpan: Double = 16
+    ) -> ClosedRange<Double> {
+        var finite = values.filter(\.isFinite)
+        if let baseline, baseline.lower.isFinite, baseline.upper.isFinite {
+            finite.append(baseline.lower)
+            finite.append(baseline.upper)
+        }
+        guard var lo = finite.min(), var hi = finite.max() else {
+            return clampRange ?? 0...100
+        }
+
+        let effectiveMinSpan = max(minSpan, 1e-3)
+        if (hi - lo) < effectiveMinSpan {
+            let mid = (lo + hi) * 0.5
+            lo = mid - effectiveMinSpan * 0.5
+            hi = mid + effectiveMinSpan * 0.5
+        }
+
+        let headroom = max((hi - lo) * 0.14, effectiveMinSpan * 0.08)
+        lo -= headroom
+        hi += headroom
+
+        let rawSpan = hi - lo
+        let step: Double = if rawSpan >= 40 {
+            10
+        } else if rawSpan >= 18 {
+            5
+        } else if rawSpan >= 7 {
+            2
+        } else if rawSpan >= 2.5 {
+            1
+        } else if rawSpan >= 0.8 {
+            0.5
+        } else {
+            0.05
+        }
+
+        lo = floor(lo / step) * step
+        hi = ceil(hi / step) * step
+
+        if let clampRange {
+            let cLo = clampRange.lowerBound
+            let cHi = clampRange.upperBound
+            lo = max(cLo, lo)
+            hi = min(cHi, hi)
+            if hi - lo < effectiveMinSpan {
+                let targetSpan = min(effectiveMinSpan, cHi - cLo)
+                if hi + (targetSpan - (hi - lo)) <= cHi {
+                    hi = lo + targetSpan
+                } else {
+                    lo = max(cLo, hi - targetSpan)
+                }
+            }
+            if hi <= lo {
+                return clampRange
+            }
+        } else if hi <= lo {
+            return lo...(lo + max(1.0, effectiveMinSpan))
+        }
+
+        return lo...hi
+    }
+
+    /// Returns evenly spaced Y-axis gridline values across an adaptive domain.
+    public static func yAxisTicks(for domain: ClosedRange<Double>, count: Int = 3) -> [Double] {
+        let clampedCount = max(2, count)
+        let lo = domain.lowerBound
+        let hi = domain.upperBound
+        let span = hi - lo
+        guard span > 1e-6 else { return [lo] }
+
+        return (0..<clampedCount).map { idx in
+            if idx == 0 { return lo }
+            if idx == clampedCount - 1 { return hi }
+            let raw = lo + span * Double(idx) / Double(clampedCount - 1)
+            return span >= 6 ? raw.rounded() : (raw * 10).rounded() / 10
+        }
+    }
+
+    public static func formatYAxisTick(_ value: Double) -> String {
+        if abs(value.rounded() - value) < 0.05 {
+            return "\(Int(value.rounded()))"
+        }
+        return String(format: "%.1f", value)
+    }
+}
+
+/// Compact Apple Health-style floating callout rendered over selected Chart rules.
+public struct ChartSelectionCallout: View {
+    public let valueText: String
+    public let subtitleText: String
+    public let tint: Color
+
+    public init(valueText: String, subtitleText: String, tint: Color) {
+        self.valueText = valueText
+        self.subtitleText = subtitleText
+        self.tint = tint
+    }
+
+    public var body: some View {
+        VStack(alignment: .center, spacing: 1) {
+            Text(valueText)
+                .font(.caption.weight(.bold).monospacedDigit())
+                .fontDesign(.rounded)
+                .foregroundStyle(tint)
+            Text(subtitleText)
+                .font(.caption2.monospacedDigit())
+                .foregroundStyle(BevelTheme.inkSecondary)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(BevelTheme.card, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(BevelTheme.hairline, lineWidth: 0.75)
+        )
+        .shadow(color: Color.black.opacity(0.08), radius: 4, x: 0, y: 2)
+    }
 }
 
 /// Subtle diagonal hatch view rendered behind excluded periods (e.g., workout hours or invalid artifacts).

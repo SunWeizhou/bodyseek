@@ -2,12 +2,13 @@ import BodySeekCore
 import Charts
 import SwiftUI
 
-/// Dual-series combo chart comparing daily Strain bars against Recovery line with honest gaps.
+/// Dual-series combo chart comparing daily Strain bars against Recovery line with honest gaps and native `.chartXSelection`.
 public struct LoadRecoveryComboChart: View {
     public let days: [DailyComputedDay]
     public let height: CGFloat
     public let onSelectDate: (@MainActor (Date?) -> Void)?
 
+    @State private var rawSelectedDate: Date?
     @State private var selectedDay: DailyComputedDay?
 
     private struct RecoverySegmentPoint: Identifiable {
@@ -50,6 +51,7 @@ public struct LoadRecoveryComboChart: View {
                     tint: BevelTheme.recoveryColor,
                     isLocked: selectedDay != nil,
                     onClear: selectedDay == nil ? nil : {
+                        rawSelectedDate = nil
                         selectedDay = nil
                         onSelectDate?(nil)
                     }
@@ -62,7 +64,7 @@ public struct LoadRecoveryComboChart: View {
                 }
 
                 Chart {
-                    let comboBarWidth = max(2.0, min(7.0, 190.0 / CGFloat(max(1, ordered.count))))
+                    let comboBarWidth = max(2.5, min(8.0, 190.0 / CGFloat(max(1, ordered.count))))
                     ForEach(ordered) { day in
                         if let strainVal = day.strain.value {
                             let isSelected = selectedDay?.dayKey == day.dayKey
@@ -73,7 +75,7 @@ public struct LoadRecoveryComboChart: View {
                                 width: .fixed(comboBarWidth)
                             )
                             .cornerRadius(comboBarWidth / 2)
-                            .foregroundStyle(BevelTheme.strainColor.opacity(selectedDay == nil || isSelected ? 0.34 : 0.14))
+                            .foregroundStyle(BevelTheme.strainColor.opacity(selectedDay == nil || isSelected ? 0.36 : 0.14))
                         }
                     }
 
@@ -89,13 +91,31 @@ public struct LoadRecoveryComboChart: View {
                     }
 
                     if let selectedDay {
+                        let rText = selectedDay.recovery.value.map { "\($0)" } ?? "--"
+                        let sText = selectedDay.strain.value.map { "\($0)" } ?? "--"
                         RuleMark(x: .value("选中日", selectedDay.date))
-                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
-                            .foregroundStyle(BevelTheme.inkSecondary.opacity(0.65))
+                            .lineStyle(StrokeStyle(lineWidth: 1.2, dash: [3, 3]))
+                            .foregroundStyle(BevelTheme.inkSecondary.opacity(0.75))
+                            .annotation(
+                                position: .top,
+                                spacing: 6,
+                                overflowResolution: .init(x: .fit(to: .chart), y: .disabled)
+                            ) {
+                                ChartSelectionCallout(
+                                    valueText: "恢复 \(rText) · 负荷 \(sText)",
+                                    subtitleText: ChartAxisSupport.formatReadoutDate(selectedDay.date, horizon: .month),
+                                    tint: BevelTheme.recoveryColor
+                                )
+                            }
+
                         if let rec = selectedDay.recovery.value {
                             PointMark(x: .value("选中日", selectedDay.date), y: .value("恢复", rec))
-                                .symbolSize(58)
-                                .foregroundStyle(BevelTheme.recoveryColor)
+                                .symbol {
+                                    Circle()
+                                        .fill(BevelTheme.recoveryColor)
+                                        .overlay(Circle().strokeBorder(BevelTheme.card, lineWidth: 2))
+                                        .frame(width: 9, height: 9)
+                                }
                         }
                     }
                 }
@@ -126,28 +146,29 @@ public struct LoadRecoveryComboChart: View {
                         }
                     }
                 }
-                .chartOverlay { proxy in
-                    GeometryReader { geometry in
-                        Rectangle()
-                            .fill(.clear)
-                            .contentShape(Rectangle())
-                            .gesture(
-                                DragGesture(minimumDistance: 8)
-                                    .onChanged { value in
-                                        selectNearest(at: value.location, ordered: ordered, proxy: proxy, geometry: geometry)
-                                    }
-                            )
-                            .simultaneousGesture(
-                                SpatialTapGesture()
-                                    .onEnded { value in
-                                        selectNearest(at: value.location, ordered: ordered, proxy: proxy, geometry: geometry)
-                                    }
-                            )
-                    }
+                .chartXSelection(value: $rawSelectedDate)
+                .onChange(of: rawSelectedDate) { _, newValue in
+                    handleSelectionChange(newValue, ordered: ordered)
                 }
                 .frame(height: height)
                 .bodyseekSelectionHaptic(trigger: selectedDay?.dayKey)
             }
+        }
+    }
+
+    private func handleSelectionChange(_ date: Date?, ordered: [DailyComputedDay]) {
+        guard let date else {
+            if selectedDay != nil {
+                selectedDay = nil
+                onSelectDate?(nil)
+            }
+            return
+        }
+        let nearest = ordered.min(by: { abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date)) })
+        if selectedDay?.dayKey != nearest?.dayKey {
+            selectedDay = nearest
+            BodySeekSignposts.shared.emitEvent(.chartScrub, detail: "load-recovery-combo")
+            onSelectDate?(nearest?.date)
         }
     }
 
@@ -172,25 +193,6 @@ public struct LoadRecoveryComboChart: View {
             }
         }
         return result
-    }
-
-    private func selectNearest(
-        at location: CGPoint,
-        ordered: [DailyComputedDay],
-        proxy: ChartProxy,
-        geometry: GeometryProxy
-    ) {
-        guard let plotFrame = proxy.plotFrame else { return }
-        let frame = geometry[plotFrame]
-        let x = location.x - frame.origin.x
-        guard x >= 0, x <= frame.size.width else { return }
-        guard let date: Date = proxy.value(atX: x) else { return }
-        let nearest = ordered.min(by: { abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date)) })
-        if selectedDay?.dayKey != nearest?.dayKey {
-            selectedDay = nearest
-            BodySeekSignposts.shared.emitEvent(.chartScrub, detail: "load-recovery-combo")
-            onSelectDate?(nearest?.date)
-        }
     }
 
     private func headerStrings(ordered: [DailyComputedDay]) -> (primary: String, secondary: String) {

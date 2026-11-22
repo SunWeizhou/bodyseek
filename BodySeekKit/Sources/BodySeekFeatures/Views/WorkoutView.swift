@@ -6,7 +6,6 @@ import SwiftUI
 
 public struct WorkoutView: View {
     @Bindable var store: StoreOf<WorkoutFeature>
-    @State private var showAllExercises = false
     @Environment(\.scenePhase) private var scenePhase
 
     public init(store: StoreOf<WorkoutFeature>) {
@@ -30,10 +29,9 @@ public struct WorkoutView: View {
                     reviewInboxSection
                 }
 
-                acwrCard
+                trainingLoadCard
                 muscleHeatmapCard
                 watchArchiveSection
-                manualSupplementarySection
             }
             .padding(.horizontal, 16)
             .padding(.top, 4)
@@ -42,17 +40,6 @@ public struct WorkoutView: View {
         .background(BevelTheme.canvas.ignoresSafeArea())
         .navigationTitle("健身")
         .bodyseekNavigationBarInline()
-        .toolbar {
-            ToolbarItem(placement: .bodyseekTrailing) {
-                Button {
-                    store.send(.startQuickEmptyTapped)
-                } label: {
-                    Label("手动补录", systemImage: "plus.circle")
-                        .font(.subheadline.weight(.medium))
-                }
-                .accessibilityIdentifier("workout.quickStart")
-            }
-        }
         .onAppear {
             store.send(.onAppear)
         }
@@ -97,18 +84,6 @@ public struct WorkoutView: View {
             )
         ) { workout in
             WorkoutDetailSheetView(store: store, workout: workout)
-        }
-        .sheet(
-            isPresented: Binding(
-                get: { store.activeWorkout != nil },
-                set: { presented in
-                    if !presented {
-                        store.send(.discardActiveWorkoutTapped)
-                    }
-                }
-            )
-        ) {
-            ActiveWorkoutSheetView(store: store)
         }
     }
 
@@ -175,9 +150,9 @@ public struct WorkoutView: View {
 
                 HStack(spacing: 10) {
                     Button {
-                        store.send(.acceptProposalTapped(proposal, startImmediately: true))
+                        store.send(.askCoachTapped("针对 Coach 推荐的「\(proposal.template.title)」，结合我当前恢复与负荷状态帮我细化组次或调整动作"))
                     } label: {
-                        Text("立即开练")
+                        Label("去 Coach 细化", systemImage: "sparkles")
                             .font(.subheadline.weight(.semibold))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
@@ -187,22 +162,13 @@ public struct WorkoutView: View {
                     .buttonStyle(.plain)
 
                     Button {
-                        store.send(.acceptProposalTapped(proposal, startImmediately: false))
-                    } label: {
-                        Text("存为训练模板")
-                            .font(.subheadline.weight(.medium))
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 10)
-                            .background(BevelTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                            .foregroundStyle(BevelTheme.ink)
-                    }
-                    .buttonStyle(.plain)
-
-                    Button {
                         store.send(.dismissProposalTapped)
                     } label: {
-                        Text("忽略")
-                            .font(.caption.weight(.medium))
+                        Text("收起")
+                            .font(.subheadline.weight(.medium))
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 10)
+                            .background(BevelTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                             .foregroundStyle(BevelTheme.inkSecondary)
                     }
                     .buttonStyle(.plain)
@@ -275,59 +241,35 @@ public struct WorkoutView: View {
         .accessibilityIdentifier("workout-review-inbox")
     }
 
-    private var acwrCard: some View {
-        let load = store.snapshot.trainingLoad
-        let zoneTint: Color = switch load.zone {
-        case .sweetSpot: BevelTheme.recoveryColor
-        case .highRisk: BevelTheme.dangerColor
-        case .undertraining: BevelTheme.energyColor
-        case .insufficientData: BevelTheme.inkSecondary
-        }
-
-        return BevelCard {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Text("训练负荷")
-                        .font(.headline)
-                        .foregroundStyle(BevelTheme.ink)
-                    Spacer()
-                    Button("查看趋势") {
-                        store.send(.openTrendsTapped)
-                    }
-                    .font(.subheadline)
-                    .buttonStyle(.borderless)
-                }
-
-                HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    Text(load.acwrRatio.map { String(format: "%.2f", $0) } ?? "—")
-                        .font(.title2.weight(.semibold).monospacedDigit())
-                        .foregroundStyle(BevelTheme.ink)
-                        .contentTransition(.numericText())
-                    Text(loadStatusLabel(load.zone))
-                        .font(.subheadline)
-                        .foregroundStyle(zoneTint)
-                }
-
-                DisclosureGroup("如何理解这个数") {
-                    Text(load.acwrRatio == nil
-                         ? "需要更多训练记录，才能比较最近与平时的负荷。"
-                         : "比较最近 7 天与近 28 天的训练负荷。接近 1 表示近期负荷和过去的水平接近。")
-                        .font(.subheadline)
-                        .foregroundStyle(BevelTheme.inkSecondary)
-                        .padding(.top, 4)
-                }
-                .font(.subheadline)
+    private var trainingLoadCard: some View {
+        TrainingLoadDashboardCard(
+            load: store.snapshot.trainingLoad,
+            recentDays: Array(store.snapshot.historyDays.suffix(14)),
+            coachMicroInsight: loadCoachMicroInsight,
+            onOpenTrends: { store.send(.openTrendsTapped) },
+            onAskCoach: {
+                store.send(.askCoachTapped("结合我当前 ACWR 训练负荷、近 14 天负荷分布和肌群恢复状态，今天最适合什么训练强度和部位？"))
             }
-        }
+        )
     }
 
-    private func loadStatusLabel(_ zone: ACWRZone) -> String {
-        switch zone {
-        case .sweetSpot: "负荷适中"
-        case .highRisk: "近期负荷偏高"
-        case .undertraining: "近期负荷偏低"
-        case .insufficientData: "数据不足"
+    private var loadCoachMicroInsight: String {
+        let load = store.snapshot.trainingLoad
+        let fatigued = store.recoverySnapshot.rankedByFatigue.filter { !$0.isReadyForPrimaryWork }.prefix(2)
+        let ratioPart: String = if let ratio = load.acwrRatio {
+            String(format: "ACWR %.2f（%@）", ratio, load.zone.title)
+        } else {
+            "训练基线积累中"
         }
+        let recoveryPart = store.snapshot.today.recovery.value.map { "今日恢复 \($0) 分" } ?? "恢复样本待补充"
+        let musclePart: String = if !fatigued.isEmpty {
+            fatigued.map { "\($0.muscle.title)约\($0.recoveryPercent)%" }.joined(separator: "、") + "仍在恢复"
+        } else if !store.recoverySnapshot.rankedByFatigue.isEmpty {
+            "近期主训肌群已基本恢复就绪"
+        } else {
+            "戴表记录训练并一句话复盘后，将自动关联负荷与肌群恢复"
+        }
+        return "\(ratioPart) · \(recoveryPart)；\(musclePart)。"
     }
 
     private var muscleHeatmapCard: some View {
@@ -593,169 +535,5 @@ public struct WorkoutView: View {
             .padding(.vertical, 3)
             .background(tint.opacity(0.14), in: Capsule())
             .foregroundStyle(tint)
-    }
-
-    // MARK: - Supplemental Manual Entry (Demoted Below Watch-First Archive)
-
-    private var manualSupplementarySection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            templatesSection
-            exerciseCatalogSection
-            loggedSessionsSection
-        }
-    }
-
-    private var templatesSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            sectionHeader("辅助训练方案与手动补录入口")
-
-            ForEach(store.templates) { template in
-                BevelCard(padding: 14) {
-                    HStack(spacing: 12) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack(spacing: 6) {
-                                Text(template.title)
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(BevelTheme.ink)
-                                if template.isAIGenerated {
-                                    Text("AI")
-                                        .font(.caption2.weight(.bold))
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 2)
-                                        .background(BevelTheme.brandSoft, in: Capsule())
-                                        .foregroundStyle(BevelTheme.brand)
-                                }
-                            }
-                            Text(template.subtitle)
-                                .font(.caption)
-                                .foregroundStyle(BevelTheme.inkSecondary)
-                                .lineLimit(2)
-
-                            HStack(spacing: 8) {
-                                Text("\(template.exercises.count) 个动作")
-                                Text("约 \(template.estimatedMinutes) 分钟")
-                                Text(template.primaryMuscles.prefix(3).map(\.title).joined(separator: "·"))
-                            }
-                            .font(.caption2)
-                            .foregroundStyle(BevelTheme.inkSecondary)
-                        }
-
-                        Spacer(minLength: 8)
-
-                        Button {
-                            store.send(.startTemplateTapped(template))
-                        } label: {
-                            Label("开练", systemImage: "play.fill")
-                                .font(.caption.weight(.semibold))
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 8)
-                                .background(BevelTheme.brand, in: Capsule())
-                                .foregroundStyle(BevelTheme.onBrand)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier("workout.startTemplate.\(template.id.uuidString)")
-                    }
-                }
-            }
-        }
-    }
-
-    private var exerciseCatalogSection: some View {
-        let items = showAllExercises ? store.filteredExercises : Array(store.filteredExercises.prefix(5))
-        return VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                sectionHeader(store.selectedMuscle.map { "\($0.title)推荐动作库" } ?? "动作库（free-exercise-db）")
-                Spacer()
-                if store.filteredExercises.count > 5 {
-                    Button {
-                        showAllExercises.toggle()
-                    } label: {
-                        Text(showAllExercises ? "收起" : "查看全部 (\(store.filteredExercises.count))")
-                            .font(.caption.weight(.medium))
-                            .foregroundStyle(BevelTheme.brand)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-
-            BevelCard(padding: 12) {
-                VStack(spacing: 10) {
-                    ForEach(items) { ex in
-                        HStack(alignment: .top, spacing: 10) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                HStack(spacing: 6) {
-                                    Text(ex.name)
-                                        .font(.subheadline.weight(.medium))
-                                        .foregroundStyle(BevelTheme.ink)
-                                    Text(ex.equipment)
-                                        .font(.caption2)
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 2)
-                                        .background(BevelTheme.surfaceElevated, in: Capsule())
-                                        .foregroundStyle(BevelTheme.inkSecondary)
-                                }
-                                Text(ex.instructions)
-                                    .font(.caption)
-                                    .foregroundStyle(BevelTheme.inkSecondary)
-                                    .lineLimit(2)
-                            }
-                            Spacer()
-                            Text(ex.primaryMuscles.map(\.title).joined(separator: " / "))
-                                .font(.caption2)
-                                .foregroundStyle(BevelTheme.brand)
-                        }
-                        if ex.id != items.last?.id {
-                            Divider()
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private var loggedSessionsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                sectionHeader("手动补录组次历史")
-                Spacer()
-                Text("近7日容量 \(Int(store.weeklyVolumeKg.rounded())) kg")
-                    .font(.caption2)
-                    .foregroundStyle(BevelTheme.inkSecondary)
-            }
-
-            if store.sessions.isEmpty {
-                BevelCard {
-                    Text("日常无需在训练中手动记组次；若需补录重量细节，可通过右上角「手动补录」或上方方案开练。")
-                        .font(.footnote)
-                        .foregroundStyle(BevelTheme.inkSecondary)
-                }
-            } else {
-                ForEach(store.sessions.prefix(5)) { session in
-                    BevelCard(padding: 14) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack(spacing: 6) {
-                                    Text(session.title)
-                                        .font(.subheadline.weight(.semibold))
-                                        .foregroundStyle(BevelTheme.ink)
-                                    if session.syncedHealthKitUUID != nil {
-                                        Label("健康已同步", systemImage: "heart.fill")
-                                            .font(.caption2)
-                                            .foregroundStyle(BevelTheme.recoveryColor)
-                                    }
-                                }
-                                Text("\(session.durationMinutes) 分钟 · 总容量 \(Int(session.totalVolumeKg.rounded())) kg · RPE \(session.rpe)")
-                                    .font(.caption)
-                                    .foregroundStyle(BevelTheme.inkSecondary)
-                            }
-                            Spacer()
-                            Text(session.completedAt, format: .dateTime.month().day())
-                                .font(.caption)
-                                .foregroundStyle(BevelTheme.inkSecondary)
-                        }
-                    }
-                }
-            }
-        }
     }
 }

@@ -71,7 +71,7 @@ public struct NutritionMealLoggerSheet: View {
                     )
                     .accessibilityIdentifier("nutrition-meal-search")
 
-                    ForEach(store.foodLibrary.prefix(original != nil && store.foodSearchQuery.isEmpty ? 0 : 12)) { item in
+                    ForEach(store.foodLibrary.prefix(original != nil && store.foodSearchQuery.isEmpty ? 0 : 24)) { item in
                         Button {
                             if portionUnit.caseInsensitiveCompare(item.basisUnit) != .orderedSame {
                                 portionText = ""

@@ -276,4 +276,50 @@ final class PersonalForecasterParityTests: XCTestCase {
         XCTAssertTrue(missingJSON.contains(#""state":"missing""#))
         XCTAssertTrue(missingJSON.contains("非医学诊断"))
     }
+
+    func testFeatureDriversSumMatchesLinearDeltaFromBias() throws {
+        let spec = try PersonalForecasterEngine.loadBundledSpec()
+        let fixtureURL = Bundle.module.url(
+            forResource: "personal_forecaster_v1_golden",
+            withExtension: "json",
+            subdirectory: "Fixtures"
+        ) ?? Bundle.module.url(forResource: "personal_forecaster_v1_golden", withExtension: "json")
+        let resolvedURL = try XCTUnwrap(fixtureURL)
+        let fixture = try JSONDecoder().decode(GoldenFixtureFile.self, from: try Data(contentsOf: resolvedURL))
+
+        for vector in fixture.vectors {
+            let swiftPred = try PersonalForecasterEngine.predictRawLinear(features: vector.features, spec: spec)
+            for (idx, target) in spec.targets.enumerated() {
+                let drivers = try PersonalForecasterEngine.computeDrivers(
+                    features: vector.features,
+                    spec: spec,
+                    target: target
+                )
+                XCTAssertEqual(drivers.count, 7)
+                let rawTotal = target.bias + drivers.reduce(0.0) { $0 + $1.contribution }
+                let clipped = min(target.clipMax, max(target.clipMin, rawTotal))
+                XCTAssertEqual(clipped, swiftPred[idx], accuracy: 1e-9)
+            }
+        }
+
+        let calendar = Calendar(identifier: .gregorian)
+        let refDate = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_760_000_000))
+        let raw30 = PreviewSeedFactory.makeRawWindow(endingAt: refDate, days: 30, calendar: calendar)
+        let snap30 = BevelScoringEngine.computeWindow(
+            rawDays: raw30,
+            sleepGoalMinutes: 450,
+            referenceDate: refDate,
+            sourceLabel: "Test",
+            isAuthorized: true,
+            calendar: calendar
+        )
+        let state = PersonalForecasterEngine.forecast(historyDays: snap30.historyDays, referenceDate: refDate)
+        guard case let .available(summary) = state else {
+            return XCTFail("Expected .available forecast summary for 30d window")
+        }
+        for target in summary.targets {
+            XCTAssertFalse(target.drivers.isEmpty)
+            XCTAssertLessThanOrEqual(target.drivers.count, 4)
+        }
+    }
 }

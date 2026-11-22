@@ -304,3 +304,53 @@
 - 新增回归：估算态与确认态分离、部分餐不判定、`get_eating_context` 含 `recentAdequacy`/维生素 C 达标、Coach 提示包含 `get_eating_context`/`recentAdequacy`/AI 估算约束。
 - 模拟器 Debug 构建 `BUILD SUCCEEDED`；VelaTests/UI 结果见下。
 - 未验证：真机上旧日志仍是部分记录，只有补齐或新记录结账后才会显示达标；AI 估算的准确性仍受模型输出影响。
+
+## 18. 2026-11-22 Wave 1 + Wave 2 产品蓝图重构与 Apple Swift Charts 升级验证
+
+基于五项用户产品重构蓝图完成两波演进提交（基线分支 `codex/ui/ios26-native-bodyseek`，Wave 1 前 `HEAD = 1b5b49b1`，Wave 1 提交 `ce41c71c`）：
+
+### Wave 1（`ce41c71c`）— DeepSeek 联网搜营养、中式快餐优化、营养页 Coach 建议与今日页重排
+- **今日页（`TodayView.swift`）**：保留顶部四大直观分数块（身体状态、压力、能量、昨夜睡眠），将「生理指标 4 格」上移至「今日 Coach 结论与行动」卡片之前；在行动卡内前置 AI 结论并附「问 Coach」深链入口，并在 `postWorkoutAdvice != nil` 时抑制晨间 AI 建议以避免冲突。
+- **营养页与 DeepSeek 联网搜索（`OpenAICompatibleClient.swift`、`MealDraftAnalysis.swift`、`NutritionModels.swift`、`NutritionFeature.swift`、`NutritionBoardView.swift`）**：
+  - 接入 DeepSeek 官方独立搜索接口 `POST https://api.deepseek.com/v1/tools/search`（6 秒超时、0 次重试、非 200 或网络异常静默降级为模型内置知识）；
+  - 新增 `ChineseFastFoodQueryExtractor` 品牌去重提取（麦当劳、肯德基、瑞幸、霸王茶姬、喜茶、星巴克、老乡鸡、米村拌饭、广式点心等，最多 2 条查询）与 16 项常见中式快餐离线保底食物库条目；
+  - 强化餐次时间语义识别、模糊中式菜品默认份量估算与维生素/矿物质主动估算；
+  - 营养页新增「Coach 饮食建议」卡片（本地确定性摘要兜底 + 一键生成 AI 配餐建议 + 「问 Coach」路由）与微营养素达标进度条；
+  - `get_eating_context` 支持 `compact: true` 以保护 Apple Foundation Models 端侧 4K 上下文预算。
+
+### Wave 2 — Apple 标准 `Swift Charts` 消除手搓感、健身负荷仪表盘与旧手动模块清理、趋势页深度建模工作台
+- **Apple 标准 `Swift Charts` 改造（`BodySeekDesign/Charts/`）**：
+  - `ChartAxisSupport.swift` 新增 `smartYDomain`、`yAxisTicks`、`formatYAxisTick` 与 `ChartSelectionCallout`；
+  - `MiniSparkline.swift` 移除手写 `Canvas` 与三次贝塞尔 S 型扭曲，全面改用原生 `Swift Charts`（`AreaMark` + `LineMark` `.monotone` + 最新点光晕圆环，严格保留 `nil` 断点与自适应纵轴）；
+  - `TrendLineChart`、`RangeCapsuleChart`、`LoadRecoveryComboChart`、`EnergyAreaChart`、`IntradayBarChart` 移除手写 `GeometryReader + DragGesture(minimumDistance: 8)` 遮罩，统一升级为 iOS 26 原生 `.chartXSelection(value:)` + `RuleMark` 浮动 `.annotation` 读数气泡（非交互迷你图不挂载手势，彻底消除纵向滚动手势拦截）。
+- **健身页（`TrainingLoadDashboardCard.swift`、`WorkoutView.swift`、`WorkoutFeature.swift`）**：
+  - 新增 `TrainingLoadDashboardCard`：ACWR 三段甜蜜区指示条（`<0.8` / `0.8–1.3` / `>1.3`）、近 7 天急性负荷 vs 28 天周均基线对比砖块（含百分比偏离）、近 14 天每日负荷 `Swift Charts` 柱状图 + 日均基线虚线、以及融合负荷与肌群恢复的 Coach 微洞察条与「问 Coach 今日训练强度」按钮；
+  - 彻底移除健身页底部三个不常用旧手动模块（`templatesSection` 辅助方案、`exerciseCatalogSection` 动作库、`loggedSessionsSection` 手动补录组次历史）、顶部「手动补录」按钮与 `ActiveWorkoutSheetView` 弹窗，专注 Watch-First 自动同步 + 一句话复盘 + 肌群恢复热力图。
+- **趋势页深度建模工作台（`PersonalForecasterEngine.swift`、`ForecastFanChart.swift`、`FeatureAttributionChart.swift`、`PatternForestChart.swift`、`TrendsFeature.swift`、`TrendsView.swift`）**：
+  - `PersonalForecasterEngine` 新增 31 维因果特征的 7 组精确线性归因分解 `PersonalForecastDriver`（`computeDrivers` 满足 $\sum \text{contribution} + \text{bias} = \text{rawLinearPoint}$）；
+  - 新增 `ForecastFanChart`（近 14 日实测曲线 + 明日 CoreML 点预测 + 80%/90% Split-Conformal 校准扇形区间）、`FeatureAttributionChart`（零点居中水平双向归因条形图）、`PatternForestChart`（95% CI 零线对齐森林图）；
+  - 趋势页顶部新增「AI 趋势解读」卡片（`trends-ai-insight-card`），取消原折叠 `DisclosureGroup`，将多目标预测切换工作台、恢复-负荷双轴对照、规律森林图与 N-of-1 个人对照实验（新增进度条与达标/未达标均值对比条）直接展开为主画布。
+
+### 验证命令与结果
+1. **静态门禁与工程生成**：
+   - `grep -rnE '(^|[^A-Za-z0-9_])try\?' BodySeekKit/Sources/ | wc -l` → `0`
+   - `grep -rn 'Liveline\|repeatForever\|SpeziLLM' BodySeekKit/Sources/ | wc -l` → `0`
+   - `grep -rn 'import Charts\|import SleepChartKit' BodySeekKit/Sources/BodySeekFeatures/ | wc -l` → `0`
+   - `git diff --check` → 退出码 `0`
+   - `/opt/homebrew/bin/xcodegen generate` → 退出码 `0`
+2. **SwiftPM 全量包测试与 Agent 评测**：
+   - 命令：`swift test --package-path BodySeekKit --disable-automatic-resolution`
+   - 退出码：`0`
+   - `BodySeekKitTests`：`96/96` 通过（0 失败，含 `testAllEightChartTypesRenderAcrossAllMatrixStates`、`testWave2WorkbenchChartsRenderAcrossAllMatrixStates` 及 `testFeatureDriversSumMatchesLinearDeltaFromBias`）
+   - `COREML_PARITY_M4D`：`vectors=24 swift_max_rel_err=5.72e-08 coreml_max_rel_err=0.00e+00`（`<= 1e-3`）
+   - `BodySeekAgentEvals`：`29/29` 通过（`AGENT_EVALS_M3: passed=31/31 rate=100.0% tool_leak=0 provenance_pass=31/31 direct_write_violations=0`）
+3. **iOS 模拟器全套测试（`VelaTests` + `VelaUITests`）**：
+   - 命令：`xcodebuild test -project Vela.xcodeproj -scheme Vela -destination 'id=3BB779BD-022F-4E60-A3BB-70DC5A0BF987' -parallel-testing-enabled NO -skipMacroValidation -skipPackagePluginValidation`
+   - `VelaTests`：`4/4` 通过（0 失败）
+   - `VelaUITests`：`14` 项执行，`13/13` 通过、`1` 项按预期跳过（`testCaptureLightAndDarkScreenshotsWhenRequested` 在未设置 `BODYSEEK_WALKTHROUGH_DIR` 时 `XCTSkip`），`0` 失败
+4. **泛型 iOS 真机构建校验**：
+   - 命令：`xcodebuild -project Vela.xcodeproj -scheme Vela -destination 'generic/platform=iOS' -skipMacroValidation -skipPackagePluginValidation -allowProvisioningUpdates build`
+   - 结果：`BUILD SUCCEEDED`（退出码 `0`）
+5. **未验证风险与边界**：
+   - DeepSeek `/v1/tools/search` 在真实外网与用户线上 API Key 下的端到端检索命中率及耗时需在真机实际记餐中观察（若账号未开通 search 工具权限会自动静默回退至 DeepSeek 内置知识）；
+   - 真机 iOS 26 下的 `.chartXSelection` 触感反馈与多密度真实健康数据视觉表现待部署至用户 iPhone 后实测确认。

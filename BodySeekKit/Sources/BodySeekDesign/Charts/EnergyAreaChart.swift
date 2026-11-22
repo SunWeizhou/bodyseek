@@ -8,6 +8,7 @@ public struct EnergyAreaChart: View {
     public let height: CGFloat
     public let interactive: Bool
 
+    @State private var rawSelectedDate: Date?
     @State private var selectedPoint: EnergyCurvePoint?
 
     public init(curve: [EnergyCurvePoint], height: CGFloat = 38, interactive: Bool = false) {
@@ -39,15 +40,18 @@ public struct EnergyAreaChart: View {
                     ChartLockedReadoutHeader(
                         primaryText: selectedPoint.map { "\($0.value)%" } ?? (sorted.last.map { "\($0.value)% 当前" } ?? "--"),
                         secondaryText: selectedPoint.map {
-                            "\(ChartAxisSupport.formatHour($0.date)) · 已锁读数"
+                            "\(ChartAxisSupport.formatHour($0.date)) · 选定"
                         } ?? (peakPoint.map { "峰值 \($0.value)% (\(ChartAxisSupport.formatHour($0.date)))" } ?? ""),
                         tint: BevelTheme.energyColor,
                         isLocked: selectedPoint != nil,
-                        onClear: selectedPoint == nil ? nil : { selectedPoint = nil }
+                        onClear: selectedPoint == nil ? nil : {
+                            rawSelectedDate = nil
+                            selectedPoint = nil
+                        }
                     )
                 }
 
-                Chart {
+                let chart = Chart {
                     if interactive {
                         RuleMark(y: .value("平衡线", 50))
                             .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
@@ -77,13 +81,34 @@ public struct EnergyAreaChart: View {
                         .foregroundStyle(BevelTheme.energyColor)
                     }
 
+                    if interactive, let selectedPoint {
+                        RuleMark(x: .value("选中时刻", selectedPoint.date))
+                            .lineStyle(StrokeStyle(lineWidth: 1.2, dash: [3, 3]))
+                            .foregroundStyle(BevelTheme.energyColor.opacity(0.75))
+                            .annotation(
+                                position: .top,
+                                spacing: 6,
+                                overflowResolution: .init(x: .fit(to: .chart), y: .disabled)
+                            ) {
+                                ChartSelectionCallout(
+                                    valueText: "\(selectedPoint.value)%",
+                                    subtitleText: ChartAxisSupport.formatHour(selectedPoint.date),
+                                    tint: BevelTheme.energyColor
+                                )
+                            }
+                    }
+
                     if let active = selectedPoint ?? (interactive ? sorted.last : nil) {
                         PointMark(
                             x: .value("时刻", active.date),
                             y: .value("能量", active.value)
                         )
-                        .symbolSize(selectedPoint != nil ? 64 : 36)
-                        .foregroundStyle(BevelTheme.energyColor)
+                        .symbol {
+                            Circle()
+                                .fill(BevelTheme.energyColor)
+                                .overlay(Circle().strokeBorder(BevelTheme.card, lineWidth: 1.8))
+                                .frame(width: selectedPoint != nil ? 10 : 8, height: selectedPoint != nil ? 10 : 8)
+                        }
                     }
                 }
                 .chartYScale(domain: 0...100)
@@ -119,25 +144,16 @@ public struct EnergyAreaChart: View {
                         }
                     }
                 }
-                .chartOverlay { proxy in
+
+                Group {
                     if interactive {
-                        GeometryReader { geometry in
-                            Rectangle()
-                                .fill(.clear)
-                                .contentShape(Rectangle())
-                                .gesture(
-                                    DragGesture(minimumDistance: 8)
-                                        .onChanged { value in
-                                            selectNearest(at: value.location, sorted: sorted, proxy: proxy, geometry: geometry)
-                                        }
-                                )
-                                .simultaneousGesture(
-                                    SpatialTapGesture()
-                                        .onEnded { value in
-                                            selectNearest(at: value.location, sorted: sorted, proxy: proxy, geometry: geometry)
-                                        }
-                                )
-                        }
+                        chart
+                            .chartXSelection(value: $rawSelectedDate)
+                            .onChange(of: rawSelectedDate) { _, newValue in
+                                handleSelectionChange(newValue, sorted: sorted)
+                            }
+                    } else {
+                        chart
                     }
                 }
                 .frame(height: height)
@@ -155,18 +171,12 @@ public struct EnergyAreaChart: View {
         }
     }
 
-    private func selectNearest(
-        at location: CGPoint,
-        sorted: [EnergyCurvePoint],
-        proxy: ChartProxy,
-        geometry: GeometryProxy
-    ) {
-        guard let plotFrame = proxy.plotFrame else { return }
-        let frame = geometry[plotFrame]
-        let x = location.x - frame.origin.x
-        guard x >= 0, x <= frame.size.width else { return }
-        guard let target: Date = proxy.value(atX: x) else { return }
-        let nearest = sorted.min(by: { abs($0.date.timeIntervalSince(target)) < abs($1.date.timeIntervalSince(target)) })
+    private func handleSelectionChange(_ date: Date?, sorted: [EnergyCurvePoint]) {
+        guard let date else {
+            selectedPoint = nil
+            return
+        }
+        let nearest = sorted.min(by: { abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date)) })
         if selectedPoint?.id != nearest?.id {
             selectedPoint = nearest
             BodySeekSignposts.shared.emitEvent(.chartScrub, detail: "energy-curve")

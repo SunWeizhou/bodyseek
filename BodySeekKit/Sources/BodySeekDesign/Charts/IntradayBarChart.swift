@@ -2,13 +2,14 @@ import BodySeekCore
 import Charts
 import SwiftUI
 
-/// 24-hour autonomic stress bar chart with workout-excluded visual marking.
+/// 24-hour autonomic stress bar chart with workout-excluded visual marking and native `.chartXSelection`.
 public struct IntradayBarChart: View {
     public let bins: [StressTimelineBin]
     public let excludedHours: Set<Int>
     public let height: CGFloat
     public let interactive: Bool
 
+    @State private var rawSelectedHour: Double?
     @State private var selectedBin: StressTimelineBin?
 
     public init(
@@ -39,6 +40,8 @@ public struct IntradayBarChart: View {
             }
         } else {
             let activeColor = selectedBin.map { color(for: $0) } ?? BevelTheme.stressColor
+            let barWidth: CGFloat = interactive ? 8.0 : 4.2
+
             VStack(alignment: .leading, spacing: interactive ? 10 : 0) {
                 if interactive {
                     ChartLockedReadoutHeader(
@@ -46,96 +49,103 @@ public struct IntradayBarChart: View {
                         secondaryText: headerSecondary(sorted: sorted),
                         tint: activeColor,
                         isLocked: selectedBin != nil,
-                        onClear: selectedBin == nil ? nil : { selectedBin = nil }
+                        onClear: selectedBin == nil ? nil : {
+                            rawSelectedHour = nil
+                            selectedBin = nil
+                        }
                     )
                 }
 
-                GeometryReader { outerGeo in
-                    let plotEstimate = max(80.0, outerGeo.size.width - (interactive ? 28.0 : 4.0))
-                    let barWidth = max(3.0, min(10.0, plotEstimate / 36.0))
+                let chart = Chart {
+                    ForEach(sorted) { bin in
+                        let hourVal = Double(bin.hour)
+                        let isExcluded = excludedHours.contains(bin.hour)
+                        let isSelected = selectedBin?.hour == bin.hour
 
-                    Chart {
-                        ForEach(sorted) { bin in
-                            let hourVal = Double(bin.hour)
-                            let isExcluded = excludedHours.contains(bin.hour)
-                            let isSelected = selectedBin?.hour == bin.hour
-
-                            if isExcluded {
-                                RectangleMark(
-                                    xStart: .value("起", hourVal - 0.38),
-                                    xEnd: .value("止", hourVal + 0.38),
-                                    yStart: .value("底", 0),
-                                    yEnd: .value("顶", 100)
-                                )
-                                .foregroundStyle(BevelTheme.inkSecondary.opacity(0.14))
-                            } else {
-                                BarMark(
-                                    x: .value("小时", hourVal),
-                                    yStart: .value("底", 0),
-                                    yEnd: .value("顶", max(5, bin.value)),
-                                    width: .fixed(barWidth)
-                                )
-                                .cornerRadius(barWidth / 2)
-                                .foregroundStyle(
-                                    color(for: bin).opacity(selectedBin == nil || isSelected ? 0.92 : 0.38)
-                                )
-                            }
+                        if isExcluded {
+                            RectangleMark(
+                                xStart: .value("起", hourVal - 0.38),
+                                xEnd: .value("止", hourVal + 0.38),
+                                yStart: .value("底", 0),
+                                yEnd: .value("顶", 100)
+                            )
+                            .foregroundStyle(BevelTheme.inkSecondary.opacity(0.14))
+                        } else {
+                            BarMark(
+                                x: .value("小时", hourVal),
+                                yStart: .value("底", 0),
+                                yEnd: .value("顶", max(5, bin.value)),
+                                width: .fixed(barWidth)
+                            )
+                            .cornerRadius(barWidth / 2)
+                            .foregroundStyle(
+                                color(for: bin).opacity(selectedBin == nil || isSelected ? 0.92 : 0.38)
+                            )
                         }
                     }
-                    .chartYScale(domain: 0...100)
-                    .chartXScale(domain: -0.6...23.6)
-                    .chartYAxis(interactive ? .automatic : .hidden)
-                    .chartYAxis {
-                        if interactive {
-                            AxisMarks(position: .trailing, values: [0, 50, 100]) { value in
-                                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                                    .foregroundStyle(BevelTheme.hairline.opacity(0.7))
-                                AxisValueLabel {
-                                    if let v = value.as(Int.self) {
-                                        Text("\(v)")
-                                            .font(.caption2.monospacedDigit())
-                                            .fontDesign(.rounded)
-                                            .foregroundStyle(BevelTheme.inkSecondary)
-                                    }
+
+                    if interactive, let selectedBin {
+                        let isExcl = excludedHours.contains(selectedBin.hour)
+                        RuleMark(x: .value("选中时段", Double(selectedBin.hour)))
+                            .lineStyle(StrokeStyle(lineWidth: 1.2, dash: [3, 3]))
+                            .foregroundStyle(activeColor.opacity(0.75))
+                            .annotation(
+                                position: .top,
+                                spacing: 6,
+                                overflowResolution: .init(x: .fit(to: .chart), y: .disabled)
+                            ) {
+                                ChartSelectionCallout(
+                                    valueText: isExcl ? "运动排除" : "\(selectedBin.value) · \(levelLabel(selectedBin.level))",
+                                    subtitleText: String(format: "%02d:00–%02d:59", selectedBin.hour, selectedBin.hour),
+                                    tint: activeColor
+                                )
+                            }
+                    }
+                }
+                .chartYScale(domain: 0...100)
+                .chartXScale(domain: -0.6...23.6)
+                .chartYAxis(interactive ? .automatic : .hidden)
+                .chartYAxis {
+                    if interactive {
+                        AxisMarks(position: .trailing, values: [0, 50, 100]) { value in
+                            AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
+                                .foregroundStyle(BevelTheme.hairline.opacity(0.7))
+                            AxisValueLabel {
+                                if let v = value.as(Int.self) {
+                                    Text("\(v)")
+                                        .font(.caption2.monospacedDigit())
+                                        .fontDesign(.rounded)
+                                        .foregroundStyle(BevelTheme.inkSecondary)
                                 }
                             }
                         }
                     }
-                    .chartXAxis(interactive ? .automatic : .hidden)
-                    .chartXAxis {
-                        if interactive {
-                            AxisMarks(values: [0.0, 6.0, 12.0, 18.0]) { value in
-                                AxisValueLabel(centered: true) {
-                                    if let h = value.as(Double.self) {
-                                        Text(String(format: "%02d:00", Int(h.rounded())))
-                                            .font(.caption2.monospacedDigit())
-                                            .fontDesign(.rounded)
-                                            .foregroundStyle(BevelTheme.inkSecondary)
-                                    }
+                }
+                .chartXAxis(interactive ? .automatic : .hidden)
+                .chartXAxis {
+                    if interactive {
+                        AxisMarks(values: [0.0, 6.0, 12.0, 18.0]) { value in
+                            AxisValueLabel(centered: true) {
+                                if let h = value.as(Double.self) {
+                                    Text(String(format: "%02d:00", Int(h.rounded())))
+                                        .font(.caption2.monospacedDigit())
+                                        .fontDesign(.rounded)
+                                        .foregroundStyle(BevelTheme.inkSecondary)
                                 }
                             }
                         }
                     }
-                    .chartOverlay { proxy in
-                        if interactive {
-                            GeometryReader { geometry in
-                                Rectangle()
-                                    .fill(.clear)
-                                    .contentShape(Rectangle())
-                                    .gesture(
-                                        DragGesture(minimumDistance: 8)
-                                            .onChanged { value in
-                                                selectHour(at: value.location, sorted: sorted, proxy: proxy, geometry: geometry)
-                                            }
-                                    )
-                                    .simultaneousGesture(
-                                        SpatialTapGesture()
-                                            .onEnded { value in
-                                                selectHour(at: value.location, sorted: sorted, proxy: proxy, geometry: geometry)
-                                            }
-                                    )
+                }
+
+                Group {
+                    if interactive {
+                        chart
+                            .chartXSelection(value: $rawSelectedHour)
+                            .onChange(of: rawSelectedHour) { _, newValue in
+                                handleSelectionChange(newValue, sorted: sorted)
                             }
-                        }
+                    } else {
+                        chart
                     }
                 }
                 .frame(height: height)
@@ -153,17 +163,11 @@ public struct IntradayBarChart: View {
         }
     }
 
-    private func selectHour(
-        at location: CGPoint,
-        sorted: [StressTimelineBin],
-        proxy: ChartProxy,
-        geometry: GeometryProxy
-    ) {
-        guard let plotFrame = proxy.plotFrame else { return }
-        let frame = geometry[plotFrame]
-        let x = location.x - frame.origin.x
-        guard x >= 0, x <= frame.size.width else { return }
-        guard let hourValue: Double = proxy.value(atX: x) else { return }
+    private func handleSelectionChange(_ hourValue: Double?, sorted: [StressTimelineBin]) {
+        guard let hourValue else {
+            selectedBin = nil
+            return
+        }
         let nearest = sorted.min(by: { abs(Double($0.hour) - hourValue) < abs(Double($1.hour) - hourValue) })
         if selectedBin?.hour != nearest?.hour {
             selectedBin = nearest

@@ -74,28 +74,24 @@ final class BodySeekUITests: XCTestCase {
         XCTAssertTrue(applyWorkoutBtn.waitForExistence(timeout: 6))
         applyWorkoutBtn.tap()
 
-        // 4. Proposal routes to Workout tab & toggles MuscleMap + launches active workout logger
-        XCTAssertTrue(app.staticTexts["训练负荷"].waitForExistence(timeout: 6))
+        // 4. Proposal routes to Workout tab & shows new TrainingLoadDashboardCard without manual toolbar entry
+        XCTAssertTrue(app.otherElements["workout-training-load-card"].waitForExistence(timeout: 6))
+        XCTAssertTrue(app.staticTexts["训练负荷"].exists)
+        XCTAssertFalse(app.buttons["workout.quickStart"].exists)
         if app.segmentedControls["workout.bodySidePicker"].exists {
             app.segmentedControls["workout.bodySidePicker"].buttons["背面"].tap()
-        }
-
-        let startTemplateBtn = app.buttons["workout.startTemplate.11111111-1111-1111-1111-111111111101"]
-        if startTemplateBtn.waitForExistence(timeout: 4) {
-            startTemplateBtn.tap()
-            XCTAssertTrue(app.buttons["workout.finishSession"].waitForExistence(timeout: 5))
-            if app.buttons["workout.completeSet.0.0"].exists {
-                app.buttons["workout.completeSet.0.0"].tap()
-            }
-            app.buttons["workout.finishSession"].tap()
-            XCTAssertTrue(app.staticTexts["训练负荷"].waitForExistence(timeout: 5))
         }
 
         // 5. Trends tab horizon & coverage sheet + DualAxis
         app.tabBars.buttons["趋势"].tap()
         XCTAssertTrue(app.buttons["trends-horizon-week"].waitForExistence(timeout: 5))
         app.buttons["trends-horizon-week"].tap()
-        app.buttons["trends-history-coverage"].tap()
+        let coverageBtn = app.buttons["trends-history-coverage"]
+        for _ in 0..<3 where !coverageBtn.exists || !coverageBtn.isHittable {
+            app.swipeUp()
+        }
+        XCTAssertTrue(coverageBtn.waitForExistence(timeout: 5))
+        coverageBtn.tap()
         XCTAssertTrue(app.buttons["关闭"].waitForExistence(timeout: 5))
         app.buttons["关闭"].tap()
     }
@@ -109,7 +105,7 @@ final class BodySeekUITests: XCTestCase {
     func testDailyCheckInSheetFlow() {
         let app = launchApp()
         let card = app.buttons["today-checkin-card"]
-        if !card.waitForExistence(timeout: 6) || !card.isHittable {
+        for _ in 0..<5 where !card.exists || !card.isHittable {
             app.swipeUp()
         }
         XCTAssertTrue(card.waitForExistence(timeout: 8))
@@ -134,7 +130,7 @@ final class BodySeekUITests: XCTestCase {
 
         // 1. Today's advice follows the preview workout's completion time.
         let actionCard = app.otherElements["today-action-card"]
-        if !actionCard.waitForExistence(timeout: 6) || !actionCard.isHittable {
+        for _ in 0..<4 where !actionCard.exists || !actionCard.isHittable {
             app.swipeUp()
         }
         XCTAssertTrue(actionCard.waitForExistence(timeout: 6))
@@ -173,9 +169,14 @@ final class BodySeekUITests: XCTestCase {
         // 3. Nutrition is available from the tab bar and the Today card.
         tapTab("营养", in: app)
         XCTAssertTrue(app.buttons["nutrition-log-meal-button"].waitForExistence(timeout: 6))
+        let adviceCard = app.otherElements["nutrition-coach-advice-card"]
+        for _ in 0..<4 where !adviceCard.exists || !adviceCard.isHittable {
+            app.swipeUp()
+        }
+        XCTAssertTrue(adviceCard.waitForExistence(timeout: 5))
         tapTab("今日", in: app)
         let nutritionCard = app.buttons["today-nutrition-card"]
-        for _ in 0..<6 where !nutritionCard.isHittable {
+        for _ in 0..<6 where !nutritionCard.exists || !nutritionCard.isHittable {
             app.swipeUp()
         }
         XCTAssertTrue(nutritionCard.isHittable)
@@ -186,6 +187,12 @@ final class BodySeekUITests: XCTestCase {
         recordMeal.tap()
 
         let foodPick = app.buttons["nutrition-food-pick-rice_cooked"]
+        if !foodPick.waitForExistence(timeout: 2) {
+            let searchField = app.textFields["nutrition-meal-search"]
+            XCTAssertTrue(searchField.waitForExistence(timeout: 4))
+            searchField.tap()
+            searchField.typeText("米饭")
+        }
         XCTAssertTrue(foodPick.waitForExistence(timeout: 5))
         foodPick.tap()
         app.buttons["nutrition-meal-save-button"].tap()
@@ -198,13 +205,11 @@ final class BodySeekUITests: XCTestCase {
         let threeYBtn = app.buttons["trends-horizon-threeYears"]
         XCTAssertTrue(threeYBtn.waitForExistence(timeout: 5))
         threeYBtn.tap()
-        let explore = app.descendants(matching: .any)["trends-exploration"].firstMatch
-        for _ in 0..<4 where !explore.isHittable {
+        let patternsCard = app.otherElements["trends-patterns-card"]
+        for _ in 0..<12 where !patternsCard.exists || !patternsCard.isHittable {
             app.swipeUp()
         }
-        XCTAssertTrue(explore.isHittable)
-        explore.tap()
-        XCTAssertTrue(app.otherElements["trends-patterns-card"].waitForExistence(timeout: 5))
+        XCTAssertTrue(patternsCard.waitForExistence(timeout: 5))
     }
 
     func testNutritionBreakfastShowsDetailsWhenExpanded() {
@@ -539,7 +544,7 @@ final class BodySeekUITests: XCTestCase {
         tapTab("趋势", in: app)
         XCTAssertTrue(app.buttons["trends-horizon-month"].waitForExistence(timeout: 6))
 
-        func scrollDownUntil(_ element: XCUIElement, maxSwipes: Int = 10) -> Bool {
+        func scrollDownUntil(_ element: XCUIElement, maxSwipes: Int = 16) -> Bool {
             let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0.80))
             let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0.25))
             for _ in 0..<maxSwipes {
@@ -551,35 +556,33 @@ final class BodySeekUITests: XCTestCase {
             return element.exists && element.isHittable
         }
 
+        XCTAssertTrue(app.otherElements["trends-ai-insight-card"].waitForExistence(timeout: 5))
+
         let forecastCard = app.otherElements["trends-personal-forecast-card"]
-        XCTAssertFalse(forecastCard.exists)
-        let explore = app.descendants(matching: .any)["trends-exploration"].firstMatch
-        XCTAssertTrue(scrollDownUntil(explore))
-        explore.tap()
 
         // 1. CoreML Personal Forecast Card + non-diagnostic disclaimer
-        XCTAssertTrue(forecastCard.waitForExistence(timeout: 5))
         XCTAssertTrue(scrollDownUntil(forecastCard))
+        XCTAssertTrue(forecastCard.waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["身体预测"].exists)
         XCTAssertTrue(app.staticTexts["统计预测 · 非诊断"].exists)
 
-        // 2. Start 14-day N-of-1 Self-Experiment from template & verify persisted status
+        // 2. One-tap confirm an M4a candidate pattern -> promoted to Confirmed / Coach 记忆
+        let confirmPredicate = NSPredicate(format: "identifier BEGINSWITH 'trends-pattern-confirm-'")
+        let confirmBtn = app.buttons.matching(confirmPredicate).firstMatch
+        XCTAssertTrue(scrollDownUntil(confirmBtn))
+        XCTAssertTrue(confirmBtn.waitForExistence(timeout: 5))
+        confirmBtn.tap()
+
+        XCTAssertTrue(app.staticTexts["已确认"].waitForExistence(timeout: 5))
+
+        // 3. Start 14-day N-of-1 Self-Experiment from template & verify persisted status
         let startBtn = app.buttons["trends-nof1-start-early_bedtime_2330"]
-        XCTAssertTrue(startBtn.waitForExistence(timeout: 5))
         XCTAssertTrue(scrollDownUntil(startBtn))
+        XCTAssertTrue(startBtn.waitForExistence(timeout: 5))
         startBtn.tap()
 
         let completeBtn = app.buttons["trends-nof1-complete-early_bedtime_2330"]
         XCTAssertTrue(completeBtn.waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["进行中"].exists)
-
-        // 3. One-tap confirm an M4a candidate pattern -> promoted to Confirmed / Coach 记忆
-        let confirmPredicate = NSPredicate(format: "identifier BEGINSWITH 'trends-pattern-confirm-'")
-        let confirmBtn = app.buttons.matching(confirmPredicate).firstMatch
-        XCTAssertTrue(confirmBtn.waitForExistence(timeout: 5))
-        XCTAssertTrue(scrollDownUntil(confirmBtn))
-        confirmBtn.tap()
-
-        XCTAssertTrue(app.staticTexts["已确认"].waitForExistence(timeout: 5))
     }
 }

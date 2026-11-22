@@ -1,3 +1,4 @@
+import BodySeekAgent
 import BodySeekCore
 import BodySeekHealth
 import ComposableArchitecture
@@ -40,7 +41,13 @@ public struct TrendsFeature: Sendable {
                 }
             }
         }
-        public var patternFindings: [PatternFindingRecord] = []
+        public var patternFindings: [PatternFindingRecord] = [] {
+            didSet {
+                if oldValue != patternFindings {
+                    deterministicTrendSummary = buildDeterministicTrendSummary()
+                }
+            }
+        }
         public var experimentPlanItems: [PlanItemRecord] = [] {
             didSet {
                 if oldValue != experimentPlanItems {
@@ -50,6 +57,10 @@ public struct TrendsFeature: Sendable {
         }
         public var eatingAvailableDayKeys: Set<DayKey> = []
         public var personalForecast: PersonalForecastState
+        public var selectedForecastTargetName: String = "hrv_sdnn_ms"
+        public var aiInsightStatus: AIBriefingStatus = .idle
+        public var deterministicTrendSummary: String = ""
+        public var isPreviewMode: Bool
         public var lastError: String?
         public var chartCache: [TrendHorizon: [MetricKind: ChartSeriesSnapshot]]
         public var activeChartSnapshot: ChartSeriesSnapshot
@@ -115,7 +126,8 @@ public struct TrendsFeature: Sendable {
 
         public init(
             snapshot: BodySeekDashboardSnapshot,
-            precomputedCache: [TrendHorizon: [MetricKind: ChartSeriesSnapshot]]? = nil
+            precomputedCache: [TrendHorizon: [MetricKind: ChartSeriesSnapshot]]? = nil,
+            isPreviewMode: Bool = ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard")
         ) {
             let initialHorizon: TrendHorizon = .month
             let initialKind: MetricKind = .recovery
@@ -134,6 +146,7 @@ public struct TrendsFeature: Sendable {
                 historyDays: snapshot.historyDays,
                 referenceDate: snapshot.referenceDate
             )
+            self.isPreviewMode = isPreviewMode
             self.chartCache = resolvedCache
             self.activeChartSnapshot = slices.activeSnapshot
             self.allMetricSnapshots = slices.allSnapshots
@@ -143,6 +156,7 @@ public struct TrendsFeature: Sendable {
                 planItems: self.experimentPlanItems,
                 snapshot: snapshot
             )
+            self.deterministicTrendSummary = buildDeterministicTrendSummary()
         }
 
         public mutating func updateSnapshot(
@@ -172,6 +186,7 @@ public struct TrendsFeature: Sendable {
                 referenceDate: snapshot.referenceDate,
                 eatingAvailableDayKeys: eatingAvailableDayKeys
             )
+            self.deterministicTrendSummary = buildDeterministicTrendSummary()
         }
 
         private mutating func refreshActiveSlices() {
@@ -185,6 +200,31 @@ public struct TrendsFeature: Sendable {
             self.allMetricSnapshots = slices.allSnapshots
             self.activeSeries = slices.activeSeries
             self.allMetricSeries = slices.allSeries
+            self.deterministicTrendSummary = buildDeterministicTrendSummary()
+        }
+
+        public func buildDeterministicTrendSummary() -> String {
+            var parts: [String] = []
+            parts.append("\(horizon.title)\(selectedKind.title)：\(activeSeries.statusSummary)")
+
+            if let ratio = snapshot.trainingLoad.acwrRatio {
+                parts.append(String(format: "ACWR 负荷比 %.2f（%@）", ratio, snapshot.trainingLoad.zone.title))
+            }
+
+            if case let .available(forecast) = personalForecast,
+               let target = forecast.target(named: selectedForecastTargetName) ?? forecast.targets.first {
+                let predText: String = target.name == "sleep_efficiency"
+                    ? String(format: "%.1f%%", target.point * 100.0)
+                    : String(format: "%.1f %@", target.point, target.unit)
+                let topDriver = target.drivers.first.map { "，主要受「\($0.label)」影响" } ?? ""
+                parts.append("明日预测 \(target.title) \(predText)\(topDriver)")
+            }
+
+            let activePatterns = patternFindings.filter { $0.status != .dismissed }.count
+            if activePatterns > 0 {
+                parts.append("已捕捉 \(activePatterns) 项个人统计规律")
+            }
+            return parts.joined(separator: "；") + "。"
         }
 
         private struct DerivedSlices {
@@ -235,6 +275,10 @@ public struct TrendsFeature: Sendable {
         case confirmPatternTapped(PatternFindingRecord)
         case dismissPatternTapped(PatternFindingRecord)
         case patternUpdated(PatternFindingRecord, TieredMemoryRecord?)
+        case forecastTargetSelected(String)
+        case refreshAIInsightTapped
+        case aiInsightLoaded(AIBriefingStatus)
+        case askCoachTapped(String)
         case storeOperationFailed(String)
         case delegate(Delegate)
 
@@ -243,10 +287,12 @@ public struct TrendsFeature: Sendable {
             case openMetric(MetricKind, TrendHorizon)
             case patternFindingsUpdated([PatternFindingRecord])
             case tieredMemoryAdded(TieredMemoryRecord)
+            case askCoach(String)
         }
     }
 
     @Dependency(\.bodySeekStoreClient) var bodySeekStoreClient
+    @Dependency(\.coachAIClient) var coachAIClient
     @Dependency(\.date.now) var now
 
     public init() {}
@@ -388,6 +434,7 @@ public struct TrendsFeature: Sendable {
                 } else {
                     state.patternFindings.insert(finding, at: 0)
                 }
+                state.deterministicTrendSummary = state.buildDeterministicTrendSummary()
                 let updatedFindings = state.patternFindings
                 state.lastError = nil
                 if let newMemory {
@@ -397,6 +444,41 @@ public struct TrendsFeature: Sendable {
                     )
                 }
                 return .send(.delegate(.patternFindingsUpdated(updatedFindings)))
+
+            case let .forecastTargetSelected(targetName):
+                state.selectedForecastTargetName = targetName
+                state.deterministicTrendSummary = state.buildDeterministicTrendSummary()
+                return .none
+
+            case .refreshAIInsightTapped:
+                guard !state.isPreviewMode else {
+                    state.aiInsightStatus = .generated(text: state.deterministicTrendSummary, engineName: "预览模式")
+                    return .none
+                }
+                state.aiInsightStatus = .loading
+                let topic = "趋势、统计预测与个人规律解读"
+                let summary = state.deterministicTrendSummary
+                let patternNotes = state.patternFindings
+                    .filter { $0.status != .dismissed }
+                    .prefix(3)
+                    .map(\.statement)
+                    .joined(separator: "；")
+                let promptContext = "\(summary) \(patternNotes.isEmpty ? "" : "近期统计规律：\(patternNotes)。")"
+                let execContext = AgentExecutionContext(
+                    snapshot: state.snapshot,
+                    patternFindings: state.patternFindings
+                )
+                return .run { send in
+                    let status = await coachAIClient.generatePageInsight(topic, promptContext, execContext)
+                    await send(.aiInsightLoaded(status))
+                }
+
+            case let .aiInsightLoaded(status):
+                state.aiInsightStatus = status
+                return .none
+
+            case let .askCoachTapped(question):
+                return .send(.delegate(.askCoach(question)))
 
             case let .storeOperationFailed(message):
                 state.lastError = message

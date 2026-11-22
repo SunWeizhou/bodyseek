@@ -547,6 +547,9 @@ public struct AppFeature: Sendable {
                 }
                 return .none
 
+            case let .trends(.delegate(.askCoach(question))):
+                return routeToCoach(question: question, state: &state)
+
             case let .todayPath(.element(id: _, action: .delegate(.askCoach(question)))),
                  let .trendsPath(.element(id: _, action: .delegate(.askCoach(question)))):
                 return routeToCoach(question: question, state: &state, deferPathReset: true)

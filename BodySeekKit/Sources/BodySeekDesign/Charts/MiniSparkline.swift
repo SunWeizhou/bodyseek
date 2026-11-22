@@ -1,12 +1,20 @@
 import BodySeekCore
+import Charts
 import SwiftUI
 
-/// Lightweight high-framerate Canvas sparkline honoring `nil` gaps without linear bridging.
+/// Native Apple Swift Charts sparkline honoring `nil` gaps without linear bridging.
 public struct MiniSparkline: View {
     public let points: [(date: Date, value: Double?)]
     public let tint: Color
     public let baselineRange: ClosedRange<Double>?
     public let height: CGFloat
+
+    private struct SegmentPoint: Identifiable {
+        let id: Int
+        let segmentID: Int
+        let date: Date
+        let value: Double
+    }
 
     public init(
         points: [(date: Date, value: Double?)],
@@ -33,141 +41,161 @@ public struct MiniSparkline: View {
     }
 
     public var body: some View {
-        let sorted = points.sorted { $0.date < $1.date }
-        let validValues = sorted.compactMap { pt -> Double? in
-            guard let v = pt.value, v.isFinite else { return nil }
-            return v
-        }
+        let prepared = buildSegments()
 
-        if validValues.count < 2 {
+        if prepared.validValues.count < 2 {
             dashedPlaceholder
                 .frame(height: height)
         } else {
-            Canvas { context, size in
-                let paddingTop: CGFloat = 5
-                let paddingBottom: CGFloat = 4
-                let paddingHorizontal: CGFloat = 3
-                let plotW = max(1, size.width - paddingHorizontal * 2)
-                let plotH = max(1, size.height - paddingTop - paddingBottom)
+            let minVal = prepared.validValues.min() ?? 0
+            let maxVal = prepared.validValues.max() ?? 100
+            let baseline = baselineRange.map { BaselineBand(lower: $0.lowerBound, upper: $0.upperBound) }
+            let yDomain = ChartAxisSupport.smartYDomain(
+                values: prepared.validValues,
+                baseline: baseline,
+                clampRange: nil,
+                minSpan: max(2.0, (maxVal - minVal) * 0.22)
+            )
+            let multiRuns = prepared.runs.filter { $0.count >= 2 }.flatMap { $0 }
+            let singleRuns = prepared.runs.filter { $0.count == 1 }.flatMap { $0 }
+            let latestPoint = prepared.runs.last?.last
 
-                var minV = validValues.min() ?? 0
-                var maxV = validValues.max() ?? 100
+            Chart {
                 if let band = baselineRange {
-                    minV = min(minV, band.lowerBound)
-                    maxV = max(maxV, band.upperBound)
-                }
-                let rawSpan = maxV - minV
-                let paddedMin = minV - max(rawSpan * 0.14, 1.0)
-                let paddedMax = maxV + max(rawSpan * 0.14, 1.0)
-                let vSpan = max(1e-6, paddedMax - paddedMin)
-
-                let firstTime = sorted.first?.date.timeIntervalSince1970 ?? 0
-                let lastTime = sorted.last?.date.timeIntervalSince1970 ?? (firstTime + 1)
-                let tSpan = max(1.0, lastTime - firstTime)
-
-                func xPos(_ date: Date, index: Int) -> CGFloat {
-                    if lastTime > firstTime {
-                        let frac = (date.timeIntervalSince1970 - firstTime) / tSpan
-                        return paddingHorizontal + CGFloat(frac) * plotW
-                    }
-                    let frac = Double(index) / Double(max(1, sorted.count - 1))
-                    return paddingHorizontal + CGFloat(frac) * plotW
-                }
-
-                func yPos(_ val: Double) -> CGFloat {
-                    let frac = (val - paddedMin) / vSpan
-                    return paddingTop + plotH * (1.0 - CGFloat(frac))
-                }
-
-                if let band = baselineRange {
-                    let yHigh = yPos(band.upperBound)
-                    let yLow = yPos(band.lowerBound)
-                    let bandRect = CGRect(
-                        x: paddingHorizontal,
-                        y: min(yHigh, yLow),
-                        width: plotW,
-                        height: max(1, abs(yLow - yHigh))
+                    let clampedLow = min(yDomain.upperBound, max(yDomain.lowerBound, band.lowerBound))
+                    let clampedHigh = max(clampedLow, min(yDomain.upperBound, band.upperBound))
+                    RectangleMark(
+                        yStart: .value("基线下", clampedLow),
+                        yEnd: .value("基线上", clampedHigh)
                     )
-                    context.fill(Path(bandRect), with: .color(tint.opacity(0.09)))
+                    .foregroundStyle(tint.opacity(0.09))
                 }
 
-                // Split into contiguous valid runs so missing days create genuine gaps
-                var runs: [[CGPoint]] = []
-                var currentRun: [CGPoint] = []
-                for (index, item) in sorted.enumerated() {
-                    if let val = item.value, val.isFinite {
-                        currentRun.append(CGPoint(x: xPos(item.date, index: index), y: yPos(val)))
-                    } else if !currentRun.isEmpty {
-                        runs.append(currentRun)
-                        currentRun = []
-                    }
-                }
-                if !currentRun.isEmpty {
-                    runs.append(currentRun)
-                }
-
-                let bottomY = paddingTop + plotH
-                for run in runs where run.count >= 2 {
-                    var line = Path()
-                    line.move(to: run[0])
-                    for idx in 1..<run.count {
-                        let prev = run[idx - 1]
-                        let curr = run[idx]
-                        let midX = (prev.x + curr.x) / 2
-                        line.addCurve(
-                            to: curr,
-                            control1: CGPoint(x: midX, y: prev.y),
-                            control2: CGPoint(x: midX, y: curr.y)
-                        )
-                    }
-
-                    var area = line
-                    if let lastPt = run.last, let firstPt = run.first {
-                        area.addLine(to: CGPoint(x: lastPt.x, y: bottomY))
-                        area.addLine(to: CGPoint(x: firstPt.x, y: bottomY))
-                        area.closeSubpath()
-                        context.fill(
-                            area,
-                            with: .linearGradient(
-                                Gradient(colors: [tint.opacity(0.22), tint.opacity(0.0)]),
-                                startPoint: CGPoint(x: 0, y: paddingTop),
-                                endPoint: CGPoint(x: 0, y: bottomY)
-                            )
-                        )
-                    }
-
-                    context.stroke(
-                        line,
-                        with: .color(tint),
-                        style: StrokeStyle(lineWidth: 2.0, lineCap: .round, lineJoin: .round)
+                ForEach(multiRuns) { pt in
+                    AreaMark(
+                        x: .value("日期", pt.date),
+                        yStart: .value("底", yDomain.lowerBound),
+                        yEnd: .value("数值", pt.value),
+                        series: .value("段", pt.segmentID)
                     )
+                    .interpolationMethod(.monotone)
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [tint.opacity(0.22), tint.opacity(0.0)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+
+                    LineMark(
+                        x: .value("日期", pt.date),
+                        y: .value("数值", pt.value),
+                        series: .value("段", pt.segmentID)
+                    )
+                    .interpolationMethod(.monotone)
+                    .lineStyle(StrokeStyle(lineWidth: 2.0, lineCap: .round, lineJoin: .round))
+                    .foregroundStyle(tint)
                 }
 
-                for run in runs where run.count == 1 {
-                    let pt = run[0]
-                    let dot = Path(ellipseIn: CGRect(x: pt.x - 2, y: pt.y - 2, width: 4, height: 4))
-                    context.fill(dot, with: .color(tint))
+                ForEach(singleRuns) { pt in
+                    PointMark(
+                        x: .value("日期", pt.date),
+                        y: .value("数值", pt.value)
+                    )
+                    .symbolSize(16)
+                    .foregroundStyle(tint)
                 }
 
-                if let lastRun = runs.last, let endpoint = lastRun.last {
-                    let halo = Path(ellipseIn: CGRect(x: endpoint.x - 4.5, y: endpoint.y - 4.5, width: 9, height: 9))
-                    context.fill(halo, with: .color(tint.opacity(0.22)))
-                    let dot = Path(ellipseIn: CGRect(x: endpoint.x - 2.6, y: endpoint.y - 2.6, width: 5.2, height: 5.2))
-                    context.fill(dot, with: .color(tint))
+                if let latestPoint {
+                    PointMark(
+                        x: .value("最新", latestPoint.date),
+                        y: .value("最新值", latestPoint.value)
+                    )
+                    .symbol {
+                        ZStack {
+                            Circle()
+                                .fill(tint.opacity(0.22))
+                                .frame(width: 10, height: 10)
+                            Circle()
+                                .fill(tint)
+                                .overlay(
+                                    Circle()
+                                        .strokeBorder(BevelTheme.card, lineWidth: 1.2)
+                                )
+                                .frame(width: 5.5, height: 5.5)
+                        }
+                    }
                 }
+            }
+            .chartYScale(domain: yDomain)
+            .chartXScale(domain: prepared.xDomain)
+            .chartXAxis(.hidden)
+            .chartYAxis(.hidden)
+            .chartPlotStyle { plot in
+                plot.background(.clear)
             }
             .frame(height: height)
         }
     }
 
-    private var dashedPlaceholder: some View {
-        GeometryReader { geo in
-            Path { p in
-                p.move(to: CGPoint(x: 0, y: geo.size.height / 2))
-                p.addLine(to: CGPoint(x: geo.size.width, y: geo.size.height / 2))
+    private func buildSegments() -> (
+        runs: [[SegmentPoint]],
+        validValues: [Double],
+        xDomain: ClosedRange<Date>
+    ) {
+        let sorted = points.sorted { $0.date < $1.date }
+        let firstDate = sorted.first?.date ?? Date()
+        let lastDate = sorted.last?.date ?? firstDate
+        let needsSyntheticSpacing = sorted.count > 1 && lastDate <= firstDate
+
+        var runs: [[SegmentPoint]] = []
+        var currentRun: [SegmentPoint] = []
+        var validValues: [Double] = []
+        var segmentID = 0
+        var nextID = 0
+
+        for (index, item) in sorted.enumerated() {
+            let xDate = needsSyntheticSpacing
+                ? firstDate.addingTimeInterval(Double(index) * 3600)
+                : item.date
+            if let val = item.value, val.isFinite {
+                if currentRun.isEmpty {
+                    segmentID += 1
+                }
+                nextID += 1
+                validValues.append(val)
+                currentRun.append(SegmentPoint(id: nextID, segmentID: segmentID, date: xDate, value: val))
+            } else if !currentRun.isEmpty {
+                runs.append(currentRun)
+                currentRun = []
             }
-            .stroke(style: StrokeStyle(lineWidth: 1.4, dash: [5, 4]))
-            .foregroundStyle(BevelTheme.inkSecondary.opacity(0.4))
         }
+        if !currentRun.isEmpty {
+            runs.append(currentRun)
+        }
+
+        let xDomain: ClosedRange<Date>
+        if let first = sorted.first?.date {
+            let resolvedLast = needsSyntheticSpacing
+                ? first.addingTimeInterval(Double(max(1, sorted.count - 1)) * 3600)
+                : max(lastDate, first.addingTimeInterval(3600))
+            xDomain = first...resolvedLast
+        } else {
+            let now = Date()
+            xDomain = now.addingTimeInterval(-3600)...now
+        }
+
+        return (runs, validValues, xDomain)
+    }
+
+    private var dashedPlaceholder: some View {
+        Rectangle()
+            .fill(.clear)
+            .overlay {
+                Capsule()
+                    .strokeBorder(style: StrokeStyle(lineWidth: 1.4, dash: [5, 4]))
+                    .foregroundStyle(BevelTheme.inkSecondary.opacity(0.4))
+                    .frame(height: 1.5)
+            }
     }
 }

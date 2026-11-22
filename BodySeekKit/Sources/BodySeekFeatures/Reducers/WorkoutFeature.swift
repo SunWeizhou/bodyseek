@@ -260,6 +260,7 @@ public struct WorkoutFeature: Sendable {
         case workoutPersistFailed(String)
         case templatePersistFailed(String)
         case askCoachForMuscleTapped(BodyRegionMuscle?)
+        case askCoachTapped(String)
         case openTrendsTapped
         case clearStatusBanner
         case delegate(Delegate)
@@ -886,6 +887,9 @@ public struct WorkoutFeature: Sendable {
                     return .send(.delegate(.askCoach("结合我今天的恢复状态和 ACWR 负荷比，帮我安排一组针对「\(muscle.title)」的训练")))
                 }
                 return .send(.delegate(.askCoach("根据我今天的恢复评分、最近肌肉负荷和 ACWR 负荷比，帮我安排今日训练")))
+
+            case let .askCoachTapped(question):
+                return .send(.delegate(.askCoach(question)))
 
             case .openTrendsTapped:
                 return .send(.delegate(.openTrends))

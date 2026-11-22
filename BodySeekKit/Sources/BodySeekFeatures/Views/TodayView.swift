@@ -337,9 +337,9 @@ public struct TodayView: View {
                         .accessibilityIdentifier("today-ask-coach-button")
                     }
 
-                    if hasAISuggestion {
+                    if postWorkoutAdvice == nil, hasAISuggestion {
                         aiSuggestion
-                        if postWorkoutAdvice != nil || primary != nil {
+                        if primary != nil {
                             Divider()
                         }
                     }

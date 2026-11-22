@@ -254,6 +254,148 @@ final class BodySeekChartTests: XCTestCase {
         }
     }
 
+    func testWave2WorkbenchChartsRenderAcrossAllMatrixStates() {
+        let now = refDate
+        let raw40 = PreviewSeedFactory.makeRawWindow(endingAt: now, days: 40, calendar: calendar)
+        let snap40 = BevelScoringEngine.computeWindow(
+            rawDays: raw40,
+            sleepGoalMinutes: 450,
+            referenceDate: now,
+            sourceLabel: "Wave2ChartTest",
+            isAuthorized: true,
+            calendar: calendar
+        )
+        let forecastState = PersonalForecasterEngine.forecast(
+            historyDays: snap40.historyDays,
+            referenceDate: now
+        )
+        let sampleTarget: PersonalForecastTargetResult = {
+            if case let .available(summary) = forecastState, let first = summary.targets.first {
+                return first
+            }
+            return PersonalForecastTargetResult(
+                name: "hrv_sdnn_ms",
+                title: "HRV",
+                unit: "ms",
+                point: 48.0,
+                interval80Low: 40.0,
+                interval80High: 56.0,
+                interval90Low: 36.0,
+                interval90High: 60.0,
+                walkForwardBestBaseline: "roll7",
+                walkForwardMAE: 5.2,
+                walkForwardCov80: 0.81,
+                drivers: [
+                    PersonalForecastDriver(id: "hrv", label: "HRV 节律", contribution: 3.1, unit: "ms"),
+                    PersonalForecastDriver(id: "sleep", label: "昨夜睡眠与效率", contribution: -1.4, unit: "ms"),
+                ]
+            )
+        }()
+        let sampleHistory: [(date: Date, value: Double)] = snap40.historyDays.suffix(14).compactMap { day in
+            day.raw.hrvMs.map { (day.date, $0) }
+        }
+        let sampleDays14 = Array(snap40.historyDays.suffix(14))
+        let patterns = M4APersonalPatternSeeds.defaultCandidates()
+        let emptyLoad = TrainingLoadStatus(acute7dLoad: 0, chronic28dWeeklyAvg: 0, acwrRatio: nil, zone: .insufficientData)
+        let extremeLoad = TrainingLoadStatus(acute7dLoad: 920, chronic28dWeeklyAvg: 520, acwrRatio: 1.77, zone: .highRisk)
+
+        enum Variant: String, CaseIterable {
+            case normal, sparse, empty, extreme, ax5, dark
+        }
+
+        func apply<V: View>(_ view: V, _ variant: Variant) -> AnyView {
+            switch variant {
+            case .ax5:
+                AnyView(view.environment(\.dynamicTypeSize, .accessibility5))
+            case .dark:
+                AnyView(view.environment(\.colorScheme, .dark))
+            case .normal, .sparse, .empty, .extreme:
+                AnyView(view.environment(\.colorScheme, .light))
+            }
+        }
+
+        for variant in Variant.allCases {
+            // 1. TrainingLoadDashboardCard
+            let loadStatus: TrainingLoadStatus = switch variant {
+            case .empty: emptyLoad
+            case .extreme: extremeLoad
+            case .normal, .sparse, .ax5, .dark: snap40.trainingLoad
+            }
+            let loadDays: [DailyComputedDay] = switch variant {
+            case .empty: []
+            case .sparse: Array(sampleDays14.prefix(3))
+            case .normal, .extreme, .ax5, .dark: sampleDays14
+            }
+            XCTAssertNotNil(
+                renderCGImage(
+                    apply(
+                        TrainingLoadDashboardCard(
+                            load: loadStatus,
+                            recentDays: loadDays,
+                            coachMicroInsight: "ACWR 甜蜜推进区 · 上肢已基本恢复",
+                            onOpenTrends: {},
+                            onAskCoach: {}
+                        ),
+                        variant
+                    ),
+                    height: 440
+                ),
+                "TrainingLoadDashboardCard failed for \(variant.rawValue)"
+            )
+
+            // 2. ForecastFanChart
+            let fanHistory: [(date: Date, value: Double)] = switch variant {
+            case .empty: []
+            case .sparse: Array(sampleHistory.prefix(2))
+            case .normal, .extreme, .ax5, .dark: sampleHistory
+            }
+            XCTAssertNotNil(
+                renderCGImage(
+                    apply(
+                        ForecastFanChart(
+                            target: sampleTarget,
+                            historyPoints: fanHistory,
+                            targetDate: now.addingTimeInterval(86_400),
+                            tint: BevelTheme.recoveryColor
+                        ),
+                        variant
+                    ),
+                    height: 240
+                ),
+                "ForecastFanChart failed for \(variant.rawValue)"
+            )
+
+            // 3. FeatureAttributionChart
+            let drivers: [PersonalForecastDriver] = switch variant {
+            case .empty: []
+            case .sparse: Array(sampleTarget.drivers.prefix(1))
+            case .normal, .extreme, .ax5, .dark: sampleTarget.drivers
+            }
+            let attrTargetName = variant == .extreme ? "resting_hr_bpm" : sampleTarget.name
+            XCTAssertNotNil(
+                renderCGImage(
+                    apply(FeatureAttributionChart(drivers: drivers, targetName: attrTargetName), variant),
+                    height: 180
+                ),
+                "FeatureAttributionChart failed for \(variant.rawValue)"
+            )
+
+            // 4. PatternForestChart
+            let findingInput: [PatternFindingRecord] = switch variant {
+            case .empty: []
+            case .sparse: Array(patterns.prefix(1))
+            case .normal, .extreme, .ax5, .dark: patterns
+            }
+            XCTAssertNotNil(
+                renderCGImage(
+                    apply(PatternForestChart(findings: findingInput), variant),
+                    height: 210
+                ),
+                "PatternForestChart failed for \(variant.rawValue)"
+            )
+        }
+    }
+
     func testFeatureLayerHasNoDirectChartsOrRemovedThirdPartyImportsOrPermanentLoops() throws {
         let fileURL = URL(fileURLWithPath: #filePath)
         let bodySeekKitRoot = fileURL
