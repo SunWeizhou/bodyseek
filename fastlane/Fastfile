@@ -10,15 +10,21 @@
 #   APP_STORE_CONNECT_KEY_ID
 #   FASTLANE_TEAM_ID
 #
-# 说明：当前仓库无 release 流水线；本文件为最小可用骨架，
-# beta lane 会发布 Debug-iphoneos 构建并上传 TestFlight（首次需在 App Store
-# Connect 完成协议/税务并创建 App 记录）。
+# 说明：beta lane 使用 Release 配置归档，并在上传前注入、校验构建号与
+# 发布签名（不允许 get-task-allow）。首次需在 App Store Connect 完成协议/税务
+# 并创建 App 记录。
 
 default_platform(:ios)
 
 platform :ios do
-  desc "构建并上传 TestFlight"
+  desc "构建并上传 TestFlight（Release + 注入并校验构建号）"
   lane :beta do
+    build_number = ENV["BUILD_NUMBER"] ||
+      Time.now.utc.strftime("%Y%m%d%H%M").to_i.to_s
+    UI.user_error!("BUILD_NUMBER 必须是正整数：#{build_number}") unless build_number.match?(/\A[1-9][0-9]*\z/)
+    marketing_version = ENV["MARKETING_VERSION"] || "4.0.0"
+    derived_data = File.expand_path("~/Developer/Vela-DerivedData")
+
     api_key = app_store_connect_api_key(
       key_id: ENV.fetch("APP_STORE_CONNECT_KEY_ID"),
       issuer_id: ENV.fetch("APP_STORE_CONNECT_ISSUER_ID"),
@@ -28,14 +34,28 @@ platform :ios do
 
     build_app(
       scheme: "Vela",
-      configuration: "Debug",
-      derived_data_path: "~/Developer/Vela-DerivedData",
+      configuration: "Release",
+      derived_data_path: derived_data,
       export_method: "app-store",
       skip_package_dependencies: false,
       xcargs: {
-        "CODE_SIGN_STYLE" => "Automatic"
+        "CODE_SIGN_STYLE" => "Automatic",
+        "CURRENT_PROJECT_VERSION" => build_number,
+        "MARKETING_VERSION" => marketing_version
       }
     )
+
+    app_path = File.join(
+      derived_data,
+      "Build/Products/Release-iphoneos/Vela.app"
+    )
+    UI.user_error!("Release 产物不存在：#{app_path}") unless File.exist?(app_path)
+    actual_build = sh("/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' '#{app_path}/Info.plist'").strip
+    UI.user_error!("构建号未注入：期望 #{build_number}，实际 #{actual_build}") unless actual_build == build_number
+    actual_marketing = sh("/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' '#{app_path}/Info.plist'").strip
+    UI.user_error!("版本号不匹配：期望 #{marketing_version}，实际 #{actual_marketing}") unless actual_marketing == marketing_version
+    entitlements = sh("codesign -d --entitlements :- '#{app_path}' 2>&1")
+    UI.user_error!("Release 产物仍带 get-task-allow，不能上传 TestFlight") if entitlements.include?("get-task-allow")
 
     pilot(
       app_identifier: "com.sunweizhou.Vela4",
