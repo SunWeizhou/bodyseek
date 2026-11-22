@@ -536,12 +536,25 @@ private struct DraftRow: Identifiable {
     func entry(day: DayKey) -> MealEntry {
         var entry = estimatedEntry(day: day)
         var supplied: [String] = []
-        var estimatedIDs: Set<String> = []
+        var estimatedIDs = entry.aiEstimatedNutrientIDs ?? []
         if let factor = estimateScale {
             for nutrient in DraftNutrient.additional where entry[keyPath: nutrient.keyPath] == nil {
                 guard let estimate = additionalEstimates[nutrient.metricID] else { continue }
                 entry[keyPath: nutrient.keyPath] = estimate * factor
                 estimatedIDs.insert(nutrient.metricID)
+            }
+        }
+        if isEstimatedPortion {
+            // 份量本身是 AI 粗估时，按该份量换算出的所有营养值都只能算估算，
+            // 不能进入确认达标口径。
+            if entry.kcal != nil { estimatedIDs.insert("diet_kcal") }
+            if entry.proteinG != nil { estimatedIDs.insert("diet_protein_g") }
+            if entry.carbsG != nil { estimatedIDs.insert("diet_carbs_g") }
+            if entry.fatG != nil { estimatedIDs.insert("diet_fat_g") }
+            for id in MealEntry.additionalNutrientIDs {
+                guard let keyPath = MealEntry.additionalNutrientKeyPath(id),
+                      entry[keyPath: keyPath] != nil else { continue }
+                estimatedIDs.insert(id)
             }
         }
         for nutrient in DraftNutrient.basic + DraftNutrient.additional {
@@ -557,8 +570,10 @@ private struct DraftRow: Identifiable {
         }
         if !estimatedIDs.isEmpty {
             entry.aiEstimatedNutrientIDs = estimatedIDs
-            let detail = "部分额外营养指标为 AI 粗估。"
+            let detail = "部分营养指标为 AI 粗估，仅作方向参考。"
             entry.estimationNote = entry.estimationNote.map { $0 + " " + detail } ?? detail
+        } else {
+            entry.aiEstimatedNutrientIDs = nil
         }
         return entry
     }
@@ -591,20 +606,26 @@ private struct DraftRow: Identifiable {
             entry.foodName = name
             entry.estimationNote = "可匹配的数据由 \(food.sourceName) 换算。"
             var usedFallback = false
+            var aiIDs = Set<String>()
             if entry.kcal == nil, let estimate {
                 entry.kcal = estimate.midpointKcal
                 entry.energyEstimate = estimate
+                aiIDs.insert("diet_kcal")
                 usedFallback = true
             }
-            let macroValues: [(WritableKeyPath<MealEntry, Double?>, Double?)] = [
-                (\.proteinG, macros?.proteinG), (\.carbsG, macros?.carbsG), (\.fatG, macros?.fatG)
+            let macroValues: [(WritableKeyPath<MealEntry, Double?>, Double?, String)] = [
+                (\.proteinG, macros?.proteinG, "diet_protein_g"),
+                (\.carbsG, macros?.carbsG, "diet_carbs_g"),
+                (\.fatG, macros?.fatG, "diet_fat_g"),
             ]
-            for (field, value) in macroValues where entry[keyPath: field] == nil {
+            for (field, value, metricID) in macroValues where entry[keyPath: field] == nil {
                 guard let value else { continue }
                 entry[keyPath: field] = value * factor
+                aiIDs.insert(metricID)
                 usedFallback = true
             }
             if usedFallback { entry.estimationNote = (entry.estimationNote ?? "") + "食物库缺项由 AI 粗估补充。" }
+            entry.aiEstimatedNutrientIDs = aiIDs.isEmpty ? nil : aiIDs
             return entry
         }
         var entry = MealEntry(
@@ -620,6 +641,12 @@ private struct DraftRow: Identifiable {
             recordedAt: recordedAt
         )
         entry.energyEstimate = estimate
+        var aiIDs = Set<String>()
+        if entry.kcal != nil { aiIDs.insert("diet_kcal") }
+        if entry.proteinG != nil { aiIDs.insert("diet_protein_g") }
+        if entry.carbsG != nil { aiIDs.insert("diet_carbs_g") }
+        if entry.fatG != nil { aiIDs.insert("diet_fat_g") }
+        entry.aiEstimatedNutrientIDs = aiIDs.isEmpty ? nil : aiIDs
         return entry
     }
 }

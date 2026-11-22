@@ -287,6 +287,13 @@ public struct NutritionBoardView: View {
                     .buttonStyle(.plain)
                     .disabled(store.isSaving)
                     .accessibilityIdentifier("nutrition-close-day-button")
+
+                    if let partial = log?.dietPartialFields, !partial.isEmpty {
+                        Text("还有 \(partial.count) 餐缺少热量或宏量营养素；结账后仍不会判定达标，补齐后才会参与四态评价。")
+                            .font(.caption2)
+                            .foregroundStyle(BevelTheme.inkSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
             }
         }
@@ -443,7 +450,11 @@ public struct NutritionBoardView: View {
         let dateLabel = day.year == store.todayKey.year
             ? "\(day.month) 月 \(day.day) 日"
             : day.isoString
-        let status = log?.dietDayComplete == true ? "已完成记录" : "记录未完成"
+        let status: String = {
+            guard log?.dietDayComplete == true else { return "记录未完成" }
+            let partial = log?.dietPartialFields ?? []
+            return partial.isEmpty ? "已完成记录" : "已结账 · \(partial.count) 餐有缺项"
+        }()
 
         return BevelCard {
             VStack(alignment: .leading, spacing: 12) {
@@ -625,7 +636,9 @@ public struct NutritionBoardView: View {
                         HStack(spacing: 4) {
                             ForEach(items.prefix(5), id: \.metricID) { avg in
                                 Circle()
-                                    .fill(BevelTheme.nutritionColor(for: avg.status))
+                                    .fill(avg.isEstimateOnly
+                                          ? BevelTheme.inkSecondary.opacity(0.55)
+                                          : BevelTheme.nutritionColor(for: avg.status))
                                     .frame(width: 7, height: 7)
                             }
                         }
@@ -641,11 +654,14 @@ public struct NutritionBoardView: View {
                         let dayEval = NutritionTargetEvaluator.evaluate(
                             metricID: avg.metricID,
                             log: selectedLog,
-                            validatedPlan: store.periodSummary.validatedPlan
+                            validatedPlan: store.periodSummary.validatedPlan,
+                            allowEstimates: true
                         )
                         HStack(alignment: .top, spacing: 8) {
                             Circle()
-                                .fill(BevelTheme.nutritionColor(for: dayEval.status))
+                                .fill(dayEval.isEstimated
+                                      ? BevelTheme.inkSecondary.opacity(0.55)
+                                      : BevelTheme.nutritionColor(for: dayEval.status))
                                 .frame(width: 9, height: 9)
                                 .padding(.top, 5)
 
@@ -654,6 +670,14 @@ public struct NutritionBoardView: View {
                                     Text(avg.metricName)
                                         .font(.caption.weight(.semibold))
                                         .foregroundStyle(BevelTheme.ink)
+                                    if dayEval.isEstimated {
+                                        Text("估算")
+                                            .font(.caption2.weight(.semibold))
+                                            .padding(.horizontal, 5)
+                                            .padding(.vertical, 1)
+                                            .background(BevelTheme.surfaceElevated, in: Capsule())
+                                            .foregroundStyle(BevelTheme.inkSecondary)
+                                    }
                                     Spacer()
                                     let prefix = selectedLog?.entries.contains { $0.aiEstimatedNutrientIDs?.contains(avg.metricID) == true } == true ? "约 " : ""
                                     Text(dayEval.value.map { "\(prefix)\(formatMetric($0)) \(dayEval.displayUnit)" } ?? "--")
@@ -661,7 +685,9 @@ public struct NutritionBoardView: View {
                                         .fontDesign(.rounded)
                                         .foregroundStyle(BevelTheme.ink)
                                 }
-                                Text("\(dayEval.reason) · 周期均值 \(avg.averageValue.map { "\(formatMetric($0))\(avg.unit)" } ?? "--")")
+                                let periodValue = avg.averageValue ?? avg.estimatedAverageValue
+                                let periodPrefix = avg.isEstimateOnly ? "估算 " : ""
+                                Text("\(dayEval.isEstimated ? "估算 \(dayEval.status.label)（参考）" : dayEval.status.label) · \(dayEval.reason)\(dayEval.isEstimated ? " · AI 估算，仅方向参考" : "") · 周期均值 \(periodPrefix)\(periodValue.map { "\(formatMetric($0))\(avg.unit)" } ?? "--")")
                                     .font(.caption2)
                                     .foregroundStyle(BevelTheme.inkSecondary)
                             }
