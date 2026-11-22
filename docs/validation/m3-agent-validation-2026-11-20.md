@@ -417,7 +417,7 @@
 - **P1 联网开关保存草稿**：`webSearchToggled` 只读取已保存 config 后更新开关字段，不再把未提交的 endpoint/model 一并写入。新增草稿模型名不被持久化回归。
 - **P2 实验提前结束**：`NOfOneExperimentRecord` 新增 `endedAtDayKey`；结束时写回 payload，评估在 `endDayKey` 截断。新增归档后不再吸收后续观测回归。
 - **P2 食物搜索旧结果**：搜索维护 request ID + query，回包核对当前请求；搜索失败使用独立 `foodSearchError`，不再复用保存失败事件或改 `isSaving`；初始库加载不会覆盖进行中的搜索。新增旧结果覆盖回归。
-- **P2 TestFlight**：beta lane 改用 Release，注入/校验 `BUILD_NUMBER` 和 `MARKETING_VERSION`，校验产物 Info.plist 与 `get-task-allow` 不存在；`ruby -c fastlane/Fastfile` 通过。
+- **P2 TestFlight**：beta lane 改用 Release，注入/校验 `BUILD_NUMBER` 和 `MARKETING_VERSION`，校验导出 IPA 的 Info.plist 构建号/版本与 `get-task-allow` 不存在；`ruby -c fastlane/Fastfile` 通过，正式归档未执行。
 
 验证：
 

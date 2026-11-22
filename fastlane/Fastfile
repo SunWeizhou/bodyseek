@@ -45,17 +45,20 @@ platform :ios do
       }
     )
 
-    app_path = File.join(
-      derived_data,
-      "Build/Products/Release-iphoneos/Vela.app"
-    )
-    UI.user_error!("Release 产物不存在：#{app_path}") unless File.exist?(app_path)
+    # 校验导出的 IPA，而不是未导出的 Release-iphoneos 中间产物：
+    # 后者在自动签名阶段可能仍带 development entitlement，导出 app-store 后才会重签。
+    ipa_path = lane_context[SharedValues::IPA_OUTPUT_PATH]
+    UI.user_error!("未找到导出的 IPA 产物") unless ipa_path && File.exist?(ipa_path)
+    verify_dir = "/tmp/vela-testflight-verify"
+    sh("rm -rf '#{verify_dir}' && mkdir -p '#{verify_dir}' && unzip -q '#{ipa_path}' -d '#{verify_dir}'")
+    app_path = "#{verify_dir}/Payload/Vela.app"
+    UI.user_error!("IPA 内缺少 Vela.app") unless File.exist?("#{app_path}/Info.plist")
     actual_build = sh("/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' '#{app_path}/Info.plist'").strip
     UI.user_error!("构建号未注入：期望 #{build_number}，实际 #{actual_build}") unless actual_build == build_number
     actual_marketing = sh("/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' '#{app_path}/Info.plist'").strip
     UI.user_error!("版本号不匹配：期望 #{marketing_version}，实际 #{actual_marketing}") unless actual_marketing == marketing_version
     entitlements = sh("codesign -d --entitlements :- '#{app_path}' 2>&1")
-    UI.user_error!("Release 产物仍带 get-task-allow，不能上传 TestFlight") if entitlements.include?("get-task-allow")
+    UI.user_error!("导出的 IPA 仍带 get-task-allow，不能上传 TestFlight") if entitlements.include?("get-task-allow")
 
     pilot(
       app_identifier: "com.sunweizhou.Vela4",
