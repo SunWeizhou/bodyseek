@@ -91,6 +91,11 @@ jobs:
         run: |
           python3 scripts/check_fixed_fonts.py
 
+      - name: Design system gate (report-only, V6 baseline)
+        shell: bash
+        run: |
+          python3 scripts/check_design_system.py || true
+
       - name: SwiftLint (report-only, skip if unavailable)
         shell: bash
         run: |

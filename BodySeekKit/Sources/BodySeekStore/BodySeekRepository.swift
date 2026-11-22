@@ -2180,6 +2180,8 @@ public final class BodySeekRepository: Sendable {
     public func resetAll() async throws {
         try await database.writer.write { db in
             let tables = [
+                "brief_feedback",
+                "daily_brief",
                 "action_audit",
                 "meal_entry",
                 "daily_nutrition_log",

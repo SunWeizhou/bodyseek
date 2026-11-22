@@ -1,5 +1,7 @@
 # BodySeek Design Language — Native Apple Rhythm
 
+> **Superseded by [docs/design/design-system.md](design/design-system.md)（2026-11-22）。** 以下正文保留供追溯，不再作为现行设计依据。
+
 > Status: Canonical
 > Last verified: 2026-11-16
 > Scope: BodySeek iOS 26 原生视觉系统、Bevel 启发色彩与材质、排版字阶、多维可视化规范与品牌标识

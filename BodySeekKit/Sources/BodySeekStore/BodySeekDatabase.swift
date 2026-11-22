@@ -477,6 +477,38 @@ public final class BodySeekDatabase: Sendable {
                 """)
         }
 
+        // V6（ADR 0020 / 0021）：每日简报、简报反馈，以及动作层需要的审计扩展列。
+        // 训练模板、训练记录、记忆、Coach 消息在 v1 就已经落在 GRDB（`workout_template`、
+        // `logged_workout_session`、`memory`、`coach_message`），不需要新列。
+        migrator.registerMigration("v7_daily_brief_and_action_layer") { db in
+            try db.create(table: "daily_brief") { t in
+                t.column("day_key", .text).notNull()
+                t.column("inputs_digest", .text).notNull()
+                t.column("generated_at", .double).notNull()
+                t.column("engine", .text).notNull()
+                t.column("headline", .text).notNull()
+                t.column("payload_json", .text).notNull()
+                t.column("is_stale", .integer).notNull().defaults(to: 0)
+                t.primaryKey(["day_key", "inputs_digest"])
+            }
+            try db.create(index: "idx_daily_brief_day", on: "daily_brief", columns: ["day_key", "generated_at"])
+
+            try db.create(table: "brief_feedback") { t in
+                t.column("id", .text).primaryKey()
+                t.column("day_key", .text).notNull()
+                t.column("rating", .text).notNull()
+                t.column("created_at", .double).notNull()
+                t.column("note", .text)
+            }
+            try db.create(index: "idx_brief_feedback_day", on: "brief_feedback", columns: ["day_key", "created_at"])
+
+            try db.alter(table: "action_audit") { table in
+                table.add(column: "risk_level", .text)
+                table.add(column: "source", .text)
+                table.add(column: "undo_deadline", .double)
+            }
+        }
+
         return migrator
     }
 }

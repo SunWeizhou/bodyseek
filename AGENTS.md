@@ -12,3 +12,12 @@
 - GitHub Issue、分支、PR 和交接必须遵循 `docs/collaboration/GITHUB_WORKFLOW.md`；每项工作记录 HEAD、dirty 状态、验证命令、退出码和未验证风险。
 
 - 新机器或 UI 开发者首次接手，先读 `docs/collaboration/ONBOARDING.md`。根目录不再放旧主开发提示。`Features` 下的 Store、ViewState、数据投影仍属共享边界，具体见 `docs/collaboration/UI_WORKFLOW.md`。
+
+## V6 开发规则
+
+- 权威顺序在 PRD、CONTEXT、ADR 之外，加入 [V6 蓝图](docs/design/v6-blueprint.md) → [设计系统](docs/design/design-system.md) → [数据可视化规范](docs/design/dataviz.md) → [ADR 0020](docs/adr/0020-coach-autonomy-and-action-layer.md) / [ADR 0021](docs/adr/0021-body-model-layers-and-daily-brief.md)。0020/0021 是目标结构，按蓝图阶段落地，落地前代码仍按 V5 行为。
+- `BodySeekFeatures` 里禁止直接写间距、圆角、不透明度、尺寸数字和 hex 颜色，只能使用 `BS*` 令牌和 `BS*` 组件；可点击元素用 `BSPressableStyle`，不用 `.buttonStyle(.plain)`。
+- 新功能必须先进「实验室」。开分支前先写一页规格：要解决的问题、属于哪一层（L0–L3 或实验室）、用哪些典型日验收。
+- 验证记录按功能写成独立文件 `docs/validation/<功能>-<日期>.md`，不再往 `m3-agent-validation-2026-11-20.md` 里追加。
+- 提交前运行 `python3 scripts/check_design_system.py`；已迁移完成的页面用 `--strict <路径前缀>` 检查。
+- `BodySeekDesign` 同时支持 iOS 26 与 macOS 15：UIKit 专有 API 用 `#if canImport(UIKit)` 包裹并提供等价实现。

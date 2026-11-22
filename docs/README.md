@@ -23,7 +23,9 @@
 4. docs/TECH_ARCHITECTURE.md    # 第四步：掌握真实代码架构与数据流管道
        ↓
 5. 专项文档 (AI/评分/设计)       # 第五步：查阅对应模块的实现与协议
-   ├── docs/VELA_DESIGN_LANGUAGE.md
+   ├── docs/design/v6-blueprint.md      # V6 重构蓝图（Accepted）
+   ├── docs/design/design-system.md     # 设计系统（取代 VELA_DESIGN_LANGUAGE.md）
+   ├── docs/design/dataviz.md           # 数据可视化规范
    ├── docs/AI_AGENT_SPEC.md       # Coach、今日 AI 建议与 AI 记饮食的现有实现
    ├── docs/design/coach-agent.md  # Coach 产品目标与 Ontology
    ├── docs/design/coach-agent-implementation.md # 近期实施工单与验收
@@ -42,7 +44,10 @@
 | [`docs/PRD.md`](PRD.md) | **唯一当前产品规格**：产品定位、Primary User、五个一级表面、北极星指标、功能与非目标 | Canonical |
 | [`CONTEXT.md`](../CONTEXT.md) | **唯一领域术语表**：Health Signal, Baseline, Brief, Body State, Lived State, Training Decision 等语言定义 | Canonical |
 | [`docs/TECH_ARCHITECTURE.md`](TECH_ARCHITECTURE.md) | **技术实现架构**：实际代码架构、GRDB/HealthKit 数据流、状态管理与管道 | Canonical |
-| [`docs/VELA_DESIGN_LANGUAGE.md`](VELA_DESIGN_LANGUAGE.md) | **设计系统与交互规范**：Rhythm 视觉语言、色板、排版、组件规范、动效与无障碍原则 | Canonical |
+| [`docs/design/v6-blueprint.md`](design/v6-blueprint.md) | **V6 重构蓝图**：身体模型层、DailyBrief、AppAction 三级授权、迁移路线（决策见 ADR 0020/0021） | Accepted（2026-11-22） |
+| [`docs/design/design-system.md`](design/design-system.md) | **设计系统 v1.0**：令牌、组件、L0–L3 层级、交互与动效、设计门禁 | Accepted（2026-11-22） |
+| [`docs/design/dataviz.md`](design/dataviz.md) | **数据可视化规范 v2**：图表令牌、统计头、各组件画法（取代 chart-grammar 的视觉画法） | Accepted（2026-11-22） |
+| [`docs/VELA_DESIGN_LANGUAGE.md`](VELA_DESIGN_LANGUAGE.md) | 旧设计语言（Rhythm 视觉语言）。已被 design-system.md 取代，仅供追溯 | Superseded |
 | [`docs/AI_AGENT_SPEC.md`](AI_AGENT_SPEC.md) | **V5 AI Agent 开发指南**：生产入口、分路由工具与证据、提案确认、营养估算及验证边界 | Canonical |
 | [Coach Agent 顶层设计](design/coach-agent.md) | 私人健康助手、Ontology、数据治理、对话授权与持续跟进 | 已确认设计，待分阶段实现 |
 | [Coach 实施工单](design/coach-agent-implementation.md) | 近期开发顺序、证据与写入合同、验收 | 工单 1/2 模拟器闭环已完成，待真机/线上复核 |
@@ -66,6 +71,7 @@
 | 归档子目录 | 包含内容 |
 | :--- | :--- |
 | [`docs/archive/product-eras/`](archive/product-eras/) | 历史 PRD、旧蓝图、旧方向文档。从根目录移入的 `DESIGN-signal-intelligence.md`、`Vela_4.0.md`、`PROGRESS-q0-s8-board.md`、`ORIGINAL_REQUEST-2026-08-05.md`。同一份 `Vela_4.0` 历史评述也以 `Vela_4.0-product-review.md` 留在这里，两份都是归档，不是现行文稿。 |
+| [`docs/archive/architecture/`](archive/architecture/) | 已过时的架构文档（`bodyseek-modularization-map.md`：BodySeekDomain 时代的模块化路线） |
 | [`docs/archive/audits/`](archive/audits/) | 历史稳定性审计与 UI 走查报告（`VELA_3_AUDIT`、`VELA_4_STABILIZATION_REPORT` 等） |
 | [`docs/archive/handoffs/`](archive/handoffs/) | 历史 Agent 交接记录（`AGENT_HANDOFF_*`）；含已归档的 `ORIGINAL_REQUEST-2026-08-05.md`（旧 orchestrator 缺陷修复清单，非当前产品规格） |
 | [`docs/archive/plans/`](archive/plans/) | 历史 Bevel 对标计划、已完成或废弃的实施计划（`superpowers-plans` 等） |

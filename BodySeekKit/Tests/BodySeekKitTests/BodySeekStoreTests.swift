@@ -106,7 +106,7 @@ final class BodySeekStoreTests: XCTestCase {
     func testMigrationIdentifiersAreStable() {
         XCTAssertEqual(
             BodySeekDatabase.migrator.migrations,
-            ["v1_initial_schema", "v2_nutrition_schema", "v3_allow_unknown_meal_portions", "v4_healthkit_workout_deletions", "v5_action_audit_undo_snapshots", "v6_sleep_goal_cache_key"]
+            ["v1_initial_schema", "v2_nutrition_schema", "v3_allow_unknown_meal_portions", "v4_healthkit_workout_deletions", "v5_action_audit_undo_snapshots", "v6_sleep_goal_cache_key", "v7_daily_brief_and_action_layer"]
         )
     }
 
@@ -467,6 +467,82 @@ final class BodySeekStoreTests: XCTestCase {
         ])
         let raw = try await repo.loadRawDays(from: day, to: day).first
         XCTAssertNil(raw?.hrvMs, "excluded values must not be exposed as valid raw input")
+    }
+
+    func testLegacyImportSurvivesRestartAndClearAllowsReimport() async throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("bodyseek-v7-\(UUID().uuidString).sqlite")
+        defer {
+            for suffix in ["", "-wal", "-shm"] {
+                try? FileManager.default.removeItem(atPath: url.path + suffix)
+            }
+        }
+        let now = Date(timeIntervalSince1970: 1_763_500_000)
+        let payload = LegacyImportPayload(
+            memories: [AthleteMemoryItem(category: .preference, content: "习惯早上训练", updatedAt: now)],
+            messages: [CoachMessage(role: .user, text: "旧版对话", timestamp: now)]
+        )
+
+        let first = BodySeekRepository(database: try BodySeekDatabase.openOnDisk(url: url))
+        let imported = try await LegacyDataImporter.importIfNeeded(into: first, now: now) { payload }
+        XCTAssertFalse(imported.alreadyImported)
+        XCTAssertEqual(imported.totalImported, 2)
+
+        // 重启：重新打开同一个数据库文件，已导入标记必须还在。
+        let restarted = BodySeekRepository(database: try BodySeekDatabase.openOnDisk(url: url))
+        let afterRestart = try await LegacyDataImporter.importIfNeeded(into: restarted, now: now) {
+            XCTFail("Provider should not be called after a restart")
+            return payload
+        }
+        XCTAssertTrue(afterRestart.alreadyImported)
+        let messagesAfterRestart = try await restarted.loadMessages()
+        let memoriesAfterRestart = try await restarted.loadTieredMemories()
+        XCTAssertEqual(messagesAfterRestart.count, 1)
+        XCTAssertEqual(memoriesAfterRestart.count, 1)
+        XCTAssertEqual(memoriesAfterRestart.first?.tier, .profile)
+
+        // 清空：不带 dismissal 的 resetAll 会同时清掉已导入标记。
+        try await restarted.resetAll()
+        let messagesAfterClear = try await restarted.loadMessages()
+        XCTAssertTrue(messagesAfterClear.isEmpty)
+
+        // 再导入：标记被清掉后可以再次导入。
+        let reimported = try await LegacyDataImporter.importIfNeeded(into: restarted, now: now) { payload }
+        XCTAssertFalse(reimported.alreadyImported)
+        XCTAssertEqual(reimported.totalImported, 2)
+        let messagesAfterReimport = try await restarted.loadMessages()
+        XCTAssertEqual(messagesAfterReimport.count, 1)
+    }
+
+    func testDailyBriefCacheStaleAndFeedbackRoundTrip() async throws {
+        let db = try BodySeekDatabase.inMemory()
+        let repo = BodySeekRepository(database: db)
+        let day = DayKey(year: 2026, month: 11, day: 22)
+        let now = Date(timeIntervalSince1970: 1_763_500_000)
+
+        let record = DailyBriefRecord(
+            dayKey: day, inputsDigest: "digest-a", generatedAt: now,
+            engine: "localTemplate", headline: "今天恢复一般", payloadJSON: "{}"
+        )
+        try await repo.saveDailyBrief(record)
+        let cached = try await repo.loadDailyBrief(dayKey: day, inputsDigest: "digest-a")
+        XCTAssertEqual(cached, record)
+        let missing = try await repo.loadDailyBrief(dayKey: day, inputsDigest: "digest-b")
+        XCTAssertNil(missing)
+
+        try await repo.markDailyBriefsStale(dayKey: day)
+        let stale = try await repo.loadLatestDailyBrief(dayKey: day)
+        XCTAssertEqual(stale?.isStale, true)
+
+        try await repo.saveBriefFeedback(BriefFeedbackRecord(dayKey: day, rating: .accurate, createdAt: now))
+        let feedback = try await repo.loadBriefFeedback()
+        XCTAssertEqual(feedback.map(\.rating), [.accurate])
+
+        try await repo.resetAll()
+        let afterReset = try await repo.loadLatestDailyBrief(dayKey: day)
+        XCTAssertNil(afterReset)
+        let feedbackAfterReset = try await repo.loadBriefFeedback()
+        XCTAssertTrue(feedbackAfterReset.isEmpty)
     }
 
     func testResetDismissalPreventsLegacyReimport() async throws {

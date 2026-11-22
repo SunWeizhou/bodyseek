@@ -1,5 +1,7 @@
 # BodySeek Chart Grammar — 原生视觉与图表语法规范
 
+> **2026-11-22 更新**：视觉画法（颜色、线宽、渐变、选中样式、各组件画法）由 [dataviz.md](dataviz.md) 取代。本文的**四态语义（第 5 章）**和 **X 轴刻度规则（3.1）继续有效**，模块边界（第 1 章）仍作为约束。
+
 > **状态**：Canonical（M1-UI 实施唯一视觉与图表准绳）
 > **适用范围**：`BodySeekDesign` 模块内 `BodySeekChart` 组件族（8 类组件）、`BodySeekFeatures` 全部图表调用方、`每日营养素` 状态可视化
 > **上位约束**：`docs/VELA_DESIGN_LANGUAGE.md` · `docs/adr/0019-bodyseek-v5-architecture-and-modeling-baseline.md` · V5 蓝图 §7.2

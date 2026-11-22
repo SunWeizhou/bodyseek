@@ -6,7 +6,7 @@ import UIKit
 #endif
 
 public enum BodySeekMotion {
-    public static let standard = Animation.spring(response: 0.35, dampingFraction: 0.82)
+    public static let standard = Animation.spring(response: 0.35, dampingFraction: 1.0)
 }
 
 public enum BevelTheme {

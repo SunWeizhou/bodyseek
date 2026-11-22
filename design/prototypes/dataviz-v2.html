@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BodySeek 数据可视化 v2 原型</title>
+<script src="/vendor/highcharts/highcharts.js"></script>
+<script src="/vendor/highcharts/highcharts-more.js"></script>
+<script src="/vendor/highcharts/modules/xrange.js"></script>
+<script src="/vendor/highcharts/modules/accessibility.js"></script>
+</head>
+<body>
+<header class="intro">
+  <div>
+    <h1>BodySeek 数据可视化 v2：一张图只回答一个问题</h1>
+    <p>左边说明改了什么，右边是 iPhone 宽度的组件原型。在图表上拖动或悬停，读数会写进图上方的统计头；松手后读数保留，点“清除”恢复。全部为示例数据。</p>
+  </div>
+  <button id="themeToggle" class="pill press" type="button">切换到深色</button>
+</header>
+
+<style>
+:root{
+  --page-font:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --page-num:ui-rounded,"SF Pro Rounded",-apple-system,BlinkMacSystemFont,"PingFang SC",system-ui,sans-serif;
+  --page-bg:#F2F2F7; --page-surface:#FFFFFF; --page-inset:#F2F2F7;
+  --page-label:#000000; --page-label2:rgba(60,60,67,0.6); --page-label3:rgba(60,60,67,0.32);
+  --page-fill:rgba(118,118,128,0.12); --page-separator:rgba(60,60,67,0.18); --page-dim:#D1D1D6;
+  --page-recovery:#168B70; --page-sleep:#5E5CE6; --page-strain:#D85A20; --page-stress:#D9466E; --page-energy:#B4730A;
+  --page-sl-awake:#C7C7CC; --page-sl-rem:#9E9CF5; --page-sl-core:#5E5CE6; --page-sl-deep:#3634A3;
+}
+[data-theme="dark"]{
+  --page-bg:#000000; --page-surface:#1C1C1E; --page-inset:#2C2C2E;
+  --page-label:#FFFFFF; --page-label2:rgba(235,235,245,0.6); --page-label3:rgba(235,235,245,0.32);
+  --page-fill:rgba(118,118,128,0.24); --page-separator:rgba(84,84,88,0.65); --page-dim:#3A3A3C;
+  --page-recovery:#34D399; --page-sleep:#8F8DFF; --page-strain:#FF9565; --page-stress:#FF7596; --page-energy:#F5BC47;
+  --page-sl-awake:#48484A; --page-sl-rem:#C4C3FF; --page-sl-core:#8F8DFF; --page-sl-deep:#5E5CE6;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--page-bg);color:var(--page-label);font-family:var(--page-font);-webkit-font-smoothing:antialiased;transition:background-color .3s ease,color .3s ease}
+.intro{max-width:1040px;margin:0 auto;padding:32px 24px 16px;display:flex;gap:24px;align-items:flex-start;justify-content:space-between}
+.intro h1{font-size:clamp(24px,3.4vw,34px);line-height:1.15;letter-spacing:-0.02em;margin:0 0 8px;font-weight:700}
+.intro p{margin:0;color:var(--page-label2);font-size:15px;line-height:1.5;max-width:640px}
+.pill{font:inherit;font-size:15px;font-weight:600;border:0;border-radius:999px;padding:8px 16px;background:var(--page-fill);color:var(--page-label);cursor:pointer;white-space:nowrap}
+.press{transition:transform .1s ease-out}
+.press:active{transform:scale(.97)}
+@media (prefers-reduced-motion: reduce){.press{transition:none}.press:active{transform:none;opacity:.7}}
+
+.row{max-width:1040px;margin:0 auto;padding:24px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,390px);gap:32px;align-items:start;border-top:0.5px solid var(--page-separator)}
+.notes{min-width:0}
+.notes h2{font-size:20px;line-height:1.3;margin:0 0 4px;letter-spacing:-0.01em;font-weight:600}
+.notes .where{font-size:13px;color:var(--page-label3);margin:0 0 12px}
+.notes ul{margin:0;padding-left:18px;color:var(--page-label2);font-size:14px;line-height:1.65}
+.notes li b{color:var(--page-label);font-weight:600}
+.states{display:flex;gap:16px;margin-top:16px}
+.states figure{margin:0;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;color:var(--page-label2)}
+
+.phone{display:flex;flex-direction:column;gap:12px;min-width:0}
+.card{background:var(--page-surface);border-radius:22px;padding:16px;min-width:0}
+.card-title{font-size:17px;font-weight:600;margin:0 0 8px;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.card-title .sub{font-size:13px;font-weight:400;color:var(--page-label2)}
+
+.hd{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;min-height:80px}
+.hd-label{font-size:13px;color:var(--page-label2)}
+.hd-value{font-family:var(--page-num);font-variant-numeric:tabular-nums;font-size:34px;font-weight:600;line-height:1.12;letter-spacing:-0.01em}
+.hd-unit{font-family:var(--page-font);font-size:15px;font-weight:500;color:var(--page-label2);margin:0 4px 0 3px;letter-spacing:0}
+.hd-range{font-size:13px;color:var(--page-label3);margin-top:2px}
+.hd-side{font-size:13px;color:var(--page-label2);text-align:right;line-height:1.5;flex:none}
+.hd-clear{display:none;font:inherit;font-size:13px;color:var(--page-label2);background:var(--page-fill);border:0;border-radius:999px;padding:3px 10px;margin-top:6px;cursor:pointer}
+.hd.locked .hd-clear{display:inline-block}
+.caption{font-size:12px;color:var(--page-label3);margin-top:4px}
+.h200{height:200px}.h120{height:120px}.h32{height:32px}
+
+.rings{display:flex;gap:16px;align-items:center;justify-content:space-between}
+.ring-btn{background:none;border:0;padding:4px;margin:0;font:inherit;color:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;border-radius:14px}
+.ring-btn svg{display:block}
+.ring-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px}
+.ring-name{font-size:13px;font-weight:600;text-align:center}
+.ring-big .ring-name{font-size:15px}
+.ring-state{font-size:12px;color:var(--page-label2);text-align:center}
+.ring-num{font-family:var(--page-num);font-variant-numeric:tabular-nums;font-weight:600;fill:var(--page-label)}
+.ring-num.missing{fill:var(--page-label2)}
+.ring-arc{transition:stroke-dashoffset .7s cubic-bezier(.22,1,.36,1)}
+@media (prefers-reduced-motion: reduce){.ring-arc{transition:none}}
+
+.note{display:flex;gap:12px;align-items:flex-start}
+.mark{width:28px;height:28px;border-radius:50%;background:var(--page-label);color:var(--page-surface);display:grid;place-items:center;font-weight:700;font-size:14px;flex:none;font-family:var(--page-num)}
+.note p{margin:0;font-size:16px;line-height:1.45}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.chip{font:inherit;font-size:12px;color:var(--page-label2);background:var(--page-fill);border:0;border-radius:8px;padding:4px 8px;cursor:pointer}
+.note-foot{display:flex;justify-content:space-between;align-items:center;margin-top:12px}
+.engine{font-size:12px;color:var(--page-label3)}
+.ask{font:inherit;font-size:13px;font-weight:600;color:var(--page-label);background:var(--page-fill);border:0;border-radius:999px;padding:6px 12px;cursor:pointer}
+
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tile{background:var(--page-inset);border-radius:14px;padding:10px 12px 6px;border:0;font:inherit;color:inherit;text-align:left;cursor:pointer;min-width:0}
+.tile-name{font-size:13px;color:var(--page-label2)}
+.tile-val{font-family:var(--page-num);font-variant-numeric:tabular-nums;font-size:22px;font-weight:600;margin-top:2px;line-height:1.2}
+.tile-val small{font-family:var(--page-font);font-size:13px;color:var(--page-label2);font-weight:500;margin-left:3px}
+.delta{font-size:12px;color:var(--page-label2);margin-top:1px}
+
+.verdict-head{font-size:20px;font-weight:600;letter-spacing:-0.01em;line-height:1.3;margin:4px 0 4px}
+.verdict-sub{font-size:13px;color:var(--page-label2);margin-bottom:8px}
+.vrow{display:grid;grid-template-columns:minmax(0,1fr) 72px 64px;gap:12px;align-items:center;padding:10px 0;border-top:0.5px solid var(--page-separator)}
+.vname{font-size:15px;font-weight:600}
+.vwhy{font-size:12px;color:var(--page-label2);margin-top:1px}
+.vchip{justify-self:end;font-size:12px;font-weight:600;border-radius:8px;padding:3px 8px;white-space:nowrap;color:var(--c);background:color-mix(in srgb,var(--c) 14%,transparent)}
+
+.intake{display:flex;gap:16px;align-items:center}
+.intake-num{font-family:var(--page-num);font-variant-numeric:tabular-nums;font-size:34px;font-weight:600;line-height:1.1}
+.intake-num small{font-family:var(--page-font);font-size:15px;font-weight:500;color:var(--page-label2);margin-left:3px}
+.intake-sub{font-size:13px;color:var(--page-label2);margin-top:2px}
+.macros{display:flex;flex-direction:column;gap:12px;margin-top:16px}
+.macro-top{display:flex;justify-content:space-between;font-size:13px}
+.macro-top span:last-child{color:var(--page-label2);font-variant-numeric:tabular-nums}
+.bar{height:8px;border-radius:999px;background:var(--page-fill);overflow:hidden;display:flex;margin-top:6px}
+.bar i{display:block;height:100%}
+.bar .rec{background:var(--page-recovery)}
+.bar .est{background:color-mix(in srgb,var(--page-recovery) 32%,transparent)}
+.legend{display:flex;gap:16px;font-size:12px;color:var(--page-label2);margin-top:12px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+
+footer{max-width:1040px;margin:0 auto;padding:16px 24px 40px;font-size:13px;color:var(--page-label3);border-top:0.5px solid var(--page-separator)}
+@media (max-width:860px){.row{grid-template-columns:minmax(0,1fr)}.intro{flex-direction:column}}
+</style>
+
+<!-- 1 今日 -->
+<section class="row">
+  <div class="notes">
+    <h2>今日首屏：五个环一眼看完，Coach 一句话讲完</h2>
+    <p class="where">今日 · L0 BSScoreRing.group → L1 BSCoachNote → L2 BSMetricGrid</p>
+    <ul>
+      <li><b>现在</b>：分数只是数字；身体状态卡、压力能量行、结论条三块并排，没有主次。</li>
+      <li><b>改为</b>：恢复一个大环，其余四项是中环。环只用领域色，轨道是系统填充色；点哪个环都进对应的详情页。</li>
+      <li><b>Coach 一句话</b>紧跟在环下面，数字带依据标签，标注生成来源和时间。</li>
+      <li><b>指标格</b>：迷你折线 1.5pt，不画面积；变化值用灰色箭头，不用红绿。</li>
+      <li>缺失时<b>只画轨道 + “--”</b>，不再用虚线空环，因为虚线留给“估算”。</li>
+    </ul>
+    <div class="states">
+      <figure><span class="ring-slot" data-size="44" data-stroke="4" data-value="72" data-color="--page-recovery" data-font="14"></span><figcaption>有数据</figcaption></figure>
+      <figure><span class="ring-slot" data-size="44" data-stroke="4" data-value="0" data-color="--page-strain" data-font="14"></span><figcaption>已知为零</figcaption></figure>
+      <figure><span class="ring-slot" data-size="44" data-stroke="4" data-value="" data-color="--page-sleep" data-font="14"></span><figcaption>缺失</figcaption></figure>
+    </div>
+  </div>
+  <div class="phone">
+    <div class="card">
+      <div class="card-title">身体状态 <span class="sub">11月22日 · Apple 健康</span></div>
+      <div class="rings">
+        <button class="ring-btn ring-big press" type="button" aria-label="恢复 72，处于平时">
+          <span class="ring-slot" data-size="112" data-stroke="10" data-value="72" data-color="--page-recovery" data-font="34"></span>
+          <span class="ring-name">恢复</span><span class="ring-state">处于平时</span>
+        </button>
+        <div class="ring-grid">
+          <button class="ring-btn press" type="button" aria-label="睡眠 81，睡眠充分"><span class="ring-slot" data-size="64" data-stroke="7" data-value="81" data-color="--page-sleep" data-font="20"></span><span class="ring-name">睡眠</span><span class="ring-state">充分</span></button>
+          <button class="ring-btn press" type="button" aria-label="负荷 46，中等"><span class="ring-slot" data-size="64" data-stroke="7" data-value="46" data-color="--page-strain" data-font="20"></span><span class="ring-name">负荷</span><span class="ring-state">中等</span></button>
+          <button class="ring-btn press" type="button" aria-label="压力 38，可控"><span class="ring-slot" data-size="64" data-stroke="7" data-value="38" data-color="--page-stress" data-font="20"></span><span class="ring-name">压力</span><span class="ring-state">可控</span></button>
+          <button class="ring-btn press" type="button" aria-label="能量 64，均衡"><span class="ring-slot" data-size="64" data-stroke="7" data-value="64" data-color="--page-energy" data-font="20"></span><span class="ring-name">能量</span><span class="ring-state">均衡</span></button>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="note">
+        <div class="mark" aria-hidden="true">B</div>
+        <div>
+          <p id="coachText">恢复处于平时，昨晚睡了 7 小时。疲劳已经连续几天高于体能，今天练中等强度，先别上大重量。</p>
+          <div class="chips">
+            <button class="chip press" type="button">HRV 49 ms · 今天</button>
+            <button class="chip press" type="button" id="chipTsb">状态差 · 今天</button>
+            <button class="chip press" type="button">实睡 7小时0分 · 昨晚</button>
+          </div>
+        </div>
+      </div>
+      <div class="note-foot"><span class="engine">云端生成 · 07:12</span><button class="ask press" type="button">问 Coach</button></div>
+    </div>
+    <div class="card">
+      <div class="card-title">关键体征 <span class="sub">vs 前 28 天</span></div>
+      <div class="tiles">
+        <button class="tile press" type="button"><div class="tile-name">HRV</div><div class="tile-val">49<small>ms</small></div><div class="delta">↓ 3 ms</div><div class="h32" id="sp-hrv"></div></button>
+        <button class="tile press" type="button"><div class="tile-name">静息心率</div><div class="tile-val">56<small>bpm</small></div><div class="delta">↑ 2 bpm</div><div class="h32" id="sp-rhr"></div></button>
+        <button class="tile press" type="button"><div class="tile-name">呼吸率</div><div class="tile-val">14.8<small>次/分</small></div><div class="delta">持平</div><div class="h32" id="sp-resp"></div></button>
+        <button class="tile press" type="button"><div class="tile-name">手腕温度</div><div class="tile-val">+0.3<small>°C</small></div><div class="delta">↑ 0.3 °C</div><div class="h32" id="sp-temp"></div></button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 2 趋势折线 -->
+<section class="row">
+  <div class="notes">
+    <h2>趋势折线：只留一条线和一条灰带</h2>
+    <p class="where">趋势 / 指标详情 · TrendLineChart（7 天、30 天）</p>
+    <ul>
+      <li><b>删掉</b>：渐变面积、领域色基线带、中位虚线、虚线选中线、最新点外环。现在这张图叠了 9 层。</li>
+      <li><b>换成</b>：2pt 单色折线，加一条灰色的“平时范围”带（个人 P25–P75）。</li>
+      <li><b>答案写在统计头</b>：默认显示平均值和周期；拖动时变成选中那天的值，不弹浮动气泡。</li>
+      <li>缺测的两天<b>断开</b>，覆盖率写在图下面。</li>
+    </ul>
+  </div>
+  <div class="phone">
+    <div class="card">
+      <div class="card-title">夜间 HRV <span class="sub">30 天</span></div>
+      <div class="hd" id="hd-hrv"><div><div class="hd-label"></div><div class="hd-value"></div><div class="hd-range"></div></div><div class="hd-side"><div class="hd-side-text"></div><button class="hd-clear press" type="button">清除</button></div></div>
+      <div class="h200" id="c-hrv"></div>
+      <div class="caption">覆盖 28/30 天 · 11月5日、6日没有夜间数据 · Apple Watch</div>
+    </div>
+  </div>
+</section>
+
+<!-- 3 胶囊 -->
+<section class="row">
+  <div class="notes">
+    <h2>6 个月分布：胶囊里嵌中位点，选中一周时其余变灰</h2>
+    <p class="where">趋势 / 指标详情 · RangeCapsuleChart（6 个月、3 年）</p>
+    <ul>
+      <li><b>删掉</b>：极值须线；单样本时“从 0 画到值”的柱子；未选中时 0.34 透明度造成的发灰颜色。</li>
+      <li><b>换成</b>：P25–P75 胶囊，中位数是嵌在胶囊里的白点，参照 Apple 健康的心率范围画法。</li>
+      <li><b>选中就是聚焦</b>：选中的那周保持颜色，其余变成系统灰；松手后保持选中。</li>
+    </ul>
+  </div>
+  <div class="phone">
+    <div class="card">
+      <div class="card-title">夜间 HRV <span class="sub">6 个月 · 按周</span></div>
+      <div class="hd" id="hd-cap"><div><div class="hd-label"></div><div class="hd-value"></div><div class="hd-range"></div></div><div class="hd-side"><div class="hd-side-text"></div><button class="hd-clear press" type="button">清除</button></div></div>
+      <div class="h200" id="c-cap"></div>
+      <div class="caption">胶囊为每周 P25–P75，白点为中位数 · 灰带为平时范围</div>
+    </div>
+  </div>
+</section>
+
+<!-- 4 睡眠 -->
+<section class="row">
+  <div class="notes">
+    <h2>睡眠：一套实现，用同一个色相的明暗区分阶段</h2>
+    <p class="where">今日 L2 / 睡眠详情 · SleepStageChart</p>
+    <ul>
+      <li><b>现在</b>有两套实现（SleepChartKit 和自绘 Canvas），今日页和详情页长得不一样。合并为一套。</li>
+      <li><b>配色</b>：四个阶段用睡眠色的明度阶梯，深睡最深、REM 最浅；清醒用中性灰。</li>
+      <li>不画块之间的连接线；悬停某一段，统计头显示阶段、起止时间和时长。</li>
+    </ul>
+  </div>
+  <div class="phone">
+    <div class="card">
+      <div class="card-title">昨夜睡眠</div>
+      <div class="hd" id="hd-sleep"><div><div class="hd-label"></div><div class="hd-value"></div><div class="hd-range"></div></div><div class="hd-side"><div class="hd-side-text"></div><button class="hd-clear press" type="button">清除</button></div></div>
+      <div class="h200" id="c-sleep"></div>
+      <div class="caption">Apple Watch 睡眠分期</div>
+    </div>
+  </div>
+</section>
+
+<!-- 5 压力 -->
+<section class="row">
+  <div class="notes">
+    <h2>日内压力：一种颜色，高度就是强度</h2>
+    <p class="where">今日 L2 / 压力详情 · IntradayBarChart</p>
+    <ul>
+      <li><b>删掉</b>按档位着色的多色柱。档位写在统计头里，不靠颜色表达。</li>
+      <li><b>运动时段</b>画成灰带，并写明“已排除”，不让运动心率冒充压力。</li>
+      <li><b>未来时段不画</b>：现在早上打开 App 会看到当天剩余时段被标成“当前”，这次一并修掉。</li>
+    </ul>
+  </div>
+  <div class="phone">
+    <div class="card">
+      <div class="card-title">今日压力 <span class="sub">按小时</span></div>
+      <div class="hd" id="hd-stress"><div><div class="hd-label"></div><div class="hd-value"></div><div class="hd-range"></div></div><div class="hd-side"><div class="hd-side-text"></div><button class="hd-clear press" type="button">清除</button></div></div>
+      <div class="h120" id="c-stress"></div>
+      <div class="caption">0–100 · 截至 20:00</div>
+    </div>
+  </div>
+</section>
+
+<!-- 6 体能与疲劳 -->
+<section class="row">
+  <div class="notes">
+    <h2>体能与疲劳：取代 ACWR 卡和“恢复 × 负荷”双轴图</h2>
+    <p class="where">健身 L2 · FitnessFatigueChart（新）</p>
+    <ul>
+      <li><b>现在</b>：训练负荷卡里有 22 段文字；“恢复 × 负荷”双轴图把两个量纲放在同一个 0–100 坐标里，容易误读。</li>
+      <li><b>换成</b>两条线：体能（42 天负荷均值，负荷色）和疲劳（7 天均值，灰色）。名称直接标在线尾，不用图例。</li>
+      <li><b>状态差</b>（体能 − 疲劳）放进统计头，是这张图唯一的结论。</li>
+    </ul>
+  </div>
+  <div class="phone">
+    <div class="card">
+      <div class="card-title">体能与疲劳 <span class="sub">90 天</span></div>
+      <div class="hd" id="hd-load"><div><div class="hd-label"></div><div class="hd-value"></div><div class="hd-range"></div></div><div class="hd-side"><div class="hd-side-text"></div><button class="hd-clear press" type="button">清除</button></div></div>
+      <div class="h200" id="c-load"></div>
+      <div class="caption">由每次训练的心率负荷（TRIMP）计算 · 示例数据</div>
+    </div>
+  </div>
+</section>
+
+<!-- 7 周期走向 -->
+<section class="row">
+  <div class="notes">
+    <h2>周期走向：颜色只出现在结论上</h2>
+    <p class="where">趋势 L0 · BSVerdictGrid（新）</p>
+    <ul>
+      <li>每条轴一行：名称、一句依据、12 周迷你折线、走向标签。</li>
+      <li><b>迷你折线是灰色</b>，只有末端点用走向色。颜色留给结论，不分给过程。</li>
+      <li>走向由本地长期模型判定；Coach 负责解释，例如“体能在涨、恢复在掉”为什么算透支风险。</li>
+      <li>数据不够时如实写<b>“数据不足”</b>，并说明缺了什么。</li>
+    </ul>
+  </div>
+  <div class="phone">
+    <div class="card">
+      <div class="card-title">周期走向 <span class="sub">近 12 周</span></div>
+      <div class="verdict-head">体能在涨，恢复在掉</div>
+      <div class="verdict-sub">综合判断：<span class="vchip" style="--c:var(--page-strain)">透支风险</span></div>
+      <div id="verdicts"></div>
+    </div>
+  </div>
+</section>
+
+<!-- 8 营养 -->
+<section class="row">
+  <div class="notes">
+    <h2>营养：一级页只留热量和三大宏量</h2>
+    <p class="where">营养 L0 · BSIntakeRing（新）</p>
+    <ul>
+      <li><b>现在</b>：营养页一级页面上有 29 项微量营养素。它们改放到二级页“营养素明细”。</li>
+      <li><b>热量环</b>只表示进度，数字放在环外侧，不塞进环中间。</li>
+      <li><b>估算部分</b>用同色浅段表示，和已记录的部分分开；估算不计入“达标”。</li>
+    </ul>
+  </div>
+  <div class="phone">
+    <div class="card">
+      <div class="card-title">今日摄入 <span class="sub">已记录 3 餐</span></div>
+      <div class="intake">
+        <span class="ring-slot" data-size="96" data-stroke="10" data-value="71" data-color="--page-recovery" data-font="0"></span>
+        <div><div class="intake-num">1,640<small>kcal</small></div><div class="intake-sub">目标 2,300 · 还差 660</div></div>
+      </div>
+      <div class="macros" id="macros"></div>
+      <div class="legend"><span><i style="background:var(--page-recovery)"></i>已记录</span><span><i style="background:color-mix(in srgb,var(--page-recovery) 32%,transparent)"></i>AI 估算</span></div>
+    </div>
+  </div>
+</section>
+
+<footer>每个原型组件都对应 BodySeekDesign 中的一个 SwiftUI 组件。这个原型只用来确定视觉和交互参数；数值都是示例，不是你的真实数据。</footer>
+
+<script>
+document.addEventListener('touchstart', function(){}, {passive:true});
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+const DAY = 864e5, MIN = 6e4;
+const pad = n => String(n).padStart(2,'0');
+const md = ts => { const d=new Date(ts); return (d.getUTCMonth()+1)+'月'+d.getUTCDate()+'日'; };
+const mdShort = ts => { const d=new Date(ts); return (d.getUTCMonth()+1)+'/'+d.getUTCDate(); };
+const hm = ts => { const d=new Date(ts); return pad(d.getUTCHours())+':'+pad(d.getUTCMinutes()); };
+const durHTML = m => { const h=Math.floor(m/60), mm=Math.round(m%60); return h ? h+'<span class="hd-unit">小时</span>'+mm+'<span class="hd-unit">分</span>' : mm+'<span class="hd-unit">分钟</span>'; };
+const durText = m => { const h=Math.floor(m/60), mm=Math.round(m%60); return h ? h+'小时'+mm+'分' : mm+' 分钟'; };
+const signed = v => { const r=Math.round(v); return (r>0?'+':r<0?'−':'')+Math.abs(r); };
+const avg = a => { const v=a.filter(x=>x!=null); return v.reduce((s,x)=>s+x,0)/v.length; };
+
+/* ---------- 示例数据 ---------- */
+const END = Date.UTC(2026,10,22);
+const r1 = rng(7), hrv = [];
+for (let k=0;k<30;k++){
+  const ts = END-(29-k)*DAY;
+  let v = 53 + 3*Math.sin(k/3.1) + (r1()-0.5)*8;
+  if (k>=23 && k<=28) v -= 7 + r1()*3;
+  if (k===29) v = 49;
+  hrv.push([ts, (k===12||k===13) ? null : Math.round(v)]);
+}
+const BAND = [46,58], BASE_MED = 52;
+
+const r2 = rng(11), weeks = [];
+for (let w=0; w<26; w++){
+  const start = END-(25-w)*7*DAY-6*DAY;
+  let med = 52 + 2.5*Math.sin(w/4) + (r2()-0.5)*3;
+  if (w>=22) med -= (w-21)*1.6;
+  weeks.push({start, mid:start+3.5*DAY, med:Math.round(med), lo:Math.round(med-(4+r2()*3)), hi:Math.round(med+(4+r2()*3))});
+}
+
+const sleepStart = Date.UTC(2026,10,21,23,41);
+const stageList = [['awake',6],['core',22],['deep',46],['core',30],['rem',18],['core',25],['deep',26],['core',28],['awake',3],['rem',30],['core',50],['rem',34],['core',30],['awake',2],['rem',45],['core',36],['awake',8]];
+const lane = {awake:0, rem:1, core:2, deep:3}, stageName = {awake:'清醒', rem:'REM', core:'核心', deep:'深睡'};
+let sleepEnd = sleepStart; const stageTotals = {awake:0, rem:0, core:0, deep:0};
+const segRaw = stageList.map(([s,m]) => { const p={x:sleepEnd, x2:sleepEnd+m*MIN, y:lane[s], stage:s, mins:m}; sleepEnd += m*MIN; stageTotals[s]+=m; return p; });
+const asleep = stageTotals.rem + stageTotals.core + stageTotals.deep;
+
+const stressVals = [18,16,15,15,14,16,20,28,34,40,46,44,49,52,55,61,54,47,null,null];
+
+const r3 = rng(23), ctlS = [], atlS = [];
+let ctl = 38, atl = 38;
+for (let k=0;k<90;k++){
+  const ts = END-(89-k)*DAY, dow = k%7;
+  let L = 0;
+  if ([0,2,4,5].includes(dow)) L = 55 + k*0.45 + r3()*30;
+  if (k>=80 && L>0) L += 10;
+  if (k>=80 && dow===3) L = 70 + r3()*15;
+  ctl += (L-ctl)/42; atl += (L-atl)/7;
+  ctlS.push([ts, +ctl.toFixed(1)]); atlS.push([ts, +atl.toFixed(1)]);
+}
+const tsbNow = ctlS[89][1]-atlS[89][1];
+
+const verdicts = [
+  {name:'训练适应', why:'体能 '+Math.round(ctlS[6][1])+' → '+Math.round(ctlS[89][1]), verdict:'变强', color:'--page-recovery', data:Array.from({length:12},(_,i)=>ctlS[6+i*7+(i===11?5:0)][1])},
+  {name:'恢复能力', why:'HRV 中位 '+weeks[14].med+' → '+weeks[25].med+' ms', verdict:'透支', color:'--page-strain', data:weeks.slice(-12).map(w=>w.med)},
+  {name:'睡眠', why:'睡眠债 5.0 → 1.9 小时', verdict:'恢复中', color:'--page-sleep', data:[3.2,3.5,4.1,4.6,5.0,4.8,4.2,3.6,3.1,2.6,2.2,1.9]},
+  {name:'有氧体能', why:'VO2max 44.1 → 46.3', verdict:'变强', color:'--page-recovery', data:[44.1,44.0,44.3,44.6,44.5,44.9,45.2,45.1,45.6,45.8,46.0,46.3]},
+  {name:'体型', why:'12 周只称重 4 次', verdict:'数据不足', color:'--page-label3', data:[72.4,null,null,72.1,null,null,null,72.6,null,null,null,72.3], sparse:true}
+];
+
+const macros = [
+  {name:'蛋白质', rec:80, est:16, goal:140, unit:'g'},
+  {name:'碳水', rec:150, est:30, goal:280, unit:'g'},
+  {name:'脂肪', rec:44, est:8, goal:70, unit:'g'}
+];
+
+/* ---------- 圆环 ---------- */
+function ringSVG(size, stroke, value, colorVar, font){
+  const r=(size-stroke)/2, c=2*Math.PI*r, has = value!=='' && value!=null, v = has ? Number(value) : null;
+  const p = has ? Math.max(0, Math.min(1, v/100)) : 0, target = c*(1-p);
+  const arc = (has && p>0) ? '<circle class="ring-arc" cx="'+size/2+'" cy="'+size/2+'" r="'+r+'" fill="none" stroke="var('+colorVar+')" stroke-width="'+stroke+'" stroke-linecap="round" stroke-dasharray="'+c+'" stroke-dashoffset="'+(reduceMotion?target:c)+'" data-target="'+target+'" transform="rotate(-90 '+size/2+' '+size/2+')"/>' : '';
+  const text = font>0 ? '<text x="50%" y="50%" text-anchor="middle" dominant-baseline="central" class="ring-num'+(has?'':' missing')+'" style="font-size:'+font+'px">'+(has?v:'--')+'</text>' : '';
+  return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'" aria-hidden="true"><circle cx="'+size/2+'" cy="'+size/2+'" r="'+r+'" fill="none" stroke="var(--page-fill)" stroke-width="'+stroke+'"/>'+arc+text+'</svg>';
+}
+document.querySelectorAll('.ring-slot').forEach(s => { s.innerHTML = ringSVG(+s.dataset.size, +s.dataset.stroke, s.dataset.value, s.dataset.color, +s.dataset.font); });
+
+/* ---------- 宏量 ---------- */
+document.getElementById('macros').innerHTML = macros.map(m =>
+  '<div><div class="macro-top"><span>'+m.name+'</span><span>'+m.rec+' + 估算 '+m.est+' / '+m.goal+' '+m.unit+'</span></div>'+
+  '<div class="bar" role="img" aria-label="'+m.name+' 已记录 '+m.rec+'，估算 '+m.est+'，目标 '+m.goal+m.unit+'"><i class="rec" style="width:'+(m.rec/m.goal*100)+'%"></i><i class="est" style="width:'+(m.est/m.goal*100)+'%"></i></div></div>'
+).join('');
+
+/* ---------- 周期走向行 ---------- */
+document.getElementById('verdicts').innerHTML = verdicts.map((v,i) =>
+  '<div class="vrow"><div><div class="vname">'+v.name+'</div><div class="vwhy">'+v.why+'</div></div><div class="h32" id="vs-'+i+'"></div><span class="vchip" style="--c:var('+v.color+')">'+v.verdict+'</span></div>'
+).join('');
+document.getElementById('chipTsb').textContent = '状态差 '+signed(tsbNow)+' · 今天';
+
+/* ---------- 统计头 ---------- */
+function makeHeader(id, def, onClear){
+  const el = document.getElementById(id);
+  const h = {
+    set(o, locked){
+      el.querySelector('.hd-label').textContent = o.label;
+      el.querySelector('.hd-value').innerHTML = o.value + (o.unit ? '<span class="hd-unit">'+o.unit+'</span>' : '');
+      el.querySelector('.hd-range').textContent = o.range || '';
+      el.querySelector('.hd-side-text').innerHTML = o.side || '';
+      el.classList.toggle('locked', !!locked);
+    },
+    reset(){ h.set(def(), false); if (onClear) onClear(); }
+  };
+  el.querySelector('.hd-clear').onclick = () => h.reset();
+  h.reset();
+  return h;
+}
+
+/* ---------- 图表 ---------- */
+let charts = [];
+function T(){ return {
+  surface:css('--page-surface'), label:css('--page-label'), label2:css('--page-label2'), label3:css('--page-label3'),
+  fill:css('--page-fill'), sep:css('--page-separator'), dim:css('--page-dim'),
+  recovery:css('--page-recovery'), sleep:css('--page-sleep'), strain:css('--page-strain'), stress:css('--page-stress'),
+  sl:{awake:css('--page-sl-awake'), rem:css('--page-sl-rem'), core:css('--page-sl-core'), deep:css('--page-sl-deep')},
+  font:css('--page-font')
+};}
+function baseOpts(t, extra){
+  return Highcharts.merge({
+    chart:{backgroundColor:'transparent', style:{fontFamily:t.font}, animation: reduceMotion ? false : {duration:350}},
+    title:{text:null}, credits:{enabled:false}, legend:{enabled:false},
+    accessibility:{enabled:true},
+    tooltip:{enabled:true, formatter(){ return false; }},
+    xAxis:{lineWidth:0, tickLength:0, gridLineWidth:0, labels:{style:{color:t.label3, fontSize:'11px'}}, crosshair:{width:1, color:t.label3, zIndex:4}},
+    yAxis:{title:{text:null}, opposite:true, gridLineWidth:0.5, gridLineColor:t.sep, labels:{style:{color:t.label3, fontSize:'11px'}}},
+    plotOptions:{series:{animation: reduceMotion ? false : {duration:450}, stickyTracking:true, states:{inactive:{opacity:1}}, marker:{enabled:false}}}
+  }, extra);
+}
+function spark(el, values, color, endColor, allMarkers){
+  const n = values.length;
+  const data = values.map((v,i) => (i===n-1 && v!=null) ? {y:v, marker:{enabled:true, radius:3, fillColor:endColor, lineWidth:0}} : v);
+  return Highcharts.chart(el, {
+    chart:{type:'line', backgroundColor:'transparent', margin:[4,4,4,4], animation:false},
+    title:{text:null}, credits:{enabled:false}, legend:{enabled:false}, tooltip:{enabled:false}, accessibility:{enabled:false},
+    xAxis:{visible:false}, yAxis:{visible:false, startOnTick:false, endOnTick:false},
+    plotOptions:{series:{animation:false, enableMouseTracking:false, lineWidth:1.5, color:color, connectNulls:false, marker:{enabled:!!allMarkers, radius:2, fillColor:color, lineWidth:0}}},
+    series:[{data:data}]
+  });
+}
+
+function renderCharts(){
+  charts.forEach(c => c && c.destroy()); charts = [];
+  const t = T();
+
+  /* 指标格迷你线 */
+  charts.push(spark('sp-hrv', hrv.slice(-14).map(p=>p[1]), t.recovery, t.recovery));
+  charts.push(spark('sp-rhr', [55,54,55,53,54,52,53,54,55,56,56,57,56,56], t.recovery, t.recovery));
+  charts.push(spark('sp-resp', [14.6,14.8,14.7,14.9,14.6,14.8,14.7,14.9,15.0,14.8,14.9,14.8,14.7,14.8], t.recovery, t.recovery));
+  charts.push(spark('sp-temp', [0.0,-0.1,0.1,0.0,0.1,-0.1,0.0,0.2,0.1,0.2,0.3,0.2,0.3,0.3], t.recovery, t.recovery));
+
+  /* 30 天折线 */
+  const hrvAvg = Math.round(avg(hrv.map(p=>p[1])));
+  const last7 = Math.round(avg(hrv.slice(-7).map(p=>p[1])));
+  const dlt = last7 - BASE_MED;
+  const hdHrv = makeHeader('hd-hrv', () => ({label:'平均', value:hrvAvg, unit:'ms', range:md(hrv[0][0])+'–'+md(hrv[29][0]), side:'近 7 天 '+(dlt<0?'↓ ':'↑ ')+Math.abs(dlt)+' ms<br>vs 前 28 天'}));
+  charts.push(Highcharts.chart('c-hrv', baseOpts(t, {
+    chart:{type:'line'},
+    xAxis:{type:'datetime', tickPositions:[hrv[0][0], hrv[10][0], hrv[20][0], hrv[29][0]], labels:{formatter(){ return mdShort(this.value); }}},
+    yAxis:{min:30, max:70, tickPositions:[30,50,70], plotBands:[{from:BAND[0], to:BAND[1], color:t.fill, label:{text:'平时范围', align:'left', x:6, y:13, style:{color:t.label3, fontSize:'11px'}}}]},
+    plotOptions:{series:{point:{events:{mouseOver(){
+      const where = this.y<BAND[0] ? '低于平时范围' : (this.y>BAND[1] ? '高于平时范围' : '在平时范围内');
+      hdHrv.set({label:md(this.x), value:this.y, unit:'ms', range:where, side:''}, true);
+    }}}}},
+    series:[
+      {name:'夜间 HRV', data:hrv, color:t.recovery, lineWidth:2, connectNulls:false, states:{hover:{lineWidthPlus:0}},
+       marker:{enabled:false, states:{hover:{enabled:true, radius:5, fillColor:t.recovery, lineColor:t.surface, lineWidth:2}}}},
+      {type:'scatter', name:'今天', data:[[hrv[29][0], hrv[29][1]]], color:t.recovery, enableMouseTracking:false,
+       marker:{enabled:true, symbol:'circle', radius:5, fillColor:t.recovery, lineColor:t.surface, lineWidth:2}}
+    ]
+  })));
+
+  /* 6 个月胶囊 */
+  const minLo = Math.min(...weeks.map(w=>w.lo)), maxHi = Math.max(...weeks.map(w=>w.hi));
+  const medAll = Math.round(avg(weeks.map(w=>w.med)));
+  let capChart = null;
+  const restoreCap = () => { if (capChart) capChart.series[0].points.forEach(p => p.graphic && p.graphic.attr({fill:t.recovery})); };
+  const hdCap = makeHeader('hd-cap', () => ({label:'范围', value:minLo+'–'+maxHi, unit:'ms', range:'近 6 个月 · 每周', side:'中位 '+medAll+' ms'}), restoreCap);
+  capChart = Highcharts.chart('c-cap', baseOpts(t, {
+    chart:{type:'columnrange'},
+    xAxis:{type:'datetime', tickPositions:[weeks[0].mid, weeks[9].mid, weeks[17].mid, weeks[25].mid], labels:{formatter(){ return (new Date(this.value).getUTCMonth()+1)+'月'; }}},
+    yAxis:{min:30, max:70, tickPositions:[30,50,70], plotBands:[{from:BAND[0], to:BAND[1], color:t.fill}]},
+    plotOptions:{
+      columnrange:{pointWidth:7, borderRadius:3.5, borderWidth:0, grouping:false, states:{hover:{brightness:0}}},
+      series:{point:{events:{mouseOver(){
+        if (this.series.index!==0) return;
+        const i = this.index, w = weeks[i];
+        this.series.points.forEach((p,j) => p.graphic && p.graphic.attr({fill: j===i ? t.recovery : t.dim}));
+        const e = new Date(w.start+6*DAY);
+        hdCap.set({label:md(w.start)+'–'+(e.getUTCMonth()===new Date(w.start).getUTCMonth() ? e.getUTCDate()+'日' : md(w.start+6*DAY)), value:w.lo+'–'+w.hi, unit:'ms', range:'中位 '+w.med+' ms', side:''}, true);
+      }}}}
+    },
+    series:[
+      {name:'每周 P25–P75', data:weeks.map(w=>({x:w.mid, low:w.lo, high:w.hi})), color:t.recovery},
+      {type:'scatter', name:'中位', data:weeks.map(w=>[w.mid, w.med]), color:t.surface, enableMouseTracking:false, zIndex:5,
+       marker:{enabled:true, symbol:'circle', radius:2, fillColor:t.surface, lineWidth:0}}
+    ]
+  }));
+  charts.push(capChart);
+
+  /* 睡眠分期 */
+  const hdSleep = makeHeader('hd-sleep', () => ({label:'实睡', value:durHTML(asleep), unit:'', range:hm(sleepStart)+'–'+hm(sleepEnd), side:'深睡 '+durText(stageTotals.deep)+'<br>REM '+durText(stageTotals.rem)}));
+  charts.push(Highcharts.chart('c-sleep', baseOpts(t, {
+    chart:{type:'xrange'},
+    xAxis:{type:'datetime', crosshair:false, tickPositions:[sleepStart, Date.UTC(2026,10,22,2,0), Date.UTC(2026,10,22,5,0), sleepEnd], labels:{formatter(){ return hm(this.value); }}},
+    yAxis:{categories:['清醒','REM','核心','深睡'], reversed:true, opposite:false, gridLineWidth:0, labels:{style:{color:t.label2, fontSize:'11px'}}},
+    plotOptions:{xrange:{borderRadius:3, borderWidth:0, pointPadding:0.06, groupPadding:0.06, colorByPoint:false,
+      point:{events:{mouseOver(){ hdSleep.set({label:stageName[this.stage], value:durHTML(this.mins), unit:'', range:hm(this.x)+'–'+hm(this.x2), side:''}, true); }}}}},
+    series:[{name:'睡眠分期', data:segRaw.map(p=>Object.assign({}, p, {color:t.sl[p.stage]}))}]
+  })));
+
+  /* 日内压力 */
+  const dayAvg = Math.round(avg(stressVals.slice(8,18)));
+  const hdStress = makeHeader('hd-stress', () => ({label:'日间平均', value:dayAvg, unit:'', range:'可控 · 08:00–18:00', side:'峰值 15:00<br>61'}));
+  charts.push(Highcharts.chart('c-stress', baseOpts(t, {
+    chart:{type:'column'},
+    xAxis:{min:-0.5, max:23.5, tickPositions:[-0.5,5.5,11.5,17.5,23.5], crosshair:{width:1, color:t.label3},
+      labels:{formatter(){ return pad(Math.round(this.value+0.5))+':00'; }},
+      plotBands:[{from:17.5, to:19.5, color:t.fill, label:{text:'运动 · 已排除', y:12, style:{color:t.label3, fontSize:'11px'}}}]},
+    yAxis:{min:0, max:100, tickPositions:[0,50,100]},
+    plotOptions:{column:{pointPadding:0.16, groupPadding:0, borderWidth:0, borderRadius:{radius:2, where:'end'}, states:{hover:{brightness:0}},
+      point:{events:{mouseOver(){ const lv = this.y>=65 ? '偏高' : (this.y>=35 ? '可控' : '放松'); hdStress.set({label:pad(this.x)+':00–'+pad(this.x+1)+':00', value:this.y, unit:'', range:lv, side:''}, true); }}}}},
+    series:[{name:'压力', data:stressVals.map((v,i)=>[i,v]), color:t.stress}]
+  })));
+
+  /* 体能与疲劳 */
+  const fatigueHigher = atlS[89][1] > ctlS[89][1];
+  const endLabel = (name, above, color) => ({enabled:true, crop:false, overflow:'allow', align:'right', x:-2, y: above ? -6 : 18,
+    formatter(){ return this.point.index===89 ? name : null; }, style:{fontSize:'12px', fontWeight:'600', color:color, textOutline:'none'}});
+  const hdLoad = makeHeader('hd-load', () => ({label:'今日状态差', value:signed(tsbNow), unit:'', range:'体能 − 疲劳 · 负值表示疲劳高于体能', side:'体能 '+Math.round(ctlS[89][1])+'<br>疲劳 '+Math.round(atlS[89][1])}));
+  charts.push(Highcharts.chart('c-load', baseOpts(t, {
+    chart:{type:'line'},
+    xAxis:{type:'datetime', tickPositions:[ctlS[0][0], ctlS[30][0], ctlS[60][0], ctlS[89][0]], labels:{formatter(){ return mdShort(this.value); }}},
+    yAxis:{tickAmount:3},
+    plotOptions:{series:{lineWidth:2, states:{hover:{lineWidthPlus:0}},
+      marker:{enabled:false, states:{hover:{enabled:true, radius:4, lineColor:t.surface, lineWidth:2}}},
+      point:{events:{mouseOver(){ const i=this.index; hdLoad.set({label:md(this.x), value:signed(ctlS[i][1]-atlS[i][1]), unit:'', range:'状态差（体能 − 疲劳）', side:'体能 '+Math.round(ctlS[i][1])+'<br>疲劳 '+Math.round(atlS[i][1])}, true); }}}}},
+    series:[
+      {name:'体能', data:ctlS, color:t.strain, zIndex:2, dataLabels:endLabel('体能', !fatigueHigher, t.strain)},
+      {name:'疲劳', data:atlS, color:t.label2, zIndex:1, dataLabels:endLabel('疲劳', fatigueHigher, t.label2)}
+    ]
+  })));
+
+  /* 周期走向迷你线 */
+  verdicts.forEach((v,i) => charts.push(spark('vs-'+i, v.data, t.label3, css(v.color), v.sparse)));
+}
+
+renderCharts();
+
+/* 主题切换 */
+const btn = document.getElementById('themeToggle');
+btn.addEventListener('click', () => {
+  const root = document.documentElement, dark = root.dataset.theme !== 'dark';
+  root.dataset.theme = dark ? 'dark' : 'light';
+  btn.textContent = dark ? '切换到浅色' : '切换到深色';
+  renderCharts();
+});
+
+/* 圆环入场：只动一次 */
+requestAnimationFrame(() => requestAnimationFrame(() => {
+  document.querySelectorAll('.ring-arc').forEach(a => { a.style.strokeDashoffset = a.dataset.target; });
+}));
+</script>
+</body>
+</html>

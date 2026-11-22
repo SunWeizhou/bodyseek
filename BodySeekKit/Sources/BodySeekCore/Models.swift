@@ -826,6 +826,8 @@ public struct CoachMessage: Identifiable, Equatable, Sendable, Codable {
     public let annotationDecision: ActionAuditDecision?
     public let unverifiedNumbers: [String]
     public let toolsInvoked: [String]
+    /// Coach 通过动作层自动执行的动作回执（ADR 0020）。
+    public let appliedActions: [AppActionReceipt]
 
     private enum CodingKeys: String, CodingKey {
         case id
@@ -842,6 +844,7 @@ public struct CoachMessage: Identifiable, Equatable, Sendable, Codable {
         case annotationDecision
         case unverifiedNumbers
         case toolsInvoked
+        case appliedActions
     }
 
     public init(
@@ -858,7 +861,8 @@ public struct CoachMessage: Identifiable, Equatable, Sendable, Codable {
         workoutAnnotationCandidates: [CoachWorkoutAnnotationCandidate] = [],
         annotationDecision: ActionAuditDecision? = nil,
         unverifiedNumbers: [String] = [],
-        toolsInvoked: [String] = []
+        toolsInvoked: [String] = [],
+        appliedActions: [AppActionReceipt] = []
     ) {
         self.id = id
         self.role = role
@@ -874,6 +878,7 @@ public struct CoachMessage: Identifiable, Equatable, Sendable, Codable {
         self.annotationDecision = annotationDecision
         self.unverifiedNumbers = unverifiedNumbers
         self.toolsInvoked = toolsInvoked
+        self.appliedActions = appliedActions
     }
 
     public init(from decoder: Decoder) throws {
@@ -892,6 +897,7 @@ public struct CoachMessage: Identifiable, Equatable, Sendable, Codable {
         self.annotationDecision = try c.decodeIfPresent(ActionAuditDecision.self, forKey: .annotationDecision)
         self.unverifiedNumbers = try c.decodeIfPresent([String].self, forKey: .unverifiedNumbers) ?? []
         self.toolsInvoked = try c.decodeIfPresent([String].self, forKey: .toolsInvoked) ?? []
+        self.appliedActions = try c.decodeIfPresent([AppActionReceipt].self, forKey: .appliedActions) ?? []
     }
 }
 
