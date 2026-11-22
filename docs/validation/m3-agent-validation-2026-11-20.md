@@ -402,3 +402,26 @@
    - 未经用户明确授权，本轮未向 `Joe’s iPhone` 执行真机安装部署；真机安装与实时 HealthKit/iOS 26 真机渲染待授权安装后确认。
    - DeepSeek `/v1/tools/search` 联网行为与脱敏审计由 `URLProtocol` 离线桩回归覆盖；线上密钥真实命中与耗时需在真机实际记餐观察。
    - `.accessibility5` 与图表松手锁留行为由代码逻辑与模拟器常规 UI 回归覆盖，真机或专项无障碍极小屏截图需按需补充实拍。
+
+## 18. 2026-11-22 审计复现问题修复（d29b0a28）
+
+按用户审计的 10 个可复现问题 + 1 个发布配置缺口逐项修复。
+
+- **P0 清空后旧数据重现**：`LegacyDataImporter` 新增持久化 `legacy_import_v3_dismissed` 标记；清空流程在 `resetAll` 后写入标记、删除保留的 SwiftData legacy store，并重置偏好；导入器先检查标记，旧库存在也不会再导入。新增「导入 → 清空 → 再导入」回归。
+- **P1 同步乱序回退**：`SyncEngine` 增加 FIFO `SyncGate` 和 generation，跨 `await` 的同步/回填互斥；提交前拒绝已被更新 generation 超越的请求；共享存储复用同一 `SyncEngine`，游标仍最后提交，失败/取消不会推进。新增「旧请求更慢、两个并发同步最终游标为新值」回归。
+- **P1 睡眠空刷新**：`SyncBatch` 新增 `sleepFetchState`（notQueried/fetched/failed）与 `sleepReplacementDays`。成功但为空的查询视为确认删除，清掉旧分期与日聚合；失败保留缓存；只对真正清理过的日期重算。新增删除/失败两条回归。
+- **P1 excluded 泄漏**：`loadRawDaysSync` 只投影 available/knownZero，excluded/missing 的残留值不再进入评分输入。新增 excluded HRV 190 回归。
+- **P1 today 回退昨天**：`computeWindow`/`recomputeIncremental` 按 `04:00` 生理日 key 选当天；缺当天行时生成当天缺失快照，不再拿昨天顶替。新增参考日无记录回归。
+- **P1 预测按行推进**：`buildFeatureVector` 从最早记录到参考日补齐连续生理日，缺失日为 missing 特征，lag/滚动窗口不再因缺行错位。新增稀疏历史与补齐历史特征向量相等回归。
+- **P1 复盘串训练**：解析请求携带 workout UUID、request ID 和输入 revision；关闭/切换草稿、修改文字后旧结果被忽略，编辑时清除 parsing 状态。新增迟到 A 结果不能改 B 草稿回归。
+- **P1 联网开关保存草稿**：`webSearchToggled` 只读取已保存 config 后更新开关字段，不再把未提交的 endpoint/model 一并写入。新增草稿模型名不被持久化回归。
+- **P2 实验提前结束**：`NOfOneExperimentRecord` 新增 `endedAtDayKey`；结束时写回 payload，评估在 `endDayKey` 截断。新增归档后不再吸收后续观测回归。
+- **P2 食物搜索旧结果**：搜索维护 request ID + query，回包核对当前请求；搜索失败使用独立 `foodSearchError`，不再复用保存失败事件或改 `isSaving`；初始库加载不会覆盖进行中的搜索。新增旧结果覆盖回归。
+- **P2 TestFlight**：beta lane 改用 Release，注入/校验 `BUILD_NUMBER` 和 `MARKETING_VERSION`，校验产物 Info.plist 与 `get-task-allow` 不存在；`ruby -c fastlane/Fastfile` 通过。
+
+验证：
+
+- `swift test --package-path BodySeekKit --disable-automatic-resolution` 退出码 0，113 项包测试 + 29 项 Agent 测试通过。
+- `xcodebuild test … -only-testing:VelaTests -only-testing:VelaUITests` 退出码 0；VelaTests 4/4，UI 15 项中 14 通过、1 项按预期跳过。
+- 模拟器 Debug 构建 `BUILD SUCCEEDED`。
+- 未验证：正式 TestFlight 归档/上传（无 Apple 账号执行）、真机 HealthKit 同步与杀进程后重启。
