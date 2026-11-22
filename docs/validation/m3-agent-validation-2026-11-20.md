@@ -266,3 +266,22 @@
 - `xcodebuild test … -only-testing:VelaTests -only-testing:VelaUITests` 退出码 0；VelaTests 4/4，UI 14 项中 13 通过、1 项按预期跳过。
 - 模拟器 Debug 构建 `BUILD SUCCEEDED`。
 - 未验证：HealthKit 并发查询在真机上的正确性（模拟器预览不经过 LiveHealthKitSyncSource），部署后按真实数据核对。
+
+## 16. 2026-11-22 AI 记饮食解析慢的定位与修复
+
+用户反馈 AI 记饮食解析明显偏慢。定位到四个叠加因素：
+
+1. **30 秒超时被当成可重试错误**：`executeDataWithRetry` 对 `NSURLErrorTimedOut` 默认重试 2 次，每次 30 秒，最坏约 90 秒才报错；而结构化餐食 JSON 是非流式长输出，30 秒本身就不够。改为餐食分析专用 120 秒超时，并禁止对超时重试（连接重置等仍重试 1 次）。
+2. **截断回复用完整提示再试一次**：首次回复截断/格式错误后，重试仍要求全部微量营养素并把上限提到 6144，等于两次长生成。新增 `compactRetryInstructions`，重试只保留条目、餐次、份量和热量区间，不再要求 nutrients/macroEstimate。
+3. **照片缩放阻塞主线程**：`prepareJPEG`（ImageIO 缩略图 + JPEG 编码）在 `.task` 的 MainActor 上同步执行，48MP 照片会先卡住界面。改为 `Task.detached` 后台处理，相机路径同样处理。
+4. **食物库匹配串行**：模型返回后逐个候选串行查食物库（每个最多两次查询）。改为 `withThrowingTaskGroup` 并行查询，再按原候选顺序组装草稿。
+
+另在 `analyzeMeal` 增加耗时日志，便于后续从设备日志确认是模型生成慢还是网络/重试慢；分析中界面提示“通常需要 10–30 秒”。
+
+验证：
+
+- `swift test --package-path BodySeekKit --disable-automatic-resolution` 退出码 0，94 项包测试和 23 项 Agent 测试通过。
+- 新增测试：餐食请求 `timeoutInterval == 120`；截断重试的 system prompt 不再要求 nutrients；超时只发 1 次请求并映射为 `serviceUnavailable`。
+- `xcodebuild test … -only-testing:VelaTests -only-testing:VelaUITests` 退出码 0；VelaTests 4/4，UI 14 项中 13 通过、1 项按预期跳过。
+- 模拟器 Debug 构建 `BUILD SUCCEEDED`。
+- 未验证：真实模型端到端耗时（需要部署后由用户实际分析一餐确认）；120 秒超时对极端慢端点的体验仍需观察。
