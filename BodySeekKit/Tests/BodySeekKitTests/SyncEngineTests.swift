@@ -23,6 +23,73 @@ final class SyncEngineTests: XCTestCase {
         XCTAssertEqual(records.map(\.hkUUID), [kept.hkUUID])
     }
 
+    func testFetchedEmptySleepClearsCacheButFailedSleepKeepsIt() async throws {
+        let db = try BodySeekDatabase.inMemory()
+        let repo = BodySeekRepository(database: db)
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Shanghai"))
+        let day = DayKey(year: 2026, month: 11, day: 20)
+        let wake = try XCTUnwrap(cal.date(from: DateComponents(year: 2026, month: 11, day: 20, hour: 7)))
+        let bed = wake.addingTimeInterval(-6 * 3600)
+        let sleepSample = RawSleepSample(
+            startDate: bed,
+            endDate: wake,
+            stage: .asleepUnspecified,
+            source: SourceRef(name: "Watch", priority: 100)
+        )
+
+        func batch(samples: [RawSleepSample], state: SleepFetchState) -> SyncBatch {
+            SyncBatch(
+                rawSleepSamples: samples,
+                affectedDayKeys: [day],
+                nextAnchorData: Data("anchor".utf8),
+                sleepFetchState: state,
+                sleepReplacementDays: [day]
+            )
+        }
+
+        let source = MockHealthKitSyncSource()
+        let engine = SyncEngine(repository: repo, source: source, calendar: cal)
+        await source.setRecentBatch(batch(samples: [sleepSample], state: .fetched))
+        _ = try await engine.syncRecentWindow(referenceDate: wake)
+        var raw = try await repo.loadRawDays(from: day, to: day, calendar: cal).first
+        XCTAssertEqual(raw?.sleepAsleepMinutes, 360)
+
+        await source.setRecentBatch(batch(samples: [], state: .fetched))
+        _ = try await engine.syncRecentWindow(referenceDate: wake)
+        raw = try await repo.loadRawDays(from: day, to: day, calendar: cal).first
+        XCTAssertNil(raw?.sleepAsleepMinutes)
+        let rawAfterClear = try await repo.loadRawDays(from: day, to: day, calendar: cal).first
+        XCTAssertTrue(rawAfterClear?.sleepSegments.isEmpty != false)
+
+        await source.setRecentBatch(batch(samples: [sleepSample], state: .fetched))
+        _ = try await engine.syncRecentWindow(referenceDate: wake)
+        await source.setRecentBatch(batch(samples: [], state: .failed))
+        _ = try await engine.syncRecentWindow(referenceDate: wake)
+        raw = try await repo.loadRawDays(from: day, to: day, calendar: cal).first
+        XCTAssertEqual(raw?.sleepAsleepMinutes, 360, "failed sleep query must preserve cached sleep")
+    }
+
+    func testConcurrentRecentSyncsCommitInGateOrderAndDoNotRollBackAnchor() async throws {
+        let db = try BodySeekDatabase.inMemory()
+        let repo = BodySeekRepository(database: db)
+        let time = Date(timeIntervalSince1970: 1_790_000_000)
+        let source = DelayedRecentSyncSource(batches: [
+            SyncBatch(nextAnchorData: Data("1".utf8)),
+            SyncBatch(nextAnchorData: Data("2".utf8)),
+        ])
+        let engine = SyncEngine(repository: repo, source: source)
+
+        async let first = engine.syncRecentWindow(referenceDate: time)
+        async let second = engine.syncRecentWindow(referenceDate: time)
+        _ = try await (first, second)
+
+        let anchor = try await repo.loadSyncAnchor(type: SyncEngine.recentAnchorType)
+        XCTAssertEqual(anchor?.anchorData, Data("2".utf8))
+        let calls = await source.callCount
+        XCTAssertEqual(calls, 2)
+    }
+
     func testRecentSyncPersistsAnchorMergesSleepAndSeparatesWorkoutEffort() async throws {
         let db = try BodySeekDatabase.inMemory()
         let repo = BodySeekRepository(database: db)
@@ -220,6 +287,32 @@ private actor MutableConditionProvider: SystemConditionProvider {
     }
 }
 
+private actor DelayedRecentSyncSource: HealthKitSyncSource {
+    private var batches: [SyncBatch]
+    private(set) var callCount = 0
+
+    init(batches: [SyncBatch]) {
+        self.batches = batches
+    }
+
+    func fetchAnchoredRecent(
+        anchorData: Data?,
+        lookbackDays: Int,
+        referenceDate: Date
+    ) async throws -> SyncBatch {
+        callCount += 1
+        let current = callCount
+        // The older request is deliberately slower. Without a serial gate it would
+        // commit its stale anchor after the newer request.
+        try? await Task.sleep(nanoseconds: current == 1 ? 180_000_000 : 10_000_000)
+        return batches.count >= current ? batches[current - 1] : SyncBatch()
+    }
+
+    func fetchMonthlyBackfill(monthStart: Date, monthEnd: Date) async throws -> SyncBatch {
+        SyncBatch()
+    }
+}
+
 private actor MockHealthKitSyncSource: HealthKitSyncSource {
     var recentBatch: SyncBatch
     var recentCallCount = 0
@@ -233,6 +326,10 @@ private actor MockHealthKitSyncSource: HealthKitSyncSource {
 
     func setForcedError(_ error: Error?) {
         forcedError = error
+    }
+
+    func setRecentBatch(_ batch: SyncBatch) {
+        recentBatch = batch
     }
 
     func setOnMonthlyBackfill(_ handler: (@Sendable (Int, Date, Date) async throws -> SyncBatch)?) {

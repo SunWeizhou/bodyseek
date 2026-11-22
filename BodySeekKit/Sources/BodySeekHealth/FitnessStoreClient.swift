@@ -107,6 +107,18 @@ public actor BodySeekSwiftDataBackend {
         return mc
     }
 
+    /// Deletes the retained legacy SwiftData store so an explicit reset cannot be
+    /// undone by a later migration import.
+    public func deleteLegacyStoreIfExists() {
+        cachedContainer = nil
+        let base = legacyStoreURL
+        let manager = FileManager.default
+        for suffix in ["", "-shm", "-wal"] {
+            let url = URL(fileURLWithPath: base.path + suffix)
+            try? manager.removeItem(at: url)
+        }
+    }
+
     /// Reads the legacy SwiftData SQLite file ONLY if it already exists on disk (used once for GRDB migration).
     public nonisolated func exportLegacyPayloadIfStoreExists() throws -> LegacyImportPayload? {
         let baseDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first

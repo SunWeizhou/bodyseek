@@ -451,6 +451,50 @@ final class BodySeekStoreTests: XCTestCase {
         XCTAssertEqual(messages.count, 1)
     }
 
+    func testExcludedMetricValueDoesNotEnterRawProjection() async throws {
+        let db = try BodySeekDatabase.inMemory()
+        let repo = BodySeekRepository(database: db)
+        let day = DayKey(year: 2026, month: 11, day: 20)
+        try await repo.upsertDayMetrics([
+            DayMetricRecord(
+                dayKey: day,
+                metric: DayMetricField.hrvMs.rawValue,
+                value: 190,
+                state: .excluded,
+                reason: "导联异常，排除",
+                coverage: 0
+            ),
+        ])
+        let raw = try await repo.loadRawDays(from: day, to: day).first
+        XCTAssertNil(raw?.hrvMs, "excluded values must not be exposed as valid raw input")
+    }
+
+    func testResetDismissalPreventsLegacyReimport() async throws {
+        let db = try BodySeekDatabase.inMemory()
+        let repo = BodySeekRepository(database: db)
+        let now = Date(timeIntervalSince1970: 1_763_500_000)
+        let payload = LegacyImportPayload(
+            templates: [],
+            sessions: [],
+            memories: [],
+            messages: [CoachMessage(role: .user, text: "旧版对话", timestamp: now)],
+            checkIns: []
+        )
+        _ = try await LegacyDataImporter.importIfNeeded(into: repo, now: now) { payload }
+        let importedMessages = try await repo.loadMessages()
+        XCTAssertEqual(importedMessages.count, 1)
+
+        try await repo.resetAll()
+        try await LegacyDataImporter.markDismissed(into: repo, now: now)
+        let afterReset = try await LegacyDataImporter.importIfNeeded(into: repo, now: now) {
+            XCTFail("Retained legacy payload must not be re-imported after an explicit reset")
+            return payload
+        }
+        XCTAssertTrue(afterReset.alreadyImported)
+        let messagesAfterReset = try await repo.loadMessages()
+        XCTAssertTrue(messagesAfterReset.isEmpty)
+    }
+
     func testSleepMergePolicyPrioritizesWatchOverAutoSleepAndIPhoneSeparatingNaps() throws {
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Shanghai"))

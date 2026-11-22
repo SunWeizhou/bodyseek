@@ -19,6 +19,7 @@ public actor BodySeekSharedStore {
     private var cachedReadModel: BodySeekReadModel?
     private var hasCheckedLegacyImport = false
     private var lastBackfillRunAt: Date?
+    private var cachedSyncEngine: SyncEngine?
 
     private init() {}
 
@@ -86,18 +87,29 @@ public actor BodySeekSharedStore {
         return report
     }
 
+    #if os(iOS)
+    private func syncEngine(sleepGoalMinutes: Int) async throws -> SyncEngine {
+        if let cachedSyncEngine {
+            await cachedSyncEngine.updateSleepGoal(minutes: sleepGoalMinutes)
+            return cachedSyncEngine
+        }
+        let engine = SyncEngine(
+            repository: try repository(),
+            source: LiveHealthKitSyncSource(),
+            sleepGoalMinutes: sleepGoalMinutes
+        )
+        cachedSyncEngine = engine
+        return engine
+    }
+    #endif
+
     public func runSyncRecentIfAvailable(
         sleepGoalMinutes: Int,
         referenceDate: Date
     ) async throws -> SyncRunSummary? {
         #if os(iOS)
         guard HKHealthStore.isHealthDataAvailable() else { return nil }
-        let repo = try repository()
-        let engine = SyncEngine(
-            repository: repo,
-            source: LiveHealthKitSyncSource(),
-            sleepGoalMinutes: sleepGoalMinutes
-        )
+        let engine = try await syncEngine(sleepGoalMinutes: sleepGoalMinutes)
         return try await engine.syncRecentWindow(days: 30, referenceDate: referenceDate)
         #else
         return nil
@@ -114,12 +126,7 @@ public actor BodySeekSharedStore {
             return nil
         }
         lastBackfillRunAt = referenceDate
-        let repo = try repository()
-        let engine = SyncEngine(
-            repository: repo,
-            source: LiveHealthKitSyncSource(),
-            sleepGoalMinutes: sleepGoalMinutes
-        )
+        let engine = try await syncEngine(sleepGoalMinutes: sleepGoalMinutes)
         return try await engine.runResumableBackfill(totalMonths: 36, referenceDate: referenceDate)
         #else
         return nil
@@ -129,6 +136,12 @@ public actor BodySeekSharedStore {
     public func resetAll() async throws {
         let repo = try repository()
         try await repo.resetAll()
+        // `resetAll` removes the import anchor; without an explicit dismissal marker
+        // a retained legacy store would be imported again on the next launch.
+        try await LegacyDataImporter.markDismissed(into: repo)
+        await BodySeekSwiftDataBackend.shared.deleteLegacyStoreIfExists()
+        try PreferencesClient.liveValue.reset()
+        cachedSyncEngine = nil
         hasCheckedLegacyImport = true
     }
 }

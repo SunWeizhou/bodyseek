@@ -60,6 +60,9 @@ public struct LegacyImportReport: Equatable, Hashable, Sendable, Codable {
 /// Idempotent one-time importer from legacy SwiftData/JSON stores into GRDB Schema v1.
 public enum LegacyDataImporter {
     public static let anchorKey = "legacy_import_v3"
+    /// Written by an explicit user reset. It survives `resetAll` deleting the
+    /// import anchor and prevents the retained legacy store from being imported again.
+    public static let dismissalKey = "legacy_import_v3_dismissed"
     private static let logger = Logger(subsystem: "com.sunweizhou.Vela4", category: "LegacyDataImporter")
 
     private struct MemoryScope: Codable {
@@ -71,6 +74,18 @@ public enum LegacyDataImporter {
         now: Date = Date(),
         payloadProvider: @Sendable () throws -> LegacyImportPayload?
     ) async throws -> LegacyImportReport {
+        if try await isDismissed(in: repository) {
+            return LegacyImportReport(
+                alreadyImported: true,
+                templatesImported: 0,
+                sessionsImported: 0,
+                memoriesImported: 0,
+                messagesImported: 0,
+                checkInsImported: 0,
+                completedAt: now
+            )
+        }
+
         if let existingAnchor = try await repository.loadSyncAnchor(type: anchorKey) {
             return LegacyImportReport(
                 alreadyImported: true,
@@ -187,5 +202,29 @@ public enum LegacyDataImporter {
 
         logger.info("LegacyDataImporter finished: alreadyImported=\(report.alreadyImported, privacy: .public), total=\(report.totalImported, privacy: .public)")
         return report
+    }
+
+    public static func markDismissed(
+        into repository: BodySeekRepository,
+        now: Date = Date()
+    ) async throws {
+        let marker = Data("dismissed".utf8)
+        try await repository.database.writer.write { db in
+            try BodySeekRepository.saveSyncAnchorSync(
+                db: db,
+                state: SyncAnchorState(
+                    type: dismissalKey,
+                    anchorData: marker,
+                    backfillCursor: nil,
+                    updatedAt: now
+                )
+            )
+        }
+    }
+
+    public static func isDismissed(in repository: BodySeekRepository) async throws -> Bool {
+        try await repository.database.writer.read { db in
+            try BodySeekRepository.loadSyncAnchorSync(db: db, type: dismissalKey) != nil
+        }
     }
 }

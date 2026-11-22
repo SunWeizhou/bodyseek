@@ -16,6 +16,32 @@ public struct SystemConditions: Equatable, Hashable, Sendable {
     }
 }
 
+/// FIFO async gate. Actor reentrancy alone does not serialize work across `await`;
+/// the gate makes a whole anchored-sync/backfill run mutually exclusive.
+actor SyncGate {
+    private var isLocked = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func acquire() async {
+        if !isLocked {
+            isLocked = true
+            return
+        }
+        await withCheckedContinuation { continuation in
+            waiters.append(continuation)
+        }
+    }
+
+    func release() {
+        if waiters.isEmpty {
+            isLocked = false
+        } else {
+            let next = waiters.removeFirst()
+            next.resume()
+        }
+    }
+}
+
 public protocol SystemConditionProvider: Sendable {
     func currentConditions() async -> SystemConditions
 }
@@ -41,6 +67,15 @@ public struct LiveSystemConditionProvider: SystemConditionProvider {
     }
 }
 
+public enum SleepFetchState: String, Sendable {
+    /// The caller did not query sleep in this batch; keep cached sleep untouched.
+    case notQueried
+    /// The sleep query succeeded. An empty sample list is a confirmed empty range.
+    case fetched
+    /// The sleep query failed; keep cached sleep and let the next sync retry.
+    case failed
+}
+
 public struct SyncBatch: Sendable {
     public let dayMetrics: [DayMetricRecord]
     public let hourlyMetrics: [HourlyMetricRecord]
@@ -50,6 +85,8 @@ public struct SyncBatch: Sendable {
     public let deletedWorkoutUUIDs: Set<String>
     public let affectedDayKeys: Set<DayKey>
     public let nextAnchorData: Data?
+    public let sleepFetchState: SleepFetchState
+    public let sleepReplacementDays: Set<DayKey>
 
     public init(
         dayMetrics: [DayMetricRecord] = [],
@@ -59,7 +96,9 @@ public struct SyncBatch: Sendable {
         workoutSymbols: [String: String] = [:],
         deletedWorkoutUUIDs: Set<String> = [],
         affectedDayKeys: Set<DayKey> = [],
-        nextAnchorData: Data? = nil
+        nextAnchorData: Data? = nil,
+        sleepFetchState: SleepFetchState = .notQueried,
+        sleepReplacementDays: Set<DayKey> = []
     ) {
         self.dayMetrics = dayMetrics
         self.hourlyMetrics = hourlyMetrics
@@ -69,6 +108,8 @@ public struct SyncBatch: Sendable {
         self.deletedWorkoutUUIDs = deletedWorkoutUUIDs
         self.affectedDayKeys = affectedDayKeys
         self.nextAnchorData = nextAnchorData
+        self.sleepFetchState = sleepFetchState
+        self.sleepReplacementDays = sleepReplacementDays
     }
 }
 
@@ -147,6 +188,9 @@ public actor SyncEngine {
     public let calendar: Calendar
 
     private var debounceTask: Task<Void, Never>?
+    private let syncGate = SyncGate()
+    private var startedGeneration = 0
+    private var committedGeneration = 0
 
     public init(
         repository: BodySeekRepository,
@@ -173,6 +217,29 @@ public actor SyncEngine {
         days: Int = 30,
         referenceDate: Date = Date()
     ) async throws -> SyncRunSummary {
+        startedGeneration += 1
+        let generation = startedGeneration
+        await syncGate.acquire()
+        do {
+            let result = try await syncRecentWindowLocked(
+                days: days,
+                referenceDate: referenceDate,
+                generation: generation
+            )
+            await syncGate.release()
+            return result
+        } catch {
+            await syncGate.release()
+            throw error
+        }
+    }
+
+    private func syncRecentWindowLocked(
+        days: Int,
+        referenceDate: Date,
+        generation: Int
+    ) async throws -> SyncRunSummary {
+        try Task.checkCancellation()
         let signpost = BodySeekSignposts.shared.begin(.healthKitWindowFetch)
         defer { BodySeekSignposts.shared.end(.healthKitWindowFetch, signpost) }
 
@@ -182,7 +249,12 @@ public actor SyncEngine {
             lookbackDays: days,
             referenceDate: referenceDate
         )
+        try Task.checkCancellation()
 
+        // A newer generation may have committed while this request was fetching.
+        guard generation > committedGeneration else {
+            throw CancellationError()
+        }
         let summary = try await persistAndRecompute(batch: batch, referenceDate: referenceDate)
 
         if let nextAnchor = batch.nextAnchorData {
@@ -195,7 +267,7 @@ public actor SyncEngine {
                 )
             )
         }
-
+        committedGeneration = generation
         return summary
     }
 
@@ -203,6 +275,24 @@ public actor SyncEngine {
     public func runResumableBackfill(
         totalMonths: Int = 36,
         referenceDate: Date = Date()
+    ) async throws -> BackfillRunSummary {
+        await syncGate.acquire()
+        do {
+            let result = try await runResumableBackfillLocked(
+                totalMonths: totalMonths,
+                referenceDate: referenceDate
+            )
+            await syncGate.release()
+            return result
+        } catch {
+            await syncGate.release()
+            throw error
+        }
+    }
+
+    private func runResumableBackfillLocked(
+        totalMonths: Int,
+        referenceDate: Date
     ) async throws -> BackfillRunSummary {
         let initialAnchor = try await repository.loadSyncAnchor(type: Self.backfillAnchorType)
         let refStart = calendar.startOfDay(for: referenceDate)
@@ -407,6 +497,14 @@ public actor SyncEngine {
             }
         }
 
+        if batch.sleepFetchState == .fetched {
+            let staleDays = batch.sleepReplacementDays.subtracting(sleepDays)
+            if !staleDays.isEmpty {
+                let cleared = try await repository.clearSleepData(for: staleDays)
+                dirtyKeys.formUnion(cleared)
+            }
+        }
+
         let allDayMetrics = batch.dayMetrics + sleepDayMetrics
         if !allDayMetrics.isEmpty {
             try await repository.upsertDayMetrics(allDayMetrics)
@@ -542,6 +640,8 @@ public final class LiveHealthKitSyncSource: HealthKitSyncSource, @unchecked Send
         var dayMetrics: [DayMetricRecord] = []
         var hourlyRecords: [HourlyMetricRecord] = []
         var rawSleepSamples: [RawSleepSample] = []
+        var sleepFetchState: SleepFetchState = .failed
+        var sleepReplacementDays = Set<DayKey>()
         var affectedDays = Set<DayKey>()
         let tz = calendar.timeZone
 
@@ -759,11 +859,24 @@ public final class LiveHealthKitSyncSource: HealthKitSyncSource, @unchecked Send
                 affectedDays.formUnion(days)
             case let .sleep(samples):
                 rawSleepSamples = samples
+                sleepFetchState = .fetched
                 for sample in samples {
                     affectedDays.insert(
                         sample.endDate.physiologicalDayKey(cutoverHour: 4, timeZone: tz)
                     )
                 }
+            }
+        }
+
+        if sleepFetchState == .fetched {
+            var cursor = calendar.startOfDay(for: start)
+            let endDay = calendar.startOfDay(for: end)
+            while cursor <= endDay {
+                sleepReplacementDays.insert(
+                    DayKey.fromCalendarDay(cursor, calendar: calendar)
+                )
+                guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
+                cursor = next
             }
         }
 
@@ -797,7 +910,9 @@ public final class LiveHealthKitSyncSource: HealthKitSyncSource, @unchecked Send
             workoutSymbols: workoutSymbols,
             deletedWorkoutUUIDs: deletedWorkoutUUIDs,
             affectedDayKeys: affectedDays,
-            nextAnchorData: nextAnchorData
+            nextAnchorData: nextAnchorData,
+            sleepFetchState: sleepFetchState,
+            sleepReplacementDays: sleepReplacementDays
         )
     }
 

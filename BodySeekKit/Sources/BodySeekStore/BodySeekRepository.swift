@@ -320,6 +320,63 @@ public final class BodySeekRepository: Sendable {
         }
     }
 
+    /// Confirmed deletion of sleep data for a **successful but empty** HealthKit
+    /// sleep query. Removes stale episodes and daily sleep aggregates, then
+    /// invalidates dependent score artifacts.
+    @discardableResult
+    public func clearSleepData(for days: Set<DayKey>) async throws -> Set<DayKey> {
+        guard !days.isEmpty else { return [] }
+        return try await database.writer.write { db in
+            let sleepMetricFields = [
+                DayMetricField.sleepAsleepMinutes,
+                .sleepInBedMinutes,
+                .deepMinutes,
+                .remMinutes,
+                .coreMinutes,
+                .awakeMinutes,
+            ].map(\.rawValue)
+            let metricPlaceholders = Array(repeating: "?", count: sleepMetricFields.count).joined(separator: ",")
+            let keys = days.map(\.isoString)
+            var affected = Set<DayKey>()
+            var offset = 0
+            while offset < keys.count {
+                let chunk = Array(keys[offset..<min(offset + 500, keys.count)])
+                let placeholders = Array(repeating: "?", count: chunk.count).joined(separator: ",")
+                let existingSleepDays = try String.fetchAll(
+                    db,
+                    sql: "SELECT DISTINCT day_key FROM sleep_episode WHERE day_key IN (\(placeholders))",
+                    arguments: StatementArguments(chunk)
+                )
+                let existingMetricDays = try String.fetchAll(
+                    db,
+                    sql: """
+                    SELECT DISTINCT day_key FROM day_metric
+                    WHERE day_key IN (\(placeholders)) AND metric IN (\(metricPlaceholders))
+                    """,
+                    arguments: StatementArguments(chunk + sleepMetricFields)
+                )
+                for raw in existingSleepDays + existingMetricDays {
+                    if let key = DayKey(isoString: raw) { affected.insert(key) }
+                }
+                try db.execute(
+                    sql: "DELETE FROM sleep_episode WHERE day_key IN (\(placeholders))",
+                    arguments: StatementArguments(chunk)
+                )
+                try db.execute(
+                    sql: """
+                    DELETE FROM day_metric
+                    WHERE day_key IN (\(placeholders))
+                      AND metric IN (\(metricPlaceholders))
+                    """,
+                    arguments: StatementArguments(chunk + sleepMetricFields)
+                )
+                offset += chunk.count
+            }
+            try Self.invalidateComputedArtifactsSync(db: db, dayKeys: affected)
+            return affected
+        }
+    }
+
     public func upsertWorkouts(_ workouts: [StoredWorkoutRecord], symbolByUUID: [String: String] = [:]) async throws {
         guard !workouts.isEmpty else { return }
         try await database.writer.write { db in
@@ -595,8 +652,13 @@ public final class BodySeekRepository: Sendable {
         for row in metricRows {
             let key: String = row["day_key"]
             let metric: String = row["metric"]
+            let state: String = row["state"]
             let val: Double? = row["value"]
-            if let val {
+            // `excluded` and `missing` must never enter scoring inputs even when a
+            // stale value is still stored in the row.
+            if state == ObservationStateTag.available.rawValue
+                || state == ObservationStateTag.knownZero.rawValue,
+               let val {
                 scalarByDay[key, default: [:]][metric] = val
             } else if scalarByDay[key] == nil {
                 scalarByDay[key] = [:]
