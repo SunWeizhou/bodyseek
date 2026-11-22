@@ -540,6 +540,9 @@ public struct NutritionEvaluatedReading: Equatable, Hashable, Codable, Sendable 
     public let targetSummary: String
     public let isDayComplete: Bool
     public let isConfirmed: Bool
+    /// True when the amount used for this reading includes AI estimates.
+    /// Estimated readings are directional only and must not be presented as confirmed adequacy.
+    public let isEstimated: Bool
 
     public init(
         metricID: String,
@@ -552,7 +555,8 @@ public struct NutritionEvaluatedReading: Equatable, Hashable, Codable, Sendable 
         reason: String,
         targetSummary: String,
         isDayComplete: Bool,
-        isConfirmed: Bool
+        isConfirmed: Bool,
+        isEstimated: Bool = false
     ) {
         self.metricID = metricID
         self.metricName = metricName
@@ -565,6 +569,7 @@ public struct NutritionEvaluatedReading: Equatable, Hashable, Codable, Sendable 
         self.targetSummary = targetSummary
         self.isDayComplete = isDayComplete
         self.isConfirmed = isConfirmed
+        self.isEstimated = isEstimated
     }
 }
 
@@ -707,7 +712,8 @@ public enum NutritionTargetEvaluator {
     public static func evaluate(
         metricID: String,
         log: DailyNutritionLog?,
-        validatedPlan: ValidatedTargetPlan
+        validatedPlan: ValidatedTargetPlan,
+        allowEstimates: Bool = false
     ) -> NutritionEvaluatedReading {
         let descriptor = NutritionCatalog.descriptor(forID: metricID)
             ?? NutrientDescriptor(id: metricID, name: metricID, unit: "g", isPendingForm: true)
@@ -721,8 +727,11 @@ public enum NutritionTargetEvaluator {
 
         let hasPartialMeals = log?.dietPartialFields.isEmpty == false
         let hasAIEstimate = log?.entries.contains { $0.aiEstimatedNutrientIDs?.contains(metricID) == true } == true
-        let isDayComplete = log?.dietDayComplete == true && !hasPartialMeals && !hasAIEstimate
+        let isDayComplete = log?.dietDayComplete == true
+            && !hasPartialMeals
+            && (allowEstimates || !hasAIEstimate)
         let isConfirmed = log?.healthConfirmedFields.contains(metricID) == true
+        let readingIsEstimated = hasAIEstimate && allowEstimates
         let rawAmount = log?.rawValue(forMetricID: metricID)
 
         guard let rawAmount, rawAmount.isFinite, rawAmount >= 0 else {
@@ -790,7 +799,8 @@ public enum NutritionTargetEvaluator {
                 reason: hasAIEstimate ? "含 AI 粗估，暂不判定达标或超限" : (hasPartialMeals ? "有餐食的营养记录不完整" : "当天未收尾"),
                 targetSummary: targetLabel,
                 isDayComplete: isDayComplete,
-                isConfirmed: isConfirmed
+                isConfirmed: isConfirmed,
+                isEstimated: readingIsEstimated
             )
         }
 
@@ -806,7 +816,8 @@ public enum NutritionTargetEvaluator {
                 reason: targetLabel,
                 targetSummary: targetLabel,
                 isDayComplete: true,
-                isConfirmed: isConfirmed
+                isConfirmed: isConfirmed,
+                isEstimated: readingIsEstimated
             )
         }
 
@@ -822,7 +833,8 @@ public enum NutritionTargetEvaluator {
                 reason: "超过UL \(formatNumber(ul)) \(target.unit)（安全上限，非目标）",
                 targetSummary: targetLabel,
                 isDayComplete: true,
-                isConfirmed: isConfirmed
+                isConfirmed: isConfirmed,
+                isEstimated: readingIsEstimated
             )
         }
 
@@ -855,7 +867,8 @@ public enum NutritionTargetEvaluator {
             reason: targetLabel,
             targetSummary: targetLabel,
             isDayComplete: true,
-            isConfirmed: isConfirmed
+            isConfirmed: isConfirmed,
+            isEstimated: readingIsEstimated
         )
     }
 
@@ -1311,6 +1324,11 @@ public struct NutritionMetricPeriodAverage: Equatable, Hashable, Codable, Sendab
     public let averageValue: Double?
     public let validCompletedDays: Int
     public let status: NutritionReadingStatus
+    /// Period average/status including closed days whose nutrients contain AI estimates.
+    /// Directional only; never overrides the confirmed `status`.
+    public let estimatedAverageValue: Double?
+    public let estimatedStatus: NutritionReadingStatus
+    public let estimatedDays: Int
 
     public init(
         metricID: String,
@@ -1318,7 +1336,10 @@ public struct NutritionMetricPeriodAverage: Equatable, Hashable, Codable, Sendab
         unit: String,
         averageValue: Double?,
         validCompletedDays: Int,
-        status: NutritionReadingStatus
+        status: NutritionReadingStatus,
+        estimatedAverageValue: Double? = nil,
+        estimatedStatus: NutritionReadingStatus = .unknown,
+        estimatedDays: Int = 0
     ) {
         self.metricID = metricID
         self.metricName = metricName
@@ -1326,6 +1347,18 @@ public struct NutritionMetricPeriodAverage: Equatable, Hashable, Codable, Sendab
         self.averageValue = averageValue
         self.validCompletedDays = validCompletedDays
         self.status = status
+        self.estimatedAverageValue = estimatedAverageValue
+        self.estimatedStatus = estimatedStatus
+        self.estimatedDays = estimatedDays
+    }
+
+    /// Confirmed status wins; otherwise fall back to the estimated directional status.
+    public var displayStatus: NutritionReadingStatus {
+        status != .unknown ? status : estimatedStatus
+    }
+
+    public var isEstimateOnly: Bool {
+        status == .unknown && estimatedStatus != .unknown
     }
 }
 
@@ -1400,9 +1433,18 @@ public enum NutritionBoardAggregator {
             var metDays = 0
             var lowDays = 0
             var overDays = 0
+            var estimatedSum = 0.0
+            var estimatedCount = 0
+            var estimatedDayCount = 0
 
             for (_, log) in relevantLogs {
                 let eval = NutritionTargetEvaluator.evaluate(metricID: id, log: log, validatedPlan: validated)
+                let estimatedEval = NutritionTargetEvaluator.evaluate(
+                    metricID: id,
+                    log: log,
+                    validatedPlan: validated,
+                    allowEstimates: true
+                )
                 displayUnit = eval.displayUnit
                 if eval.isDayComplete, let v = eval.value {
                     sum += v
@@ -1413,6 +1455,11 @@ public enum NutritionBoardAggregator {
                     case .over: overDays += 1
                     case .unknown: break
                     }
+                }
+                if estimatedEval.status != .unknown, let v = estimatedEval.value {
+                    estimatedSum += v
+                    estimatedCount += 1
+                    if estimatedEval.isEstimated { estimatedDayCount += 1 }
                 }
             }
 
@@ -1451,6 +1498,41 @@ public enum NutritionBoardAggregator {
                 avgStatus = .unknown
             }
 
+            let estimatedAvg: Double? = estimatedCount > 0 ? estimatedSum / Double(estimatedCount) : nil
+            let estimatedAvgStatus: NutritionReadingStatus
+            if let estimatedAvg {
+                var synthetic = DailyNutritionLog(dayKey: todayKey, dietDayComplete: true)
+                synthetic.dietKcal = 1_000.0
+                if id == "diet_kcal" {
+                    synthetic.dietKcal = estimatedAvg
+                } else if displayUnit == "%E", let factor = descriptor.energyFactor {
+                    let rawFor1000 = (estimatedAvg / 100.0) * 1_000.0 / factor
+                    switch id {
+                    case "diet_carbs_g": synthetic.dietCarbsG = rawFor1000
+                    case "diet_fat_g": synthetic.dietFatG = rawFor1000
+                    case "diet_ala_mg": synthetic.dietAlaMg = rawFor1000
+                    default: break
+                    }
+                } else {
+                    switch id {
+                    case "diet_protein_g": synthetic.dietProteinG = estimatedAvg
+                    case "diet_fiber_g": synthetic.dietFiberG = estimatedAvg
+                    case "diet_water_ml": synthetic.dietWaterMl = estimatedAvg
+                    case "diet_epa_dha_mg": synthetic.dietEpaDhaMg = estimatedAvg
+                    case _ where id.hasPrefix("diet_vitamins::"):
+                        synthetic.dietVitamins[String(id.dropFirst("diet_vitamins::".count))] = estimatedAvg
+                    case _ where id.hasPrefix("diet_minerals::"):
+                        synthetic.dietMinerals[String(id.dropFirst("diet_minerals::".count))] = estimatedAvg
+                    default: break
+                    }
+                }
+                estimatedAvgStatus = NutritionTargetEvaluator.evaluate(
+                    metricID: id, log: synthetic, validatedPlan: validated, allowEstimates: true
+                ).status
+            } else {
+                estimatedAvgStatus = .unknown
+            }
+
             averages.append(
                 NutritionMetricPeriodAverage(
                     metricID: id,
@@ -1458,7 +1540,10 @@ public enum NutritionBoardAggregator {
                     unit: displayUnit,
                     averageValue: avg,
                     validCompletedDays: count,
-                    status: avgStatus
+                    status: avgStatus,
+                    estimatedAverageValue: estimatedAvg,
+                    estimatedStatus: estimatedAvgStatus,
+                    estimatedDays: estimatedDayCount
                 )
             )
             _ = (metDays, lowDays, overDays)
@@ -1466,8 +1551,14 @@ public enum NutritionBoardAggregator {
 
         if sortByStatus {
             averages.sort { lhs, rhs in
-                let rankL = statusSortRank(lhs.status, hasAvg: lhs.averageValue != nil)
-                let rankR = statusSortRank(rhs.status, hasAvg: rhs.averageValue != nil)
+                let rankL = statusSortRank(
+                    lhs.displayStatus,
+                    hasAvg: lhs.averageValue != nil || lhs.estimatedAverageValue != nil
+                )
+                let rankR = statusSortRank(
+                    rhs.displayStatus,
+                    hasAvg: rhs.averageValue != nil || rhs.estimatedAverageValue != nil
+                )
                 if rankL != rankR { return rankL < rankR }
                 return lhs.metricID < rhs.metricID
             }
