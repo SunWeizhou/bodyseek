@@ -213,10 +213,19 @@ public struct NutritionBoardView: View {
 
         return BevelCard {
             VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Text("能量平衡")
+                HStack(spacing: 6) {
+                    let day = store.selectedDayKey
+                    Text("能量平衡 · \(day.month)月\(day.day)日")
                         .font(.headline)
                         .foregroundStyle(BevelTheme.ink)
+                    if day == store.todayKey {
+                        Text("今天")
+                            .font(.caption2.weight(.semibold))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(BevelTheme.brandSoft, in: Capsule())
+                            .foregroundStyle(BevelTheme.brand)
+                    }
                     Spacer()
                     Button {
                         store.send(.profileTargetPresented(true))
@@ -334,7 +343,7 @@ public struct NutritionBoardView: View {
 
     private var macroCircleMatrixCard: some View {
         let dayKeys = store.periodDayKeys
-        let displayDays = store.periodMode == .week ? dayKeys : Array(dayKeys.suffix(14))
+        let displayDays = dayKeys
         let macroIDs = Set(NutritionCatalog.macroDescriptors.map(\.id))
         let macroAverages = store.periodSummary.metricAverages.filter { macroIDs.contains($0.metricID) }
 
@@ -345,6 +354,11 @@ public struct NutritionBoardView: View {
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(BevelTheme.ink)
                     Spacer()
+                    if store.periodMode == .month {
+                        Text("左右滑动查看完整 \(displayDays.count) 天")
+                            .font(.caption2)
+                            .foregroundStyle(BevelTheme.inkSecondary)
+                    }
                 }
 
                 // Four-state honest color legend
@@ -437,6 +451,7 @@ public struct NutritionBoardView: View {
                         }
                     }
                 }
+                .defaultScrollAnchor(.trailing)
             }
         }
         .accessibilityElement(children: .contain)

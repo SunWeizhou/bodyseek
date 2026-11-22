@@ -84,24 +84,9 @@ public struct RangeCapsuleChart: View {
 
                     if let selectedBucket {
                         let selMid = midpointDate(for: selectedBucket)
-                        let med = Int(selectedBucket.median.rounded())
-                        let sub: String = selectedBucket.p25 == selectedBucket.p75
-                            ? selectedBucket.label
-                            : "\(selectedBucket.label) · P25–75 \(Int(selectedBucket.p25.rounded()))–\(Int(selectedBucket.p75.rounded()))"
                         RuleMark(x: .value("选中周期", selMid))
                             .lineStyle(StrokeStyle(lineWidth: 1.2, dash: [3, 3]))
                             .foregroundStyle(tint.opacity(0.75))
-                            .annotation(
-                                position: .top,
-                                spacing: 6,
-                                overflowResolution: .init(x: .fit(to: .chart), y: .disabled)
-                            ) {
-                                ChartSelectionCallout(
-                                    valueText: "\(med) \(unitLabel)",
-                                    subtitleText: sub,
-                                    tint: tint
-                                )
-                            }
                     }
 
                     ForEach(buckets) { bucket in
@@ -181,6 +166,16 @@ public struct RangeCapsuleChart: View {
                 .onChange(of: rawSelectedDate) { _, newValue in
                     handleSelectionChange(newValue, buckets: buckets)
                 }
+                .onChange(of: snapshot.kind) { _, _ in
+                    rawSelectedDate = nil
+                    selectedBucket = nil
+                    onSelectBucket?(nil)
+                }
+                .onChange(of: snapshot.horizon) { _, _ in
+                    rawSelectedDate = nil
+                    selectedBucket = nil
+                    onSelectBucket?(nil)
+                }
                 .frame(height: height)
                 .bodyseekSelectionHaptic(trigger: selectedBucket?.id)
                 .accessibilityChartDescriptor(
@@ -201,13 +196,7 @@ public struct RangeCapsuleChart: View {
     }
 
     private func handleSelectionChange(_ date: Date?, buckets: [RangeCapsuleBucket]) {
-        guard let date else {
-            if selectedBucket != nil {
-                selectedBucket = nil
-                onSelectBucket?(nil)
-            }
-            return
-        }
+        guard let date else { return }
         guard let nearest = buckets.min(by: {
             abs(midpointDate(for: $0).timeIntervalSince(date))
                 < abs(midpointDate(for: $1).timeIntervalSince(date))

@@ -354,3 +354,51 @@
 5. **未验证风险与边界**：
    - DeepSeek `/v1/tools/search` 在真实外网与用户线上 API Key 下的端到端检索命中率及耗时需在真机实际记餐中观察（若账号未开通 search 工具权限会自动静默回退至 DeepSeek 内置知识）；
    - 真机 iOS 26 下的 `.chartXSelection` 触感反馈与多密度真实健康数据视觉表现待部署至用户 iPhone 后实测确认。
+
+## 19. 2026-11-22 两轮审查 17 项问题全量修复验证
+
+针对审査基线 `84559883` 的两轮 17 项问题（首轮 P0–P2 共 9 项、次轮 P0/P1/UI 共 8 项），在分支 `codex/ui/ios26-native-bodyseek` 上分三笔内聚提交落地：Commit A（`3d5efc4c`）、Commit B（`856777e0`）与 Commit C（本次 UI/无障碍/图表读数提交）。
+
+### 问题与修复映射
+| 编号 | 级别 | 问题摘要 | 修复落点 |
+| --- | --- | --- | --- |
+| R1-1 | P0 | 设置重置范围远超文案且无二次确认 | Commit A (`3d5efc4c`): `SettingsFeature.swift`、`SettingsView.swift` 增加删除清单二次确认弹窗与「清空全部本地数据与设置」文案 |
+| R1-2 | P0 | 全新未授权安装也会写入 `M4APersonalPatternSeeds` 预置规律 | Commit A (`3d5efc4c`): `AppFeature.swift`、`NOfOneExperimentModels.swift`、`TrendsView.swift` 仅在非空 Preview 写入并标注「示例预置」 |
+| R1-3 | P1 | 趋势/营养切换周期或指标后 AI 解读滞后错配与旧请求回写覆盖 | Commit B (`856777e0`): `TrendsFeature.swift`、`NutritionFeature.swift` 按 `ScopeKey` 绑定缓存并用 TCA Effect 取消丢弃过期响应 |
+| R1-4 | P1 | 仅 7 天数据时 ACWR 7d=28d 恒为 `1.00` 绿色「甜蜜推进区」 | Commit B (`856777e0`): `BevelScoringEngine.swift`、`FitnessModels.swift`、`TrainingLoadDashboardCard.swift`、`CoachToolRegistry.swift` 要求近 28 天 ≥14 天且第 8–28 天 ≥7 天基线并展示覆盖天数 |
+| R1-5 | P1 | 身体预测隐藏单指标实测覆盖并用因果措辞表达线性归因 | Commit B (`856777e0`): `PersonalForecasterEngine.swift`、`TrendsFeature.swift`、`TrendsView.swift` 按目标披露 14 日实测天数、低覆盖预警与「非因果特征贡献」文案 |
+| R1-6 | P1 | 营养联网搜索附带 128 字原文且零命中/失败未记审计 | Commit B (`856777e0`): `OpenAICompatibleClient.swift`、`NutritionMealAssistantView.swift` 仅发送脱敏食物关键词、必写外发审计日志并在分析前告知 |
+| R1-7 | P1 | 最大辅助字号（`.accessibility5`）下引导页按钮出屏与今日页三列截断 | Commit C: `OnboardingView.swift`、`TodayView.swift` 改用 `ScrollView + safeAreaInset` 底部操作区及无障碍字号自动单列堆叠 |
+| R1-8 | P2 | 健身页待复盘仅显示 3 条、手表档案仅显示 6 条 | Commit C: `WorkoutView.swift` 增加「查看全部/收起」与全量档案状态筛选 pills |
+| R1-9 | P2 | 今日页首屏 5 卡后缺乏 1 句话确定性结论，行动卡 AI 先于局部结论 | Commit C: `TodayView.swift` 增加 `today-quick-verdict` 确定性总结条并调整行动卡本地建议前置 |
+| R2-1 | P0 | 营养月看板外层 `LazyVStack` 导致滑动冻结卡死 | Commit A (`3d5efc4c`): `NutritionBoardView.swift` 将外层改为 `VStack` |
+| R2-2 | P0 | 压力与能量曲线在早上生成当天未来时段并标为「当前」 | Commit B (`856777e0`): `Models.swift`、`BevelScoringEngine.swift`、`EnergyAreaChart.swift`、`IntradayBarChart.swift`、`EnergyDetailView.swift`、`StressDetailView.swift` 按参考时间截断未来时段并显式标注 2 小时估算窗 |
+| R2-3 | P0 | 空白训练复盘默认勾选胸肌导致盲点确认误写负荷且错显在 sheet 后 | Commit A (`3d5efc4c`): `WorkoutFeature.swift`、`WorkoutReviewSheetView.swift` 改为默认空肌群禁用确认并页内展示错误 |
+| R2-4 | P1 | Coach「立即开练」死按钮（已无对应弹窗） | Commit A (`3d5efc4c`): `CoachView.swift`、`WorkoutFeature.swift` 改为 Watch-First「保存计划并查看」直达健身页提案卡片 |
+| R2-5 | P1 | 今日体感打卡保存后未实时同步到 Coach 上下文 | Commit A (`3d5efc4c`): `AppFeature.swift` 在 `checkInSaved` 时立即同步更新 `coach.checkIns` |
+| R2-6 | UI | 图表松手即失焦且悬浮气泡遮挡顶部 `ChartLockedReadoutHeader` | Commit C: `TrendLineChart`、`RangeCapsuleChart`、`LoadRecoveryComboChart`、`EnergyAreaChart`、`IntradayBarChart`、`TrainingLoadDashboardCard`、`ForecastFanChart` 移除悬浮气泡，松手保留顶部锁定读数至点击清除或切换维度 |
+| R2-7 | UI | 营养月矩阵仅显示近 14 天且能量平衡卡未标出所选日期 | Commit C: `NutritionBoardView.swift` 渲染完整 30 天矩阵并默认右对齐滚动，并在「能量平衡 · M月d日」展示所选日期 |
+| R2-8 | UI | 营养汇总「+76 kcal」与「平均缺口」符号语义混淆 | Commit B (`856777e0`) & Commit C: `NutritionFeature.swift`、`NutritionBoardView.swift`、`TodayView.swift` 显式区分「近 7 天日均缺口 / 盈余 / 平衡」与有效结账天数 |
+
+### 验证命令与结果（Commit C 工作区全量门禁前采集）
+1. **工程生成、静态门禁与差异格式**：
+   - `/opt/homebrew/bin/xcodegen generate` → 退出码 `0`
+   - `grep -rnE "\btry\?" BodySeekKit/Sources/ | wc -l` → `0`
+   - `grep -rnE "Liveline|repeatForever|SpeziLLM" BodySeekKit/Sources/ | wc -l` → `0`
+   - `grep -rnE "^import (Charts|SleepChartKit)" BodySeekKit/Sources/BodySeekFeatures/ | wc -l` → `0`
+   - `git diff --check` → 退出码 `0`
+2. **SwiftPM 全量测试与评测**：
+   - `swift test --package-path BodySeekKit --disable-automatic-resolution` → 退出码 `0`
+   - `BodySeekKitTests`：`103/103` 通过（0 失败）
+   - `COREML_PARITY_M4D`：`vectors=24 swift_max_rel_err=5.72e-08 coreml_max_rel_err=0.00e+00`
+   - `BodySeekAgentEvals`：`29/29` 通过（`AGENT_EVALS_M3: passed=31/31 rate=100.0% tool_leak=0 provenance_pass=31/31 direct_write_violations=0`）
+3. **iOS Simulator 全量单元与 UI 测试**：
+   - `xcodebuild test -project Vela.xcodeproj -scheme Vela -destination 'id=3BB779BD-022F-4E60-A3BB-70DC5A0BF987' -parallel-testing-enabled NO -skipMacroValidation -skipPackagePluginValidation` → 退出码 `0`（`** TEST SUCCEEDED **`）
+   - `VelaTests`：`4/4` 通过（0 失败）
+   - `VelaUITests`：`15` 项执行，`14/14` 实跑通过（含新增 `testAuditRegressionGuardsResetConfirmationBlankReviewAndMonthBoard`），`1` 项按预期跳过（`testCaptureLightAndDarkScreenshotsWhenRequested` 在未设置 `BODYSEEK_WALKTHROUGH_DIR` 时 `XCTSkip`），`0` 失败
+4. **泛型 iOS 真机构建校验**：
+   - `xcodebuild -project Vela.xcodeproj -scheme Vela -destination 'generic/platform=iOS' -skipMacroValidation -skipPackagePluginValidation -allowProvisioningUpdates build` → 退出码 `0`（`** BUILD SUCCEEDED **`）
+5. **未验证风险与边界**：
+   - 未经用户明确授权，本轮未向 `Joe’s iPhone` 执行真机安装部署；真机安装与实时 HealthKit/iOS 26 真机渲染待授权安装后确认。
+   - DeepSeek `/v1/tools/search` 联网行为与脱敏审计由 `URLProtocol` 离线桩回归覆盖；线上密钥真实命中与耗时需在真机实际记餐观察。
+   - `.accessibility5` 与图表松手锁留行为由代码逻辑与模拟器常规 UI 回归覆盖，真机或专项无障碍极小屏截图需按需补充实拍。

@@ -85,21 +85,9 @@ public struct IntradayBarChart: View {
                     }
 
                     if interactive, let selectedBin {
-                        let isExcl = excludedHours.contains(selectedBin.hour)
                         RuleMark(x: .value("选中时段", Double(selectedBin.hour)))
                             .lineStyle(StrokeStyle(lineWidth: 1.2, dash: [3, 3]))
                             .foregroundStyle(activeColor.opacity(0.75))
-                            .annotation(
-                                position: .top,
-                                spacing: 6,
-                                overflowResolution: .init(x: .fit(to: .chart), y: .disabled)
-                            ) {
-                                ChartSelectionCallout(
-                                    valueText: isExcl ? "运动排除" : "\(selectedBin.value) · \(levelLabel(selectedBin.level))",
-                                    subtitleText: String(format: "%02d:00–%02d:59", selectedBin.hour, selectedBin.hour),
-                                    tint: activeColor
-                                )
-                            }
                     }
                 }
                 .chartYScale(domain: 0...100)
@@ -164,10 +152,7 @@ public struct IntradayBarChart: View {
     }
 
     private func handleSelectionChange(_ hourValue: Double?, sorted: [StressTimelineBin]) {
-        guard let hourValue else {
-            selectedBin = nil
-            return
-        }
+        guard let hourValue else { return }
         let nearest = sorted.min(by: { abs(Double($0.hour) - hourValue) < abs(Double($1.hour) - hourValue) })
         if selectedBin?.hour != nearest?.hour {
             selectedBin = nearest

@@ -91,22 +91,9 @@ public struct LoadRecoveryComboChart: View {
                     }
 
                     if let selectedDay {
-                        let rText = selectedDay.recovery.value.map { "\($0)" } ?? "--"
-                        let sText = selectedDay.strain.value.map { "\($0)" } ?? "--"
                         RuleMark(x: .value("选中日", selectedDay.date))
                             .lineStyle(StrokeStyle(lineWidth: 1.2, dash: [3, 3]))
                             .foregroundStyle(BevelTheme.inkSecondary.opacity(0.75))
-                            .annotation(
-                                position: .top,
-                                spacing: 6,
-                                overflowResolution: .init(x: .fit(to: .chart), y: .disabled)
-                            ) {
-                                ChartSelectionCallout(
-                                    valueText: "恢复 \(rText) · 负荷 \(sText)",
-                                    subtitleText: ChartAxisSupport.formatReadoutDate(selectedDay.date, horizon: .month),
-                                    tint: BevelTheme.recoveryColor
-                                )
-                            }
 
                         if let rec = selectedDay.recovery.value {
                             PointMark(x: .value("选中日", selectedDay.date), y: .value("恢复", rec))
@@ -150,6 +137,11 @@ public struct LoadRecoveryComboChart: View {
                 .onChange(of: rawSelectedDate) { _, newValue in
                     handleSelectionChange(newValue, ordered: ordered)
                 }
+                .onChange(of: days.count) { _, _ in
+                    rawSelectedDate = nil
+                    selectedDay = nil
+                    onSelectDate?(nil)
+                }
                 .frame(height: height)
                 .bodyseekSelectionHaptic(trigger: selectedDay?.dayKey)
             }
@@ -157,13 +149,7 @@ public struct LoadRecoveryComboChart: View {
     }
 
     private func handleSelectionChange(_ date: Date?, ordered: [DailyComputedDay]) {
-        guard let date else {
-            if selectedDay != nil {
-                selectedDay = nil
-                onSelectDate?(nil)
-            }
-            return
-        }
+        guard let date else { return }
         let nearest = ordered.min(by: { abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date)) })
         if selectedDay?.dayKey != nearest?.dayKey {
             selectedDay = nearest

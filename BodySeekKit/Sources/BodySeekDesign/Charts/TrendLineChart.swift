@@ -133,13 +133,6 @@ public struct TrendLineChart: View {
                         RuleMark(x: .value("选中日", scrubbedPoint.date))
                             .lineStyle(StrokeStyle(lineWidth: 1.2, dash: [3, 3]))
                             .foregroundStyle(tint.opacity(0.75))
-                            .annotation(
-                                position: .top,
-                                spacing: 6,
-                                overflowResolution: .init(x: .fit(to: .chart), y: .disabled)
-                            ) {
-                                calloutView(for: scrubbedPoint)
-                            }
 
                         if let value = scrubbedPoint.value {
                             PointMark(
@@ -197,6 +190,16 @@ public struct TrendLineChart: View {
                 .onChange(of: rawSelectedDate) { _, newValue in
                     handleSelectionChange(newValue)
                 }
+                .onChange(of: snapshot.kind) { _, _ in
+                    rawSelectedDate = nil
+                    scrubbedPoint = nil
+                    onSelectDate?(nil)
+                }
+                .onChange(of: snapshot.horizon) { _, _ in
+                    rawSelectedDate = nil
+                    scrubbedPoint = nil
+                    onSelectDate?(nil)
+                }
                 .frame(height: height)
                 .bodyseekSelectionHaptic(trigger: scrubbedPoint?.id)
                 .accessibilityChartDescriptor(
@@ -215,13 +218,7 @@ public struct TrendLineChart: View {
     }
 
     private func handleSelectionChange(_ date: Date?) {
-        guard let date else {
-            if scrubbedPoint != nil {
-                scrubbedPoint = nil
-                onSelectDate?(nil)
-            }
-            return
-        }
+        guard let date else { return }
         guard let nearest = snapshot.dailyPoints.min(by: {
             abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date))
         }) else { return }
@@ -231,21 +228,6 @@ public struct TrendLineChart: View {
             BodySeekSignposts.shared.emitEvent(.chartScrub, detail: snapshot.kind.rawValue)
             onSelectDate?(nearest.date)
         }
-    }
-
-    private func calloutView(for point: ChartPointSnapshot) -> some View {
-        let dateStr = ChartAxisSupport.formatReadoutDate(point.date, horizon: snapshot.horizon)
-        let primary: String = switch point.availability {
-        case .available:
-            point.value.map { "\(Int($0.rounded())) \(unitLabel)" } ?? "--"
-        case .knownZero:
-            "0 \(unitLabel)"
-        case .missing:
-            "缺失"
-        case .excluded:
-            "已排除"
-        }
-        return ChartSelectionCallout(valueText: primary, subtitleText: dateStr, tint: tint)
     }
 
     private func headerStrings(segments: [ChartAxisSupport.ContiguousPoint]) -> (primary: String, secondary: String) {

@@ -95,8 +95,22 @@ public struct ForecastFanChart: View {
         }()
 
         let selectable = buildSelectables(history: history, predPoint: predPoint, low80: low80, high80: high80)
+        let defaultSecondary: String = isPercent
+            ? String(format: "80%%区间 %.1f–%.1f%%", low80, high80)
+            : String(format: "80%%区间 %.1f–%.1f %@", low80, high80, unitLabel)
 
         VStack(alignment: .leading, spacing: 8) {
+            ChartLockedReadoutHeader(
+                primaryText: selectedItem?.valueText ?? "明日预测 \(formatValue(predPoint))",
+                secondaryText: selectedItem?.subtitleText ?? defaultSecondary,
+                tint: tint,
+                isLocked: selectedItem != nil,
+                onClear: selectedItem == nil ? nil : {
+                    rawSelectedDate = nil
+                    selectedItem = nil
+                }
+            )
+
             Chart {
                 if let medianHistory {
                     RuleMark(y: .value("近期中位", medianHistory))
@@ -177,17 +191,6 @@ public struct ForecastFanChart: View {
                     RuleMark(x: .value("选中日", selectedItem.date))
                         .lineStyle(StrokeStyle(lineWidth: 1.2, dash: [3, 3]))
                         .foregroundStyle(tint.opacity(0.75))
-                        .annotation(
-                            position: .top,
-                            spacing: 6,
-                            overflowResolution: .init(x: .fit(to: .chart), y: .disabled)
-                        ) {
-                            ChartSelectionCallout(
-                                valueText: selectedItem.valueText,
-                                subtitleText: selectedItem.subtitleText,
-                                tint: tint
-                            )
-                        }
                 }
             }
             .chartYScale(domain: yDomain)
@@ -221,10 +224,7 @@ public struct ForecastFanChart: View {
             }
             .chartXSelection(value: $rawSelectedDate)
             .onChange(of: rawSelectedDate) { _, newValue in
-                guard let newValue else {
-                    selectedItem = nil
-                    return
-                }
+                guard let newValue else { return }
                 let nearest = selectable.min {
                     abs($0.date.timeIntervalSince(newValue)) < abs($1.date.timeIntervalSince(newValue))
                 }
@@ -232,6 +232,10 @@ public struct ForecastFanChart: View {
                     selectedItem = nearest
                     BodySeekSignposts.shared.emitEvent(.chartScrub, detail: "forecast-fan")
                 }
+            }
+            .onChange(of: target.name) { _, _ in
+                rawSelectedDate = nil
+                selectedItem = nil
             }
             .frame(height: height)
             .bodyseekSelectionHaptic(trigger: selectedItem?.id)

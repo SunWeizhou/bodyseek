@@ -85,17 +85,6 @@ public struct EnergyAreaChart: View {
                         RuleMark(x: .value("选中时刻", selectedPoint.date))
                             .lineStyle(StrokeStyle(lineWidth: 1.2, dash: [3, 3]))
                             .foregroundStyle(BevelTheme.energyColor.opacity(0.75))
-                            .annotation(
-                                position: .top,
-                                spacing: 6,
-                                overflowResolution: .init(x: .fit(to: .chart), y: .disabled)
-                            ) {
-                                ChartSelectionCallout(
-                                    valueText: "\(selectedPoint.value)%",
-                                    subtitleText: ChartAxisSupport.formatHour(selectedPoint.date),
-                                    tint: BevelTheme.energyColor
-                                )
-                            }
                     }
 
                     if let active = selectedPoint ?? (interactive ? sorted.last : nil) {
@@ -172,10 +161,7 @@ public struct EnergyAreaChart: View {
     }
 
     private func handleSelectionChange(_ date: Date?, sorted: [EnergyCurvePoint]) {
-        guard let date else {
-            selectedPoint = nil
-            return
-        }
+        guard let date else { return }
         let nearest = sorted.min(by: { abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date)) })
         if selectedPoint?.id != nearest?.id {
             selectedPoint = nearest

@@ -585,4 +585,71 @@ final class BodySeekUITests: XCTestCase {
         XCTAssertTrue(completeBtn.waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["进行中"].exists)
     }
+
+    func testAuditRegressionGuardsResetConfirmationBlankReviewAndMonthBoard() {
+        let app = launchApp()
+
+        // 1. Today above-the-fold quick verdict banner exists
+        XCTAssertTrue(app.otherElements["today-quick-verdict"].waitForExistence(timeout: 8))
+
+        // 2. Settings reset shows explicit deletion scope alert and cancelling preserves data
+        let settingsBtn = app.buttons["settings-button"]
+        XCTAssertTrue(settingsBtn.waitForExistence(timeout: 5))
+        settingsBtn.tap()
+
+        let resetBtn = app.buttons["settings-reset-button"]
+        for _ in 0..<8 where !resetBtn.exists || !resetBtn.isHittable {
+            app.swipeUp()
+        }
+        XCTAssertTrue(resetBtn.waitForExistence(timeout: 5))
+        resetBtn.tap()
+
+        let confirmAlert = app.alerts["确认清空全部本地数据？"]
+        XCTAssertTrue(confirmAlert.waitForExistence(timeout: 5))
+        XCTAssertTrue(confirmAlert.buttons["settings-reset-confirm"].exists)
+        confirmAlert.buttons["取消"].tap()
+
+        app.buttons["settings-done-button"].tap()
+        XCTAssertTrue(app.otherElements["today-score-instrument"].waitForExistence(timeout: 5))
+
+        // 3. Nutrition month board switches smoothly without layout hang and renders macro matrix
+        tapTab("营养", in: app)
+        let periodPicker = app.segmentedControls["nutrition-period-picker"]
+        for _ in 0..<6 where !periodPicker.exists || !periodPicker.isHittable {
+            app.swipeUp()
+        }
+        XCTAssertTrue(periodPicker.waitForExistence(timeout: 5))
+        periodPicker.buttons["月看板"].tap()
+
+        let matrix = app.otherElements["nutrition-macro-matrix"]
+        for _ in 0..<5 where !matrix.exists || !matrix.isHittable {
+            app.swipeUp()
+        }
+        XCTAssertTrue(matrix.waitForExistence(timeout: 5))
+
+        // 4. Blank workout review keeps confirm disabled until user picks a muscle/chip
+        tapTab("健身", in: app)
+        let reviewBtn = app.buttons["workout-inbox-review-00000000-0000-4000-8000-000000000001"]
+        XCTAssertTrue(reviewBtn.waitForExistence(timeout: 6))
+        reviewBtn.tap()
+
+        let topConfirm = app.buttons["workout-review-confirm-top"]
+        XCTAssertTrue(topConfirm.waitForExistence(timeout: 5))
+        XCTAssertFalse(topConfirm.isEnabled)
+
+        let chip0 = app.buttons["workout-review-chip-0"]
+        XCTAssertTrue(chip0.waitForExistence(timeout: 5))
+        chip0.tap()
+        XCTAssertTrue(topConfirm.isEnabled)
+
+        let bottomConfirm = app.buttons["workout-review-confirm"]
+        for _ in 0..<4 where !bottomConfirm.exists || !bottomConfirm.isHittable {
+            app.swipeUp()
+        }
+        if bottomConfirm.exists {
+            XCTAssertTrue(bottomConfirm.isEnabled)
+        }
+
+        app.buttons["workout-review-close"].tap()
+    }
 }

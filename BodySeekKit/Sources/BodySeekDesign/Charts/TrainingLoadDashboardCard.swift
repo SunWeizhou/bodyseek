@@ -230,15 +230,42 @@ public struct TrainingLoadDashboardCard: View {
             let tickDates = ChartAxisSupport.explicitTickDates(from: points.map(\.date), maxTicks: 3)
 
             VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Text("近 14 天每日负荷分布")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(BevelTheme.inkSecondary)
-                    Spacer()
-                    if let dailyBaseline {
-                        Text("基线虚线 \(Int(dailyBaseline.rounded()))/日")
-                            .font(.caption2.monospacedDigit())
+                if let selectedPoint {
+                    let dateStr = ChartAxisSupport.formatAxisDate(selectedPoint.date, horizon: .month)
+                    let sub = selectedPoint.trimpScore > 0
+                        ? "\(dateStr) · TRIMP \(Int(selectedPoint.trimpScore.rounded()))"
+                        : dateStr
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text("负荷 \(Int(selectedPoint.load.rounded()))")
+                            .font(.subheadline.weight(.bold).monospacedDigit())
+                            .fontDesign(.rounded)
+                            .foregroundStyle(BevelTheme.strainColor)
+                        Spacer(minLength: 6)
+                        Text(sub)
+                            .font(.caption.monospacedDigit())
                             .foregroundStyle(BevelTheme.inkSecondary)
+                        Button {
+                            rawSelectedDate = nil
+                            self.selectedPoint = nil
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.caption)
+                                .foregroundStyle(BevelTheme.inkSecondary)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("清除选点")
+                    }
+                } else {
+                    HStack {
+                        Text("近 14 天每日负荷分布")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(BevelTheme.inkSecondary)
+                        Spacer()
+                        if let dailyBaseline {
+                            Text("基线虚线 \(Int(dailyBaseline.rounded()))/日")
+                                .font(.caption2.monospacedDigit())
+                                .foregroundStyle(BevelTheme.inkSecondary)
+                        }
                     }
                 }
 
@@ -268,24 +295,9 @@ public struct TrainingLoadDashboardCard: View {
                     }
 
                     if let selectedPoint {
-                        let dateStr = ChartAxisSupport.formatAxisDate(selectedPoint.date, horizon: .month)
-                        let sub = selectedPoint.trimpScore > 0
-                            ? "\(dateStr) · TRIMP \(Int(selectedPoint.trimpScore.rounded()))"
-                            : dateStr
                         RuleMark(x: .value("选中日", selectedPoint.date))
                             .lineStyle(StrokeStyle(lineWidth: 1.2, dash: [3, 3]))
                             .foregroundStyle(BevelTheme.strainColor.opacity(0.75))
-                            .annotation(
-                                position: .top,
-                                spacing: 6,
-                                overflowResolution: .init(x: .fit(to: .chart), y: .disabled)
-                            ) {
-                                ChartSelectionCallout(
-                                    valueText: "负荷 \(Int(selectedPoint.load.rounded()))",
-                                    subtitleText: sub,
-                                    tint: BevelTheme.strainColor
-                                )
-                            }
                     }
                 }
                 .chartYScale(domain: yDomain)
@@ -357,10 +369,7 @@ public struct TrainingLoadDashboardCard: View {
     }
 
     private func handleSelectionChange(_ date: Date?, points: [LoadBarPoint]) {
-        guard let date else {
-            selectedPoint = nil
-            return
-        }
+        guard let date else { return }
         let nearest = points.min(by: { abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date)) })
         if selectedPoint?.id != nearest?.id {
             selectedPoint = nearest

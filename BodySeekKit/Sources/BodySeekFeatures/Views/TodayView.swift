@@ -6,6 +6,7 @@ import SwiftUI
 
 public struct TodayView: View {
     @Bindable var store: StoreOf<TodayFeature>
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     private let zoomNamespace: Namespace.ID?
 
     public init(store: StoreOf<TodayFeature>, zoomNamespace: Namespace.ID? = nil) {
@@ -30,6 +31,8 @@ public struct TodayView: View {
                     healthOverviewCard
 
                     stressAndEnergyRow
+
+                    todayQuickVerdictBanner
 
                     if store.snapshot.isAuthorized {
                         sleepCard
@@ -146,28 +149,61 @@ public struct TodayView: View {
     private var healthOverviewCard: some View {
         BevelCard {
             VStack(alignment: .leading, spacing: 14) {
-                HStack(spacing: 8) {
-                    Text("身体状态")
-                        .font(.headline)
-                        .foregroundStyle(BevelTheme.ink)
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 8) {
+                        HStack(spacing: 8) {
+                            Text("身体状态")
+                                .font(.headline)
+                                .foregroundStyle(BevelTheme.ink)
 
-                    if store.isLoading {
-                        ProgressView()
-                            .controlSize(.small)
-                            .accessibilityLabel("正在更新数据")
+                            if store.isLoading {
+                                ProgressView()
+                                    .controlSize(.small)
+                                    .accessibilityLabel("正在更新数据")
+                            }
+                        }
+
+                        Spacer()
+
+                        Text("\(formattedEditorialDate(store.today.date)) · \(store.snapshot.sourceLabel)")
+                            .font(.footnote)
+                            .foregroundStyle(BevelTheme.inkSecondary)
                     }
 
-                    Spacer()
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 8) {
+                            Text("身体状态")
+                                .font(.headline)
+                                .foregroundStyle(BevelTheme.ink)
 
-                    Text("\(formattedEditorialDate(store.today.date)) · \(store.snapshot.sourceLabel)")
-                        .font(.footnote)
-                        .foregroundStyle(BevelTheme.inkSecondary)
+                            if store.isLoading {
+                                ProgressView()
+                                    .controlSize(.small)
+                                    .accessibilityLabel("正在更新数据")
+                            }
+                        }
+
+                        Text("\(formattedEditorialDate(store.today.date)) · \(store.snapshot.sourceLabel)")
+                            .font(.footnote)
+                            .foregroundStyle(BevelTheme.inkSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
 
-                HStack(alignment: .top, spacing: 12) {
-                    scoreButton(for: store.today.recovery, context: recoveryReadout, identifier: "today-score-recovery")
-                    scoreButton(for: store.today.sleep, context: sleepReadout, identifier: "today-score-sleep")
-                    scoreButton(for: store.today.strain, context: strainReadout, identifier: "today-score-strain")
+                if dynamicTypeSize.isAccessibilitySize {
+                    VStack(alignment: .leading, spacing: 12) {
+                        scoreButton(for: store.today.recovery, context: recoveryReadout, identifier: "today-score-recovery")
+                        Divider()
+                        scoreButton(for: store.today.sleep, context: sleepReadout, identifier: "today-score-sleep")
+                        Divider()
+                        scoreButton(for: store.today.strain, context: strainReadout, identifier: "today-score-strain")
+                    }
+                } else {
+                    HStack(alignment: .top, spacing: 12) {
+                        scoreButton(for: store.today.recovery, context: recoveryReadout, identifier: "today-score-recovery")
+                        scoreButton(for: store.today.sleep, context: sleepReadout, identifier: "today-score-sleep")
+                        scoreButton(for: store.today.strain, context: strainReadout, identifier: "today-score-strain")
+                    }
                 }
             }
         }
@@ -276,7 +312,8 @@ public struct TodayView: View {
                     Text(reading ?? "—")
                         .font(.subheadline.weight(.medium).monospacedDigit())
                         .foregroundStyle(reading == nil ? BevelTheme.inkSecondary : BevelTheme.ink)
-                        .lineLimit(1)
+                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(.top, 4)
             }
@@ -337,13 +374,6 @@ public struct TodayView: View {
                         .accessibilityIdentifier("today-ask-coach-button")
                     }
 
-                    if postWorkoutAdvice == nil, hasAISuggestion {
-                        aiSuggestion
-                        if primary != nil {
-                            Divider()
-                        }
-                    }
-
                     if let postWorkoutAdvice {
                         VStack(alignment: .leading, spacing: 6) {
                             Label("今天已完成训练", systemImage: "checkmark.circle")
@@ -354,6 +384,13 @@ public struct TodayView: View {
                         }
                     } else if let primary {
                         suggestionRow(primary, isPrimary: true)
+                    }
+
+                    if postWorkoutAdvice == nil, hasAISuggestion {
+                        if primary != nil {
+                            Divider()
+                        }
+                        aiSuggestion
                     }
 
                     if !otherSuggestions.isEmpty {
@@ -517,11 +554,19 @@ public struct TodayView: View {
                                 .fontDesign(.rounded)
                                 .foregroundStyle(BevelTheme.ink)
                         }
+                        let deficitVal = store.nutritionRollingDeficit7d
+                        let deficitLabel: String = {
+                            guard let val = deficitVal else { return "近 7 日日均缺口" }
+                            if val < -30 { return "近 7 日日均盈余" }
+                            if val > 30 { return "近 7 日日均缺口" }
+                            return "近 7 日日均平衡"
+                        }()
+                        let deficitDisplay = deficitVal.map { "\(Int(abs($0).rounded())) kcal/日" } ?? "--"
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("近 7 日日均缺口")
+                            Text(deficitLabel)
                                 .font(.caption2)
                                 .foregroundStyle(BevelTheme.inkSecondary)
-                            Text(store.nutritionRollingDeficit7d.map { "\(Int($0.rounded())) kcal/日" } ?? "--")
+                            Text(deficitDisplay)
                                 .font(.subheadline.weight(.semibold).monospacedDigit())
                                 .fontDesign(.rounded)
                                 .foregroundStyle(BevelTheme.ink)
@@ -597,10 +642,85 @@ public struct TodayView: View {
 
     @ViewBuilder
     private var stressAndEnergyRow: some View {
-        HStack(spacing: 12) {
-            stressCardButton
-            energyCardButton
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(spacing: 12) {
+                stressCardButton
+                energyCardButton
+            }
+        } else {
+            HStack(spacing: 12) {
+                stressCardButton
+                energyCardButton
+            }
         }
+    }
+
+    private var todayQuickVerdictBanner: some View {
+        let verdict = quickVerdictContent
+        return BevelCard(padding: 12) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: verdict.icon)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(verdict.tint)
+                    .padding(.top, 2)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(verdict.title)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(BevelTheme.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(verdict.detail)
+                        .font(.caption)
+                        .foregroundStyle(BevelTheme.inkSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 0)
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("today-quick-verdict")
+    }
+
+    private var quickVerdictContent: (title: String, detail: String, tint: Color, icon: String) {
+        if !store.snapshot.isAuthorized {
+            return (
+                "今日结论：数据不足，待同步",
+                "授权 Apple 健康后即可生成本地恢复与训练结论。",
+                BevelTheme.inkSecondary,
+                "info.circle.fill"
+            )
+        }
+        if let postWorkoutAdvice = store.postWorkoutAdvice {
+            return (
+                "今日结论：今日已完成训练，优先恢复",
+                postWorkoutAdvice,
+                BevelTheme.recoveryColor,
+                "checkmark.seal.fill"
+            )
+        }
+        guard let recovery = store.today.recovery.value else {
+            return (
+                "今日结论：等待今日恢复样本",
+                store.today.factualSummary.isEmpty ? "同步 HRV、静息心率与睡眠样本后将给出今日结论。" : store.today.factualSummary,
+                BevelTheme.inkSecondary,
+                "clock.fill"
+            )
+        }
+        if recovery < 50 || store.snapshot.trainingLoad.zone == .highRisk {
+            return (
+                "今日结论：今天适当减量",
+                store.today.factualSummary,
+                BevelTheme.energyColor,
+                "exclamationmark.triangle.fill"
+            )
+        }
+        return (
+            "今日结论：维持原计划",
+            store.today.factualSummary,
+            BevelTheme.recoveryColor,
+            "checkmark.circle.fill"
+        )
     }
 
     @ViewBuilder
@@ -663,7 +783,8 @@ public struct TodayView: View {
                         Text(metricContext(store.today.energy, detail: store.today.energy.subtitle))
                             .font(.caption)
                             .foregroundStyle(BevelTheme.inkSecondary)
-                            .lineLimit(1)
+                            .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
 
                     EnergyAreaChart(curve: store.today.energyCurve, height: 34)
@@ -713,13 +834,16 @@ public struct TodayView: View {
     }
 
     private var vitalsGrid: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        let columns = dynamicTypeSize.isAccessibilitySize
+            ? [GridItem(.flexible(), spacing: 12)]
+            : [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
+        return VStack(alignment: .leading, spacing: 10) {
             Text("生理指标 · 近 14 天")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(BevelTheme.inkSecondary)
                 .padding(.horizontal, 4)
 
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+            LazyVGrid(columns: columns, spacing: 12) {
                 vitalCard(
                     title: "HRV",
                     valueText: store.today.raw.hrvMs.map { "\(Int($0.rounded())) ms" } ?? "-- ms",

@@ -5,8 +5,19 @@ import MuscleMap
 import SwiftUI
 
 public struct WorkoutView: View {
+    private enum ArchiveFilter: String, CaseIterable, Identifiable {
+        case all = "全部"
+        case unreviewed = "待复盘"
+        case annotated = "已复盘"
+
+        var id: String { rawValue }
+    }
+
     @Bindable var store: StoreOf<WorkoutFeature>
     @Environment(\.scenePhase) private var scenePhase
+    @State private var showAllUnreviewed = false
+    @State private var showAllArchive = false
+    @State private var archiveFilter: ArchiveFilter = .all
 
     public init(store: StoreOf<WorkoutFeature>) {
         self.store = store
@@ -178,7 +189,8 @@ public struct WorkoutView: View {
     }
 
     private var reviewInboxSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        let visibleUnreviewed = showAllUnreviewed ? store.unreviewedWorkouts : Array(store.unreviewedWorkouts.prefix(3))
+        return VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Label("待复盘", systemImage: "tray.and.arrow.down.fill")
                     .font(.headline)
@@ -187,10 +199,21 @@ public struct WorkoutView: View {
                 Text("\(store.unreviewedWorkouts.count) 条")
                     .font(.subheadline)
                     .foregroundStyle(BevelTheme.inkSecondary)
+                if store.unreviewedWorkouts.count > 3 {
+                    Button {
+                        showAllUnreviewed.toggle()
+                    } label: {
+                        Text(showAllUnreviewed ? "收起" : "查看全部 (\(store.unreviewedWorkouts.count))")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(BevelTheme.brand)
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityIdentifier("workout-inbox-toggle-all")
+                }
             }
             .padding(.horizontal, 4)
 
-            ForEach(store.unreviewedWorkouts.prefix(3)) { workout in
+            ForEach(visibleUnreviewed) { workout in
                 let durationMin = max(1, Int((workout.end.timeIntervalSince(workout.start) / 60).rounded()))
                 BevelCard(padding: 14) {
                     VStack(alignment: .leading, spacing: 10) {
@@ -443,13 +466,70 @@ public struct WorkoutView: View {
     }
 
     private var watchArchiveSection: some View {
-        let items = Array(store.archiveWorkouts.prefix(6))
+        let baseArchive = showAllArchive ? store.storedWorkouts : store.archiveWorkouts
+        let filteredArchive: [StoredWorkoutRecord] = {
+            guard showAllArchive else { return baseArchive }
+            switch archiveFilter {
+            case .all:
+                return baseArchive
+            case .unreviewed:
+                return baseArchive.filter { $0.reviewState == .unreviewed }
+            case .annotated:
+                return baseArchive.filter { $0.reviewState == .annotated || $0.reviewState == .autoAttributed }
+            }
+        }()
+        let items = showAllArchive ? filteredArchive : Array(baseArchive.prefix(6))
+        let hasMoreRecords = store.storedWorkouts.count > 6 || store.storedWorkouts.count > store.archiveWorkouts.count
+
         return VStack(alignment: .leading, spacing: 10) {
-            sectionHeader("手表训练记录")
+            HStack {
+                sectionHeader("手表训练记录")
+                Spacer()
+                if hasMoreRecords || showAllArchive {
+                    Button {
+                        showAllArchive.toggle()
+                        if !showAllArchive {
+                            archiveFilter = .all
+                        }
+                    } label: {
+                        Text(showAllArchive ? "仅看近期" : "查看全部 (\(store.storedWorkouts.count))")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(BevelTheme.brand)
+                    }
+                    .buttonStyle(.borderless)
+                    .padding(.trailing, 4)
+                    .accessibilityIdentifier("workout-archive-toggle-all")
+                }
+            }
+
+            if showAllArchive {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(ArchiveFilter.allCases) { filter in
+                            let selected = archiveFilter == filter
+                            Button {
+                                archiveFilter = filter
+                            } label: {
+                                Text(filter.rawValue)
+                                    .font(.caption.weight(.semibold))
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .foregroundStyle(selected ? BevelTheme.onBrand : BevelTheme.ink)
+                                    .background(
+                                        selected ? BevelTheme.brand : BevelTheme.surfaceElevated,
+                                        in: Capsule()
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("workout-archive-filter-\(filter.rawValue)")
+                        }
+                    }
+                }
+            }
 
             if items.isEmpty {
                 BevelCard {
-                    Text("近 30 天还没有同步的手表训练。")
+                    Text(showAllArchive ? "当前筛选条件下暂无训练记录。" : "近 30 天还没有同步的手表训练。")
                         .font(.footnote)
                         .foregroundStyle(BevelTheme.inkSecondary)
                 }
