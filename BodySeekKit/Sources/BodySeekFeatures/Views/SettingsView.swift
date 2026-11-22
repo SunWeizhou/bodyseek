@@ -174,9 +174,10 @@ public struct SettingsView: View {
                 }
 
                 Section("开源底座与存储重置") {
-                    Button("重置训练日志、记忆与设置", role: .destructive) {
-                        store.send(.resetAllDataTapped)
+                    Button("清空全部本地数据与设置", role: .destructive) {
+                        store.send(.resetConfirmationPresented(true))
                     }
+                    .accessibilityIdentifier("settings-reset-button")
                     Text("开源生态：SpeziHealthKit · TCA · GRDB.swift · Swift Charts · MuscleMap · free-exercise-db。")
                         .font(.footnote)
                         .foregroundStyle(BevelTheme.inkSecondary)
@@ -210,6 +211,23 @@ public struct SettingsView: View {
                 )
             ) {
                 privacyPayloadSheet
+            }
+            .alert(
+                "确认清空全部本地数据？",
+                isPresented: Binding(
+                    get: { store.showResetConfirmation },
+                    set: { store.send(.resetConfirmationPresented($0)) }
+                )
+            ) {
+                Button("取消", role: .cancel) {
+                    store.send(.resetConfirmationPresented(false))
+                }
+                Button("确认清空", role: .destructive) {
+                    store.send(.resetAllDataTapped)
+                }
+                .accessibilityIdentifier("settings-reset-confirm")
+            } message: {
+                Text("此操作不可撤销，将永久删除本地保存的：训练记录与复盘、饮食餐食与营养目标、每日体感打卡、个人对照实验、Coach 对话与全部长期记忆、统计规律、审计日志与本地偏好设置（不会删除 Apple 健康中的原始数据）。")
             }
         }
     }

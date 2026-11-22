@@ -198,6 +198,7 @@ final class AppAndTodayFeatureTests: XCTestCase {
 
         XCTAssertEqual(store.state.selectedTab, .workout)
         XCTAssertEqual(store.state.workout.templates.first?.title, "AI 减量上肢训练")
+        XCTAssertEqual(store.state.workout.pendingProposal?.template.title, "AI 减量上肢训练")
     }
 
     func testDailyCheckInFlowAndPersistenceFailurePropagation() async {
@@ -251,8 +252,16 @@ final class AppAndTodayFeatureTests: XCTestCase {
         await savedStore.send(.checkInSaved(entry))
         XCTAssertFalse(savedStore.state.isCheckInPresented)
         XCTAssertEqual(savedStore.state.today.todayCheckIn, entry)
+        XCTAssertEqual(savedStore.state.coach.checkIns.first, entry)
         XCTAssertEqual(savedStore.state.preferences.checkInsByDay[entry.dayKey.isoString], entry)
         XCTAssertEqual(prefsBox.value.checkInsByDay[entry.dayKey.isoString], entry)
+
+        var updatedEntry = entry
+        updatedEntry.energy = 2
+        updatedEntry.note = "下午有点累"
+        await savedStore.send(.checkInSaved(updatedEntry))
+        XCTAssertEqual(savedStore.state.coach.checkIns.count, 1)
+        XCTAssertEqual(savedStore.state.coach.checkIns.first?.energy, 2)
 
         var failingClient = PreferencesClient.previewValue
         failingClient.save = { _ in throw WriteDeniedError() }
@@ -269,6 +278,104 @@ final class AppAndTodayFeatureTests: XCTestCase {
         await failingStore.send(.checkInSaved(entry))
         XCTAssertTrue(failingStore.state.today.lastError?.contains("保存每日体感打卡失败") == true)
     }
+
+    func testSettingsResetRequiresConfirmationAndCancelPreservesData() async {
+        let now = Date(timeIntervalSince1970: 1_760_000_000)
+        let snapshot = BevelScoringEngine.computeWindow(
+            rawDays: PreviewSeedFactory.makeRawWindow(endingAt: now, days: 7),
+            sleepGoalMinutes: 450,
+            referenceDate: now,
+            sourceLabel: "Test",
+            isAuthorized: true
+        )
+        let tracker = LockedResetTracker()
+        var prefs = PreferencesClient.previewValue
+        prefs.reset = { tracker.markPrefsReset() }
+        var fitness = FitnessStoreClient.previewValue
+        fitness.resetAll = { tracker.markFitnessReset() }
+
+        let store = TestStore(
+            initialState: SettingsFeature.State(
+                snapshot: snapshot,
+                preferences: AppPreferencesState(sleepGoalMinutes: 480),
+                memories: [AthleteMemoryItem(category: .goal, content: "备赛半马", updatedAt: now)],
+                tieredMemories: [TieredMemoryRecord(tier: .profile, content: "晨跑前不吃过饱", confidence: 1.0)]
+            )
+        ) {
+            SettingsFeature()
+        } withDependencies: {
+            $0.preferencesClient = prefs
+            $0.fitnessStoreClient = fitness
+            $0.coachAIClient = .previewValue
+        }
+        store.exhaustivity = .off
+
+        await store.send(.resetConfirmationPresented(true))
+        XCTAssertTrue(store.state.showResetConfirmation)
+
+        // Cancelling confirmation leaves all data & stores untouched
+        await store.send(.resetConfirmationPresented(false))
+        XCTAssertFalse(store.state.showResetConfirmation)
+        XCTAssertFalse(tracker.didResetAny)
+        XCTAssertEqual(store.state.memories.count, 1)
+        XCTAssertEqual(store.state.tieredMemories.count, 1)
+
+        // Confirming executes reset and clears state
+        await store.send(.resetConfirmationPresented(true))
+        await store.send(.resetAllDataTapped)
+        await store.receive(\.resetFinished)
+        XCTAssertFalse(store.state.showResetConfirmation)
+        XCTAssertTrue(tracker.didResetBoth)
+        XCTAssertTrue(store.state.memories.isEmpty)
+        XCTAssertTrue(store.state.tieredMemories.isEmpty)
+    }
+
+    func testFreshNonPreviewInstallDoesNotSeedDemoPatterns() async throws {
+        let now = Date(timeIntervalSince1970: 1_760_000_000)
+        let snapshot = BevelScoringEngine.computeWindow(
+            rawDays: [],
+            sleepGoalMinutes: 450,
+            referenceDate: now,
+            sourceLabel: "未授权",
+            isAuthorized: false
+        )
+        let isolatedStoreClient = BodySeekStoreClient.testValue
+        let store = TestStore(
+            initialState: AppFeature.State(
+                hasCompletedOnboarding: true,
+                snapshot: snapshot,
+                arguments: []
+            )
+        ) {
+            AppFeature()
+        } withDependencies: {
+            $0.healthKitClient = .previewValue
+            $0.preferencesClient = .previewValue
+            $0.fitnessStoreClient = .previewValue
+            $0.bodySeekStoreClient = isolatedStoreClient
+            $0.coachAIClient = .previewValue
+            $0.restTimerClient = .previewValue
+            $0.continuousClock = ImmediateClock()
+            $0.date.now = now
+        }
+        store.exhaustivity = .off
+
+        await store.send(.onAppear)
+        await store.receive(\.supplementalContextLoaded)
+        XCTAssertTrue(store.state.trends.patternFindings.isEmpty)
+        let storedPatterns = try await isolatedStoreClient.loadPatternFindings(nil)
+        XCTAssertTrue(storedPatterns.isEmpty)
+    }
+}
+
+private final class LockedResetTracker: @unchecked Sendable {
+    private let lock = NSLock()
+    private var prefs = false
+    private var fitness = false
+    func markPrefsReset() { lock.withLock { prefs = true } }
+    func markFitnessReset() { lock.withLock { fitness = true } }
+    var didResetAny: Bool { lock.withLock { prefs || fitness } }
+    var didResetBoth: Bool { lock.withLock { prefs && fitness } }
 }
 
 private final class LockedPrefsRecorder: @unchecked Sendable {

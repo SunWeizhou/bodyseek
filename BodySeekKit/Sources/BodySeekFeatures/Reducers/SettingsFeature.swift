@@ -16,6 +16,7 @@ public struct SettingsFeature: Sendable {
         public var config: CoachAIConfig = CoachAIConfig()
         public var isTestingConnection: Bool = false
         public var showPrivacyPayloadSheet: Bool = false
+        public var showResetConfirmation: Bool = false
         public var lastOutboundPayload: AgentOutboundPayloadSnapshot?
         public var statusMessage: String?
 
@@ -48,6 +49,7 @@ public struct SettingsFeature: Sendable {
         case authorizeHealthTapped
         case deleteMemoryTapped(UUID)
         case memoryDeleteFailed(String)
+        case resetConfirmationPresented(Bool)
         case resetAllDataTapped
         case resetFinished
         case resetFailed(String)
@@ -198,7 +200,12 @@ public struct SettingsFeature: Sendable {
                 state.statusMessage = "删除记忆失败：\(reason)"
                 return .none
 
+            case let .resetConfirmationPresented(presented):
+                state.showResetConfirmation = presented
+                return .none
+
             case .resetAllDataTapped:
+                state.showResetConfirmation = false
                 return .run { send in
                     do {
                         try preferencesClient.reset()
@@ -212,7 +219,8 @@ public struct SettingsFeature: Sendable {
             case .resetFinished:
                 state.preferences = AppPreferencesState()
                 state.memories = []
-                state.statusMessage = "已重置训练记录、AI 长期记忆与偏好设置"
+                state.tieredMemories = []
+                state.statusMessage = "已清空全部本地数据与偏好设置"
                 return .send(.delegate(.allDataReset))
 
             case let .resetFailed(reason):

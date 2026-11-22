@@ -26,18 +26,20 @@ public struct WorkoutReviewDraft: Equatable, Sendable {
     public var bodySignals: [WorkoutBodySignal]
     public var isParsing: Bool = false
     public var isSaving: Bool = false
+    public var errorMessage: String? = nil
 
     public init(
         workout: StoredWorkoutRecord,
         inputText: String = "",
         proposal: WorkoutAnnotationProposal? = nil,
-        primaryMuscles: [BodyRegionMuscle] = [.chest],
+        primaryMuscles: [BodyRegionMuscle] = [],
         secondaryMuscles: [BodyRegionMuscle] = [],
         rpe: Int = 7,
         exercises: [String] = [],
         bodySignals: [WorkoutBodySignal] = [],
         isParsing: Bool = false,
-        isSaving: Bool = false
+        isSaving: Bool = false,
+        errorMessage: String? = nil
     ) {
         self.workout = workout
         self.inputText = inputText
@@ -49,6 +51,7 @@ public struct WorkoutReviewDraft: Equatable, Sendable {
         self.bodySignals = bodySignals
         self.isParsing = isParsing
         self.isSaving = isSaving
+        self.errorMessage = errorMessage
     }
 }
 
@@ -337,7 +340,7 @@ public struct WorkoutFeature: Sendable {
                     workout: workout,
                     inputText: existingText,
                     proposal: nil,
-                    primaryMuscles: existingPrimary.isEmpty ? [.chest] : existingPrimary,
+                    primaryMuscles: existingPrimary,
                     secondaryMuscles: existingSecondary,
                     rpe: min(10, max(1, defaultRPE)),
                     exercises: [],
@@ -351,16 +354,20 @@ public struct WorkoutFeature: Sendable {
 
             case let .reviewTextChanged(text):
                 state.reviewDraft?.inputText = text
+                state.reviewDraft?.errorMessage = nil
                 return .none
 
             case .parseReviewTapped:
                 guard var draft = state.reviewDraft else { return .none }
                 let text = draft.inputText.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !text.isEmpty else {
-                    state.lastError = "请先输入或口述一句训练内容再解析"
+                    let message = "请先输入或口述一句训练内容再解析"
+                    state.lastError = message
+                    state.reviewDraft?.errorMessage = message
                     return .none
                 }
                 draft.isParsing = true
+                draft.errorMessage = nil
                 state.reviewDraft = draft
                 state.lastError = nil
                 return .run { send in
@@ -386,6 +393,7 @@ public struct WorkoutFeature: Sendable {
 
             case let .toggleMuscleInDraft(muscle):
                 guard var draft = state.reviewDraft else { return .none }
+                draft.errorMessage = nil
                 if draft.primaryMuscles.contains(muscle) {
                     draft.primaryMuscles.removeAll { $0 == muscle }
                     if !draft.secondaryMuscles.contains(muscle) {
@@ -402,6 +410,7 @@ public struct WorkoutFeature: Sendable {
 
             case let .addMuscleToDraft(muscle, asPrimary):
                 guard var draft = state.reviewDraft else { return .none }
+                draft.errorMessage = nil
                 draft.primaryMuscles.removeAll { $0 == muscle }
                 draft.secondaryMuscles.removeAll { $0 == muscle }
                 if asPrimary {
@@ -414,6 +423,7 @@ public struct WorkoutFeature: Sendable {
 
             case let .removeMuscleFromDraft(muscle):
                 guard var draft = state.reviewDraft else { return .none }
+                draft.errorMessage = nil
                 draft.primaryMuscles.removeAll { $0 == muscle }
                 draft.secondaryMuscles.removeAll { $0 == muscle }
                 state.reviewDraft = draft
@@ -434,10 +444,13 @@ public struct WorkoutFeature: Sendable {
             case .confirmReviewTapped:
                 guard var draft = state.reviewDraft, !draft.isSaving else { return .none }
                 if draft.primaryMuscles.isEmpty && draft.secondaryMuscles.isEmpty {
-                    state.lastError = "请至少保留一个主受刺激肌群后再确认"
+                    let message = "请先输入并解析训练内容，或选择至少一个受刺激肌群后再确认"
+                    state.lastError = message
+                    state.reviewDraft?.errorMessage = message
                     return .none
                 }
                 draft.isSaving = true
+                draft.errorMessage = nil
                 state.reviewDraft = draft
                 state.lastError = nil
 
@@ -543,8 +556,10 @@ public struct WorkoutFeature: Sendable {
                 }
 
             case let .reviewPersistFailed(reason):
+                let message = "保存训练复盘失败：\(reason)"
                 state.reviewDraft?.isSaving = false
-                state.lastError = "保存训练复盘失败：\(reason)"
+                state.reviewDraft?.errorMessage = message
+                state.lastError = message
                 return .none
 
             case let .skipReviewTapped(workout):
@@ -655,11 +670,12 @@ public struct WorkoutFeature: Sendable {
                 } else {
                     state.templates.insert(proposal.template, at: 0)
                 }
-                state.pendingProposal = nil
                 if startImmediately {
+                    state.pendingProposal = nil
                     state.activeWorkout = ActiveWorkoutDraft.from(template: proposal.template, now: now)
                 } else {
-                    state.statusMessage = "已将「\(proposal.template.title)」加入你的训练模板库"
+                    state.pendingProposal = proposal
+                    state.statusMessage = "已保存 Coach 训练计划「\(proposal.template.title)」，可在健身页上方查看"
                 }
                 let templateToSave = proposal.template
                 return .run { send in

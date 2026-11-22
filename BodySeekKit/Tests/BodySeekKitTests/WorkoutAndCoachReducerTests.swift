@@ -400,4 +400,44 @@ final class WorkoutAndCoachReducerTests: XCTestCase {
             XCTFail("Expected persisted annotation, got error: \(error)")
         }
     }
+
+    func testBlankWorkoutReviewCannotFabricateChestAttribution() async throws {
+        let now = Date(timeIntervalSince1970: 1_760_000_000)
+        let snapshot = BevelScoringEngine.computeWindow(
+            rawDays: PreviewSeedFactory.makeRawWindow(endingAt: now, days: 14),
+            sleepGoalMinutes: 450,
+            referenceDate: now,
+            sourceLabel: "示例数据",
+            isAuthorized: true
+        )
+        let storeClient = BodySeekStoreClient.testValue
+        let store = TestStore(
+            initialState: WorkoutFeature.State(snapshot: snapshot)
+        ) {
+            WorkoutFeature()
+        } withDependencies: {
+            $0.bodySeekStoreClient = storeClient
+            $0.workoutReviewParserClient = .testValue
+            $0.fitnessStoreClient = .previewValue
+            $0.healthKitClient = .previewValue
+            $0.restTimerClient = .previewValue
+            $0.date.now = now
+            $0.uuid = .incrementing
+        }
+        store.exhaustivity = .off
+
+        await store.send(.onAppear)
+        await store.receive(\.watchWorkoutsLoaded)
+        let workout = try XCTUnwrap(store.state.unreviewedWorkouts.first)
+
+        await store.send(.openReviewTapped(workout))
+        XCTAssertTrue(store.state.reviewDraft?.primaryMuscles.isEmpty == true)
+        XCTAssertTrue(store.state.reviewDraft?.secondaryMuscles.isEmpty == true)
+
+        await store.send(.confirmReviewTapped)
+        XCTAssertNotNil(store.state.reviewDraft?.errorMessage)
+        XCTAssertNotNil(store.state.reviewDraft)
+        let savedAnns = try await storeClient.loadWorkoutAnnotations(workout.hkUUID)
+        XCTAssertTrue(savedAnns.isEmpty)
+    }
 }

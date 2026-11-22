@@ -45,11 +45,16 @@ public struct WorkoutReviewSheetView: View {
                         store.send(.confirmReviewTapped)
                     }
                     .fontWeight(.semibold)
-                    .disabled(store.reviewDraft?.isSaving ?? true)
+                    .disabled(!canConfirmDraft(store.reviewDraft))
                     .accessibilityIdentifier("workout-review-confirm-top")
                 }
             }
         }
+    }
+
+    private func canConfirmDraft(_ draft: WorkoutReviewDraft?) -> Bool {
+        guard let draft else { return false }
+        return !draft.isSaving && (!draft.primaryMuscles.isEmpty || !draft.secondaryMuscles.isEmpty)
     }
 
     private var draftSavingTitle: String {
@@ -186,6 +191,12 @@ public struct WorkoutReviewSheetView: View {
                     Text("主受刺激肌群（深色实心 · 点按降为次要）")
                         .font(.caption)
                         .foregroundStyle(BevelTheme.inkSecondary)
+                    if draft.primaryMuscles.isEmpty && draft.secondaryMuscles.isEmpty {
+                        Text("尚未指定肌群：请先输入并点击「智能解析」，或点击下方「增补肌群」选择本次训练肌群。")
+                            .font(.caption)
+                            .foregroundStyle(BevelTheme.strainColor)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                     muscleChipFlow(
                         muscles: draft.primaryMuscles,
                         isPrimary: true
@@ -290,6 +301,15 @@ public struct WorkoutReviewSheetView: View {
                     }
                 }
 
+                if let errorMessage = draft.errorMessage {
+                    Text(errorMessage)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(BevelTheme.dangerColor)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("workout-review-error")
+                }
+
+                let confirmEnabled = canConfirmDraft(draft)
                 Button {
                     store.send(.confirmReviewTapped)
                 } label: {
@@ -297,11 +317,11 @@ public struct WorkoutReviewSheetView: View {
                         .font(.subheadline.weight(.semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .background(BevelTheme.brand, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                        .foregroundStyle(BevelTheme.onBrand)
+                        .background(confirmEnabled ? BevelTheme.brand : BevelTheme.scoreTrack, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .foregroundStyle(confirmEnabled ? BevelTheme.onBrand : BevelTheme.inkSecondary)
                 }
                 .buttonStyle(.plain)
-                .disabled(draft.isSaving)
+                .disabled(!confirmEnabled)
                 .accessibilityIdentifier("workout-review-confirm")
             }
         }

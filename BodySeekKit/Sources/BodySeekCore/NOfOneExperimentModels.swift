@@ -347,8 +347,10 @@ public enum NOfOneExperimentEvaluator {
     }
 }
 
-/// Anonymized statistical findings from M4a (`personal-patterns-v1`) seeded as `.candidate` until the user explicitly confirms them.
+/// Anonymized statistical findings from M4a (`personal-patterns-v1`) seeded only in preview/demo mode.
 public enum M4APersonalPatternSeeds {
+    public static let seedIDs: Set<UUID> = Set(defaultCandidates().map(\.id))
+
     public static func defaultCandidates() -> [PatternFindingRecord] {
         [
             PatternFindingRecord(

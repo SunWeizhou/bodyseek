@@ -416,7 +416,7 @@ public struct TrendsView: View {
                         let summary = finding.statement.components(separatedBy: "（95% CI ").first ?? finding.statement
 
                         VStack(alignment: .leading, spacing: 6) {
-                            HStack {
+                            HStack(spacing: 6) {
                                 Text(finding.status == .confirmed ? "已确认" : "待确认")
                                     .font(.caption2.weight(.semibold))
                                     .padding(.horizontal, 8)
@@ -426,6 +426,15 @@ public struct TrendsView: View {
                                         in: Capsule()
                                     )
                                     .foregroundStyle(finding.status == .confirmed ? Color.green : BevelTheme.brand)
+
+                                if M4APersonalPatternSeeds.seedIDs.contains(finding.id) {
+                                    Text("示例预置")
+                                        .font(.caption2.weight(.medium))
+                                        .padding(.horizontal, 7)
+                                        .padding(.vertical, 3)
+                                        .background(BevelTheme.surfaceElevated, in: Capsule())
+                                        .foregroundStyle(BevelTheme.inkSecondary)
+                                }
                             }
                             Text(summary)
                                 .font(.subheadline.weight(.medium))

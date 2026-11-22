@@ -12,7 +12,7 @@ public struct NutritionBoardView: View {
 
     public var body: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 14) {
                 if let error = store.lastError {
                     bannerCard(error, isError: true)
                 } else if let status = store.statusMessage {

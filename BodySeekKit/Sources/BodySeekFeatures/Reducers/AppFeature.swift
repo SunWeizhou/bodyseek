@@ -712,6 +712,12 @@ public struct AppFeature: Sendable {
                 state.preferences.subjectiveFeelingsByDay[calKey] = entry.energy
                 state.today.todayCheckIn = entry
                 state.today.subjectiveFeeling = entry.energy
+                if let idx = state.coach.checkIns.firstIndex(where: { $0.dayKey == entry.dayKey }) {
+                    state.coach.checkIns[idx] = entry
+                } else {
+                    state.coach.checkIns.insert(entry, at: 0)
+                }
+                state.coach.checkIns.sort { $0.dayKey > $1.dayKey }
                 do {
                     try preferencesClient.save(state.preferences)
                 } catch {
@@ -831,12 +837,15 @@ public struct AppFeature: Sendable {
                 let storedPlan = try await bodySeekStoreClient.loadPlanItems(dayKey)
                 let experimentItems = try await bodySeekStoreClient.loadExperimentPlanItems()
                 var findings = try await bodySeekStoreClient.loadPatternFindings(nil)
-                if findings.isEmpty && !isEmptyPreview {
+                if isPreview && !isEmptyPreview && findings.isEmpty {
                     let seeds = M4APersonalPatternSeeds.defaultCandidates()
                     for seed in seeds {
                         try await bodySeekStoreClient.savePatternFinding(seed)
                     }
                     findings = seeds
+                } else if !isPreview {
+                    // Never expose unconfirmed offline demo seeds as the current user's candidate patterns.
+                    findings.removeAll { $0.status == .candidate && M4APersonalPatternSeeds.seedIDs.contains($0.id) }
                 }
 
                 var profile = try await bodySeekStoreClient.loadNutritionProfile()

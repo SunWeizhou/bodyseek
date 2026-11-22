@@ -518,20 +518,7 @@ public struct CoachView: View {
                     Button {
                         store.send(.applyProposalTapped(messageID: messageID, proposal: proposal, startImmediately: false))
                     } label: {
-                        Text("加入健身页")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(BevelTheme.ink)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 9)
-                            .background(BevelTheme.surfaceElevated, in: Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("coach-proposal-save")
-
-                    Button {
-                        store.send(.applyProposalTapped(messageID: messageID, proposal: proposal, startImmediately: true))
-                    } label: {
-                        Text("立即开练")
+                        Text("保存计划并查看")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(BevelTheme.onBrand)
                             .frame(maxWidth: .infinity)
@@ -539,7 +526,7 @@ public struct CoachView: View {
                             .background(BevelTheme.brand, in: Capsule())
                     }
                     .buttonStyle(.plain)
-                    .accessibilityIdentifier("coach-proposal-start")
+                    .accessibilityIdentifier("coach-proposal-save")
 
                     Button {
                         store.send(.dismissProposalTapped(messageID))
@@ -547,7 +534,8 @@ public struct CoachView: View {
                         Text("不用了")
                             .font(.caption.weight(.medium))
                             .foregroundStyle(BevelTheme.inkSecondary)
-                            .padding(.horizontal, 8)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 9)
                     }
                     .buttonStyle(.plain)
                 }
