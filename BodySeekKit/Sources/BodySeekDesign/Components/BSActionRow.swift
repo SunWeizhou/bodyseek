@@ -23,6 +23,8 @@ public enum BSActionLevel: Sendable, Hashable, CaseIterable {
 }
 
 /// 触觉反馈：成功、失败、撤销各一次，与回执出现在同一个状态变化上。仅 iOS。
+///
+/// 三种反馈拆成三个小修饰符，避免 iOS 的类型检查器在一条长修饰符链上超时。
 struct BSOutcomeFeedback: ViewModifier {
     let status: BSActionStatus
 
@@ -30,14 +32,40 @@ struct BSOutcomeFeedback: ViewModifier {
     func body(content: Content) -> some View {
         #if os(iOS)
         content
-            .sensoryFeedback(.success, trigger: status) { _, new in new == .done }
-            .sensoryFeedback(.error, trigger: status) { _, new in new == .failed }
-            .sensoryFeedback(.impact(weight: .light), trigger: status) { _, new in new == .undone }
+            .modifier(BSDoneFeedback(status: status))
+            .modifier(BSFailedFeedback(status: status))
+            .modifier(BSUndoneFeedback(status: status))
         #else
         content
         #endif
     }
 }
+
+#if os(iOS)
+private struct BSDoneFeedback: ViewModifier {
+    let status: BSActionStatus
+
+    func body(content: Content) -> some View {
+        content.sensoryFeedback(.success, trigger: status) { _, new in new == .done }
+    }
+}
+
+private struct BSFailedFeedback: ViewModifier {
+    let status: BSActionStatus
+
+    func body(content: Content) -> some View {
+        content.sensoryFeedback(.error, trigger: status) { _, new in new == .failed }
+    }
+}
+
+private struct BSUndoneFeedback: ViewModifier {
+    let status: BSActionStatus
+
+    func body(content: Content) -> some View {
+        content.sensoryFeedback(.impact(weight: .light), trigger: status) { _, new in new == .undone }
+    }
+}
+#endif
 
 /// 一条行动建议：标题 + 依据 + "执行"按钮；执行后变成回执状态。
 public struct BSActionRow: View {
