@@ -285,3 +285,22 @@
 - `xcodebuild test … -only-testing:VelaTests -only-testing:VelaUITests` 退出码 0；VelaTests 4/4，UI 14 项中 13 通过、1 项按预期跳过。
 - 模拟器 Debug 构建 `BUILD SUCCEEDED`。
 - 未验证：真实模型端到端耗时（需要部署后由用户实际分析一餐确认）；120 秒超时对极端慢端点的体验仍需观察。
+
+## 17. 2026-11-22 营养达标联通与 Coach 饮食建议
+
+用户反馈食物能记录，但维生素/矿物质是否达标没有联通，Coach 也不参考近期饮食。排查手机数据库确认：目标方案已含 11 项维生素 + 7 项矿物质 adopted 目标，但近 4 天日志的 `dietPartialFields` 覆盖多餐，`NutritionTargetEvaluator` 因记录不完整返回 `unknown`；同时 `get_eating_context` 只输出六项宏量目标，Coach 拿不到微量达标数据。
+
+本轮：
+
+- **估算态评价**：`NutritionTargetEvaluator.evaluate` 新增 `allowEstimates`；日记录已结账且各餐完整、但指标含 AI 估算时，返回 met/low/over 并标记 `isEstimated`，仅供方向参考。默认评价语义不变（AI 估算仍为 unknown）。
+- **周期估算达标**：`NutritionMetricPeriodAverage` 增加 `estimatedAverageValue`/`estimatedStatus`/`estimatedDays`/`displayStatus`；已确认状态优先，没有确认数据时展示估算方向并标注「估算」。
+- **看板联通**：维生素/矿物质手风琴显示具体状态（含「估算 达标（参考）」），估算圆点用中性色；结账按钮下提示还有几餐缺热量/宏量，已结账但有缺项的日子改为「已结账 · N 餐有缺项」，不再误称“已完成记录”。
+- **AI 标记修正**：AI 补充的热量/宏量/微量现在都写入 `aiEstimatedNutrientIDs`，手动覆盖会清除对应标记；此前只标记额外微量，AI 宏量可能被当作已确认。
+- **Coach 饮食上下文**：`get_eating_context` 现在返回全部 adopted 目标、每日 `adequacy` 与 7 天 `recentAdequacy`（met/low/over/unknown/estimated 天数与均值）；系统提示新增第 10 条，要求饮食/营养/体重/整体建议先调该工具、点名达标或不足项、把 AI 估算标为估算、记录不完整先说明缺项；今日简报提示也允许补一句饮食观察。
+
+验证：
+
+- `swift test --package-path BodySeekKit --disable-automatic-resolution` 退出码 0，94 项包测试和 26 项 Agent 测试通过。
+- 新增回归：估算态与确认态分离、部分餐不判定、`get_eating_context` 含 `recentAdequacy`/维生素 C 达标、Coach 提示包含 `get_eating_context`/`recentAdequacy`/AI 估算约束。
+- 模拟器 Debug 构建 `BUILD SUCCEEDED`；VelaTests/UI 结果见下。
+- 未验证：真机上旧日志仍是部分记录，只有补齐或新记录结账后才会显示达标；AI 估算的准确性仍受模型输出影响。
