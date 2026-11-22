@@ -1923,10 +1923,9 @@ public final class BodySeekRepository: Sendable {
 
     public func seedStarterFoodLibraryIfNeeded() async throws {
         try await database.writer.write { db in
-            let count = try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM food_library_item") ?? 0
-            guard count == 0 else { return }
+            let existingIDs = Set(try String.fetchAll(db, sql: "SELECT food_id FROM food_library_item"))
             let nowEpoch = Date().timeIntervalSince1970
-            for item in NutritionCatalog.starterFoodItems {
+            for item in NutritionCatalog.starterFoodItems where !existingIDs.contains(item.foodID) {
                 try Self.saveFoodLibraryItemSync(db: db, item: item, updatedAt: nowEpoch)
             }
         }

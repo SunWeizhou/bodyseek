@@ -741,6 +741,9 @@ public struct AppFeature: Sendable {
                 state.trends.refreshPersonalForecast()
                 return .none
 
+            case let .nutrition(.delegate(.askCoach(question))):
+                return routeToCoach(question: question, state: &state)
+
             case .today, .workout, .trends, .coach, .todayPath, .trendsPath, .settings, .nutrition:
                 return .none
             }

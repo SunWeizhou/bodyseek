@@ -98,6 +98,15 @@ public struct SettingsView: View {
                     .foregroundStyle(BevelTheme.brand)
 
                     Toggle(
+                        "饮食识别启用 DeepSeek 联网搜索",
+                        isOn: Binding(
+                            get: { store.config.enableWebSearch },
+                            set: { store.send(.webSearchToggled($0)) }
+                        )
+                    )
+                    .accessibilityIdentifier("settings-web-search-toggle")
+
+                    Toggle(
                         "主动洞察（每日最多 2 条）",
                         isOn: Binding(
                             get: { store.preferences.proactiveInsightsEnabled },

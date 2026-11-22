@@ -21,6 +21,8 @@ public struct NutritionBoardView: View {
 
                 selectedDayMealsCard
 
+                nutritionCoachAdviceCard
+
                 periodHeaderControls
 
                 energyBalanceCard
@@ -499,7 +501,7 @@ public struct NutritionBoardView: View {
         Button {
             store.send(.mealAssistantTapped)
         } label: {
-            Label("AI 记饮食", systemImage: "sparkles")
+            Label("AI 记饮食（文字 / 拍照）", systemImage: "sparkles")
         }
         .buttonStyle(.borderedProminent)
         .accessibilityIdentifier("nutrition-ai-entry")
@@ -511,6 +513,76 @@ public struct NutritionBoardView: View {
         }
         .buttonStyle(.bordered)
         .accessibilityIdentifier("nutrition-log-meal-button")
+    }
+
+    private var nutritionCoachAdviceCard: some View {
+        let coachBody: String
+        let coachEngine: String?
+        let isLoading: Bool
+        switch store.coachAdviceStatus {
+        case .loading:
+            coachBody = store.deterministicAdviceSummary
+            coachEngine = "正在生成 AI 配餐建议…"
+            isLoading = true
+        case let .generated(text, engine):
+            coachBody = text
+            coachEngine = "由 \(engine) 生成 · 含 AI 估算仅供方向参考"
+            isLoading = false
+        case .idle, .unconfigured:
+            coachBody = store.deterministicAdviceSummary
+            coachEngine = nil
+            isLoading = false
+        }
+
+        return BevelCard {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    Label("Coach 饮食建议", systemImage: "sparkles")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(BevelTheme.brand)
+                    Spacer()
+                    if isLoading {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Button("AI 解读") {
+                            store.send(.generateNutritionAdviceTapped)
+                        }
+                        .font(.caption.weight(.semibold))
+                        .buttonStyle(.borderless)
+                        .foregroundStyle(BevelTheme.brand)
+                    }
+                }
+
+                Text(coachBody)
+                    .font(.subheadline)
+                    .foregroundStyle(BevelTheme.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if let coachEngine {
+                    Text(coachEngine)
+                        .font(.caption2)
+                        .foregroundStyle(BevelTheme.inkSecondary)
+                }
+
+                Button {
+                    store.send(.askCoachTapped("结合我这几天的营养摄入与维生素矿物质估算情况，帮我搭配下一顿，指出优先补充什么。"))
+                } label: {
+                    HStack {
+                        Text("让 Coach 结合缺口配下一顿")
+                        Spacer()
+                        Image(systemName: "arrow.up.right")
+                    }
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(BevelTheme.brand)
+                    .padding(.vertical, 6)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("nutrition-ask-coach-button")
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("nutrition-coach-advice-card")
     }
 
     private func mealGroup(_ meal: MealType, entries: [MealEntry]) -> some View {
@@ -687,6 +759,15 @@ public struct NutritionBoardView: View {
                                 }
                                 let periodValue = avg.averageValue ?? avg.estimatedAverageValue
                                 let periodPrefix = avg.isEstimateOnly ? "估算 " : ""
+                                let targetFloor = store.periodSummary.validatedPlan.validAdoptedItems[avg.metricID]?.lower
+                                    ?? store.periodSummary.validatedPlan.validAdoptedItems[avg.metricID]?.upper
+                                if let val = dayEval.value, let floor = targetFloor, floor > 0 {
+                                    ProgressView(value: min(1.0, max(0.0, val / floor)))
+                                        .tint(dayEval.isEstimated
+                                              ? BevelTheme.inkSecondary.opacity(0.75)
+                                              : BevelTheme.nutritionColor(for: dayEval.status))
+                                        .padding(.vertical, 2)
+                                }
                                 Text("\(dayEval.isEstimated ? "估算 \(dayEval.status.label)（参考）" : dayEval.status.label) · \(dayEval.reason)\(dayEval.isEstimated ? " · AI 估算，仅方向参考" : "") · 周期均值 \(periodPrefix)\(periodValue.map { "\(formatMetric($0))\(avg.unit)" } ?? "--")")
                                     .font(.caption2)
                                     .foregroundStyle(BevelTheme.inkSecondary)

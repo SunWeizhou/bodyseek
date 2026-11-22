@@ -1,3 +1,4 @@
+import BodySeekAgent
 import BodySeekCore
 import BodySeekHealth
 import ComposableArchitecture
@@ -55,6 +56,8 @@ public struct NutritionFeature: Sendable {
         public var isLoading: Bool = false
         public var isSaving: Bool = false
         public var isPreviewMode: Bool
+        public var coachAdviceStatus: AIBriefingStatus = .idle
+        public var deterministicAdviceSummary: String = "近 7 天暂无足够完整或估算记录，先用「AI 记饮食」拍图或写一句话记一餐，即可实时计算宏量、维生素与矿物质进展。"
 
         public init(
             snapshot: BodySeekDashboardSnapshot,
@@ -115,6 +118,40 @@ public struct NutritionFeature: Sendable {
                 endDayKey: window.end,
                 todayKey: todayKey
             )
+            self.deterministicAdviceSummary = buildDeterministicAdviceSummary()
+        }
+
+        private func buildDeterministicAdviceSummary() -> String {
+            let avgs = periodSummary.metricAverages
+            let loggedDays = periodSummary.dayLogsByKey.values.filter {
+                !$0.entries.isEmpty || $0.dietKcal != nil || $0.dietWaterMl != nil
+            }.count
+            guard loggedDays > 0 else {
+                return "当前周期还没有饮食记录，点击上方「AI 记饮食」拍餐食照片或写一句话，就能自动拆出热量、宏量与 29 项微营养素。"
+            }
+            let lows = avgs.filter { $0.displayStatus == .low }.prefix(3).map { avg in
+                avg.isEstimateOnly ? "\(avg.metricName)(估算偏低)" : avg.metricName
+            }
+            let overs = avgs.filter { $0.displayStatus == .over }.prefix(2).map { avg in
+                avg.isEstimateOnly ? "\(avg.metricName)(估算偏高)" : avg.metricName
+            }
+            let mets = avgs.filter { $0.displayStatus == .met }.prefix(2).map(\.metricName)
+            var segments: [String] = []
+            segments.append("近\(periodMode == .week ? " 7 天" : " 30 天")已记录 \(loggedDays) 天")
+            if let deficit = periodSummary.rollingDeficit7dKcal {
+                let d = Int(deficit.rounded())
+                segments.append("能量差约 \(d > 0 ? "+" : "")\(d) kcal")
+            }
+            if !lows.isEmpty {
+                segments.append("建议优先补充 \(lows.joined(separator: "、"))")
+            }
+            if !overs.isEmpty {
+                segments.append("注意节制 \(overs.joined(separator: "、"))")
+            }
+            if lows.isEmpty && overs.isEmpty && !mets.isEmpty {
+                segments.append("\(mets.joined(separator: "、")) 目前处于理想区间")
+            }
+            return segments.joined(separator: "；") + "。"
         }
 
         public static func dateBounds(mode: PeriodMode, anchor: DayKey) -> (start: DayKey, end: DayKey) {
@@ -185,6 +222,9 @@ public struct NutritionFeature: Sendable {
         case markdownSheetDismissed
         case mutationSucceeded(message: String)
         case mutationFailed(String)
+        case generateNutritionAdviceTapped
+        case nutritionAdviceLoaded(AIBriefingStatus)
+        case askCoachTapped(String)
         case delegate(Delegate)
 
         @CasePathable
@@ -194,10 +234,12 @@ public struct NutritionFeature: Sendable {
                 plan: NutritionTargetPlan?,
                 rollingDeficit7d: Double?
             )
+            case askCoach(String)
         }
     }
 
     @Dependency(\.bodySeekStoreClient) var storeClient
+    @Dependency(\.coachAIClient) var coachAIClient
     @Dependency(\.date.now) var now
 
     public init() {}
@@ -517,6 +559,37 @@ public struct NutritionFeature: Sendable {
                 state.isSaving = false
                 state.lastError = message
                 return .none
+
+            case .generateNutritionAdviceTapped:
+                guard !state.isPreviewMode else {
+                    state.coachAdviceStatus = .generated(text: state.deterministicAdviceSummary, engineName: "预览模式")
+                    return .none
+                }
+                state.coachAdviceStatus = .loading
+                let topic = "营养摄入与下顿配餐建议"
+                let summary = state.deterministicAdviceSummary
+                let todayStrain = state.snapshot.today.strain.value.map { "今日负荷 \($0) 分" } ?? "今日负荷待同步"
+                let lows = state.periodSummary.metricAverages.filter { $0.displayStatus == .low }.prefix(5)
+                    .map { "\($0.metricName)(\($0.isEstimateOnly ? "估算均值" : "均值") \($0.averageValue.map { String(format: "%.1f", $0) } ?? "--")\($0.unit))" }
+                    .joined(separator: "、")
+                let promptContext = "\(summary) \(todayStrain)。偏低项：\(lows.isEmpty ? "无明显偏低项" : lows)。"
+                let execContext = AgentExecutionContext(
+                    snapshot: state.snapshot,
+                    todayNutritionLog: state.selectedDayLog,
+                    nutritionTargetPlan: state.targetPlan,
+                    nutritionLogs: state.logs
+                )
+                return .run { send in
+                    let status = await coachAIClient.generatePageInsight(topic, promptContext, execContext)
+                    await send(.nutritionAdviceLoaded(status))
+                }
+
+            case let .nutritionAdviceLoaded(status):
+                state.coachAdviceStatus = status
+                return .none
+
+            case let .askCoachTapped(question):
+                return .send(.delegate(.askCoach(question)))
 
             case .delegate:
                 return .none

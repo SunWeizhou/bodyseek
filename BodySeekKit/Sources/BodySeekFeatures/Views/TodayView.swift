@@ -33,18 +33,16 @@ public struct TodayView: View {
 
                     if store.snapshot.isAuthorized {
                         sleepCard
+
+                        vitalsGrid
                     }
 
                     if store.snapshot.isAuthorized || store.postWorkoutAdvice != nil {
                         todayActionCard
                     }
 
-                    if store.snapshot.isAuthorized {
-                        vitalsGrid
-
-                        if !store.today.raw.workouts.isEmpty {
-                            workoutsCard
-                        }
+                    if store.snapshot.isAuthorized, !store.today.raw.workouts.isEmpty {
+                        workoutsCard
                     }
 
                     todayNutritionCard
@@ -325,9 +323,26 @@ public struct TodayView: View {
         if postWorkoutAdvice != nil || primary != nil || hasAISuggestion {
             BevelCard {
                 VStack(alignment: .leading, spacing: 14) {
-                    Text("今日建议")
-                        .font(.headline)
-                        .foregroundStyle(BevelTheme.ink)
+                    HStack {
+                        Label("今日 Coach 结论与行动", systemImage: "sparkles")
+                            .font(.headline)
+                            .foregroundStyle(BevelTheme.ink)
+                        Spacer()
+                        Button("问 Coach") {
+                            store.send(.askCoachTapped("结合我今天的恢复、睡眠、训练负荷和近期饮食，给一个具体安排"))
+                        }
+                        .font(.caption.weight(.semibold))
+                        .buttonStyle(.borderless)
+                        .foregroundStyle(BevelTheme.brand)
+                        .accessibilityIdentifier("today-ask-coach-button")
+                    }
+
+                    if hasAISuggestion {
+                        aiSuggestion
+                        if postWorkoutAdvice != nil || primary != nil {
+                            Divider()
+                        }
+                    }
 
                     if let postWorkoutAdvice {
                         VStack(alignment: .leading, spacing: 6) {
@@ -355,13 +370,6 @@ public struct TodayView: View {
                         }
                         .font(.subheadline)
                         .accessibilityIdentifier("today-other-suggestions")
-                    }
-
-                    if hasAISuggestion {
-                        if primary != nil {
-                            Divider()
-                        }
-                        aiSuggestion
                     }
                 }
             }

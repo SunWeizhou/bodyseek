@@ -694,8 +694,78 @@ public struct OpenAICompatibleClient: Sendable {
         }
     }
 
+    private struct DeepSeekSearchRequest: Encodable {
+        let query: String
+        let count: Int
+        let oriQuestion: String?
+        let needContent: Bool
+
+        private enum CodingKeys: String, CodingKey {
+            case query
+            case count
+            case oriQuestion = "ori_question"
+            case needContent = "need_content"
+        }
+    }
+
+    private struct DeepSeekSearchResponse: Decodable {
+        let results: [DeepSeekSearchHit]?
+    }
+
+    private static func deepSeekSearchURL(from baseURL: URL) -> URL? {
+        guard let host = baseURL.host?.lowercased(),
+              host == "api.deepseek.com" || host.hasSuffix(".deepseek.com") else {
+            return nil
+        }
+        let trimmedPath = baseURL.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        if trimmedPath.isEmpty {
+            return baseURL.appendingPathComponent("v1/tools/search")
+        }
+        return baseURL.appendingPathComponent("tools/search")
+    }
+
+    /// Calls DeepSeek's official standalone `/v1/tools/search` endpoint with bounded 6s timeout & zero-failure fallback.
+    func searchDeepSeekWeb(
+        baseURL: URL,
+        apiKey: String,
+        query: String,
+        originalQuestion: String,
+        count: Int = 4
+    ) async -> [DeepSeekSearchHit] {
+        guard let searchURL = Self.deepSeekSearchURL(from: baseURL) else {
+            return []
+        }
+        let trimmedQuery = String(query.trimmingCharacters(in: .whitespacesAndNewlines).prefix(128))
+        guard !trimmedQuery.isEmpty else { return [] }
+        let trimmedOri = String(originalQuestion.trimmingCharacters(in: .whitespacesAndNewlines).prefix(128))
+        let bodyDTO = DeepSeekSearchRequest(
+            query: trimmedQuery,
+            count: max(1, min(10, count)),
+            oriQuestion: trimmedOri.isEmpty ? nil : trimmedOri,
+            needContent: false
+        )
+        do {
+            var request = URLRequest(url: searchURL)
+            request.httpMethod = "POST"
+            request.timeoutInterval = 6.0
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+            request.httpBody = try JSONEncoder().encode(bodyDTO)
+            let (status, data) = try await transport.performData(request)
+            guard (200..<300).contains(status) else {
+                Self.logger.warning("DeepSeek search returned HTTP \(status, privacy: .public), continuing without search context")
+                return []
+            }
+            let decoded = try JSONDecoder().decode(DeepSeekSearchResponse.self, from: data)
+            return decoded.results ?? []
+        } catch {
+            Self.logger.warning("DeepSeek search fallback triggered: \(error.localizedDescription, privacy: .public)")
+            return []
+        }
+    }
+
     func analyzeMeal(endpointURL: String, apiKey: String, modelName: String,
-                     input: String, jpeg: Data?) async throws -> [MealDraftCandidate] {
+                     input: String, jpeg: Data?, enableWebSearch: Bool = true) async throws -> [MealDraftCandidate] {
         let started = ContinuousClock.now
         defer {
             let elapsed = ContinuousClock.now - started
@@ -708,14 +778,53 @@ public struct OpenAICompatibleClient: Sendable {
         else { throw MealDraftAnalysisError.unconfigured }
 
         if let jpeg, jpeg.isEmpty || jpeg.count > 2_000_000 { throw MealDraftAnalysisError.imageTooLarge }
-        let text = input.isEmpty ? "请识别我选中的这一餐。" : input
-        let user = jpeg.map { OpenAIChatMessage(mealText: text, jpeg: $0) }
-            ?? OpenAIChatMessage(role: "user", content: text)
+        let baseText = input.isEmpty ? "请识别我选中的这一餐。" : input
+
+        let searchQueries = enableWebSearch ? ChineseFastFoodQueryExtractor.extractQueries(from: baseText) : []
+        var searchHits: [DeepSeekSearchHit] = []
+        var usedWebSearchTool = false
+        if !searchQueries.isEmpty, Self.deepSeekSearchURL(from: url) != nil {
+            let capturedURL = url
+            let capturedKey = apiKey
+            let capturedOri = baseText
+            searchHits = await withTaskGroup(of: [DeepSeekSearchHit].self) { group in
+                for query in searchQueries {
+                    group.addTask {
+                        await self.searchDeepSeekWeb(
+                            baseURL: capturedURL,
+                            apiKey: capturedKey,
+                            query: query,
+                            originalQuestion: capturedOri,
+                            count: 4
+                        )
+                    }
+                }
+                var collected: [DeepSeekSearchHit] = []
+                for await batch in group {
+                    collected.append(contentsOf: batch)
+                }
+                return collected
+            }
+            usedWebSearchTool = !searchHits.isEmpty
+        }
+
+        let augmentedText: String
+        if let referenceBlock = ChineseFastFoodQueryExtractor.buildSearchReferenceBlock(from: searchHits) {
+            augmentedText = "\(baseText)\n\n\(referenceBlock)"
+        } else {
+            augmentedText = baseText
+        }
+
+        let user = jpeg.map { OpenAIChatMessage(mealText: augmentedText, jpeg: $0) }
+            ?? OpenAIChatMessage(role: "user", content: augmentedText)
         let chatURL = url.appendingPathComponent("chat/completions")
         // Keep the disclosure record useful without storing the meal text or image bytes.
         await payloadRecorder.record(.init(
             sentAt: Date(), endpointURL: chatURL.absoluteString, modelName: modelName, messageCount: 2,
-            toolNames: [], redactedRequestJSON: jpeg == nil ? #"{"mealInput":"[文字已省略]"}"# : #"{"mealInput":"[图片和文字已省略]"}"#
+            toolNames: usedWebSearchTool ? ["deepseek_web_search"] : [],
+            redactedRequestJSON: jpeg == nil
+                ? (usedWebSearchTool ? #"{"mealInput":"[文字已省略]","webSearch":"enabled"}"# : #"{"mealInput":"[文字已省略]"}"#)
+                : #"{"mealInput":"[图片和文字已省略]"}"#
         ))
         do {
             for attempt in 0...1 {
@@ -846,6 +955,40 @@ public struct OpenAICompatibleClient: Sendable {
         }
 
         throw OpenAICompatibleClientError.maxToolRoundsExceeded(maxToolRounds)
+    }
+
+    /// Lightweight single-turn completion for in-page Coach cards (Nutrition / Trends / Workout) using already-grounded local metrics.
+    public func runSingleTurnTextCompletion(
+        endpointURL: String,
+        apiKey: String,
+        modelName: String,
+        systemPrompt: String,
+        userPrompt: String,
+        maxTokens: Int = 280
+    ) async throws -> String {
+        let trimmedKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedKey.isEmpty else {
+            throw OpenAICompatibleClientError.missingAPIKey
+        }
+        guard let baseURL = EndpointURLNormalizer.normalizeBaseURL(endpointURL) else {
+            throw OpenAICompatibleClientError.invalidEndpoint(endpointURL)
+        }
+        let chatURL = baseURL.appendingPathComponent("chat/completions")
+        let messages = [
+            OpenAIChatMessage(role: "system", content: systemPrompt),
+            OpenAIChatMessage(role: "user", content: userPrompt),
+        ]
+        let payload = OpenAIChatRequest(
+            model: modelName.trimmingCharacters(in: .whitespacesAndNewlines),
+            messages: messages,
+            temperature: 0.3,
+            maxTokens: maxTokens,
+            stream: false
+        )
+        let request = try buildURLRequest(url: chatURL, apiKey: trimmedKey, payload: payload)
+        await recordSanitizedPayload(request: request, url: chatURL, modelName: payload.model, messageCount: 2, tools: [])
+        let result = try await executeDataWithRetry(request: request, maxRetries: 1, retryOnTimeout: false)
+        return ToolMarkupScrubber.scrub(result.text).cleaned
     }
 
     private func buildURLRequest(url: URL, apiKey: String, payload: OpenAIChatRequest) throws -> URLRequest {

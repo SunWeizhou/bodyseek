@@ -58,6 +58,10 @@ private final actor MockAgentTransport: AgentHTTPTransport {
         capturedRequests.count
     }
 
+    func allCapturedRequests() -> [URLRequest] {
+        capturedRequests
+    }
+
     func lastRequest() -> URLRequest? {
         capturedRequests.last
     }
@@ -750,5 +754,88 @@ final class OpenAICompatibleClientTests: XCTestCase {
         )
         XCTAssertFalse(json.contains("999"), "Future HRV sentinel must never appear when querying historical day \(targetKey)")
         XCTAssertTrue(json.contains("\"state\":\"available\""))
+    }
+
+    func testChineseFastFoodQueryExtractorMatchesBrandsAndCapsAtTwoQueries() {
+        let q1 = ChineseFastFoodQueryExtractor.extractQueries(from: "中午吃了麦当劳的麦辣鸡腿堡，下午喝了瑞幸生椰拿铁和星巴克拿铁")
+        XCTAssertEqual(q1.count, 2)
+        XCTAssertTrue(q1[0].contains("麦辣鸡腿汉堡"))
+        XCTAssertTrue(q1[1].contains("生椰拿铁"))
+
+        let qEmpty = ChineseFastFoodQueryExtractor.extractQueries(from: "早上水煮蛋两个加白米饭一碗")
+        XCTAssertTrue(qEmpty.isEmpty)
+    }
+
+    func testAnalyzeMealUsesDeepSeekSearchAndFallsBackGracefullyOnSearchError() async throws {
+        let searchResp = #"{"results":[{"rerank_score":2.4,"title":"麦当劳麦辣鸡腿汉堡营养表","url":"https://example.com","snippet":"约520kcal 蛋白质24g 脂肪26g 碳水45g"}]}"#
+        let chatResp = #"{"choices":[{"message":{"role":"assistant","content":"{\"items\":[{\"name\":\"麦辣鸡腿汉堡\",\"meal\":\"lunch\",\"reportedPortion\":\"1 个\",\"amount\":180,\"unit\":\"g\",\"isEstimatedPortion\":true,\"energyEstimate\":{\"lowerKcal\":495,\"upperKcal\":545,\"assumptions\":\"参考联网营养资料\"}}]}"}}]}"#
+        let transport = MockAgentTransport(steps: [
+            .data(statusCode: 200, body: searchResp),
+            .data(statusCode: 200, body: chatResp),
+        ])
+        let recorder = AgentPayloadRecorder()
+        let client = OpenAICompatibleClient(transport: transport, payloadRecorder: recorder)
+
+        let items = try await client.analyzeMeal(
+            endpointURL: "https://api.deepseek.com/v1",
+            apiKey: "test-key",
+            modelName: "deepseek-chat",
+            input: "中午吃了一个麦当劳麦辣鸡腿堡",
+            jpeg: nil,
+            enableWebSearch: true
+        )
+        XCTAssertEqual(items.count, 1)
+        XCTAssertEqual(items.first?.name, "麦辣鸡腿汉堡")
+        let reqs = await transport.allCapturedRequests()
+        XCTAssertEqual(reqs.count, 2)
+        XCTAssertEqual(reqs[0].url?.absoluteString, "https://api.deepseek.com/v1/tools/search")
+        XCTAssertEqual(reqs[1].url?.absoluteString, "https://api.deepseek.com/v1/chat/completions")
+        let chatBody = String(data: try XCTUnwrap(reqs[1].httpBody), encoding: .utf8) ?? ""
+        XCTAssertTrue(chatBody.contains("【联网营养参考资料"))
+        XCTAssertTrue(chatBody.contains("520kcal"))
+        let snap = await recorder.latest()
+        XCTAssertEqual(snap?.toolNames, ["deepseek_web_search"])
+
+        // Search failure (HTTP 500) must gracefully degrade to chat completion without failing meal analysis
+        let fallbackTransport = MockAgentTransport(steps: [
+            .data(statusCode: 500, body: "search down"),
+            .data(statusCode: 200, body: chatResp),
+        ])
+        let fallbackClient = OpenAICompatibleClient(transport: fallbackTransport, payloadRecorder: recorder)
+        let fallbackItems = try await fallbackClient.analyzeMeal(
+            endpointURL: "https://api.deepseek.com/v1",
+            apiKey: "test-key",
+            modelName: "deepseek-chat",
+            input: "中午吃了一个麦当劳麦辣鸡腿堡",
+            jpeg: nil,
+            enableWebSearch: true
+        )
+        XCTAssertEqual(fallbackItems.first?.name, "麦辣鸡腿汉堡")
+    }
+
+    func testGetEatingContextCompactModeOmitsVerboseDailyAdequacyForOnDeviceBudget() async {
+        let day = DayKey(year: 2026, month: 11, day: 21)
+        var log = DailyNutritionLog(
+            dayKey: day,
+            entries: [MealEntry(dayKey: day, mealType: .breakfast, foodName: "水煮蛋", portionAmount: 100, portionUnit: "g", kcal: 150, vitamins: ["C": 95])]
+        )
+        log.dietDayComplete = true
+        let ctx = sampleContext(referenceDate: day.startDate().addingTimeInterval(12 * 3600))
+        let plan = NutritionPlanFactory.makeDefaultDRIsPlan(
+            for: NutritionProfile(age: 28, referenceSex: "male", heightCm: 175, referenceWeightKg: 70),
+            effectiveFrom: day
+        )
+        let fullCtx = AgentExecutionContext(
+            snapshot: ctx.snapshot,
+            nutritionTargetPlan: plan,
+            nutritionLogs: [log]
+        )
+        let compactJSON = await CoachToolRegistry.execute(
+            name: "get_eating_context",
+            argumentsJSON: #"{"days":7,"compact":true}"#,
+            context: fullCtx
+        )
+        XCTAssertTrue(compactJSON.contains(#""state":"available""#))
+        XCTAssertTrue(compactJSON.contains(#""adequacy":[]"#), compactJSON)
     }
 }

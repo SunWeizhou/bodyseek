@@ -23,7 +23,7 @@
 6. 专项文档：
    - 设计语言：[`docs/VELA_DESIGN_LANGUAGE.md`](docs/VELA_DESIGN_LANGUAGE.md)
    - 图表规范：[`docs/design/chart-grammar.md`](docs/design/chart-grammar.md)
-   - [V5 AI Agent 开发指南](docs/AI_AGENT_SPEC.md)（Coach、今日 AI 建议、AI 记饮食）
+   - [Coach 实施工单](docs/design/coach-agent-implementation.md)（近期开发顺序与验收）与 [V5 AI Agent 开发指南](docs/AI_AGENT_SPEC.md)（现行实现）
 
 > [`docs/SCORING_SYSTEM_V1_0.md`](docs/SCORING_SYSTEM_V1_0.md) 是历史协议；公式以 `BodySeekCore/BevelScoringEngine.swift` 与 `docs/model_cards/` 为准。
 

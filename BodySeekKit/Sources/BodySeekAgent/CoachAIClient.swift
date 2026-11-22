@@ -12,13 +12,29 @@ import FoundationModels
 public struct CoachAIConfig: Equatable, Sendable, Codable {
     public var endpointURL: String
     public var modelName: String
+    public var enableWebSearch: Bool
+
+    private enum CodingKeys: String, CodingKey {
+        case endpointURL
+        case modelName
+        case enableWebSearch
+    }
 
     public init(
         endpointURL: String = "https://api.deepseek.com/v1",
-        modelName: String = "deepseek-chat"
+        modelName: String = "deepseek-chat",
+        enableWebSearch: Bool = true
     ) {
         self.endpointURL = endpointURL
         self.modelName = modelName
+        self.enableWebSearch = enableWebSearch
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.endpointURL = try c.decodeIfPresent(String.self, forKey: .endpointURL) ?? "https://api.deepseek.com/v1"
+        self.modelName = try c.decodeIfPresent(String.self, forKey: .modelName) ?? "deepseek-chat"
+        self.enableWebSearch = try c.decodeIfPresent(Bool.self, forKey: .enableWebSearch) ?? true
     }
 }
 
@@ -356,6 +372,9 @@ public struct CoachAIClient: Sendable {
     public var generateBriefing: @Sendable (_ context: AgentExecutionContext) async -> AIBriefingStatus = { _ in
         .unconfigured(reason: "连接 DeepSeek / OpenAI 兼容接口或在支持 Apple 智能的设备开启端侧模型")
     }
+    public var generatePageInsight: @Sendable (_ topic: String, _ contextSummary: String, _ context: AgentExecutionContext) async -> AIBriefingStatus = { _, _, _ in
+        .unconfigured(reason: "连接 DeepSeek / OpenAI 兼容接口或在支持 Apple 智能的设备开启端侧模型")
+    }
     public var analyzeMeal: @Sendable (_ text: String, _ jpeg: Data?) async throws -> [MealDraftCandidate] = { _, _ in
         throw MealDraftAnalysisError.unconfigured
     }
@@ -370,6 +389,7 @@ public struct CoachAIClient: Sendable {
 extension CoachAIClient: DependencyKey {
     public static let endpointStorageKey = "bodyseek.coach.endpoint"
     public static let modelStorageKey = "bodyseek.coach.model"
+    public static let webSearchStorageKey = "bodyseek.coach.enableWebSearch"
     private static let logger = Logger(subsystem: "com.sunweizhou.Vela4", category: "CoachAIClient")
 
     public static let liveValue: CoachAIClient = {
@@ -520,6 +540,69 @@ extension CoachAIClient: DependencyKey {
                     return .unconfigured(reason: reason)
                 }
             },
+            generatePageInsight: { topic, contextSummary, _ in
+                if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard") {
+                    return .generated(text: contextSummary, engineName: "预览模式")
+                }
+                let apiKey: String
+                do {
+                    apiKey = try KeychainCredentialStore.live.loadAPIKey()
+                } catch {
+                    return .unconfigured(reason: "Keychain 读取失败：\(error.localizedDescription)")
+                }
+                let config = storedConfiguration()
+                let route = AgentRoutingPolicy.resolve(
+                    isPreview: false,
+                    apiKey: apiKey,
+                    endpoint: config.endpointURL,
+                    modelName: config.modelName,
+                    foundationModelsAvailable: isFoundationModelsAvailable(),
+                    intent: .briefing
+                )
+                let sys = """
+                你是 BodySeek 的个人健康 AI 教练。请仅基于下面提供的客观观测事实与用户记忆作答，禁止编造不存在的数字，禁止把 AI 估算说成已确认达标，非医学诊断，2–3 句简洁实用中文，不输出标题或列表符号。
+                """
+                let usr = "主题：\(topic)\n客观上下文：\n\(contextSummary)"
+                switch route {
+                case .previewFixture:
+                    return .generated(text: contextSummary, engineName: "预览模式")
+                case let .cloudOpenAICompatible(resolvedEndpoint, resolvedModel):
+                    do {
+                        let replyText = try await httpClient.runSingleTurnTextCompletion(
+                            endpointURL: resolvedEndpoint,
+                            apiKey: apiKey,
+                            modelName: resolvedModel,
+                            systemPrompt: sys,
+                            userPrompt: usr,
+                            maxTokens: 280
+                        )
+                        return replyText.isEmpty
+                            ? .unconfigured(reason: "云端模型返回空建议")
+                            : .generated(text: replyText, engineName: resolvedModel)
+                    } catch {
+                        logger.error("Page insight generation failed: \(error.localizedDescription, privacy: .public)")
+                        return .unconfigured(reason: "云端 AI 建议生成失败：\(error.localizedDescription)")
+                    }
+                case .onDeviceFoundationModels:
+                    #if canImport(FoundationModels)
+                    if #available(iOS 26.0, macOS 26.0, *) {
+                        do {
+                            let session = LanguageModelSession(model: .default, instructions: sys)
+                            let response = try await session.respond(to: usr)
+                            let clean = ToolMarkupScrubber.scrub(response.content).cleaned
+                            return clean.isEmpty
+                                ? .unconfigured(reason: "Apple 端侧模型返回空建议")
+                                : .generated(text: clean, engineName: "Apple 端侧模型")
+                        } catch {
+                            return .unconfigured(reason: "Apple 端侧建议失败：\(error.localizedDescription)")
+                        }
+                    }
+                    #endif
+                    return .unconfigured(reason: "端侧 Apple 智能不可用")
+                case let .unconfigured(reason):
+                    return .unconfigured(reason: reason)
+                }
+            },
             analyzeMeal: { text, jpeg in
                 if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard") {
                     return [
@@ -540,7 +623,7 @@ extension CoachAIClient: DependencyKey {
                 let key = try KeychainCredentialStore.live.loadAPIKey()
                 let config = storedConfiguration()
                 return try await httpClient.analyzeMeal(
-                    endpointURL: config.endpointURL, apiKey: key, modelName: config.modelName, input: text, jpeg: jpeg
+                    endpointURL: config.endpointURL, apiKey: key, modelName: config.modelName, input: text, jpeg: jpeg, enableWebSearch: config.enableWebSearch
                 )
             },
             loadAPIKey: {
@@ -553,6 +636,7 @@ extension CoachAIClient: DependencyKey {
             saveConfig: { config in
                 UserDefaults.standard.set(config.endpointURL, forKey: endpointStorageKey)
                 UserDefaults.standard.set(config.modelName, forKey: modelStorageKey)
+                UserDefaults.standard.set(config.enableWebSearch, forKey: webSearchStorageKey)
             },
             testConnection: { apiKey, config in
                 await httpClient.testConnection(
@@ -568,9 +652,13 @@ extension CoachAIClient: DependencyKey {
     }()
 
     private static func storedConfiguration() -> CoachAIConfig {
-        CoachAIConfig(
+        let webSearchEnabled = UserDefaults.standard.object(forKey: webSearchStorageKey) == nil
+            ? true
+            : UserDefaults.standard.bool(forKey: webSearchStorageKey)
+        return CoachAIConfig(
             endpointURL: UserDefaults.standard.string(forKey: endpointStorageKey) ?? "https://api.deepseek.com/v1",
-            modelName: UserDefaults.standard.string(forKey: modelStorageKey) ?? "deepseek-chat"
+            modelName: UserDefaults.standard.string(forKey: modelStorageKey) ?? "deepseek-chat",
+            enableWebSearch: webSearchEnabled
         )
     }
 
@@ -581,6 +669,12 @@ extension CoachAIClient: DependencyKey {
         generateBriefing: { _ in
             .generated(
                 text: "今天练到还有余力就好，不必加量。",
+                engineName: "预览模式"
+            )
+        },
+        generatePageInsight: { _, contextSummary, _ in
+            .generated(
+                text: contextSummary,
                 engineName: "预览模式"
             )
         },
@@ -811,7 +905,7 @@ private struct FMEatingContextTool: Tool {
     }
 
     func call(arguments: Arguments) async throws -> String {
-        await CoachToolRegistry.execute(name: name, argumentsJSON: "{\"days\":\(arguments.days)}", context: context)
+        await CoachToolRegistry.execute(name: name, argumentsJSON: "{\"days\":\(arguments.days),\"compact\":true}", context: context)
     }
 }
 

@@ -330,7 +330,13 @@ public enum CoachToolRegistry {
         case "find_similar_days":
             output = similarDaysJSON(dayString: stringArg(args, "day"), context: context)
         case "get_eating_context":
-            output = eatingContextJSON(days: intArg(args, "days") ?? 7, context: context)
+            let compactArg: Bool
+            if case let .bool(flag) = args["compact"] {
+                compactArg = flag
+            } else {
+                compactArg = false
+            }
+            output = eatingContextJSON(days: intArg(args, "days") ?? 7, compact: compactArg, context: context)
         case "get_personal_forecast":
             output = personalForecastJSON(context: context)
         case "search_exercise_catalog":
@@ -961,7 +967,7 @@ public enum CoachToolRegistry {
         )
     }
 
-    private static func eatingContextJSON(days: Int, context: AgentExecutionContext) -> String {
+    private static func eatingContextJSON(days: Int, compact: Bool = false, context: AgentExecutionContext) -> String {
         struct NutrientAdequacy: Encodable {
             let metricID: String
             let name: String
@@ -1082,23 +1088,12 @@ public enum CoachToolRegistry {
         }
 
         let items = recent.map { log in
-            DayNutritionSummary(
-                energy: MealEnergySummary(entries: log.entries),
-                dayKey: log.dayKey.isoString,
-                mealCount: log.entries.count,
-                estimatedEntryCount: log.entries.filter(\.isEstimated).count,
-                partialFields: log.dietPartialFields,
-                evidenceKey: "nutrition_day:\(log.dayKey.isoString)",
-                kcal: log.dietKcal,
-                proteinG: log.dietProteinG,
-                carbsG: log.dietCarbsG,
-                fatG: log.dietFatG,
-                fiberG: log.dietFiberG,
-                waterMl: log.dietWaterMl,
-                complete: log.dietDayComplete ?? false,
-                calorieSurplusKcal: log.dietDayComplete == true && log.dietPartialFields.isEmpty
-                    ? log.calorieSurplusKcal : nil,
-                adequacy: adoptedIDs.compactMap { metricID in
+            let dayAdequacy: [NutrientAdequacy]
+            if compact {
+                // On-device Foundation Models (~4K context): omit verbose 24-item per-day adequacy breakdown.
+                dayAdequacy = []
+            } else {
+                dayAdequacy = adoptedIDs.compactMap { metricID in
                     let eval = NutritionTargetEvaluator.evaluate(
                         metricID: metricID,
                         log: log,
@@ -1117,7 +1112,36 @@ public enum CoachToolRegistry {
                         isEstimated: eval.isEstimated
                     )
                 }
+            }
+            return DayNutritionSummary(
+                energy: MealEnergySummary(entries: log.entries),
+                dayKey: log.dayKey.isoString,
+                mealCount: log.entries.count,
+                estimatedEntryCount: log.entries.filter(\.isEstimated).count,
+                partialFields: log.dietPartialFields,
+                evidenceKey: "nutrition_day:\(log.dayKey.isoString)",
+                kcal: log.dietKcal,
+                proteinG: log.dietProteinG,
+                carbsG: log.dietCarbsG,
+                fatG: log.dietFatG,
+                fiberG: log.dietFiberG,
+                waterMl: log.dietWaterMl,
+                complete: log.dietDayComplete ?? false,
+                calorieSurplusKcal: log.dietDayComplete == true && log.dietPartialFields.isEmpty
+                    ? log.calorieSurplusKcal : nil,
+                adequacy: dayAdequacy
             )
+        }
+        let payloadAdequacy: [RecentNutrientAdequacy]
+        if compact {
+            // Keep highlights (macros + any non-met / notable nutrients) within compact context budget.
+            let prioritized = recentAdequacy.filter {
+                ["diet_kcal", "diet_protein_g", "diet_carbs_g", "diet_fat_g", "diet_fiber_g", "diet_water_ml"].contains($0.metricID)
+                    || $0.lowDays > 0 || $0.overDays > 0
+            }
+            payloadAdequacy = Array(prioritized.prefix(12))
+        } else {
+            payloadAdequacy = recentAdequacy
         }
         return encodeEnvelope(
             tool: "get_eating_context",
@@ -1128,8 +1152,8 @@ public enum CoachToolRegistry {
             data: EatingPayload(
                 targetPlanVersion: validated.isActive ? targetPlan?.targetVersion : nil,
                 targetEffectiveFrom: validated.isActive ? targetPlan?.effectiveFrom?.isoString : nil,
-                targets: targets,
-                recentAdequacy: recentAdequacy,
+                targets: compact ? Array(targets.prefix(8)) : targets,
+                recentAdequacy: payloadAdequacy,
                 trackedDays: items.count,
                 completedDays: items.filter { $0.complete && $0.partialFields.isEmpty }.count,
                 startDayKey: start.isoString, endDayKey: end.isoString,

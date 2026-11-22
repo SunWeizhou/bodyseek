@@ -25,7 +25,8 @@
 5. 专项文档 (AI/评分/设计)       # 第五步：查阅对应模块的实现与协议
    ├── docs/VELA_DESIGN_LANGUAGE.md
    ├── docs/AI_AGENT_SPEC.md       # Coach、今日 AI 建议与 AI 记饮食的现有实现
-   ├── docs/design/coach-agent.md  # Coach 后续设计、Ontology 与验收
+   ├── docs/design/coach-agent.md  # Coach 产品目标与 Ontology
+   ├── docs/design/coach-agent-implementation.md # 近期实施工单与验收
    └── docs/model_cards/        # 对照当前评分引擎与算法版本
 ```
 
@@ -44,6 +45,8 @@
 | [`docs/VELA_DESIGN_LANGUAGE.md`](VELA_DESIGN_LANGUAGE.md) | **设计系统与交互规范**：Rhythm 视觉语言、色板、排版、组件规范、动效与无障碍原则 | Canonical |
 | [`docs/AI_AGENT_SPEC.md`](AI_AGENT_SPEC.md) | **V5 AI Agent 开发指南**：生产入口、分路由工具与证据、提案确认、营养估算及验证边界 | Canonical |
 | [Coach Agent 顶层设计](design/coach-agent.md) | 私人健康助手、Ontology、数据治理、对话授权与持续跟进 | 已确认设计，待分阶段实现 |
+| [Coach 实施工单](design/coach-agent-implementation.md) | 近期开发顺序、证据与写入合同、验收 | 工单 1/2 模拟器闭环已完成，待真机/线上复核 |
+| [Coach 数据治理与持续跟进设计](design/coach-data-governance.md) | 目标版本、跨页面数据、时间语义、授权和复盘合同 | 后续设计参考 |
 | [`docs/SCORING_SYSTEM_V1_0.md`](SCORING_SYSTEM_V1_0.md) | **旧版评分设计参考**。当前字段与公式对照 `BodySeekCore/BevelScoringEngine.swift` 和对应版本模型卡 | Historical / reconciliation pending |
 | [`docs/adr/README.md`](adr/README.md) | **架构决策记录索引**：Accepted 决策为当前依据，Superseded 决策仅供追溯 | Canonical |
 

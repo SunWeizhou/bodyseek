@@ -64,5 +64,5 @@ VelaApp (Thin iOS 26 Entry Shell + Assets + Entitlements)
 ### 3.4 体验与 Agent 层（M1-UI / M2 / M3）
 - **一级导航**：`今日`（五项读数与今日行动卡 + `DailyCheckIn` 打卡）、`健身`（Watch-First 待复盘 Inbox + 肌群恢复热图 + ACWR 轮转）、`营养`（餐次、AI 记饮食草稿与周/月看板）、`趋势`（7d/30d/6m/3y + 我的规律 + N-of-1 实验）、尾部 `.search` 入口的 `Coach`。
 - **图表规范**：M1-UI 起在 `docs/design/chart-grammar.md` 下以统一组件族 `BodySeekChart`（纯 Apple `Swift Charts`）重构全部图表，选中态隔离在局部 `@State`，性能埋点由 `PerformanceSignposts` (`os_signpost`) 追踪并在 iPhone 16 Pro Release 包验证。
-- **Coach 与 AI 记饮食**使用 BodySeekAgent 的 OpenAI 兼容客户端、类型化证据与营养合同。Coach 另有端侧 Foundation Models 路径。分路由工具、追问窗口与验证入口见 [V5 AI Agent 开发指南](AI_AGENT_SPEC.md)。
+- **Coach 与 AI 记饮食**使用 BodySeekAgent 的 OpenAI 兼容客户端、类型化证据与营养合同。Coach 另有端侧 Foundation Models 路径。分路由工具、追问窗口与验证入口见 [V5 AI Agent 开发指南](AI_AGENT_SPEC.md)。后续扩展对话写入、目标与复盘时，按 [Coach 数据治理设计](design/coach-data-governance.md) 核对共享身份、日期和授权边界。
 - **个人建模（`BodySeekML/`）**：Mac 本地 Python (`uv`) 基于 Walk-Forward 时间序列切分先评测 Persistence / Ridge / Banister / LightGBM 基线，再研究 Masked TCN / PatchTST-Lite，通过显著性检验并完成双端特征一致性测试后以 Core ML 上机。

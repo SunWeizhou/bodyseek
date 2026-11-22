@@ -1,7 +1,7 @@
 # BodySeek / Vela 工程约定
 
 - 产品读 [PRD](docs/PRD.md)，术语读 [CONTEXT](CONTEXT.md)，平台与架构读 [ADR 0018/0019](docs/adr/README.md) 和 [技术架构](docs/TECH_ARCHITECTURE.md)。现行基线为 iOS 26、BodySeekKit 与 GRDB。
-- Coach、今日 AI 建议或 AI 记饮食任务先读 [V5 AI Agent 开发指南](docs/AI_AGENT_SPEC.md)，再核对生产入口及当前工作树。涉及对话写入、Ontology 或持续跟进时读 [Coach 顶层设计](docs/design/coach-agent.md)。旧版设计由 [文档导航](docs/README.md) 指向归档。
+- Coach 开发先读 [实施工单](docs/design/coach-agent-implementation.md)，按取证、训练标注与撤销的顺序验收。核对既有功能时读 [V5 AI Agent 开发指南](docs/AI_AGENT_SPEC.md)，产品边界见 [Coach 顶层设计](docs/design/coach-agent.md)。
 - 对外产品名 BodySeek；GitHub 仓库为 `SunWeizhou/bodyseek`，本地目录、Xcode 工程、bundle 与 Swift 标识保持 Vela。Today、Trends、五项详情优先，不新增总健康分或扩张产品线。
 - 按当前 BodySeekKit 生产入口核对实现。使用 available、knownZero、missing、excluded(reason) 四态，保留各自的覆盖与来源。
 - 记录 HEAD、dirty 状态、命令、退出码、配置与产物；不 reset/clean/stash/pull/merge/push/真机部署或发布，除非明确授权。保留用户改动。

@@ -40,6 +40,7 @@ public struct SettingsFeature: Sendable {
         case apiKeyChanged(String)
         case endpointChanged(String)
         case modelNameChanged(String)
+        case webSearchToggled(Bool)
         case saveAIConfigTapped
         case testConnectionFinished(String?)
         case privacyPayloadSheetPresented(Bool)
@@ -136,10 +137,16 @@ public struct SettingsFeature: Sendable {
                 state.config.modelName = model
                 return .none
 
+            case let .webSearchToggled(enabled):
+                state.config.enableWebSearch = enabled
+                coachAIClient.saveConfig(state.config)
+                return .none
+
             case .saveAIConfigTapped:
                 let normalizedConfig = CoachAIConfig(
                     endpointURL: state.config.endpointURL.trimmingCharacters(in: .whitespacesAndNewlines),
-                    modelName: state.config.modelName.trimmingCharacters(in: .whitespacesAndNewlines)
+                    modelName: state.config.modelName.trimmingCharacters(in: .whitespacesAndNewlines),
+                    enableWebSearch: state.config.enableWebSearch
                 )
                 state.config = normalizedConfig
                 do {
