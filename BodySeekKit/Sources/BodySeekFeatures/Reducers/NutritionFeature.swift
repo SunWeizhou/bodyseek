@@ -53,6 +53,8 @@ public struct NutritionFeature: Sendable {
         public var logs: [DailyNutritionLog] = []
         public var periodSummary: NutritionPeriodSummary
         public var foodSearchQuery: String = ""
+        public var foodSearchRequestID: UUID?
+        public var foodSearchError: String?
         public var foodLibrary: [FoodLibraryItem] = NutritionCatalog.starterFoodItems
         public var expandedMicroGroup: String?
         public var mealLogger: MealLogger?
@@ -216,7 +218,8 @@ public struct NutritionFeature: Sendable {
         case daySelected(DayKey)
         case toggleMicroGroup(String)
         case foodSearchChanged(String)
-        case foodSearchResultsLoaded([FoodLibraryItem])
+        case foodSearchResultsLoaded([FoodLibraryItem], query: String, requestID: UUID)
+        case foodSearchFailed(query: String, requestID: UUID, message: String)
         case mealLoggerPresented(Bool)
         case mealAssistantTapped
         case mealEditTapped(MealEntry)
@@ -273,6 +276,7 @@ public struct NutritionFeature: Sendable {
     @Dependency(\.bodySeekStoreClient) var storeClient
     @Dependency(\.coachAIClient) var coachAIClient
     @Dependency(\.date.now) var now
+    @Dependency(\.uuid) var uuid
 
     public init() {}
 
@@ -288,7 +292,8 @@ public struct NutritionFeature: Sendable {
                 state.profile = profile
                 state.targetPlan = targetPlan
                 state.logs = logs
-                if !library.isEmpty {
+                if !library.isEmpty,
+                   state.foodSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     state.foodLibrary = library
                 }
                 state.recomputeSummary()
@@ -334,17 +339,37 @@ public struct NutritionFeature: Sendable {
 
             case let .foodSearchChanged(query):
                 state.foodSearchQuery = query
+                state.foodSearchError = nil
+                let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+                let requestID = uuid()
+                state.foodSearchRequestID = requestID
+                guard !trimmed.isEmpty else { return .none }
                 return .run { send in
                     do {
-                        let results = try await storeClient.searchFoodLibrary(query)
-                        await send(.foodSearchResultsLoaded(results))
+                        let results = try await storeClient.searchFoodLibrary(trimmed)
+                        await send(.foodSearchResultsLoaded(results, query: trimmed, requestID: requestID))
                     } catch {
-                        await send(.mutationFailed("搜索营养库失败：\(error.localizedDescription)"))
+                        await send(.foodSearchFailed(
+                            query: trimmed,
+                            requestID: requestID,
+                            message: "搜索营养库失败：\(error.localizedDescription)"
+                        ))
                     }
                 }
 
-            case let .foodSearchResultsLoaded(items):
+            case let .foodSearchResultsLoaded(items, query, requestID):
+                guard state.foodSearchRequestID == requestID,
+                      state.foodSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines) == query
+                else { return .none }
                 state.foodLibrary = items
+                state.foodSearchError = nil
+                return .none
+
+            case let .foodSearchFailed(query, requestID, message):
+                guard state.foodSearchRequestID == requestID,
+                      state.foodSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines) == query
+                else { return .none }
+                state.foodSearchError = message
                 return .none
 
             case let .mealLoggerPresented(presented):

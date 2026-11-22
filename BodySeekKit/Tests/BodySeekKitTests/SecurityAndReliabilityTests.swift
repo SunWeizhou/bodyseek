@@ -13,6 +13,16 @@ final class SecurityAndReliabilityTests: XCTestCase {
         var errorDescription: String? { message }
     }
 
+    private final class LockedConfig: @unchecked Sendable {
+        private let lock = NSLock()
+        private var storage: CoachAIConfig?
+
+        var value: CoachAIConfig? {
+            get { lock.lock(); defer { lock.unlock() }; return storage }
+            set { lock.lock(); defer { lock.unlock() }; storage = newValue }
+        }
+    }
+
     func testKeychainMigratesLegacyUserDefaultsKeyAndPurgesIt() throws {
         let suiteName = "bodyseek.test.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
@@ -80,6 +90,45 @@ final class SecurityAndReliabilityTests: XCTestCase {
         await store.send(.deleteMemoryTapped(memory.id))
         await store.receive(\.memoryDeleteFailed)
         XCTAssertTrue(store.state.statusMessage?.contains("删除记忆失败") == true)
+    }
+
+    func testWebSearchToggleDoesNotPersistUnsavedConnectionDraft() async {
+        let now = Date(timeIntervalSince1970: 1_760_000_000)
+        let snapshot = BevelScoringEngine.computeWindow(
+            rawDays: PreviewSeedFactory.makeRawWindow(endingAt: now, days: 5),
+            sleepGoalMinutes: 450,
+            referenceDate: now,
+            sourceLabel: "Test",
+            isAuthorized: true
+        )
+        let recorder = LockedConfig()
+        let stored = CoachAIConfig(
+            endpointURL: "https://stored.example/v1",
+            modelName: "stored-model",
+            enableWebSearch: true
+        )
+        let store = TestStore(
+            initialState: SettingsFeature.State(
+                snapshot: snapshot,
+                preferences: AppPreferencesState()
+            )
+        ) {
+            SettingsFeature()
+        } withDependencies: {
+            $0.coachAIClient.loadConfig = { stored }
+            $0.coachAIClient.saveConfig = { recorder.value = $0 }
+            $0.coachAIClient.loadAPIKey = { "" }
+            $0.preferencesClient = .previewValue
+        }
+        store.exhaustivity = .off
+
+        await store.send(.onAppear)
+        await store.send(.modelNameChanged("unsaved-draft-model"))
+        await store.send(.webSearchToggled(false))
+
+        XCTAssertEqual(store.state.config.modelName, "unsaved-draft-model")
+        XCTAssertEqual(recorder.value?.modelName, "stored-model")
+        XCTAssertEqual(recorder.value?.enableWebSearch, false)
     }
 
     func testCoachWorkoutAndAppSurfaceStoreErrorsInsteadOfSwallowing() async {

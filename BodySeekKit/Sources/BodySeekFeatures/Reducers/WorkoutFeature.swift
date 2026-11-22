@@ -27,6 +27,10 @@ public struct WorkoutReviewDraft: Equatable, Sendable {
     public var isParsing: Bool = false
     public var isSaving: Bool = false
     public var errorMessage: String? = nil
+    /// Identity of the in-flight parse. Late results for another workout,
+    /// request, or input revision are ignored.
+    public var parseRequestID: UUID? = nil
+    public var inputRevision: Int = 0
 
     public init(
         workout: StoredWorkoutRecord,
@@ -39,7 +43,9 @@ public struct WorkoutReviewDraft: Equatable, Sendable {
         bodySignals: [WorkoutBodySignal] = [],
         isParsing: Bool = false,
         isSaving: Bool = false,
-        errorMessage: String? = nil
+        errorMessage: String? = nil,
+        parseRequestID: UUID? = nil,
+        inputRevision: Int = 0
     ) {
         self.workout = workout
         self.inputText = inputText
@@ -52,6 +58,8 @@ public struct WorkoutReviewDraft: Equatable, Sendable {
         self.isParsing = isParsing
         self.isSaving = isSaving
         self.errorMessage = errorMessage
+        self.parseRequestID = parseRequestID
+        self.inputRevision = inputRevision
     }
 }
 
@@ -220,7 +228,7 @@ public struct WorkoutFeature: Sendable {
         case dismissReviewSheet
         case reviewTextChanged(String)
         case parseReviewTapped
-        case reviewParsed(WorkoutAnnotationProposal)
+        case reviewParsed(WorkoutAnnotationProposal, workoutUUID: String, requestID: UUID, revision: Int)
         case toggleMuscleInDraft(BodyRegionMuscle)
         case addMuscleToDraft(BodyRegionMuscle, asPrimary: Bool)
         case removeMuscleFromDraft(BodyRegionMuscle)
@@ -353,8 +361,17 @@ public struct WorkoutFeature: Sendable {
                 return .none
 
             case let .reviewTextChanged(text):
-                state.reviewDraft?.inputText = text
-                state.reviewDraft?.errorMessage = nil
+                guard var draft = state.reviewDraft else { return .none }
+                draft.inputText = text
+                draft.inputRevision += 1
+                draft.errorMessage = nil
+                if draft.isParsing {
+                    // The in-flight result no longer matches this input; let the
+                    // user re-parse instead of leaving a permanent spinner.
+                    draft.isParsing = false
+                    draft.parseRequestID = nil
+                }
+                state.reviewDraft = draft
                 return .none
 
             case .parseReviewTapped:
@@ -366,18 +383,32 @@ public struct WorkoutFeature: Sendable {
                     state.reviewDraft?.errorMessage = message
                     return .none
                 }
+                let requestID = uuid()
+                let workoutUUID = draft.workout.hkUUID
+                let revision = draft.inputRevision
                 draft.isParsing = true
                 draft.errorMessage = nil
+                draft.parseRequestID = requestID
                 state.reviewDraft = draft
                 state.lastError = nil
                 return .run { send in
                     let proposal = await workoutReviewParserClient.parse(text)
-                    await send(.reviewParsed(proposal))
+                    await send(.reviewParsed(
+                        proposal,
+                        workoutUUID: workoutUUID,
+                        requestID: requestID,
+                        revision: revision
+                    ))
                 }
 
-            case let .reviewParsed(proposal):
-                guard var draft = state.reviewDraft else { return .none }
+            case let .reviewParsed(proposal, workoutUUID, requestID, revision):
+                guard var draft = state.reviewDraft,
+                      draft.workout.hkUUID == workoutUUID,
+                      draft.parseRequestID == requestID,
+                      draft.inputRevision == revision
+                else { return .none }
                 draft.isParsing = false
+                draft.parseRequestID = nil
                 draft.proposal = proposal
                 if !proposal.primaryMuscles.isEmpty {
                     draft.primaryMuscles = proposal.primaryMuscles

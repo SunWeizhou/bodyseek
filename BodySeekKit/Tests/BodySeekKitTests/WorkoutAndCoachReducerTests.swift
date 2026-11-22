@@ -187,6 +187,51 @@ final class WorkoutAndCoachReducerTests: XCTestCase {
         XCTAssertEqual(auditCountAfterRetire, 2)
     }
 
+    func testLateReviewParseCannotMutateAnotherWorkoutDraft() async throws {
+        let now = Date(timeIntervalSince1970: 1_760_000_000)
+        let snapshot = BevelScoringEngine.computeWindow(
+            rawDays: PreviewSeedFactory.makeRawWindow(endingAt: now, days: 7),
+            sleepGoalMinutes: 450,
+            referenceDate: now,
+            sourceLabel: "test",
+            isAuthorized: true
+        )
+        let workoutA = StoredWorkoutRecord(
+            hkUUID: "A",
+            type: "传统力量训练",
+            start: now.addingTimeInterval(-3600),
+            end: now,
+            energy: 100
+        )
+        let workoutB = StoredWorkoutRecord(
+            hkUUID: "B",
+            type: "传统力量训练",
+            start: now.addingTimeInterval(-7200),
+            end: now.addingTimeInterval(-3600),
+            energy: 120
+        )
+        var state = WorkoutFeature.State(snapshot: snapshot)
+        state.reviewDraft = WorkoutReviewDraft(
+            workout: workoutB,
+            inputText: "练深蹲",
+            primaryMuscles: [.quadriceps],
+            rpe: 7
+        )
+        let store = TestStore(initialState: state) { WorkoutFeature() }
+        store.exhaustivity = .off
+
+        await store.send(.reviewParsed(
+            WorkoutAnnotationProposal(rawText: "卧推 RPE 9", primaryMuscles: [.chest], rpe: 9),
+            workoutUUID: workoutA.hkUUID,
+            requestID: UUID(),
+            revision: 0
+        ))
+        XCTAssertEqual(store.state.reviewDraft?.workout.hkUUID, "B")
+        XCTAssertEqual(store.state.reviewDraft?.inputText, "练深蹲")
+        XCTAssertEqual(store.state.reviewDraft?.primaryMuscles, [.quadriceps])
+        XCTAssertEqual(store.state.reviewDraft?.rpe, 7)
+    }
+
     func testCoachAnnotationCandidateSelectionBindsOneWorkout() async throws {
         let now = Date(timeIntervalSince1970: 1_760_000_000)
         let snapshot = BevelScoringEngine.computeWindow(

@@ -71,6 +71,12 @@ public struct NutritionMealLoggerSheet: View {
                     )
                     .accessibilityIdentifier("nutrition-meal-search")
 
+                    if let foodSearchError = store.foodSearchError {
+                        Text(foodSearchError)
+                            .font(.caption2)
+                            .foregroundStyle(BevelTheme.dangerColor)
+                    }
+
                     ForEach(store.foodLibrary.prefix(original != nil && store.foodSearchQuery.isEmpty ? 0 : 24)) { item in
                         Button {
                             if portionUnit.caseInsensitiveCompare(item.basisUnit) != .orderedSame {
@@ -356,6 +362,14 @@ public struct NutritionLibrarySheet: View {
                 ),
                 prompt: "搜索食物名或别名"
             )
+            .overlay(alignment: .top) {
+                if let foodSearchError = store.foodSearchError {
+                    Text(foodSearchError)
+                        .font(.caption2)
+                        .foregroundStyle(BevelTheme.dangerColor)
+                        .padding(.top, 4)
+                }
+            }
             .navigationTitle("营养库")
             .bodyseekNavigationBarInline()
             .toolbar {

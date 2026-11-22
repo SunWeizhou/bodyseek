@@ -115,6 +115,9 @@ public struct NOfOneExperimentRecord: Identifiable, Hashable, Codable, Sendable 
     public let hypothesis: String
     public let startDayKey: DayKey
     public let durationDays: Int
+    /// Day the user explicitly archived the experiment. Evaluation must not
+    /// absorb observations after this day even if the app keeps syncing history.
+    public var endedAtDayKey: DayKey?
     public let exposureRule: NOfOneExposureRule
     public let targetMetric: NOfOneTargetMetric
 
@@ -125,6 +128,7 @@ public struct NOfOneExperimentRecord: Identifiable, Hashable, Codable, Sendable 
         hypothesis: String,
         startDayKey: DayKey,
         durationDays: Int = 14,
+        endedAtDayKey: DayKey? = nil,
         exposureRule: NOfOneExposureRule,
         targetMetric: NOfOneTargetMetric
     ) {
@@ -134,6 +138,7 @@ public struct NOfOneExperimentRecord: Identifiable, Hashable, Codable, Sendable 
         self.hypothesis = hypothesis
         self.startDayKey = startDayKey
         self.durationDays = durationDays
+        self.endedAtDayKey = endedAtDayKey
         self.exposureRule = exposureRule
         self.targetMetric = targetMetric
     }
@@ -152,7 +157,11 @@ public struct NOfOneExperimentRecord: Identifiable, Hashable, Codable, Sendable 
     }
 
     public var endDayKey: DayKey {
-        startDayKey.addingDays(max(0, durationDays - 1))
+        let scheduled = startDayKey.addingDays(max(0, durationDays - 1))
+        if let endedAtDayKey, endedAtDayKey < scheduled {
+            return endedAtDayKey
+        }
+        return scheduled
     }
 }
 

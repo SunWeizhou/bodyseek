@@ -38,6 +38,34 @@ final class TodayActionAndNutritionFeatureTests: XCTestCase {
         XCTAssertNil(logs.first?.sportKcal)
     }
 
+    func testStaleFoodSearchResultCannotReplaceNewQuery() async {
+        let now = Date(timeIntervalSince1970: 1_790_000_000)
+        let snapshot = BevelScoringEngine.computeWindow(
+            rawDays: [],
+            sleepGoalMinutes: 450,
+            referenceDate: now,
+            sourceLabel: "test",
+            isAuthorized: true
+        )
+        let oldID = UUID()
+        let newID = UUID()
+        let rice = FoodLibraryItem(foodID: "rice", name: "米饭")
+        let meter = FoodLibraryItem(foodID: "rice-short", name: "米")
+        var state = NutritionFeature.State(snapshot: snapshot, isPreviewMode: false)
+        state.foodSearchQuery = "米"
+        state.foodSearchRequestID = newID
+        state.foodLibrary = [meter]
+
+        let store = TestStore(initialState: state) { NutritionFeature() }
+        store.exhaustivity = .off
+
+        await store.send(.foodSearchResultsLoaded([rice], query: "米饭", requestID: oldID))
+        XCTAssertEqual(store.state.foodLibrary.map(\.name), ["米"])
+
+        await store.send(.foodSearchResultsLoaded([rice], query: "米", requestID: newID))
+        XCTAssertEqual(store.state.foodLibrary.map(\.name), ["米饭"])
+    }
+
     func testTodayActionAdoptionPersistsAndWritesAuditTrail() async throws {
         let now = Date(timeIntervalSince1970: 1_760_000_000)
         let snapshot = BevelScoringEngine.computeWindow(

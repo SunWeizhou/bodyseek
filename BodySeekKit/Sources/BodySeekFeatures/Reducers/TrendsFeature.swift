@@ -385,8 +385,24 @@ public struct TrendsFeature: Sendable {
                 }
 
             case let .completeExperimentTapped(planItem):
-                var updated = planItem
-                updated.state = .completed
+                // Persist the actual archive day inside the experiment payload so
+                // later evaluations truncate at the stop day instead of today.
+                var payloadJSON = planItem.payloadJSON
+                if let data = planItem.payloadJSON.data(using: .utf8),
+                   var record = try? JSONDecoder().decode(NOfOneExperimentRecord.self, from: data) {
+                    record.endedAtDayKey = now.physiologicalDayKey()
+                    if let encoded = try? JSONEncoder().encode(record) {
+                        payloadJSON = String(data: encoded, encoding: .utf8) ?? payloadJSON
+                    }
+                }
+                let updated = PlanItemRecord(
+                    id: planItem.id,
+                    dayKey: planItem.dayKey,
+                    kind: planItem.kind,
+                    payloadJSON: payloadJSON,
+                    state: .completed,
+                    origin: planItem.origin
+                )
                 let itemToSave = updated
                 return .run { send in
                     do {

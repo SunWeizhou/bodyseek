@@ -141,7 +141,11 @@ public struct SettingsFeature: Sendable {
 
             case let .webSearchToggled(enabled):
                 state.config.enableWebSearch = enabled
-                coachAIClient.saveConfig(state.config)
+                // Only persist the toggle; unsaved endpoint/model drafts must not be
+                // committed as a side effect of flipping web search.
+                var stored = coachAIClient.loadConfig()
+                stored.enableWebSearch = enabled
+                coachAIClient.saveConfig(stored)
                 return .none
 
             case .saveAIConfigTapped:
