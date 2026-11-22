@@ -382,9 +382,8 @@ public enum PersonalForecasterEngine {
         for day in historyDays where day.dayKey <= referenceDayKey {
             byDay[day.dayKey] = day
         }
-        var sortedDays = byDay.values.sorted { $0.dayKey < $1.dayKey }
-        if sortedDays.isEmpty {
-            let emptyRaw = DailyRawMetrics(date: referenceDayKey.calendarDayStart())
+        func missingDay(_ dayKey: DayKey) -> DailyComputedDay {
+            let emptyRaw = DailyRawMetrics(date: dayKey.startDate(cutoverHour: 4))
             let missingScore: (MetricKind) -> MetricScore = { kind in
                 MetricScore(
                     kind: kind,
@@ -394,9 +393,9 @@ public enum PersonalForecasterEngine {
                     subtitle: ""
                 )
             }
-            let emptyComputed = DailyComputedDay(
+            return DailyComputedDay(
                 date: emptyRaw.date,
-                dayKey: referenceDayKey,
+                dayKey: dayKey,
                 raw: emptyRaw,
                 recovery: missingScore(.recovery),
                 sleep: missingScore(.sleep),
@@ -408,7 +407,22 @@ public enum PersonalForecasterEngine {
                 factualSummary: "",
                 evidenceSummary: ""
             )
-            sortedDays = [emptyComputed]
+        }
+
+        var sortedDays: [DailyComputedDay]
+        if let first = byDay.keys.min() {
+            // Lag/rolling features are indexed by physiological calendar day, not by
+            // the number of stored rows. Fill every missing day up to the reference
+            // day so a gap cannot shift two-day-old data into lag0.
+            var continuous: [DailyComputedDay] = []
+            var cursor = first
+            while cursor <= referenceDayKey {
+                continuous.append(byDay[cursor] ?? missingDay(cursor))
+                cursor = cursor.addingDays(1)
+            }
+            sortedDays = continuous
+        } else {
+            sortedDays = [missingDay(referenceDayKey)]
         }
 
         let n = sortedDays.count

@@ -3,6 +3,25 @@ import XCTest
 
 final class BevelScoringEngineTests: XCTestCase {
 
+    func testMissingReferenceDayDoesNotBorrowYesterday() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Shanghai"))
+        let yesterday = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 11, day: 21, hour: 12)))
+        let reference = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 11, day: 22, hour: 12)))
+        let raw = PreviewSeedFactory.makeRawWindow(endingAt: yesterday, days: 5, calendar: calendar)
+        let snapshot = BevelScoringEngine.computeWindow(
+            rawDays: raw,
+            sleepGoalMinutes: 450,
+            referenceDate: reference,
+            sourceLabel: "Missing today",
+            isAuthorized: true,
+            calendar: calendar
+        )
+        XCTAssertEqual(snapshot.today.dayKey, DayKey(year: 2026, month: 11, day: 22))
+        XCTAssertNil(snapshot.today.raw.sleepAsleepMinutes)
+        XCTAssertEqual(snapshot.historyDays.last?.dayKey, DayKey(year: 2026, month: 11, day: 21))
+    }
+
     func testChartSnapshotBuildAllMatchesIndividualSnapshots() throws {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Shanghai"))

@@ -32,6 +32,45 @@ private struct GoldenFixtureFile: Decodable {
 }
 
 final class PersonalForecasterParityTests: XCTestCase {
+    func testFeatureVectorUsesContinuousCalendarDaysWhenHistoryHasGaps() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Shanghai"))
+        let day1 = DayKey(year: 2026, month: 11, day: 19)
+        let day2 = DayKey(year: 2026, month: 11, day: 20)
+        let day3 = DayKey(year: 2026, month: 11, day: 21)
+        let reference = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 11, day: 21, hour: 12)))
+
+        func raw(_ key: DayKey, hrv: Double?) -> DailyRawMetrics {
+            DailyRawMetrics(date: key.startDate(cutoverHour: 4, timeZone: calendar.timeZone), hrvMs: hrv, dayKey: key)
+        }
+
+        let sparse = BevelScoringEngine.computeWindow(
+            rawDays: [raw(day1, hrv: 80), raw(day3, hrv: nil)],
+            sleepGoalMinutes: 450,
+            referenceDate: reference,
+            sourceLabel: "sparse",
+            isAuthorized: true,
+            calendar: calendar
+        )
+        let padded = BevelScoringEngine.computeWindow(
+            rawDays: [raw(day1, hrv: 80), raw(day2, hrv: nil), raw(day3, hrv: nil)],
+            sleepGoalMinutes: 450,
+            referenceDate: reference,
+            sourceLabel: "padded",
+            isAuthorized: true,
+            calendar: calendar
+        )
+        let sparseVector = PersonalForecasterEngine.buildFeatureVector(
+            from: sparse.historyDays,
+            referenceDayKey: day3
+        )
+        let paddedVector = PersonalForecasterEngine.buildFeatureVector(
+            from: padded.historyDays,
+            referenceDayKey: day3
+        )
+        XCTAssertEqual(sparseVector, paddedVector)
+    }
+
     func testCoreMLAndSwiftSpecMatchAll24GoldenVectorsWithinTolerance() throws {
         let spec = try PersonalForecasterEngine.loadBundledSpec()
         XCTAssertEqual(spec.featureColumns.count, 31)
@@ -164,6 +203,30 @@ final class PersonalForecasterParityTests: XCTestCase {
             referenceDayKey: refDayKey
         )
         XCTAssertEqual(vecBefore, vecAfter, "Modifying future days (> referenceDayKey) must never alter causal features at t")
+    }
+
+    func testArchivedExperimentStopsAbsorbingObservations() throws {
+        let start = DayKey(year: 2026, month: 11, day: 1)
+        let reference = start.addingDays(9)
+        let raw = PreviewSeedFactory.makeRawWindow(endingAt: reference.startDate(cutoverHour: 4), days: 10)
+        let snapshot = BevelScoringEngine.computeWindow(
+            rawDays: raw,
+            sleepGoalMinutes: 450,
+            referenceDate: reference.startDate(cutoverHour: 12),
+            sourceLabel: "test",
+            isAuthorized: true
+        )
+        var record = NOfOneExperimentRecord(
+            template: NOfOneExperimentTemplate.presets[0],
+            startDayKey: start
+        )
+        record.endedAtDayKey = start.addingDays(1)
+        let evaluation = NOfOneExperimentEvaluator.evaluate(
+            record: record,
+            historyDays: snapshot.historyDays,
+            referenceDayKey: reference
+        )
+        XCTAssertEqual(evaluation.elapsedDays, 2)
     }
 
     func testNOfOneExperimentEvaluatorExcludesMissingDays() throws {

@@ -40,15 +40,14 @@ public enum BevelScoringEngine {
             )
         }
 
-        let today = computed.last { calendar.isDate($0.date, inSameDayAs: refStart) }
-            ?? computed.last
-            ?? scoreDay(
-                DailyRawMetrics(date: refStart, hasAuthorizedHealthData: isAuthorized),
-                priorDays: [],
-                sleepGoalMinutes: sleepGoalMinutes,
-                calendar: calendar,
-                referenceDate: referenceDate
-            )
+        let today = resolveToday(
+            computed: computed,
+            referenceDate: referenceDate,
+            refStart: refStart,
+            sleepGoalMinutes: sleepGoalMinutes,
+            isAuthorized: isAuthorized,
+            calendar: calendar
+        )
 
         let acwr = computeACWR(computedDays: computed, referenceDate: refStart, calendar: calendar)
 
@@ -123,15 +122,14 @@ public enum BevelScoringEngine {
             }
         }
 
-        let today = computed.last { calendar.isDate($0.date, inSameDayAs: refStart) }
-            ?? computed.last
-            ?? scoreDay(
-                DailyRawMetrics(date: refStart, hasAuthorizedHealthData: isAuthorized),
-                priorDays: [],
-                sleepGoalMinutes: sleepGoalMinutes,
-                calendar: calendar,
-                referenceDate: referenceDate
-            )
+        let today = resolveToday(
+            computed: computed,
+            referenceDate: referenceDate,
+            refStart: refStart,
+            sleepGoalMinutes: sleepGoalMinutes,
+            isAuthorized: isAuthorized,
+            calendar: calendar
+        )
 
         let acwr = computeACWR(computedDays: computed, referenceDate: refStart, calendar: calendar)
 
@@ -144,6 +142,37 @@ public enum BevelScoringEngine {
             lastUpdatedAt: Date(),
             isAuthorized: isAuthorized,
             scoreAlgorithmVersion: .scoreV2
+        )
+    }
+
+    private static func resolveToday(
+        computed: [DailyComputedDay],
+        referenceDate: Date,
+        refStart: Date,
+        sleepGoalMinutes: Int,
+        isAuthorized: Bool,
+        calendar: Calendar
+    ) -> DailyComputedDay {
+        let referenceKey = DayKey(date: referenceDate, cutoverHour: 4, timeZone: calendar.timeZone)
+        if let exact = computed.first(where: { $0.dayKey == referenceKey }) {
+            return exact
+        }
+        // Do not fall back to yesterday's computed day when today has no row at all.
+        let priorRaw = computed
+            .filter { $0.dayKey < referenceKey }
+            .suffix(28)
+            .map(\.raw)
+        let missingRaw = DailyRawMetrics(
+            date: refStart,
+            hasAuthorizedHealthData: isAuthorized,
+            dayKey: referenceKey
+        )
+        return scoreDay(
+            missingRaw,
+            priorDays: Array(priorRaw),
+            sleepGoalMinutes: sleepGoalMinutes,
+            calendar: calendar,
+            referenceDate: referenceDate
         )
     }
 
