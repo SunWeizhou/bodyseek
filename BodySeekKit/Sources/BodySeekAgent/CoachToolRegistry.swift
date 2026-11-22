@@ -396,6 +396,9 @@ public enum CoachToolRegistry {
             let acwrRatio: Double?
             let acwrZone: String
             let acute7dLoad: Double
+            let acuteCoveredDays: Int
+            let chronicCoveredDays: Int
+            let priorBaselineDays: Int
             let unreviewedWatchWorkouts: Int
             let todayCheckInEnergy: Int?
             let todayCheckInStress: Int?
@@ -442,6 +445,9 @@ public enum CoachToolRegistry {
             acwrRatio: context.snapshot.trainingLoad.acwrRatio,
             acwrZone: context.snapshot.trainingLoad.zone.title,
             acute7dLoad: (context.snapshot.trainingLoad.acute7dLoad * 10).rounded() / 10,
+            acuteCoveredDays: context.snapshot.trainingLoad.acuteCoveredDays,
+            chronicCoveredDays: context.snapshot.trainingLoad.chronicCoveredDays,
+            priorBaselineDays: context.snapshot.trainingLoad.priorBaselineDays,
             unreviewedWatchWorkouts: unreviewed,
             todayCheckInEnergy: todayCheckIn?.energy,
             todayCheckInStress: todayCheckIn?.stress

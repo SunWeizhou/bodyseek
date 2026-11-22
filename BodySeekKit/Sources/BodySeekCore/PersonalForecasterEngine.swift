@@ -106,6 +106,12 @@ public struct PersonalForecastTargetResult: Identifiable, Equatable, Hashable, C
     public let walkForwardMAE: Double
     public let walkForwardCov80: Double
     public let drivers: [PersonalForecastDriver]
+    public let recent14dObservedDays: Int
+    public let totalObservedDays: Int
+
+    public var hasDirectTargetEvidence: Bool {
+        recent14dObservedDays >= 3
+    }
 
     public init(
         name: String,
@@ -119,7 +125,9 @@ public struct PersonalForecastTargetResult: Identifiable, Equatable, Hashable, C
         walkForwardBestBaseline: String,
         walkForwardMAE: Double,
         walkForwardCov80: Double,
-        drivers: [PersonalForecastDriver] = []
+        drivers: [PersonalForecastDriver] = [],
+        recent14dObservedDays: Int = 0,
+        totalObservedDays: Int = 0
     ) {
         self.name = name
         self.title = title
@@ -133,6 +141,8 @@ public struct PersonalForecastTargetResult: Identifiable, Equatable, Hashable, C
         self.walkForwardMAE = walkForwardMAE
         self.walkForwardCov80 = walkForwardCov80
         self.drivers = drivers
+        self.recent14dObservedDays = recent14dObservedDays
+        self.totalObservedDays = totalObservedDays
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -148,6 +158,8 @@ public struct PersonalForecastTargetResult: Identifiable, Equatable, Hashable, C
         case walkForwardMAE
         case walkForwardCov80
         case drivers
+        case recent14dObservedDays
+        case totalObservedDays
     }
 
     public init(from decoder: Decoder) throws {
@@ -164,6 +176,8 @@ public struct PersonalForecastTargetResult: Identifiable, Equatable, Hashable, C
         walkForwardMAE = try container.decode(Double.self, forKey: .walkForwardMAE)
         walkForwardCov80 = try container.decode(Double.self, forKey: .walkForwardCov80)
         drivers = try container.decodeIfPresent([PersonalForecastDriver].self, forKey: .drivers) ?? []
+        recent14dObservedDays = try container.decodeIfPresent(Int.self, forKey: .recent14dObservedDays) ?? 0
+        totalObservedDays = try container.decodeIfPresent(Int.self, forKey: .totalObservedDays) ?? 0
     }
 }
 
@@ -595,6 +609,24 @@ public enum PersonalForecasterEngine {
             }
         }
 
+        let cutoff14d = referenceDayKey.addingDays(-13)
+        let recent14Days = pastDays.filter { $0.dayKey >= cutoff14d }
+
+        func hasTargetObservation(_ day: DailyComputedDay, targetName: String) -> Bool {
+            switch targetName {
+            case "hrv_sdnn_ms":
+                return day.raw.hrvMs != nil
+            case "resting_hr_bpm":
+                return day.raw.restingHeartRateBpm != nil
+            case "sleep_efficiency":
+                guard let asleep = day.raw.sleepAsleepMinutes, asleep > 0 else { return false }
+                let denom = max(day.raw.sleepInBedMinutes ?? 0, asleep + (day.raw.awakeMinutes ?? 0))
+                return denom > 0
+            default:
+                return false
+            }
+        }
+
         let targets: [PersonalForecastTargetResult] = zip(spec.targets, rawPredictions).map { targetSpec, rawPoint in
             let point = min(targetSpec.clipMax, max(targetSpec.clipMin, rawPoint))
             let low80 = min(targetSpec.clipMax, max(targetSpec.clipMin, point - targetSpec.q80HalfWidth))
@@ -612,6 +644,8 @@ public enum PersonalForecasterEngine {
             } catch {
                 topDrivers = []
             }
+            let recentObs = recent14Days.filter { hasTargetObservation($0, targetName: targetSpec.name) }.count
+            let totalObs = pastDays.filter { hasTargetObservation($0, targetName: targetSpec.name) }.count
             return PersonalForecastTargetResult(
                 name: targetSpec.name,
                 title: targetSpec.title,
@@ -624,7 +658,9 @@ public enum PersonalForecasterEngine {
                 walkForwardBestBaseline: targetSpec.walkForwardBestBaseline,
                 walkForwardMAE: targetSpec.walkForwardMAE,
                 walkForwardCov80: targetSpec.walkForwardCov80,
-                drivers: topDrivers
+                drivers: topDrivers,
+                recent14dObservedDays: recentObs,
+                totalObservedDays: totalObs
             )
         }
 

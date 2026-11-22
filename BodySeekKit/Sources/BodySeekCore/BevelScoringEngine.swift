@@ -34,7 +34,8 @@ public enum BevelScoringEngine {
                     entry.raw,
                     priorDays: priorDays,
                     sleepGoalMinutes: sleepGoalMinutes,
-                    calendar: calendar
+                    calendar: calendar,
+                    referenceDate: referenceDate
                 )
             )
         }
@@ -45,7 +46,8 @@ public enum BevelScoringEngine {
                 DailyRawMetrics(date: refStart, hasAuthorizedHealthData: isAuthorized),
                 priorDays: [],
                 sleepGoalMinutes: sleepGoalMinutes,
-                calendar: calendar
+                calendar: calendar,
+                referenceDate: referenceDate
             )
 
         let acwr = computeACWR(computedDays: computed, referenceDate: refStart, calendar: calendar)
@@ -98,7 +100,9 @@ public enum BevelScoringEngine {
                 return (0...28).contains(delta)
             }
 
+            let isTodayEntry = calendar.isDate(entry.dayStart, inSameDayAs: refStart)
             if !isDirtyAffected,
+               !isTodayEntry,
                let cached = existingByDayKey[entry.dayKey],
                cached.algorithmVersion == .scoreV2,
                cached.sleepGoalMinutes == sleepGoalMinutes,
@@ -112,7 +116,8 @@ public enum BevelScoringEngine {
                         entry.raw,
                         priorDays: priorDays,
                         sleepGoalMinutes: sleepGoalMinutes,
-                        calendar: calendar
+                        calendar: calendar,
+                        referenceDate: referenceDate
                     )
                 )
             }
@@ -124,7 +129,8 @@ public enum BevelScoringEngine {
                 DailyRawMetrics(date: refStart, hasAuthorizedHealthData: isAuthorized),
                 priorDays: [],
                 sleepGoalMinutes: sleepGoalMinutes,
-                calendar: calendar
+                calendar: calendar,
+                referenceDate: referenceDate
             )
 
         let acwr = computeACWR(computedDays: computed, referenceDate: refStart, calendar: calendar)
@@ -169,7 +175,8 @@ public enum BevelScoringEngine {
         _ raw: DailyRawMetrics,
         priorDays: [DailyRawMetrics],
         sleepGoalMinutes: Int,
-        calendar: Calendar = .current
+        calendar: Calendar = .current,
+        referenceDate: Date? = nil
     ) -> DailyComputedDay {
         let dayStart = calendar.startOfDay(for: raw.date)
         let sleepScore = computeSleep(raw, priorDays: priorDays, goalMinutes: sleepGoalMinutes)
@@ -184,18 +191,26 @@ public enum BevelScoringEngine {
             raw: raw
         )
 
+        let cutoffHour: Int = if let referenceDate, calendar.isDate(dayStart, inSameDayAs: referenceDate) {
+            max(0, min(23, calendar.component(.hour, from: referenceDate)))
+        } else {
+            23
+        }
+
         let energyCurve = buildEnergyCurve(
             dayStart: dayStart,
             energy: energyScore,
             recovery: recoveryScore,
             strain: strainScore,
             raw: raw,
-            calendar: calendar
+            calendar: calendar,
+            cutoffHour: cutoffHour
         )
         let stressTimeline = buildStressTimeline(
             raw: raw,
             stress: stressScore,
-            calendar: calendar
+            calendar: calendar,
+            cutoffHour: cutoffHour
         )
 
         let factual = buildFactualSummary(
@@ -523,16 +538,20 @@ public enum BevelScoringEngine {
 
         let last28 = computedDays.filter { $0.date >= twentyEightStart && $0.date <= refStart && $0.strain.value != nil }
         let last7 = last28.filter { $0.date >= sevenStart }
+        let prior21 = last28.filter { $0.date < sevenStart }
 
         let acute7d = last7.reduce(0.0) { $0 + dailyLoad($1) }
         let chronic28Total = last28.reduce(0.0) { $0 + dailyLoad($1) }
 
-        guard last28.count >= 7, chronic28Total > 10 else {
+        guard last28.count >= 14, prior21.count >= 7, chronic28Total > 10 else {
             return TrainingLoadStatus(
-                acute7dLoad: acute7d,
+                acute7dLoad: (acute7d * 10).rounded() / 10,
                 chronic28dWeeklyAvg: 0,
                 acwrRatio: nil,
-                zone: .insufficientData
+                zone: .insufficientData,
+                acuteCoveredDays: last7.count,
+                chronicCoveredDays: last28.count,
+                priorBaselineDays: prior21.count
             )
         }
 
@@ -553,7 +572,10 @@ public enum BevelScoringEngine {
             acute7dLoad: (acute7d * 10).rounded() / 10,
             chronic28dWeeklyAvg: (chronicWeeklyAvg * 10).rounded() / 10,
             acwrRatio: (ratio * 100).rounded() / 100,
-            zone: zone
+            zone: zone,
+            acuteCoveredDays: last7.count,
+            chronicCoveredDays: last28.count,
+            priorBaselineDays: prior21.count
         )
     }
 
@@ -986,14 +1008,21 @@ public enum BevelScoringEngine {
         recovery: MetricScore,
         strain: MetricScore,
         raw: DailyRawMetrics,
-        calendar: Calendar
+        calendar: Calendar,
+        cutoffHour: Int
     ) -> [EnergyCurvePoint] {
         guard let currentVal = energy.value else { return [] }
         let morningPeak = clamp(Double(recovery.value ?? currentVal) * 0.68 + 26.0, min: 40, max: 98)
         let workoutHour = raw.workouts.first.map { calendar.component(.hour, from: $0.startDate) }
-        let hours = [0, 3, 6, 8, 10, 12, 14, 16, 18, 20, 22]
+        var hours = [0, 3, 6, 8, 10, 12, 14, 16, 18, 20, 22].filter { $0 <= cutoffHour }
+        if hours.isEmpty {
+            hours = [cutoffHour]
+        } else if hours.last != cutoffHour && cutoffHour < 22 {
+            hours.append(cutoffHour)
+        }
 
         var prev = max(18.0, morningPeak * 0.45)
+        let activeSpan = max(1.0, Double(max(1, cutoffHour - 6)))
         return hours.map { hour in
             let v: Double
             if hour <= 6 {
@@ -1001,8 +1030,8 @@ public enum BevelScoringEngine {
                 let p = Double(hour) / 6.0
                 v = prev + (morningPeak - prev) * p
             } else {
-                let p = Double(hour - 6) / 16.0
-                var target = morningPeak - (morningPeak - Double(currentVal)) * pow(p, 0.9)
+                let p = Double(hour - 6) / activeSpan
+                var target = morningPeak - (morningPeak - Double(currentVal)) * pow(min(1.0, p), 0.9)
                 if let wh = workoutHour, abs(hour - wh) <= 2 {
                     target -= (hour >= wh ? 9.0 : 0.0)
                 } else if hour == 13 || hour == 14 {
@@ -1012,22 +1041,23 @@ public enum BevelScoringEngine {
                 let _ = strain
                 v = target
             }
-            let clamped = Int(clamp(v, min: 6, max: 100).rounded())
+            let clamped = hour == cutoffHour ? currentVal : Int(clamp(v, min: 6, max: 100).rounded())
             prev = Double(clamped)
             let date = calendar.date(bySettingHour: hour, minute: 0, second: 0, of: dayStart) ?? dayStart
-            return EnergyCurvePoint(hour: hour, value: clamped, date: date)
+            return EnergyCurvePoint(hour: hour, value: clamped, date: date, isEstimated: true)
         }
     }
 
-    /// Generates 12 two-hour autonomic stress bins across the 24-hour cycle anchored by real workout & rest periods.
+    /// Generates two-hour estimated autonomic stress bins up to `cutoffHour` (never generating future hours).
     private static func buildStressTimeline(
         raw: DailyRawMetrics,
         stress: MetricScore,
-        calendar: Calendar
+        calendar: Calendar,
+        cutoffHour: Int
     ) -> [StressTimelineBin] {
         guard let baseStress = stress.value else { return [] }
         let workoutHour = raw.workouts.first.map { calendar.component(.hour, from: $0.startDate) }
-        let hours = stride(from: 0, through: 22, by: 2)
+        let hours = stride(from: 0, through: min(22, cutoffHour), by: 2)
 
         return hours.map { hour in
             let binValue: Int
@@ -1053,7 +1083,7 @@ public enum BevelScoringEngine {
             } else {
                 level = .elevated
             }
-            return StressTimelineBin(hour: hour, value: binValue, level: level)
+            return StressTimelineBin(hour: hour, value: binValue, level: level, spanHours: 2, isEstimated: true)
         }
     }
 

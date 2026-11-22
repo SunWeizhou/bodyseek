@@ -251,10 +251,18 @@ public struct NutritionBoardView: View {
                         unit: surplus == nil ? "" : "kcal",
                         tint: BevelTheme.nutritionInkColor(for: isClosed ? .met : .unknown)
                     )
+                    let deficitVal = store.periodSummary.rollingDeficit7dKcal
+                    let deficitTitle: String = {
+                        guard let val = deficitVal else { return "7 天日均缺口" }
+                        if val < -30 { return "7 天日均盈余" }
+                        if val > 30 { return "7 天日均缺口" }
+                        return "7 天日均平衡"
+                    }()
+                    let deficitDisplay = deficitVal.map { "\(Int(abs($0).rounded()))" } ?? "不足3天"
                     energyMetricTile(
-                        label: "7 天平均缺口",
-                        value: store.periodSummary.rollingDeficit7dKcal.map { "\(Int($0.rounded()))" } ?? "--",
-                        unit: "kcal",
+                        label: deficitTitle,
+                        value: deficitDisplay,
+                        unit: deficitVal == nil ? "" : "kcal",
                         tint: BevelTheme.ink
                     )
                 }

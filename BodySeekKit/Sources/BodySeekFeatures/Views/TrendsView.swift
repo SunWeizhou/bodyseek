@@ -109,7 +109,7 @@ public struct TrendsView: View {
                         .font(.subheadline)
                         .foregroundStyle(BevelTheme.ink)
                         .fixedSize(horizontal: false, vertical: true)
-                    Text("由 \(engine) 生成 · 数据覆盖同步于\(store.horizon.title)统计")
+                    Text("由 \(engine) 生成 · 基于\(store.horizon.title)\(store.selectedKind.title)与当前模型快照")
                         .font(.caption2)
                         .foregroundStyle(BevelTheme.inkSecondary)
 
@@ -296,6 +296,9 @@ public struct TrendsView: View {
                                 Text(formattedInterval(for: target))
                                     .font(.caption.monospacedDigit())
                                     .foregroundStyle(BevelTheme.inkSecondary)
+                                Text("近 14 天实测 \(target.recent14dObservedDays)/14 天 · 累计 \(target.totalObservedDays) 天")
+                                    .font(.caption2.monospacedDigit())
+                                    .foregroundStyle(target.hasDirectTargetEvidence ? BevelTheme.inkSecondary : BevelTheme.energyColor)
                             }
                             Spacer()
                             Text(formattedPoint(for: target))
@@ -306,6 +309,13 @@ public struct TrendsView: View {
                         .padding(10)
                         .background(BevelTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
 
+                        if !target.hasDirectTargetEvidence {
+                            Text("近 14 天「\(shortForecastTitle(for: target))」直接实测不足（\(target.recent14dObservedDays) 天），当前预测由其他特征跨指标推算，区间仅供参考。")
+                                .font(.caption2)
+                                .foregroundStyle(BevelTheme.energyColor)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+
                         ForecastFanChart(
                             target: target,
                             historyPoints: forecastHistoryPoints(for: target.name),
@@ -315,7 +325,7 @@ public struct TrendsView: View {
                         )
 
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("明日预测主要驱动因素")
+                            Text("模型预测特征贡献分解（非因果）")
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(BevelTheme.inkSecondary)
 

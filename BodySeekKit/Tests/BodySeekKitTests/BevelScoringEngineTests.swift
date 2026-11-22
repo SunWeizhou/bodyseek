@@ -115,7 +115,8 @@ final class BevelScoringEngineTests: XCTestCase {
 
     func testPreviewSeedFactoryAndTrendCoverageWithGaps() {
         let calendar = Calendar(identifier: .gregorian)
-        let now = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_760_000_000))
+        let dayStart = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_760_000_000))
+        let now = calendar.date(bySettingHour: 22, minute: 30, second: 0, of: dayStart) ?? dayStart
         let raw = PreviewSeedFactory.makeRawWindow(endingAt: now, days: 45, calendar: calendar)
         let snapshot = BevelScoringEngine.computeWindow(
             rawDays: raw,
@@ -161,6 +162,45 @@ final class BevelScoringEngineTests: XCTestCase {
         )
         XCTAssertNil(snapshot.trainingLoad.acwrRatio)
         XCTAssertEqual(snapshot.trainingLoad.zone, .insufficientData)
+    }
+
+    func testSevenDaysOnlyKeepsACWRInsufficientWithoutPriorBaseline() {
+        let calendar = Calendar(identifier: .gregorian)
+        let dayStart = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_760_000_000))
+        let now = calendar.date(bySettingHour: 18, minute: 0, second: 0, of: dayStart) ?? dayStart
+        let raw7 = (0..<7).map { offset in
+            let date = calendar.date(byAdding: .day, value: -offset, to: now)!
+            return DailyRawMetrics(date: date, activeEnergyKcal: 437, hasAuthorizedHealthData: true)
+        }
+        let snapshot = BevelScoringEngine.computeWindow(
+            rawDays: raw7,
+            sleepGoalMinutes: 450,
+            referenceDate: now,
+            sourceLabel: "7d-only",
+            isAuthorized: true,
+            calendar: calendar
+        )
+        XCTAssertNil(snapshot.trainingLoad.acwrRatio)
+        XCTAssertEqual(snapshot.trainingLoad.zone, .insufficientData)
+        XCTAssertEqual(snapshot.trainingLoad.acuteCoveredDays, 7)
+        XCTAssertEqual(snapshot.trainingLoad.priorBaselineDays, 0)
+    }
+
+    func testMorningIntradayTimelinesDoNotGenerateFutureHours() {
+        let calendar = Calendar(identifier: .gregorian)
+        let dayStart = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_760_000_000))
+        let morning = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: dayStart)!
+        let raw = PreviewSeedFactory.makeRawWindow(endingAt: morning, days: 14, calendar: calendar)
+        let snapshot = BevelScoringEngine.computeWindow(
+            rawDays: raw,
+            sleepGoalMinutes: 450,
+            referenceDate: morning,
+            sourceLabel: "09:00",
+            isAuthorized: true,
+            calendar: calendar
+        )
+        XCTAssertTrue(snapshot.today.energyCurve.allSatisfy { $0.hour <= 9 })
+        XCTAssertTrue(snapshot.today.stressTimeline.allSatisfy { $0.hour <= 8 })
     }
 
     func testScoreV2VersionContributorsAndDeterministicReplay() {

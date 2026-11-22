@@ -789,14 +789,18 @@ final class OpenAICompatibleClientTests: XCTestCase {
         let reqs = await transport.allCapturedRequests()
         XCTAssertEqual(reqs.count, 2)
         XCTAssertEqual(reqs[0].url?.absoluteString, "https://api.deepseek.com/v1/tools/search")
+        let searchBody = String(data: try XCTUnwrap(reqs[0].httpBody), encoding: .utf8) ?? ""
+        XCTAssertFalse(searchBody.contains("ori_question"))
+        XCTAssertFalse(searchBody.contains("中午吃了"))
         XCTAssertEqual(reqs[1].url?.absoluteString, "https://api.deepseek.com/v1/chat/completions")
         let chatBody = String(data: try XCTUnwrap(reqs[1].httpBody), encoding: .utf8) ?? ""
         XCTAssertTrue(chatBody.contains("【联网营养参考资料"))
         XCTAssertTrue(chatBody.contains("520kcal"))
         let snap = await recorder.latest()
         XCTAssertEqual(snap?.toolNames, ["deepseek_web_search"])
+        XCTAssertTrue(snap?.redactedRequestJSON.contains(#""webSearchOutcome":"hit""#) == true)
 
-        // Search failure (HTTP 500) must gracefully degrade to chat completion without failing meal analysis
+        // Search failure (HTTP 500) must gracefully degrade AND still audit the attempted web search
         let fallbackTransport = MockAgentTransport(steps: [
             .data(statusCode: 500, body: "search down"),
             .data(statusCode: 200, body: chatResp),
@@ -811,6 +815,9 @@ final class OpenAICompatibleClientTests: XCTestCase {
             enableWebSearch: true
         )
         XCTAssertEqual(fallbackItems.first?.name, "麦辣鸡腿汉堡")
+        let failedSnap = await recorder.latest()
+        XCTAssertEqual(failedSnap?.toolNames, ["deepseek_web_search"])
+        XCTAssertTrue(failedSnap?.redactedRequestJSON.contains(#""webSearchOutcome":"failed_fallback""#) == true)
     }
 
     func testGetEatingContextCompactModeOmitsVerboseDailyAdequacyForOnDeviceBudget() async {

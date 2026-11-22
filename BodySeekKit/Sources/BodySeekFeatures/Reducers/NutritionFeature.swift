@@ -33,6 +33,14 @@ public struct NutritionFeature: Sendable {
         }
     }
 
+    public struct AdviceScopeKey: Equatable, Hashable, Sendable {
+        public let periodMode: PeriodMode
+        public let anchorDayKey: DayKey
+        public let selectedDayKey: DayKey
+        public let logCount: Int
+        public let entryCount: Int
+    }
+
     @ObservableState
     public struct State: Equatable, Sendable {
         public var periodMode: PeriodMode = .week
@@ -56,7 +64,19 @@ public struct NutritionFeature: Sendable {
         public var isLoading: Bool = false
         public var isSaving: Bool = false
         public var isPreviewMode: Bool
-        public var coachAdviceStatus: AIBriefingStatus = .idle
+        public var coachAdviceByScope: [AdviceScopeKey: AIBriefingStatus] = [:]
+        public var coachAdviceStatus: AIBriefingStatus {
+            coachAdviceByScope[currentAdviceScopeKey] ?? .idle
+        }
+        public var currentAdviceScopeKey: AdviceScopeKey {
+            AdviceScopeKey(
+                periodMode: periodMode,
+                anchorDayKey: anchorDayKey,
+                selectedDayKey: selectedDayKey,
+                logCount: logs.count,
+                entryCount: logs.reduce(0) { $0 + $1.entries.count }
+            )
+        }
         public var deterministicAdviceSummary: String = "近 7 天暂无足够完整或估算记录，先用「AI 记饮食」拍图或写一句话记一餐，即可实时计算宏量、维生素与矿物质进展。"
 
         public init(
@@ -140,7 +160,15 @@ public struct NutritionFeature: Sendable {
             segments.append("近\(periodMode == .week ? " 7 天" : " 30 天")已记录 \(loggedDays) 天")
             if let deficit = periodSummary.rollingDeficit7dKcal {
                 let d = Int(deficit.rounded())
-                segments.append("能量差约 \(d > 0 ? "+" : "")\(d) kcal")
+                if abs(d) < 30 {
+                    segments.append("近 7 天日均能量基本持平（约 \(abs(d)) kcal）")
+                } else if d > 0 {
+                    segments.append("近 7 天日均缺口 \(d) kcal")
+                } else {
+                    segments.append("近 7 天日均盈余 \(abs(d)) kcal")
+                }
+            } else {
+                segments.append("近 7 天有效结账日 \(periodSummary.validSurplusDays) 天（需满 3 天才算日均缺口）")
             }
             if !lows.isEmpty {
                 segments.append("建议优先补充 \(lows.joined(separator: "、"))")
@@ -223,7 +251,7 @@ public struct NutritionFeature: Sendable {
         case mutationSucceeded(message: String)
         case mutationFailed(String)
         case generateNutritionAdviceTapped
-        case nutritionAdviceLoaded(AIBriefingStatus)
+        case nutritionAdviceLoaded(AdviceScopeKey, AIBriefingStatus)
         case askCoachTapped(String)
         case delegate(Delegate)
 
@@ -236,6 +264,10 @@ public struct NutritionFeature: Sendable {
             )
             case askCoach(String)
         }
+    }
+
+    private enum CancelID {
+        case nutritionAdvice
     }
 
     @Dependency(\.bodySeekStoreClient) var storeClient
@@ -261,11 +293,14 @@ public struct NutritionFeature: Sendable {
                 }
                 state.recomputeSummary()
                 let todayLog = logs.first(where: { $0.dayKey == state.todayKey })
-                return .send(.delegate(.nutritionDataChanged(
-                    todayLog: todayLog,
-                    plan: targetPlan,
-                    rollingDeficit7d: NutritionBoardAggregator.rollingDeficit(logs: logs, endingAt: state.todayKey)
-                )))
+                return .merge(
+                    .cancel(id: CancelID.nutritionAdvice),
+                    .send(.delegate(.nutritionDataChanged(
+                        todayLog: todayLog,
+                        plan: targetPlan,
+                        rollingDeficit7d: NutritionBoardAggregator.rollingDeficit(logs: logs, endingAt: state.todayKey)
+                    )))
+                )
 
             case let .loadFailed(message):
                 state.isLoading = false
@@ -276,7 +311,7 @@ public struct NutritionFeature: Sendable {
             case let .periodModeChanged(mode):
                 state.periodMode = mode
                 state.recomputeSummary()
-                return .none
+                return .cancel(id: CancelID.nutritionAdvice)
 
             case let .stepPeriod(direction):
                 let cal = Calendar(identifier: .gregorian)
@@ -287,11 +322,11 @@ public struct NutritionFeature: Sendable {
                 state.anchorDayKey = min(candidate, state.todayKey)
                 state.selectedDayKey = state.anchorDayKey
                 state.recomputeSummary()
-                return .none
+                return .cancel(id: CancelID.nutritionAdvice)
 
             case let .daySelected(dayKey):
                 state.selectedDayKey = dayKey
-                return .none
+                return .cancel(id: CancelID.nutritionAdvice)
 
             case let .toggleMicroGroup(group):
                 state.expandedMicroGroup = state.expandedMicroGroup == group ? nil : group
@@ -561,11 +596,12 @@ public struct NutritionFeature: Sendable {
                 return .none
 
             case .generateNutritionAdviceTapped:
+                let scope = state.currentAdviceScopeKey
                 guard !state.isPreviewMode else {
-                    state.coachAdviceStatus = .generated(text: state.deterministicAdviceSummary, engineName: "预览模式")
+                    state.coachAdviceByScope[scope] = .generated(text: state.deterministicAdviceSummary, engineName: "预览模式")
                     return .none
                 }
-                state.coachAdviceStatus = .loading
+                state.coachAdviceByScope[scope] = .loading
                 let topic = "营养摄入与下顿配餐建议"
                 let summary = state.deterministicAdviceSummary
                 let todayStrain = state.snapshot.today.strain.value.map { "今日负荷 \($0) 分" } ?? "今日负荷待同步"
@@ -581,11 +617,13 @@ public struct NutritionFeature: Sendable {
                 )
                 return .run { send in
                     let status = await coachAIClient.generatePageInsight(topic, promptContext, execContext)
-                    await send(.nutritionAdviceLoaded(status))
+                    await send(.nutritionAdviceLoaded(scope, status))
                 }
+                .cancellable(id: CancelID.nutritionAdvice, cancelInFlight: true)
 
-            case let .nutritionAdviceLoaded(status):
-                state.coachAdviceStatus = status
+            case let .nutritionAdviceLoaded(scope, status):
+                guard scope == state.currentAdviceScopeKey else { return .none }
+                state.coachAdviceByScope[scope] = status
                 return .none
 
             case let .askCoachTapped(question):

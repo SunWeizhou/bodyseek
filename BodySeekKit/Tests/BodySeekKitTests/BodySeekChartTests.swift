@@ -8,7 +8,8 @@ import XCTest
 final class BodySeekChartTests: XCTestCase {
     private let calendar = Calendar(identifier: .gregorian)
     private var refDate: Date {
-        calendar.startOfDay(for: Date(timeIntervalSince1970: 1_760_000_000))
+        let start = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_760_000_000))
+        return calendar.date(bySettingHour: 18, minute: 0, second: 0, of: start) ?? start
     }
 
     private func renderCGImage<V: View>(_ view: V, width: CGFloat = 340, height: CGFloat = 240) -> CGImage? {

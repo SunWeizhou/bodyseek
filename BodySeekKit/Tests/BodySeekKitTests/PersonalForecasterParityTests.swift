@@ -322,4 +322,37 @@ final class PersonalForecasterParityTests: XCTestCase {
             XCTAssertLessThanOrEqual(target.drivers.count, 4)
         }
     }
+
+    func testPerTargetCoverageReflectsDirectTargetEvidence() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let refDate = calendar.date(from: DateComponents(year: 2026, month: 11, day: 20, hour: 9))!
+        let rawHrvOnly = (0..<7).map { offset in
+            let day = calendar.date(byAdding: .day, value: -offset, to: refDate)!
+            return DailyRawMetrics(date: day, hrvMs: 48.0, restingHeartRateBpm: nil, sleepAsleepMinutes: nil)
+        }
+        let snap = BevelScoringEngine.computeWindow(
+            rawDays: rawHrvOnly,
+            sleepGoalMinutes: 450,
+            referenceDate: refDate,
+            sourceLabel: "HRVOnly",
+            isAuthorized: true,
+            calendar: calendar
+        )
+        guard case let .available(summary) = PersonalForecasterEngine.forecast(
+            historyDays: snap.historyDays,
+            referenceDate: refDate
+        ) else {
+            return XCTFail("Expected forecast with 7d HRV")
+        }
+        let hrv = try XCTUnwrap(summary.target(named: "hrv_sdnn_ms"))
+        let rhr = try XCTUnwrap(summary.target(named: "resting_hr_bpm"))
+        let sleep = try XCTUnwrap(summary.target(named: "sleep_efficiency"))
+        XCTAssertEqual(hrv.recent14dObservedDays, 7)
+        XCTAssertTrue(hrv.hasDirectTargetEvidence)
+        XCTAssertEqual(rhr.recent14dObservedDays, 0)
+        XCTAssertFalse(rhr.hasDirectTargetEvidence)
+        XCTAssertEqual(sleep.recent14dObservedDays, 0)
+        XCTAssertFalse(sleep.hasDirectTargetEvidence)
+    }
 }

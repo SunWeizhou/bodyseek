@@ -22,7 +22,7 @@ public struct StressDetailView: View {
         VStack(alignment: .leading, spacing: 16) {
             BevelCard {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("24 小时自主神经压力节律")
+                    Text("日内自主神经压力节律（估算至当前时刻）")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(BevelTheme.stressColor)
 
@@ -32,6 +32,10 @@ public struct StressDetailView: View {
                         height: 156,
                         interactive: true
                     )
+
+                    Text("每个柱状块代表 2 小时窗口的模型估算（非逐分钟实时采样），不预测未来时段。")
+                        .font(.caption2)
+                        .foregroundStyle(BevelTheme.inkSecondary)
 
                     if !excludedHours.isEmpty {
                         Text("浅灰斜纹区块代表运动进行窗口，已从静息自主神经压力统计中排除。")
@@ -98,7 +102,7 @@ public struct StressDetailView: View {
                 .font(.caption)
                 .foregroundStyle(BevelTheme.inkSecondary)
             Spacer(minLength: 4)
-            Text("\(hours)h")
+            Text("\(hours) 窗 · 约\(hours * 2)h")
                 .font(.caption.weight(.bold).monospacedDigit())
                 .fontDesign(.rounded)
                 .foregroundStyle(BevelTheme.ink)

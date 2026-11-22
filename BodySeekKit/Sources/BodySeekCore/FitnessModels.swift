@@ -379,7 +379,7 @@ public enum ACWRZone: String, Hashable, Sendable, Codable {
         case .undertraining: "近 7 天负荷低于平时 28 天水平，可按恢复条件适度增量。"
         case .sweetSpot: "7天/28天负荷比落在 0.8–1.3 最佳区间，稳步提升体能。"
         case .highRisk: "近期负荷拉升偏快（>1.35），注意减组与补觉预防劳损。"
-        case .insufficientData: "持续记录至少 7 天活动后生成急性/慢性负荷比。"
+        case .insufficientData: "需积累至少 14 天（含近 7 天前至少 7 天）训练负荷记录以建立慢性基线，当前暂不计算负荷比。"
         }
     }
 }
@@ -389,16 +389,46 @@ public struct TrainingLoadStatus: Equatable, Hashable, Sendable, Codable {
     public let chronic28dWeeklyAvg: Double
     public let acwrRatio: Double?
     public let zone: ACWRZone
+    public let acuteCoveredDays: Int
+    public let chronicCoveredDays: Int
+    public let priorBaselineDays: Int
 
     public init(
         acute7dLoad: Double,
         chronic28dWeeklyAvg: Double,
         acwrRatio: Double?,
-        zone: ACWRZone
+        zone: ACWRZone,
+        acuteCoveredDays: Int = 0,
+        chronicCoveredDays: Int = 0,
+        priorBaselineDays: Int = 0
     ) {
         self.acute7dLoad = acute7dLoad
         self.chronic28dWeeklyAvg = chronic28dWeeklyAvg
         self.acwrRatio = acwrRatio
         self.zone = zone
+        self.acuteCoveredDays = acuteCoveredDays
+        self.chronicCoveredDays = chronicCoveredDays
+        self.priorBaselineDays = priorBaselineDays
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case acute7dLoad
+        case chronic28dWeeklyAvg
+        case acwrRatio
+        case zone
+        case acuteCoveredDays
+        case chronicCoveredDays
+        case priorBaselineDays
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        acute7dLoad = try container.decode(Double.self, forKey: .acute7dLoad)
+        chronic28dWeeklyAvg = try container.decode(Double.self, forKey: .chronic28dWeeklyAvg)
+        acwrRatio = try container.decodeIfPresent(Double.self, forKey: .acwrRatio)
+        zone = try container.decode(ACWRZone.self, forKey: .zone)
+        acuteCoveredDays = try container.decodeIfPresent(Int.self, forKey: .acuteCoveredDays) ?? 0
+        chronicCoveredDays = try container.decodeIfPresent(Int.self, forKey: .chronicCoveredDays) ?? 0
+        priorBaselineDays = try container.decodeIfPresent(Int.self, forKey: .priorBaselineDays) ?? 0
     }
 }

@@ -419,11 +419,32 @@ public struct StressTimelineBin: Identifiable, Hashable, Sendable, Codable {
     public let hour: Int
     public let value: Int
     public let level: StressLevel
+    public let spanHours: Int
+    public let isEstimated: Bool
 
-    public init(hour: Int, value: Int, level: StressLevel) {
+    public init(hour: Int, value: Int, level: StressLevel, spanHours: Int = 2, isEstimated: Bool = true) {
         self.hour = hour
         self.value = value
         self.level = level
+        self.spanHours = spanHours
+        self.isEstimated = isEstimated
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case hour
+        case value
+        case level
+        case spanHours
+        case isEstimated
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        hour = try c.decode(Int.self, forKey: .hour)
+        value = try c.decode(Int.self, forKey: .value)
+        level = try c.decode(StressLevel.self, forKey: .level)
+        spanHours = try c.decodeIfPresent(Int.self, forKey: .spanHours) ?? 2
+        isEstimated = try c.decodeIfPresent(Bool.self, forKey: .isEstimated) ?? true
     }
 }
 
@@ -432,11 +453,28 @@ public struct EnergyCurvePoint: Identifiable, Hashable, Sendable, Codable {
     public let hour: Int
     public let value: Int
     public let date: Date
+    public let isEstimated: Bool
 
-    public init(hour: Int, value: Int, date: Date) {
+    public init(hour: Int, value: Int, date: Date, isEstimated: Bool = true) {
         self.hour = hour
         self.value = value
         self.date = date
+        self.isEstimated = isEstimated
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case hour
+        case value
+        case date
+        case isEstimated
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        hour = try c.decode(Int.self, forKey: .hour)
+        value = try c.decode(Int.self, forKey: .value)
+        date = try c.decode(Date.self, forKey: .date)
+        isEstimated = try c.decodeIfPresent(Bool.self, forKey: .isEstimated) ?? true
     }
 }
 

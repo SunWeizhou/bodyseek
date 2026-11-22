@@ -185,4 +185,51 @@ final class TodayActionAndNutritionFeatureTests: XCTestCase {
         XCTAssertTrue(md.contains("diet_day_complete: true"))
         XCTAssertTrue(md.contains(chicken.name))
     }
+
+    func testStaleTrendAndNutritionAIInsightsAreDiscardedAfterScopeSwitch() async {
+        let now = Date(timeIntervalSince1970: 1_760_000_000)
+        let snapshot = BevelScoringEngine.computeWindow(
+            rawDays: PreviewSeedFactory.makeRawWindow(endingAt: now, days: 30),
+            sleepGoalMinutes: 450,
+            referenceDate: now,
+            sourceLabel: "Test",
+            isAuthorized: true
+        )
+
+        let trendsState = TrendsFeature.State(snapshot: snapshot, isPreviewMode: false)
+        let monthScope = trendsState.currentInsightScopeKey
+        let trendsStore = TestStore(initialState: trendsState) {
+            TrendsFeature()
+        }
+        trendsStore.exhaustivity = .off
+
+        await trendsStore.send(.aiInsightLoaded(monthScope, .generated(text: "30天分析", engineName: "DeepSeek")))
+        XCTAssertEqual(trendsStore.state.aiInsightStatus, .generated(text: "30天分析", engineName: "DeepSeek"))
+
+        await trendsStore.send(.horizonChanged(.week))
+        XCTAssertEqual(trendsStore.state.aiInsightStatus, .idle)
+
+        // Late arrival for the old 30d scope must be ignored once switched to 7d
+        await trendsStore.send(.aiInsightLoaded(monthScope, .generated(text: "迟到的30天", engineName: "DeepSeek")))
+        XCTAssertEqual(trendsStore.state.aiInsightStatus, .idle)
+
+        // Switching back to 30d restores the 30d insight cleanly
+        await trendsStore.send(.horizonChanged(.month))
+        XCTAssertEqual(trendsStore.state.aiInsightStatus, .generated(text: "30天分析", engineName: "DeepSeek"))
+
+        // Same isolation & stale guard on NutritionFeature
+        let nutState = NutritionFeature.State(snapshot: snapshot, todayKey: snapshot.referenceDate.physiologicalDayKey(), isPreviewMode: false)
+        let weekScope = nutState.currentAdviceScopeKey
+        let nutStore = TestStore(initialState: nutState) {
+            NutritionFeature()
+        }
+        nutStore.exhaustivity = .off
+
+        await nutStore.send(.nutritionAdviceLoaded(weekScope, .generated(text: "7天饮食建议", engineName: "DeepSeek")))
+        XCTAssertEqual(nutStore.state.coachAdviceStatus, .generated(text: "7天饮食建议", engineName: "DeepSeek"))
+        await nutStore.send(.periodModeChanged(.month))
+        XCTAssertEqual(nutStore.state.coachAdviceStatus, .idle)
+        await nutStore.send(.nutritionAdviceLoaded(weekScope, .generated(text: "迟到7天建议", engineName: "DeepSeek")))
+        XCTAssertEqual(nutStore.state.coachAdviceStatus, .idle)
+    }
 }

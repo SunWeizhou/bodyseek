@@ -38,10 +38,10 @@ public struct EnergyAreaChart: View {
             VStack(alignment: .leading, spacing: interactive ? 10 : 0) {
                 if interactive {
                     ChartLockedReadoutHeader(
-                        primaryText: selectedPoint.map { "\($0.value)%" } ?? (sorted.last.map { "\($0.value)% 当前" } ?? "--"),
+                        primaryText: selectedPoint.map { "\($0.value)%" } ?? (sorted.last.map { "截至 \(ChartAxisSupport.formatHour($0.date)) 估算 · \($0.value)%" } ?? "--"),
                         secondaryText: selectedPoint.map {
-                            "\(ChartAxisSupport.formatHour($0.date)) · 选定"
-                        } ?? (peakPoint.map { "峰值 \($0.value)% (\(ChartAxisSupport.formatHour($0.date)))" } ?? ""),
+                            "\(ChartAxisSupport.formatHour($0.date)) · \( $0.isEstimated ? "模型估算" : "实测" )"
+                        } ?? (peakPoint.map { "峰值 \($0.value)% (\(ChartAxisSupport.formatHour($0.date))) · 非逐分钟实测" } ?? ""),
                         tint: BevelTheme.energyColor,
                         isLocked: selectedPoint != nil,
                         onClear: selectedPoint == nil ? nil : {

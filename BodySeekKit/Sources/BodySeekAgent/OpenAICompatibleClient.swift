@@ -724,24 +724,26 @@ public struct OpenAICompatibleClient: Sendable {
         return baseURL.appendingPathComponent("tools/search")
     }
 
+    private struct WebSearchOutcome: Sendable {
+        let hits: [DeepSeekSearchHit]
+        let succeeded: Bool
+        let statusCode: Int?
+    }
+
     /// Calls DeepSeek's official standalone `/v1/tools/search` endpoint with bounded 6s timeout & zero-failure fallback.
-    func searchDeepSeekWeb(
-        baseURL: URL,
+    private func searchDeepSeekWebOutcome(
+        searchURL: URL,
         apiKey: String,
         query: String,
-        originalQuestion: String,
         count: Int = 4
-    ) async -> [DeepSeekSearchHit] {
-        guard let searchURL = Self.deepSeekSearchURL(from: baseURL) else {
-            return []
-        }
+    ) async -> WebSearchOutcome {
         let trimmedQuery = String(query.trimmingCharacters(in: .whitespacesAndNewlines).prefix(128))
-        guard !trimmedQuery.isEmpty else { return [] }
-        let trimmedOri = String(originalQuestion.trimmingCharacters(in: .whitespacesAndNewlines).prefix(128))
+        guard !trimmedQuery.isEmpty else { return WebSearchOutcome(hits: [], succeeded: false, statusCode: nil) }
+        // Send ONLY the extracted food keyword query; omit oriQuestion so unrelated meal diary text is not exposed.
         let bodyDTO = DeepSeekSearchRequest(
             query: trimmedQuery,
             count: max(1, min(10, count)),
-            oriQuestion: trimmedOri.isEmpty ? nil : trimmedOri,
+            oriQuestion: nil,
             needContent: false
         )
         do {
@@ -754,14 +756,26 @@ public struct OpenAICompatibleClient: Sendable {
             let (status, data) = try await transport.performData(request)
             guard (200..<300).contains(status) else {
                 Self.logger.warning("DeepSeek search returned HTTP \(status, privacy: .public), continuing without search context")
-                return []
+                return WebSearchOutcome(hits: [], succeeded: false, statusCode: status)
             }
             let decoded = try JSONDecoder().decode(DeepSeekSearchResponse.self, from: data)
-            return decoded.results ?? []
+            return WebSearchOutcome(hits: decoded.results ?? [], succeeded: true, statusCode: status)
         } catch {
             Self.logger.warning("DeepSeek search fallback triggered: \(error.localizedDescription, privacy: .public)")
-            return []
+            return WebSearchOutcome(hits: [], succeeded: false, statusCode: nil)
         }
+    }
+
+    func searchDeepSeekWeb(
+        baseURL: URL,
+        apiKey: String,
+        query: String,
+        originalQuestion: String = "",
+        count: Int = 4
+    ) async -> [DeepSeekSearchHit] {
+        let _ = originalQuestion
+        guard let searchURL = Self.deepSeekSearchURL(from: baseURL) else { return [] }
+        return await searchDeepSeekWebOutcome(searchURL: searchURL, apiKey: apiKey, query: query, count: count).hits
     }
 
     func analyzeMeal(endpointURL: String, apiKey: String, modelName: String,
@@ -782,30 +796,41 @@ public struct OpenAICompatibleClient: Sendable {
 
         let searchQueries = enableWebSearch ? ChineseFastFoodQueryExtractor.extractQueries(from: baseText) : []
         var searchHits: [DeepSeekSearchHit] = []
-        var usedWebSearchTool = false
-        if !searchQueries.isEmpty, Self.deepSeekSearchURL(from: url) != nil {
-            let capturedURL = url
+        var attemptedWebSearch = false
+        var webSearchOutcomeLabel = "not_triggered"
+        var webSearchEndpointString: String?
+        var webSearchTimestampISO: String?
+
+        if !searchQueries.isEmpty, let searchURL = Self.deepSeekSearchURL(from: url) {
+            attemptedWebSearch = true
+            webSearchEndpointString = searchURL.absoluteString
+            webSearchTimestampISO = ISO8601DateFormatter().string(from: Date())
             let capturedKey = apiKey
-            let capturedOri = baseText
-            searchHits = await withTaskGroup(of: [DeepSeekSearchHit].self) { group in
+            let outcomes = await withTaskGroup(of: WebSearchOutcome.self) { group in
                 for query in searchQueries {
                     group.addTask {
-                        await self.searchDeepSeekWeb(
-                            baseURL: capturedURL,
+                        await self.searchDeepSeekWebOutcome(
+                            searchURL: searchURL,
                             apiKey: capturedKey,
                             query: query,
-                            originalQuestion: capturedOri,
                             count: 4
                         )
                     }
                 }
-                var collected: [DeepSeekSearchHit] = []
-                for await batch in group {
-                    collected.append(contentsOf: batch)
+                var collected: [WebSearchOutcome] = []
+                for await item in group {
+                    collected.append(item)
                 }
                 return collected
             }
-            usedWebSearchTool = !searchHits.isEmpty
+            searchHits = outcomes.flatMap(\.hits)
+            if !searchHits.isEmpty {
+                webSearchOutcomeLabel = "hit"
+            } else if outcomes.allSatisfy(\.succeeded) {
+                webSearchOutcomeLabel = "no_results"
+            } else {
+                webSearchOutcomeLabel = "failed_fallback"
+            }
         }
 
         let augmentedText: String
@@ -818,13 +843,20 @@ public struct OpenAICompatibleClient: Sendable {
         let user = jpeg.map { OpenAIChatMessage(mealText: augmentedText, jpeg: $0) }
             ?? OpenAIChatMessage(role: "user", content: augmentedText)
         let chatURL = url.appendingPathComponent("chat/completions")
+        let redactedJSON: String = {
+            if !attemptedWebSearch {
+                return jpeg == nil ? #"{"mealInput":"[文字已省略]"}"# : #"{"mealInput":"[图片和文字已省略]"}"#
+            }
+            let inputField = jpeg == nil ? "[文字已省略]" : "[图片和文字已省略]"
+            let endpointEscaped = webSearchEndpointString ?? ""
+            let timestampEscaped = webSearchTimestampISO ?? ""
+            return #"{"mealInput":"\#(inputField)","webSearchAttempted":true,"webSearchEndpoint":"\#(endpointEscaped)","webSearchAt":"\#(timestampEscaped)","webSearchKeywordsOnly":true,"webSearchQueryCount":\#(searchQueries.count),"webSearchHits":\#(searchHits.count),"webSearchOutcome":"\#(webSearchOutcomeLabel)"}"#
+        }()
         // Keep the disclosure record useful without storing the meal text or image bytes.
         await payloadRecorder.record(.init(
             sentAt: Date(), endpointURL: chatURL.absoluteString, modelName: modelName, messageCount: 2,
-            toolNames: usedWebSearchTool ? ["deepseek_web_search"] : [],
-            redactedRequestJSON: jpeg == nil
-                ? (usedWebSearchTool ? #"{"mealInput":"[文字已省略]","webSearch":"enabled"}"# : #"{"mealInput":"[文字已省略]"}"#)
-                : #"{"mealInput":"[图片和文字已省略]"}"#
+            toolNames: attemptedWebSearch ? ["deepseek_web_search"] : [],
+            redactedRequestJSON: redactedJSON
         ))
         do {
             for attempt in 0...1 {

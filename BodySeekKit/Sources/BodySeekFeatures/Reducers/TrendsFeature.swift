@@ -14,6 +14,15 @@ public struct TrendsFeature: Sendable {
         public var id: UUID { planItem.id }
     }
 
+    public struct InsightScopeKey: Equatable, Hashable, Sendable {
+        public let horizon: TrendHorizon
+        public let kind: MetricKind
+        public let forecastTargetName: String
+        public let snapshotDayKey: DayKey
+        public let historyCount: Int
+        public let patternCount: Int
+    }
+
     @ObservableState
     public struct State: Equatable, Sendable {
         public var horizon: TrendHorizon = .month {
@@ -58,7 +67,20 @@ public struct TrendsFeature: Sendable {
         public var eatingAvailableDayKeys: Set<DayKey> = []
         public var personalForecast: PersonalForecastState
         public var selectedForecastTargetName: String = "hrv_sdnn_ms"
-        public var aiInsightStatus: AIBriefingStatus = .idle
+        public var aiInsightsByScope: [InsightScopeKey: AIBriefingStatus] = [:]
+        public var aiInsightStatus: AIBriefingStatus {
+            aiInsightsByScope[currentInsightScopeKey] ?? .idle
+        }
+        public var currentInsightScopeKey: InsightScopeKey {
+            InsightScopeKey(
+                horizon: horizon,
+                kind: selectedKind,
+                forecastTargetName: selectedForecastTargetName,
+                snapshotDayKey: snapshot.today.dayKey,
+                historyCount: snapshot.historyDays.count,
+                patternCount: patternFindings.count
+            )
+        }
         public var deterministicTrendSummary: String = ""
         public var isPreviewMode: Bool
         public var lastError: String?
@@ -216,7 +238,7 @@ public struct TrendsFeature: Sendable {
                 let predText: String = target.name == "sleep_efficiency"
                     ? String(format: "%.1f%%", target.point * 100.0)
                     : String(format: "%.1f %@", target.point, target.unit)
-                let topDriver = target.drivers.first.map { "，主要受「\($0.label)」影响" } ?? ""
+                let topDriver = target.drivers.first.map { "，该指标模型预测中「\($0.label)」贡献较大" } ?? ""
                 parts.append("明日预测 \(target.title) \(predText)\(topDriver)")
             }
 
@@ -277,7 +299,7 @@ public struct TrendsFeature: Sendable {
         case patternUpdated(PatternFindingRecord, TieredMemoryRecord?)
         case forecastTargetSelected(String)
         case refreshAIInsightTapped
-        case aiInsightLoaded(AIBriefingStatus)
+        case aiInsightLoaded(InsightScopeKey, AIBriefingStatus)
         case askCoachTapped(String)
         case storeOperationFailed(String)
         case delegate(Delegate)
@@ -289,6 +311,10 @@ public struct TrendsFeature: Sendable {
             case tieredMemoryAdded(TieredMemoryRecord)
             case askCoach(String)
         }
+    }
+
+    private enum CancelID {
+        case aiInsight
     }
 
     @Dependency(\.bodySeekStoreClient) var bodySeekStoreClient
@@ -303,12 +329,12 @@ public struct TrendsFeature: Sendable {
             case let .horizonChanged(horizon):
                 state.horizon = horizon
                 state.selectedDate = nil
-                return .none
+                return .cancel(id: CancelID.aiInsight)
 
             case let .kindSelected(kind):
                 state.selectedKind = kind
                 state.selectedDate = nil
-                return .none
+                return .cancel(id: CancelID.aiInsight)
 
             case let .selectedDateChanged(date):
                 state.selectedDate = date
@@ -448,14 +474,15 @@ public struct TrendsFeature: Sendable {
             case let .forecastTargetSelected(targetName):
                 state.selectedForecastTargetName = targetName
                 state.deterministicTrendSummary = state.buildDeterministicTrendSummary()
-                return .none
+                return .cancel(id: CancelID.aiInsight)
 
             case .refreshAIInsightTapped:
+                let scope = state.currentInsightScopeKey
                 guard !state.isPreviewMode else {
-                    state.aiInsightStatus = .generated(text: state.deterministicTrendSummary, engineName: "预览模式")
+                    state.aiInsightsByScope[scope] = .generated(text: state.deterministicTrendSummary, engineName: "预览模式")
                     return .none
                 }
-                state.aiInsightStatus = .loading
+                state.aiInsightsByScope[scope] = .loading
                 let topic = "趋势、统计预测与个人规律解读"
                 let summary = state.deterministicTrendSummary
                 let patternNotes = state.patternFindings
@@ -470,11 +497,13 @@ public struct TrendsFeature: Sendable {
                 )
                 return .run { send in
                     let status = await coachAIClient.generatePageInsight(topic, promptContext, execContext)
-                    await send(.aiInsightLoaded(status))
+                    await send(.aiInsightLoaded(scope, status))
                 }
+                .cancellable(id: CancelID.aiInsight, cancelInFlight: true)
 
-            case let .aiInsightLoaded(status):
-                state.aiInsightStatus = status
+            case let .aiInsightLoaded(scope, status):
+                guard scope == state.currentInsightScopeKey else { return .none }
+                state.aiInsightsByScope[scope] = status
                 return .none
 
             case let .askCoachTapped(question):

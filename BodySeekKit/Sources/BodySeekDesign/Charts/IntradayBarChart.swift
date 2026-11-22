@@ -208,11 +208,13 @@ public struct IntradayBarChart: View {
 
     private func headerSecondary(sorted: [StressTimelineBin]) -> String {
         if let selected = selectedBin {
-            return String(format: "%02d:00–%02d:59", selected.hour, selected.hour)
+            let endHour = min(24, selected.hour + max(1, selected.spanHours))
+            return String(format: "%02d:00–%02d:00（%@）", selected.hour, endHour, selected.isEstimated ? "估算窗口" : "实测")
         }
+        let unitLabel = sorted.first?.spanHours == 1 ? "每窗 1h" : "每窗 \(sorted.first?.spanHours ?? 2)h 估算"
         if excludedHours.isEmpty {
-            return "\(sorted.count) 小时窗口"
+            return "\(sorted.count) 个时段窗（\(unitLabel)）"
         }
-        return "\(sorted.count) 小时 · 已排除 \(excludedHours.count)h 运动窗"
+        return "\(sorted.count) 个时段窗 · 已排除 \(excludedHours.count)h 运动窗"
     }
 }

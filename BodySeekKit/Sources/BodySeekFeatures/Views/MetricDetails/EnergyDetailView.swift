@@ -25,11 +25,15 @@ public struct EnergyDetailView: View {
         VStack(alignment: .leading, spacing: 16) {
             BevelCard {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("昼夜电池充放电轨迹")
+                    Text("能量充放电估算轨迹")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(BevelTheme.energyColor)
 
                     EnergyAreaChart(curve: day.energyCurve, height: 156, interactive: true)
+
+                    Text("仅展示至当前时刻的阶段估算（基于睡眠、心率与活动负荷），不生成未来时段，亦非逐分钟实测。")
+                        .font(.caption2)
+                        .foregroundStyle(BevelTheme.inkSecondary)
                 }
             }
 
@@ -56,7 +60,7 @@ public struct EnergyDetailView: View {
                     eventRow(
                         icon: "figure.walk",
                         tint: BevelTheme.energyColor,
-                        title: "当前剩余电池储备",
+                        title: latest.map { "截至 \(ChartAxisSupport.formatHour($0.date)) 估算剩余储备" } ?? "当前剩余电池储备",
                         value: latest.map { "\($0.value)%" } ?? "--"
                     )
                 }

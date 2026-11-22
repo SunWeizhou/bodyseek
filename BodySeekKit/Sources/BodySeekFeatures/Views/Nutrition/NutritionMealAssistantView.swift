@@ -54,7 +54,11 @@ struct NutritionMealAssistantView: View {
             } footer: {
                 let config = coach.loadConfig()
                 let host = URL(string: config.endpointURL)?.host ?? "你配置的服务"
-                Text("可一次写下全天餐食。分析会把本次文字或照片发送给 \(host) 的 \(config.modelName)。")
+                if config.enableWebSearch && host.lowercased().contains("deepseek.com") {
+                    Text("可一次写下全天餐食。分析会把文字或照片发送给 \(host)（\(config.modelName)）；命中品牌快餐时，还会仅提取食物关键词联网搜索营养参考（不附带其余原文），并在隐私预览记录搜索与结果状态。")
+                } else {
+                    Text("可一次写下全天餐食。分析会把本次文字或照片发送给 \(host) 的 \(config.modelName)（当前未启用联网搜索）。")
+                }
             }
             .disabled(analysis != nil || store.isSaving)
 

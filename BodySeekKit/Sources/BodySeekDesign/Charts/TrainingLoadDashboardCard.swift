@@ -100,6 +100,12 @@ public struct TrainingLoadDashboardCard: View {
                 .font(.caption)
                 .foregroundStyle(BevelTheme.inkSecondary)
                 .fixedSize(horizontal: false, vertical: true)
+
+            if load.acuteCoveredDays > 0 || load.chronicCoveredDays > 0 {
+                Text("覆盖：近 7 天 \(load.acuteCoveredDays)/7 天 · 近 28 天 \(load.chronicCoveredDays)/28 天")
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(BevelTheme.inkSecondary)
+            }
         }
     }
 

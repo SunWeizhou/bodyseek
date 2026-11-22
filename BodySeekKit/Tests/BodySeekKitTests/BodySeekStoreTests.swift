@@ -62,7 +62,8 @@ final class BodySeekStoreTests: XCTestCase {
             raw,
             priorDays: [],
             sleepGoalMinutes: 450,
-            calendar: calendar
+            calendar: calendar,
+            referenceDate: date
         )
         try await repo.saveComputedDays([computed])
 
