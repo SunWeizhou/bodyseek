@@ -28,6 +28,7 @@ public struct BSCoachNote: View {
     private let isLoading: Bool
     private let onEvidenceTap: ((String) -> Void)?
     private let onAsk: (() -> Void)?
+    private let askIdentifier: String?
 
     /// 创建 Coach 解读条。
     /// - Parameters:
@@ -37,13 +38,15 @@ public struct BSCoachNote: View {
     ///   - isLoading: 为 `true` 时文字显示骨架。
     ///   - onEvidenceTap: 点击依据 chip 的回调。
     ///   - onAsk: "问 Coach"按钮动作；为 `nil` 时不显示。
+    ///   - askIdentifier: "问 Coach"按钮的无障碍标识。
     public init(
         _ text: String?,
         engine: BSBriefEngine = .localTemplate,
         evidence: [String] = [],
         isLoading: Bool = false,
         onEvidenceTap: ((String) -> Void)? = nil,
-        onAsk: (() -> Void)? = nil
+        onAsk: (() -> Void)? = nil,
+        askIdentifier: String? = nil
     ) {
         self.text = text
         self.engine = engine
@@ -51,6 +54,7 @@ public struct BSCoachNote: View {
         self.isLoading = isLoading
         self.onEvidenceTap = onEvidenceTap
         self.onAsk = onAsk
+        self.askIdentifier = askIdentifier
     }
 
     public var body: some View {
@@ -76,6 +80,7 @@ public struct BSCoachNote: View {
                     .buttonStyle(.bordered)
                     .controlSize(.small)
                     .frame(minHeight: BSSize.hitTarget)
+                    .modifier(BSOptionalIdentifier(identifier: askIdentifier))
                 }
             }
         }

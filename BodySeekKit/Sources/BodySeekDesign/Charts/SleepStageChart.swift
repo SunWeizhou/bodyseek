@@ -29,7 +29,7 @@ public struct SleepStageChart: View {
             )
         } else if !interactive, let samples = Self.communitySamples(for: ordered),
                   let start = ordered.first?.startDate, let end = ordered.last?.endDate {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: BSSpace.xs) {
                 SleepTimelineGraph(samples: samples, colorProvider: CommunitySleepColors())
                     .frame(height: max(40, height - 48))
                     .clipped()
@@ -42,7 +42,7 @@ public struct SleepStageChart: View {
                 .font(.subheadline.monospacedDigit())
                 .foregroundStyle(BevelTheme.inkSecondary)
 
-                HStack(spacing: 12) {
+                HStack(spacing: BSSpace.s) {
                     ForEach(trackOrder, id: \.self) { stage in
                         Label(stage.title, systemImage: "circle.fill")
                             .foregroundStyle(BevelTheme.sleepStageColor(stage))
@@ -58,7 +58,7 @@ public struct SleepStageChart: View {
             let totalDuration = maxEnd.timeIntervalSince(minStart)
             let midDate = minStart.addingTimeInterval(totalDuration / 2.0)
 
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: BSSpace.xs) {
                 if interactive {
                     ChartLockedReadoutHeader(
                         primaryText: selectedSegment.map { "\($0.stage.title) · \($0.durationMinutes) 分钟" } ?? totalStageSummary(ordered),
@@ -89,28 +89,7 @@ public struct SleepStageChart: View {
                                 var guide = Path()
                                 guide.move(to: CGPoint(x: plotStartX, y: midY))
                                 guide.addLine(to: CGPoint(x: size.width, y: midY))
-                                context.stroke(guide, with: .color(BevelTheme.hairline.opacity(0.6)), lineWidth: 0.5)
-                            }
-
-                            // Staircase vertical connectors between consecutive segments
-                            for i in 0..<(ordered.count - 1) {
-                                let a = ordered[i]
-                                let b = ordered[i + 1]
-                                guard a.endDate == b.startDate else { continue }
-                                let rowA = trackOrder.firstIndex(of: a.stage) ?? 2
-                                let rowB = trackOrder.firstIndex(of: b.stage) ?? 2
-                                guard rowA != rowB else { continue }
-                                let x = plotStartX + CGFloat(a.endDate.timeIntervalSince(minStart) / totalDuration) * plotWidth
-                                let y1 = CGFloat(rowA) * rowH + rowH * 0.5
-                                let y2 = CGFloat(rowB) * rowH + rowH * 0.5
-                                var connector = Path()
-                                connector.move(to: CGPoint(x: x, y: y1))
-                                connector.addLine(to: CGPoint(x: x, y: y2))
-                                context.stroke(
-                                    connector,
-                                    with: .color(BevelTheme.inkSecondary.opacity(0.32)),
-                                    lineWidth: 1.1
-                                )
+                                context.stroke(guide, with: .color(BSColor.separator), lineWidth: BSChartStroke.grid)
                             }
 
                             // Stage blocks
@@ -129,15 +108,13 @@ public struct SleepStageChart: View {
                                 let rounded = Path(roundedRect: rect, cornerRadius: min(6, rect.height / 2))
                                 let isSelected = selectedSegment?.id == seg.id
                                 let color = BevelTheme.sleepStageColor(seg.stage)
-                                context.fill(rounded, with: .color(color.opacity(selectedSegment == nil || isSelected ? 0.92 : 0.35)))
-                                if isSelected {
-                                    context.stroke(rounded, with: .color(BevelTheme.ink), lineWidth: 1.4)
-                                }
+                                let isDimmed = selectedSegment != nil && !isSelected
+                                context.fill(rounded, with: .color(isDimmed ? BSColor.dimmed : color))
                             }
                         }
 
                         // Leading track labels
-                        VStack(spacing: 0) {
+                        VStack(spacing: BSSpace.none) {
                             ForEach(trackOrder, id: \.self) { stage in
                                 Text(stage.title)
                                     .font(.caption2.weight(.medium))
@@ -157,7 +134,7 @@ public struct SleepStageChart: View {
                         .font(.caption2.monospacedDigit())
                         .fontDesign(.rounded)
                         .foregroundStyle(BevelTheme.inkSecondary)
-                        .padding(.leading, labelColumnWidth + 6)
+                        .padding(.leading, labelColumnWidth + BSSpace.xs)
                         .offset(y: tracksHeight + 2)
                     }
                     .contentShape(Rectangle())

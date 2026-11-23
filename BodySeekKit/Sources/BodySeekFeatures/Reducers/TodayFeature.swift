@@ -68,6 +68,7 @@ public struct TodayFeature: Sendable {
         case adoptPlanItem(UUID)
         case dismissPlanItem(UUID)
         case openNutritionTapped
+        case openWorkoutTapped
         case openSettingsTapped
         case openCheckInTapped
         case regenerateBriefingTapped
@@ -134,6 +135,9 @@ public struct TodayFeature: Sendable {
 
             case .openNutritionTapped:
                 return .send(.delegate(.openNutrition))
+
+            case .openWorkoutTapped:
+                return .send(.delegate(.openWorkoutInbox))
 
             case .openSettingsTapped:
                 return .send(.delegate(.openSettings))

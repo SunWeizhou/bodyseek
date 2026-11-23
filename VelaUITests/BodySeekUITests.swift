@@ -99,7 +99,8 @@ final class BodySeekUITests: XCTestCase {
     func testEmptyStateHonestPlaceholdersWithoutAuthorization() {
         let app = launchApp(extraArguments: ["-velaPreviewEmptyDashboard"])
         XCTAssertTrue(app.buttons["today-authorize-button"].waitForExistence(timeout: 8))
-        XCTAssertTrue(app.staticTexts["--"].exists)
+        // 缺失值统一显示为 "--"；分数环把读数合并进自己的无障碍标签。
+        XCTAssertTrue(app.buttons["today-score-recovery"].label.contains("--"))
     }
 
     func testDailyCheckInSheetFlow() {
@@ -134,10 +135,8 @@ final class BodySeekUITests: XCTestCase {
             app.swipeUp()
         }
         XCTAssertTrue(actionCard.waitForExistence(timeout: 6))
-        let aiSuggestion = actionCard.staticTexts["today-ai-suggestion-text"]
         if actionCard.staticTexts["今天已完成训练"].exists {
             XCTAssertTrue(actionCard.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "接下来留时间恢复")).firstMatch.exists)
-            XCTAssertFalse(aiSuggestion.exists)
         } else {
             let adoptBtn = actionCard.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'today-action-adopt-'")).firstMatch
             for _ in 0..<4 where !adoptBtn.isHittable { app.swipeUp() }
@@ -145,10 +144,9 @@ final class BodySeekUITests: XCTestCase {
             let statusIdentifier = adoptBtn.identifier.replacingOccurrences(of: "today-action-adopt-", with: "today-action-status-")
             adoptBtn.tap()
             XCTAssertTrue(actionCard.descendants(matching: .any)[statusIdentifier].waitForExistence(timeout: 4))
-            XCTAssertTrue(aiSuggestion.waitForExistence(timeout: 5))
-            XCTAssertEqual(aiSuggestion.label, "今天练到还有余力就好，不必加量。")
         }
-        XCTAssertFalse(actionCard.descendants(matching: .any)["today-ai-suggestion-evidence"].exists)
+        // L1 简报解读不再放在行动卡里，而是独立的 BSCoachNote。
+        XCTAssertTrue(app.otherElements["today-quick-verdict"].exists)
 
 
         // 2. Bespoke Sleep & Stress detail views

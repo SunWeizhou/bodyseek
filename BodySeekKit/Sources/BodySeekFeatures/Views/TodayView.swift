@@ -4,9 +4,10 @@ import BodySeekDesign
 import ComposableArchitecture
 import SwiftUI
 
+/// 今日页：按设计系统 §3 / §5 分层。
+/// L0 五项分数环；L1 今日简报；L2 行动、昨夜睡眠、关键体征、训练与营养摘要。
 public struct TodayView: View {
     @Bindable var store: StoreOf<TodayFeature>
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     private let zoomNamespace: Namespace.ID?
 
     public init(store: StoreOf<TodayFeature>, zoomNamespace: Namespace.ID? = nil) {
@@ -15,936 +16,470 @@ public struct TodayView: View {
     }
 
     public var body: some View {
-        ZStack(alignment: .top) {
-            BevelTheme.canvas.ignoresSafeArea()
-
-            ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    if let error = store.lastError {
-                        errorBanner(error)
-                    }
-
-                    if !store.snapshot.isAuthorized {
-                        unauthorizedBanner
-                    }
-
-                    healthOverviewCard
-
-                    stressAndEnergyRow
-
-                    todayQuickVerdictBanner
-
-                    if store.snapshot.isAuthorized {
-                        sleepCard
-
-                        vitalsGrid
-                    }
-
-                    if store.snapshot.isAuthorized || store.postWorkoutAdvice != nil {
-                        todayActionCard
-                    }
-
-                    if store.snapshot.isAuthorized, !store.today.raw.workouts.isEmpty {
-                        workoutsCard
-                    }
-
-                    todayNutritionCard
-
-                    checkInCard
-
-                    if !store.proactiveInsights.isEmpty {
-                        proactiveInsightsSection
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 4)
-                .padding(.bottom, 28)
-            }
-            .refreshable {
-                store.send(.refreshTapped)
-            }
+        BSPage("今日") {
+            heroSection
+        } note: {
+            noteSection
+        } sections: {
+            sectionsContent
+        } links: {
+            EmptyView()
         }
-        .navigationTitle("今日")
-        .bodyseekNavigationBarInline()
-        .bodyseekTransparentNavigationBar()
+        .refreshable {
+            store.send(.refreshTapped)
+        }
         .toolbar {
-            ToolbarItemGroup(placement: .bodyseekTrailing) {
-                Menu {
-                    Button {
-                        store.send(.refreshTapped)
-                    } label: {
-                        Label("刷新健康数据", systemImage: "arrow.clockwise")
-                    }
-                    Button {
-                        store.send(.openCheckInTapped)
-                    } label: {
-                        Label("记录今日状态", systemImage: "square.and.pencil")
-                    }
-                    Button {
-                        store.send(.openNutritionTapped)
-                    } label: {
-                        Label("记录饮食与营养", systemImage: "fork.knife")
-                    }
-                    Button {
-                        store.send(.askCoachTapped("请解读我今天的身体恢复与睡眠状态"))
-                    } label: {
-                        Label("询问 Coach", systemImage: "sparkles")
-                    }
-                    if !store.snapshot.isAuthorized {
-                        Button {
-                            store.send(.authorizationTapped)
-                        } label: {
-                            Label("授权 Apple 健康", systemImage: "heart.text.square")
-                        }
-                    }
-                } label: {
-                    Image(systemName: "plus")
-                }
-                .accessibilityLabel("记录")
-                .accessibilityIdentifier("bodyseek-menu")
+            toolbarContent
+        }
+    }
 
+    // MARK: - Toolbar
+
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        ToolbarItemGroup(placement: .bodyseekTrailing) {
+            Menu {
                 Button {
-                    store.send(.openSettingsTapped)
+                    store.send(.refreshTapped)
                 } label: {
-                    Image(systemName: "person.crop.circle")
+                    Label("刷新健康数据", systemImage: "arrow.clockwise")
                 }
-                .accessibilityLabel("设置")
-                .accessibilityIdentifier("settings-button")
+                Button {
+                    store.send(.openCheckInTapped)
+                } label: {
+                    Label("记录今日状态", systemImage: "square.and.pencil")
+                }
+                Button {
+                    store.send(.openNutritionTapped)
+                } label: {
+                    Label("记录饮食与营养", systemImage: "fork.knife")
+                }
+                Button {
+                    store.send(.askCoachTapped("请解读我今天的身体恢复与睡眠状态"))
+                } label: {
+                    Label("询问 Coach", systemImage: "sparkles")
+                }
+                if !store.snapshot.isAuthorized {
+                    Button {
+                        store.send(.authorizationTapped)
+                    } label: {
+                        Label("授权 Apple 健康", systemImage: "heart.text.square")
+                    }
+                }
+            } label: {
+                Image(systemName: "plus")
             }
+            .accessibilityLabel("记录")
+            .accessibilityIdentifier("bodyseek-menu")
+
+            Button {
+                store.send(.openSettingsTapped)
+            } label: {
+                Image(systemName: "person.crop.circle")
+            }
+            .accessibilityLabel("设置")
+            .accessibilityIdentifier("settings-button")
         }
     }
 
-    // MARK: - Subviews
+    // MARK: - L0 五项分数
 
-    private func errorBanner(_ message: String) -> some View {
-        BevelCard(padding: 12) {
-            HStack(spacing: 10) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(BevelTheme.dangerColor)
-                Text(message)
-                    .font(.footnote)
-                    .foregroundStyle(BevelTheme.ink)
-            }
+    private var heroSection: some View {
+        VStack(spacing: BSSpace.s) {
+            stateBanner
+            Text(headerLine)
+                .bsText(.caption)
+            scoreGroup
         }
     }
 
-    private var unauthorizedBanner: some View {
-        BevelCard {
-            VStack(alignment: .leading, spacing: 8) {
-                Label("连接 Apple 健康", systemImage: "heart.text.square")
-                    .font(.headline)
-                    .foregroundStyle(BevelTheme.ink)
-                Text("连接后可查看睡眠、恢复和训练数据。")
-                    .font(.subheadline)
-                    .foregroundStyle(BevelTheme.inkSecondary)
-                Button("立即授权") {
-                    store.send(.authorizationTapped)
-                }
-                .buttonStyle(.borderedProminent)
-                .accessibilityIdentifier("today-authorize-button")
-            }
-        }
-    }
-
-    private var healthOverviewCard: some View {
-        BevelCard {
-            VStack(alignment: .leading, spacing: 14) {
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 8) {
-                        HStack(spacing: 8) {
-                            Text("身体状态")
-                                .font(.headline)
-                                .foregroundStyle(BevelTheme.ink)
-
-                            if store.isLoading {
-                                ProgressView()
-                                    .controlSize(.small)
-                                    .accessibilityLabel("正在更新数据")
-                            }
-                        }
-
-                        Spacer()
-
-                        Text("\(formattedEditorialDate(store.today.date)) · \(store.snapshot.sourceLabel)")
-                            .font(.footnote)
-                            .foregroundStyle(BevelTheme.inkSecondary)
-                    }
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack(spacing: 8) {
-                            Text("身体状态")
-                                .font(.headline)
-                                .foregroundStyle(BevelTheme.ink)
-
-                            if store.isLoading {
-                                ProgressView()
-                                    .controlSize(.small)
-                                    .accessibilityLabel("正在更新数据")
-                            }
-                        }
-
-                        Text("\(formattedEditorialDate(store.today.date)) · \(store.snapshot.sourceLabel)")
-                            .font(.footnote)
-                            .foregroundStyle(BevelTheme.inkSecondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-
-                if dynamicTypeSize.isAccessibilitySize {
-                    VStack(alignment: .leading, spacing: 12) {
-                        scoreButton(for: store.today.recovery, context: recoveryReadout, identifier: "today-score-recovery")
-                        Divider()
-                        scoreButton(for: store.today.sleep, context: sleepReadout, identifier: "today-score-sleep")
-                        Divider()
-                        scoreButton(for: store.today.strain, context: strainReadout, identifier: "today-score-strain")
-                    }
-                } else {
-                    HStack(alignment: .top, spacing: 12) {
-                        scoreButton(for: store.today.recovery, context: recoveryReadout, identifier: "today-score-recovery")
-                        scoreButton(for: store.today.sleep, context: sleepReadout, identifier: "today-score-sleep")
-                        scoreButton(for: store.today.strain, context: strainReadout, identifier: "today-score-strain")
-                    }
-                }
-            }
+    private var scoreGroup: some View {
+        BSScoreRing.group(scoreItems, zoom: zoomSource) { kind in
+            store.send(.metricTapped(kind))
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("today-score-instrument")
     }
 
-    private typealias MetricReadout = (label: String, value: String?)
-
-    private var recoveryReadout: MetricReadout {
-        if let hrv = store.today.raw.hrvMs {
-            return ("心率变异性", "\(Int(hrv.rounded())) ms")
-        }
-        if let heartRate = store.today.raw.restingHeartRateBpm {
-            return ("静息心率", "\(Int(heartRate.rounded())) bpm")
-        }
-        return ("心率变异性", nil)
+    private var zoomSource: BSZoomSource? {
+        guard let zoomNamespace else { return nil }
+        return BSZoomSource(namespace: zoomNamespace, prefix: "today-metric-")
     }
 
-    private var sleepReadout: MetricReadout {
-        let duration = store.today.raw.sleepAsleepMinutes.map { minutes in
-            let hours = minutes / 60
-            let remainder = minutes % 60
-            return hours > 0 ? "\(hours) 小时 \(remainder) 分" : "\(remainder) 分钟"
-        }
-        return ("昨夜实睡", duration)
+    private var scoreItems: [BSScoreItem] {
+        let today = store.today
+        return [
+            scoreItem(today.recovery, identifier: "today-score-recovery"),
+            scoreItem(today.sleep, identifier: "today-score-sleep"),
+            scoreItem(today.strain, identifier: "today-score-strain"),
+            scoreItem(today.stress, identifier: "today-card-stress"),
+            scoreItem(today.energy, identifier: "today-card-energy"),
+        ]
     }
 
-    private var strainReadout: MetricReadout {
-        let raw = store.today.raw
-        if !raw.workouts.isEmpty {
-            return ("今日训练", "\(raw.workouts.count) 次")
-        }
-        if case .knownZero = store.today.strain.availability {
-            return ("今日训练", "0 次")
-        }
-        return ("动态消耗", raw.activeEnergyKcal.map { "\(Int($0.rounded())) kcal" })
+    private func scoreItem(_ score: MetricScore, identifier: String) -> BSScoreItem {
+        BSScoreItem(
+            kind: score.kind,
+            value: score.value,
+            availability: score.availability,
+            statusText: score.badge,
+            identifier: identifier
+        )
     }
 
-    private var proactiveInsightsSection: some View {
-        BevelCard {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("值得留意")
-                    .font(.headline)
-                    .foregroundStyle(BevelTheme.ink)
+    private var headerLine: String {
+        let base = "\(formattedEditorialDate(store.today.date)) · \(store.snapshot.sourceLabel)"
+        return store.isLoading ? base + " · 正在更新" : base
+    }
 
-                ForEach(store.proactiveInsights.prefix(2)) { insight in
-                    Divider()
-                    DisclosureGroup {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text(insight.body)
-                                .font(.subheadline)
-                                .foregroundStyle(BevelTheme.inkSecondary)
+    /// 页面级提示只在 L0 上方出现，最多一条。
+    @ViewBuilder
+    private var stateBanner: some View {
+        if let error = store.lastError {
+            BSStateView(.error, message: error)
+        } else if !store.snapshot.isAuthorized {
+            BSStateView(
+                .unauthorized,
+                message: "连接后可查看睡眠、恢复和训练数据。",
+                actionTitle: "立即授权",
+                action: { store.send(.authorizationTapped) },
+                actionIdentifier: "today-authorize-button"
+            )
+        }
+    }
 
-                            HStack {
-                                Button(insight.ctaTitle) {
-                                    store.send(.proactiveInsightActionTapped(insight))
-                                }
-                                .accessibilityIdentifier("today-insight-cta-\(insight.kind.rawValue)")
+    // MARK: - L1 今日简报
 
-                                Spacer()
-
-                                Button("忽略") {
-                                    store.send(.dismissProactiveInsightTapped(insight.id))
-                                }
-                                .foregroundStyle(BevelTheme.inkSecondary)
-                                .accessibilityIdentifier("today-insight-dismiss-\(insight.kind.rawValue)")
-                            }
-                            .buttonStyle(.borderless)
-                        }
-                        .padding(.top, 8)
-                    } label: {
-                        Text(insight.title)
-                            .font(.subheadline)
-                            .foregroundStyle(BevelTheme.ink)
-                    }
+    private var noteSection: some View {
+        VStack(alignment: .leading, spacing: BSSpace.xs) {
+            BSCoachNote(
+                noteText,
+                engine: noteEngine,
+                evidence: noteEvidence,
+                onAsk: askCoachAction,
+                askIdentifier: "today-ask-coach-button"
+            )
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("today-quick-verdict")
+            if store.dailyBrief != nil {
+                BriefFeedbackBar(selected: store.briefFeedback) { rating in
+                    store.send(.briefFeedbackTapped(rating))
                 }
             }
         }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("today-proactive-insights")
     }
+
+    private var askCoachAction: () -> Void {
+        { store.send(.askCoachTapped("结合我今天的恢复、睡眠、训练负荷和近期饮食，给一个具体安排")) }
+    }
+
+    private var noteText: String {
+        if let brief = store.dailyBrief { return brief.headline }
+        if !store.snapshot.isAuthorized { return "授权 Apple 健康后即可生成今日结论。" }
+        if let advice = store.postWorkoutAdvice { return advice }
+        let summary = store.today.factualSummary
+        return summary.isEmpty ? "同步 HRV、静息心率与睡眠样本后将给出今日结论。" : summary
+    }
+
+    private var noteEngine: BSBriefEngine {
+        switch store.dailyBrief?.engine {
+        case .cloud: .cloud
+        case .onDevice: .onDevice
+        case .localTemplate, .none: .localTemplate
+        }
+    }
+
+    private var noteEvidence: [String] {
+        guard let brief = store.dailyBrief else { return [] }
+        return brief.evidence.prefix(3).map(\.summary)
+    }
+
+    // MARK: - L2 展开
 
     @ViewBuilder
-    private func scoreButton(for score: MetricScore, context: MetricReadout, identifier: String) -> some View {
-        let reading: String? = switch score.availability {
-        case .available, .knownZero: context.value
-        case .missing, .excluded: nil
+    private var sectionsContent: some View {
+        actionSection
+        if store.snapshot.isAuthorized {
+            sleepSection
+            vitalsSection
         }
-        let secondaryLabel = metricContext(score, detail: context.label)
-        let base = Button {
-            store.send(.metricTapped(score.kind))
-        } label: {
-            VStack(alignment: .leading, spacing: 6) {
-                Label(score.kind.title, systemImage: score.kind.systemImage)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(BevelTheme.color(for: score.kind))
-
-                scoreValue(score)
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(secondaryLabel)
-                        .font(.footnote)
-                        .foregroundStyle(BevelTheme.inkSecondary)
-
-                    Text(reading ?? "—")
-                        .font(.subheadline.weight(.medium).monospacedDigit())
-                        .foregroundStyle(reading == nil ? BevelTheme.inkSecondary : BevelTheme.ink)
-                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .padding(.top, 4)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(score.kind.title)
-        .accessibilityValue("\(score.formattedScore)，\(score.availability.reasonText ?? "\(secondaryLabel) \(reading ?? "暂无数据")")")
-        .accessibilityHint("打开指标详情")
-        .accessibilityIdentifier(identifier)
-
-        if let zoomNamespace {
-            base.bodyseekZoomSource(id: "today-metric-\(score.kind.rawValue)", in: zoomNamespace)
-        } else {
-            base
-        }
+        summarySection
     }
 
-    private func scoreValue(_ score: MetricScore) -> some View {
-        Text(score.formattedScore)
-            .font(.title.weight(.semibold).monospacedDigit())
-            .contentTransition(.numericText())
-            .foregroundStyle(score.value == nil ? BevelTheme.inkSecondary : BevelTheme.ink)
-    }
+    // ① 今天要不要行动
 
-    private func metricContext(_ score: MetricScore, detail: String) -> String {
-        switch score.availability {
-        case .available, .knownZero: detail
-        case .missing: "暂无数据"
-        case .excluded: "已排除"
-        }
-    }
-
-    @ViewBuilder
-    private var todayActionCard: some View {
-        let postWorkoutAdvice = store.postWorkoutAdvice
-        let suggestions = store.planItems.filter {
-            $0.state != .dismissed && (postWorkoutAdvice == nil || $0.kind != .trainingFocus)
-        }
-        let primary = postWorkoutAdvice == nil ? (suggestions.first(where: { $0.kind == .trainingFocus }) ?? suggestions.first) : nil
-        let otherSuggestions = suggestions.filter { $0.id != primary?.id }
-
-        if postWorkoutAdvice != nil || primary != nil || hasAISuggestion {
-            BevelCard {
-                VStack(alignment: .leading, spacing: 14) {
-                    HStack {
-                        Label("今日 Coach 结论与行动", systemImage: "sparkles")
-                            .font(.headline)
-                            .foregroundStyle(BevelTheme.ink)
-                        Spacer()
-                        Button("问 Coach") {
-                            store.send(.askCoachTapped("结合我今天的恢复、睡眠、训练负荷和近期饮食，给一个具体安排"))
-                        }
-                        .font(.caption.weight(.semibold))
-                        .buttonStyle(.borderless)
-                        .foregroundStyle(BevelTheme.brand)
-                        .accessibilityIdentifier("today-ask-coach-button")
-                    }
-
-                    if let postWorkoutAdvice {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Label("今天已完成训练", systemImage: "checkmark.circle")
-                                .font(.subheadline.weight(.semibold))
-                            Text(postWorkoutAdvice)
-                                .font(.subheadline)
-                                .foregroundStyle(BevelTheme.inkSecondary)
-                        }
-                    } else if let primary {
-                        suggestionRow(primary, isPrimary: true)
-                    }
-
-                    if postWorkoutAdvice == nil, hasAISuggestion {
-                        if primary != nil {
-                            Divider()
-                        }
-                        aiSuggestion
-                        if store.dailyBrief != nil {
-                            BriefFeedbackBar(selected: store.briefFeedback) { rating in
-                                store.send(.briefFeedbackTapped(rating))
-                            }
-                        }
-                    }
-
-                    if !otherSuggestions.isEmpty {
-                        Divider()
-
-                        DisclosureGroup("其他建议") {
-                            VStack(alignment: .leading, spacing: 14) {
-                                ForEach(otherSuggestions) { record in
-                                    Divider()
-                                    suggestionRow(record, isPrimary: false)
-                                }
-                            }
-                            .padding(.top, 8)
-                        }
-                        .font(.subheadline)
-                        .accessibilityIdentifier("today-other-suggestions")
-                    }
-                }
+    private var actionSection: some View {
+        BSSection("今天要不要行动") {
+            VStack(spacing: BSSpace.s) {
+                actionRows
+                checkInRow
             }
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("today-action-card")
         }
     }
 
-    private var hasAISuggestion: Bool {
-        if case let .generated(text, _) = store.briefingStatus {
-            return !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        }
-        return false
-    }
-
     @ViewBuilder
-    private var aiSuggestion: some View {
-        if case let .generated(rawText, engine) = store.briefingStatus {
-            let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
-            let compact = text.count <= 64 && !text.contains(where: \.isNewline)
-
-            VStack(alignment: .leading, spacing: 8) {
-                if compact {
-                    Label("AI 建议", systemImage: "sparkles")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(BevelTheme.inkSecondary)
-                    Text(text)
-                        .font(.subheadline)
-                        .foregroundStyle(BevelTheme.ink)
-                        .accessibilityIdentifier("today-ai-suggestion-text")
-                }
-
-                DisclosureGroup(
-                    compact ? "AI 参考依据" : "查看 AI 建议",
-                    isExpanded: Binding(
-                        get: { store.showEvidenceBreakdown },
-                        set: { if $0 != store.showEvidenceBreakdown { store.send(.toggleEvidenceBreakdown) } }
-                    )
-                ) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        if !compact {
-                            Text(text)
-                                .foregroundStyle(BevelTheme.ink)
-                                .accessibilityIdentifier("today-ai-suggestion-text")
-                        }
-                        Text(store.today.evidenceSummary)
-                        Text("由 \(engine) 生成")
-                    }
-                    .foregroundStyle(BevelTheme.inkSecondary)
-                    .padding(.top, 8)
-                    .accessibilityIdentifier("today-ai-suggestion-evidence")
-                }
-                .font(.subheadline)
-                .accessibilityIdentifier("today-advice-evidence")
-            }
-        }
-    }
-
-    private func suggestionRow(_ record: PlanItemRecord, isPrimary: Bool) -> some View {
-        let item = record.decodedActionItem()
-        return VStack(alignment: .leading, spacing: 8) {
-            Text(item?.title ?? "行动建议")
-                .font(isPrimary ? .title3.weight(.semibold) : .headline)
-                .foregroundStyle(BevelTheme.ink)
-
-            if let item {
-                DisclosureGroup("建议依据") {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(item.detail)
-                        Text(item.metricBasis)
-                    }
-                    .foregroundStyle(BevelTheme.inkSecondary)
-                    .padding(.top, 6)
-                }
-                .font(.subheadline)
-            }
-
-            switch record.state {
-            case .suggested:
-                HStack(spacing: 12) {
-                    if isPrimary {
-                        Button("采纳") { store.send(.adoptPlanItem(record.id)) }
-                            .buttonStyle(.borderedProminent)
-                            .accessibilityIdentifier("today-action-adopt-\(record.id.uuidString)")
-                    } else {
-                        Button("采纳") { store.send(.adoptPlanItem(record.id)) }
-                            .buttonStyle(.bordered)
-                            .accessibilityIdentifier("today-action-adopt-\(record.id.uuidString)")
-                    }
-
-                    Button("跳过") { store.send(.dismissPlanItem(record.id)) }
-                        .buttonStyle(.borderless)
-                        .foregroundStyle(BevelTheme.inkSecondary)
-                        .accessibilityIdentifier("today-action-dismiss-\(record.id.uuidString)")
-                }
-            case .adopted, .completed:
-                Label(record.state == .completed ? "已完成" : "已采纳", systemImage: "checkmark.circle.fill")
-                    .font(.subheadline)
-                    .foregroundStyle(BevelTheme.recoveryColor)
-                    .accessibilityIdentifier("today-action-status-\(record.id.uuidString)")
-            case .dismissed:
-                EmptyView()
-            }
-        }
-    }
-
-    private var todayNutritionCard: some View {
-        let log = store.todayNutritionLog
-        let todayKey = store.snapshot.referenceDate.physiologicalDayKey()
-        let validated = NutritionTargetEvaluator.validate(plan: store.nutritionTargetPlan, on: todayKey)
-        let isClosed = log?.dietDayComplete == true
-        let coreIDs = ["diet_kcal", "diet_carbs_g", "diet_protein_g", "diet_fat_g"]
-
-        return Button {
-            store.send(.openNutritionTapped)
-        } label: {
-            BevelCard(padding: 14) {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        Label("每日营养与能量平衡", systemImage: "fork.knife.circle.fill")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(BevelTheme.brand)
-                        Spacer()
-                        Text(isClosed ? "已结账" : (log == nil ? "未记录" : "记录中 · 未结账"))
-                            .font(.caption2.weight(.semibold))
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 3)
-                            .background(
-                                (isClosed ? BevelTheme.nutritionColor(for: .met) : BevelTheme.nutritionColor(for: .unknown)).opacity(0.16),
-                                in: Capsule()
-                            )
-                            .foregroundStyle(BevelTheme.nutritionInkColor(for: isClosed ? .met : .unknown))
-                        Image(systemName: "chevron.right")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(BevelTheme.inkSecondary)
-                    }
-
-                    HStack(alignment: .firstTextBaseline, spacing: 16) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("今日已记热量")
-                                .font(.caption2)
-                                .foregroundStyle(BevelTheme.inkSecondary)
-                            Text(log?.dietKcal.map { "\(Int($0.rounded())) kcal" } ?? "-- kcal")
-                                .font(.title3.weight(.bold).monospacedDigit())
-                                .fontDesign(.rounded)
-                                .foregroundStyle(BevelTheme.ink)
-                        }
-                        let deficitVal = store.nutritionRollingDeficit7d
-                        let deficitLabel: String = {
-                            guard let val = deficitVal else { return "近 7 日日均缺口" }
-                            if val < -30 { return "近 7 日日均盈余" }
-                            if val > 30 { return "近 7 日日均缺口" }
-                            return "近 7 日日均平衡"
-                        }()
-                        let deficitDisplay = deficitVal.map { "\(Int(abs($0).rounded())) kcal/日" } ?? "--"
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(deficitLabel)
-                                .font(.caption2)
-                                .foregroundStyle(BevelTheme.inkSecondary)
-                            Text(deficitDisplay)
-                                .font(.subheadline.weight(.semibold).monospacedDigit())
-                                .fontDesign(.rounded)
-                                .foregroundStyle(BevelTheme.ink)
-                        }
-                    }
-
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 74), spacing: 8)], alignment: .leading, spacing: 6) {
-                        ForEach(coreIDs, id: \.self) { id in
-                            let eval = NutritionTargetEvaluator.evaluate(metricID: id, log: log, validatedPlan: validated)
-                            HStack(spacing: 5) {
-                                Circle()
-                                    .fill(BevelTheme.nutritionColor(for: eval.status))
-                                    .frame(width: 8, height: 8)
-                                Text(eval.metricName.replacingOccurrences(of: "总", with: ""))
-                                    .font(.caption2)
-                                    .foregroundStyle(BevelTheme.inkSecondary)
-                                    .lineLimit(1)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("today-nutrition-card")
-    }
-
-    private var checkInCard: some View {
-        Button {
-            store.send(.openCheckInTapped)
-        } label: {
-            BevelCard(padding: 14) {
-                HStack(spacing: 12) {
-                    Image(systemName: store.todayCheckIn == nil ? "heart.text.square" : "checkmark.seal.fill")
-                        .font(.title3)
-                        .foregroundStyle(store.todayCheckIn == nil ? BevelTheme.brand : BevelTheme.recoveryColor)
-
-                    VStack(alignment: .leading, spacing: 3) {
-                        if let checkIn = store.todayCheckIn {
-                            Text("今日体感已记录")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(BevelTheme.ink)
-                            let sorenessText = checkIn.soreness.isEmpty ? "" : " · 酸痛 \(checkIn.soreness.count) 处"
-                            Text("精力 \(checkIn.energy)/5 · 情绪 \(checkIn.mood)/5 · 压力 \(checkIn.stress)/5\(sorenessText)")
-                                .font(.caption)
-                                .foregroundStyle(BevelTheme.inkSecondary)
-                                .lineLimit(1)
-                        } else {
-                            Text("今日体感尚未记录 · 10 秒打卡")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(BevelTheme.ink)
-                            Text("量化主观精力、情绪、压力与酸痛，持续校准个人身体模型")
-                                .font(.caption)
-                                .foregroundStyle(BevelTheme.inkSecondary)
-                                .lineLimit(1)
-                        }
-                    }
-
-                    Spacer(minLength: 8)
-
-                    Text(store.todayCheckIn == nil ? "打卡" : "修改")
-                        .font(.caption.weight(.semibold))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(BevelTheme.brandSoft, in: Capsule())
-                        .foregroundStyle(BevelTheme.brand)
-                }
-            }
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("today-checkin-card")
-    }
-
-    @ViewBuilder
-    private var stressAndEnergyRow: some View {
-        if dynamicTypeSize.isAccessibilitySize {
-            VStack(spacing: 12) {
-                stressCardButton
-                energyCardButton
+    private var actionRows: some View {
+        if let advice = store.postWorkoutAdvice {
+            postWorkoutCard(advice)
+        } else if !visiblePlanItems.isEmpty {
+            ForEach(visiblePlanItems) { record in
+                planRow(record)
             }
         } else {
-            HStack(spacing: 12) {
-                stressCardButton
-                energyCardButton
+            ForEach(briefActions) { action in
+                briefActionRow(action)
             }
         }
     }
 
-    private var todayQuickVerdictBanner: some View {
-        let verdict = quickVerdictContent
-        return BevelCard(padding: 12) {
-            HStack(alignment: .top, spacing: 10) {
-                Image(systemName: verdict.icon)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(verdict.tint)
-                    .padding(.top, 2)
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(verdict.title)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(BevelTheme.ink)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text(verdict.detail)
-                        .font(.caption)
-                        .foregroundStyle(BevelTheme.inkSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Spacer(minLength: 0)
-            }
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("today-quick-verdict")
+    private var visiblePlanItems: [PlanItemRecord] {
+        let items = store.planItems.filter { $0.state != .dismissed }
+        let focus = items.filter { $0.kind == .trainingFocus }
+        let rest = items.filter { $0.kind != .trainingFocus }
+        return Array((focus + rest).prefix(3))
     }
 
-    private var quickVerdictContent: (title: String, detail: String, tint: Color, icon: String) {
-        if !store.snapshot.isAuthorized {
-            return (
-                "今日结论：数据不足，待同步",
-                "授权 Apple 健康后即可生成本地恢复与训练结论。",
-                BevelTheme.inkSecondary,
-                "info.circle.fill"
-            )
+    private var briefActions: [BriefAction] {
+        Array((store.dailyBrief?.actions ?? []).prefix(3))
+    }
+
+    private func postWorkoutCard(_ advice: String) -> some View {
+        BSCard {
+            VStack(alignment: .leading, spacing: BSSpace.xxs) {
+                Label("今天已完成训练", systemImage: "checkmark.circle")
+                    .bsText(.cardTitle)
+                Text(advice)
+                    .bsText(.label)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        if let postWorkoutAdvice = store.postWorkoutAdvice {
-            return (
-                "今日结论：今日已完成训练，优先恢复",
-                postWorkoutAdvice,
-                BevelTheme.recoveryColor,
-                "checkmark.seal.fill"
-            )
-        }
-        guard let recovery = store.today.recovery.value else {
-            return (
-                "今日结论：等待今日恢复样本",
-                store.today.factualSummary.isEmpty ? "同步 HRV、静息心率与睡眠样本后将给出今日结论。" : store.today.factualSummary,
-                BevelTheme.inkSecondary,
-                "clock.fill"
-            )
-        }
-        if recovery < 50 || store.snapshot.trainingLoad.zone == .highRisk {
-            return (
-                "今日结论：今天适当减量",
-                store.today.factualSummary,
-                BevelTheme.energyColor,
-                "exclamationmark.triangle.fill"
-            )
-        }
-        return (
-            "今日结论：维持原计划",
-            store.today.factualSummary,
-            BevelTheme.recoveryColor,
-            "checkmark.circle.fill"
+    }
+
+    private func planRow(_ record: PlanItemRecord) -> some View {
+        let item = record.decodedActionItem()
+        let identifier = record.id.uuidString
+        return BSActionRow(
+            title: item?.title ?? "行动建议",
+            basis: [item?.detail, item?.metricBasis].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: "\n"),
+            status: record.state == .suggested ? .idle : .done,
+            actionTitle: "采纳",
+            onExecute: { store.send(.adoptPlanItem(record.id)) },
+            dismissTitle: "跳过",
+            onDismiss: { store.send(.dismissPlanItem(record.id)) },
+            executeIdentifier: "today-action-adopt-\(identifier)",
+            statusIdentifier: "today-action-status-\(identifier)",
+            dismissIdentifier: "today-action-dismiss-\(identifier)"
         )
     }
 
-    @ViewBuilder
-    private var stressCardButton: some View {
-        let button = Button {
-            store.send(.metricTapped(.stress))
-        } label: {
-            BevelCard(padding: 14) {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        Label("压力", systemImage: MetricKind.stress.systemImage)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(BevelTheme.stressColor)
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(BevelTheme.inkSecondary)
-                    }
+    private func briefActionRow(_ action: BriefAction) -> some View {
+        BSActionRow(
+            title: action.title,
+            basis: action.basis,
+            actionTitle: "问 Coach",
+            onExecute: { store.send(.askCoachTapped(action.coachPrompt)) }
+        )
+    }
 
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        scoreValue(store.today.stress)
-                        Text(metricContext(store.today.stress, detail: store.today.stress.badge))
-                            .font(.caption)
-                            .foregroundStyle(BevelTheme.inkSecondary)
-                    }
+    private var checkInRow: some View {
+        let recorded = store.todayCheckIn != nil
+        return BSActionRow(
+            title: recorded ? "今日体感已记录" : "记录今日体感",
+            basis: checkInBasis,
+            actionTitle: recorded ? "修改" : "打卡",
+            onExecute: { store.send(.openCheckInTapped) },
+            executeIdentifier: "today-checkin-card"
+        )
+    }
 
-                    IntradayBarChart(bins: store.today.stressTimeline, height: 34)
-                }
-            }
+    private var checkInBasis: String {
+        guard let checkIn = store.todayCheckIn else {
+            return "10 秒量化主观精力、情绪、压力与酸痛，持续校准个人身体模型"
         }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("today-card-stress")
+        let soreness = checkIn.soreness.isEmpty ? "" : " · 酸痛 \(checkIn.soreness.count) 处"
+        return "精力 \(checkIn.energy)/5 · 情绪 \(checkIn.mood)/5 · 压力 \(checkIn.stress)/5\(soreness)"
+    }
 
-        if let zoomNamespace {
-            button.bodyseekZoomSource(id: "today-metric-stress", in: zoomNamespace)
-        } else {
-            button
+    // ② 昨夜睡眠
+
+    private var sleepSection: some View {
+        BSSection("昨夜睡眠") {
+            Button {
+                store.send(.metricTapped(.sleep))
+            } label: {
+                sleepChartCard
+            }
+            .buttonStyle(.bsPressable)
+            .accessibilityIdentifier("today-sleep-card")
         }
     }
 
-    @ViewBuilder
-    private var energyCardButton: some View {
-        let button = Button {
-            store.send(.metricTapped(.energy))
-        } label: {
-            BevelCard(padding: 14) {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        Label("能量", systemImage: MetricKind.energy.systemImage)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(BevelTheme.energyColor)
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(BevelTheme.inkSecondary)
-                    }
-
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        scoreValue(store.today.energy)
-                        Text(metricContext(store.today.energy, detail: store.today.energy.subtitle))
-                            .font(.caption)
-                            .foregroundStyle(BevelTheme.inkSecondary)
-                            .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-
-                    EnergyAreaChart(curve: store.today.energyCurve, height: 34)
-                }
-            }
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("today-card-energy")
-
-        if let zoomNamespace {
-            button.bodyseekZoomSource(id: "today-metric-energy", in: zoomNamespace)
-        } else {
-            button
+    private var sleepChartCard: some View {
+        BSChartCard(
+            title: "睡眠分期",
+            label: "实际睡眠",
+            value: sleepDurationText,
+            range: formattedEditorialDate(store.today.date),
+            side: store.today.sleep.subtitle,
+            availability: sleepAvailability,
+            height: .standard,
+            caption: "Apple 健康 · 睡眠分期"
+        ) {
+            SleepStageChart(segments: store.today.raw.sleepSegments, height: BSSize.chartStandard, interactive: false)
         }
     }
 
-    private var sleepCard: some View {
-        Button {
-            store.send(.metricTapped(.sleep))
-        } label: {
-            BevelCard {
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        Label("昨夜睡眠", systemImage: MetricKind.sleep.systemImage)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(BevelTheme.sleepColor)
-                        Spacer()
-                        Text(store.today.sleep.subtitle)
-                            .font(.subheadline.weight(.medium))
-                            .foregroundStyle(BevelTheme.ink)
-                        Image(systemName: "chevron.right")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(BevelTheme.inkSecondary)
-                    }
-
-                    if store.today.raw.sleepAsleepMinutes != nil {
-                        SleepStageChart(segments: store.today.raw.sleepSegments, height: 148, interactive: false)
-                    } else {
-                        Text(store.today.sleep.availability.reasonText ?? "昨晚暂无睡眠分段数据")
-                            .font(.footnote)
-                            .foregroundStyle(BevelTheme.inkSecondary)
-                    }
-                }
-            }
-        }
-        .buttonStyle(.plain)
+    private var sleepAvailability: MetricAvailability {
+        if store.today.raw.sleepAsleepMinutes != nil { return .available }
+        return .missing(reason: store.today.sleep.availability.reasonText ?? "昨晚暂无睡眠分段数据")
     }
 
-    private var vitalsGrid: some View {
-        let columns = dynamicTypeSize.isAccessibilitySize
-            ? [GridItem(.flexible(), spacing: 12)]
-            : [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
-        return VStack(alignment: .leading, spacing: 10) {
-            Text("生理指标 · 近 14 天")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(BevelTheme.inkSecondary)
-                .padding(.horizontal, 4)
+    private var sleepDurationText: String? {
+        guard let minutes = store.today.raw.sleepAsleepMinutes else { return nil }
+        let hours = minutes / 60
+        let remainder = minutes % 60
+        return hours > 0 ? "\(hours) 小时 \(remainder) 分" : "\(remainder) 分钟"
+    }
 
-            LazyVGrid(columns: columns, spacing: 12) {
-                vitalCard(
+    // ③ 关键体征
+
+    private var vitalsSection: some View {
+        BSSection("关键体征") {
+            BSMetricGrid {
+                vitalTile(
                     title: "HRV",
-                    valueText: store.today.raw.hrvMs.map { "\(Int($0.rounded())) ms" } ?? "-- ms",
+                    value: store.today.raw.hrvMs,
+                    unit: "ms",
+                    digits: 0,
                     points: store.recentHRVSeries,
-                    tint: BevelTheme.recoveryColor
+                    tint: BSColor.recovery
                 )
-                vitalCard(
+                vitalTile(
                     title: "静息心率",
-                    valueText: store.today.raw.restingHeartRateBpm.map { "\(Int($0.rounded())) bpm" } ?? "-- bpm",
+                    value: store.today.raw.restingHeartRateBpm,
+                    unit: "bpm",
+                    digits: 0,
                     points: store.recentRHRSeries,
-                    tint: BevelTheme.heartRateAverage
+                    tint: BSColor.recovery
                 )
-                vitalCard(
-                    title: "呼吸频率",
-                    valueText: store.today.raw.respiratoryRateBrpm.map { String(format: "%.1f 次/分", $0) } ?? "-- 次/分",
+                vitalTile(
+                    title: "呼吸率",
+                    value: store.today.raw.respiratoryRateBrpm,
+                    unit: "次/分",
+                    digits: 1,
                     points: store.recentRespiratorySeries,
-                    tint: BevelTheme.sleepColor
+                    tint: BSColor.sleep
                 )
-                vitalCard(
+                vitalTile(
                     title: "血氧饱和度",
-                    valueText: store.today.raw.oxygenSaturationPct.map { String(format: "%.0f%%", $0) } ?? "-- %",
+                    value: store.today.raw.oxygenSaturationPct,
+                    unit: "%",
+                    digits: 0,
                     points: store.recentSpO2Series,
-                    tint: BevelTheme.infoBlue
+                    tint: BSColor.sleep
                 )
             }
         }
     }
 
-    private func vitalCard(
+    private func vitalTile(
         title: String,
-        valueText: String,
+        value: Double?,
+        unit: String,
+        digits: Int,
         points: [VitalSparkPoint],
         tint: Color
     ) -> some View {
-        BevelCard(padding: 14) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(title)
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(BevelTheme.inkSecondary)
-                Text(valueText)
-                    .font(.title3.weight(.semibold).monospacedDigit())
-                    .fontDesign(.rounded)
-                    .contentTransition(.numericText())
-                    .foregroundStyle(valueText.contains("--") ? BevelTheme.inkSecondary : BevelTheme.ink)
-                MiniSparkline(vitalPoints: points, tint: tint, height: 42)
-            }
-        }
+        let series = points.compactMap(\.value)
+        let average = series.isEmpty ? nil : series.reduce(0, +) / Double(series.count)
+        let delta: Double? = if let value, let average { value - average } else { nil }
+        let valueText = value.map { $0.formatted(.number.precision(.fractionLength(digits))) }
+        return BSMetricTile(
+            title: title,
+            value: valueText,
+            unit: unit,
+            availability: value == nil ? .missing(reason: "暂无数据") : .available,
+            delta: delta,
+            comparison: "vs 14 天",
+            trend: series,
+            tint: tint
+        )
     }
 
-    private var workoutsCard: some View {
-        BevelCard {
-            VStack(alignment: .leading, spacing: 12) {
-                Label("今日训练记录", systemImage: "figure.run.circle.fill")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(BevelTheme.strainColor)
+    // ④ 今日训练与营养
 
-                ForEach(store.today.raw.workouts) { workout in
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack(spacing: 12) {
-                            Image(systemName: workout.symbolName)
-                                .font(.title3)
-                                .foregroundStyle(BevelTheme.strainColor)
-                                .frame(width: 36, height: 36)
-                                .background(BevelTheme.strainColor.opacity(0.14), in: Circle())
-
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(workout.activityName)
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(BevelTheme.ink)
-                                Text("\(workout.durationMinutes) 分钟 · \(Int(workout.activeEnergyKcal.rounded())) kcal")
-                                    .font(.caption)
-                                    .foregroundStyle(BevelTheme.inkSecondary)
-                            }
-                            Spacer()
-                            if let effort = workout.effortScore {
-                                Text(String(format: "努力度 %.1f", effort))
-                                    .font(.caption2.weight(.semibold))
-                                    .padding(.horizontal, 7)
-                                    .padding(.vertical, 3)
-                                    .background(BevelTheme.strainColor.opacity(0.14), in: Capsule())
-                                    .foregroundStyle(BevelTheme.strainColor)
-                            } else if let avgHR = workout.averageHeartRate {
-                                Text("\(Int(avgHR.rounded())) bpm")
-                                    .font(.caption.weight(.medium).monospacedDigit())
-                                    .foregroundStyle(BevelTheme.inkSecondary)
-                            }
-                        }
-
-                        if let zones = workout.heartRateZones, zones.totalZoneMinutes > 0 {
-                            ZoneBar(zones: zones)
-                        }
+    private var summarySection: some View {
+        BSSection("今日训练与营养") {
+            VStack(spacing: BSSpace.s) {
+                if store.snapshot.isAuthorized, !store.today.raw.workouts.isEmpty {
+                    summaryRow(
+                        title: "今日训练",
+                        value: workoutSummaryText,
+                        systemImage: "figure.run",
+                        identifier: "today-workouts-card"
+                    ) {
+                        store.send(.openWorkoutTapped)
                     }
+                }
+                summaryRow(
+                    title: "今日营养",
+                    value: nutritionSummaryText,
+                    systemImage: "fork.knife",
+                    identifier: "today-nutrition-card"
+                ) {
+                    store.send(.openNutritionTapped)
                 }
             }
         }
     }
+
+    private var workoutSummaryText: String {
+        let workouts = store.today.raw.workouts
+        let minutes = workouts.reduce(0) { $0 + $1.durationMinutes }
+        return "\(workouts.count) 次 · \(minutes) 分钟"
+    }
+
+    private var nutritionSummaryText: String {
+        let log = store.todayNutritionLog
+        let kcal = log?.dietKcal.map { "\(Int($0.rounded())) kcal" } ?? "-- kcal"
+        let status: String
+        if log?.dietDayComplete == true {
+            status = "已结账"
+        } else if log == nil {
+            status = "未记录"
+        } else {
+            status = "记录中"
+        }
+        return "\(kcal) · \(status)"
+    }
+
+    private func summaryRow(
+        title: String,
+        value: String,
+        systemImage: String,
+        identifier: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            BSCard {
+                HStack(spacing: BSSpace.s) {
+                    Label(title, systemImage: systemImage)
+                        .bsText(.cardTitle)
+                    Spacer(minLength: BSSpace.xs)
+                    Text(value)
+                        .bsText(.label)
+                    Image(systemName: "chevron.right")
+                        .bsText(.caption)
+                }
+            }
+        }
+        .buttonStyle(.bsPressable)
+        .accessibilityIdentifier(identifier)
+    }
+
+    // MARK: - 日期
 
     private static let editorialDateFormatter: DateFormatter = {
         let formatter = DateFormatter()

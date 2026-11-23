@@ -37,6 +37,8 @@ public struct BSScoreItem: Identifiable, Hashable, Sendable {
     public let availability: MetricAvailability
     /// 状态词，例如"充沛 / 平时 / 偏疲劳"。
     public let statusText: String?
+    /// 这一环的无障碍标识（页面需要稳定标识给 UI 测试时提供）。
+    public let identifier: String?
 
     public var id: MetricKind { kind }
 
@@ -45,12 +47,46 @@ public struct BSScoreItem: Identifiable, Hashable, Sendable {
         kind: MetricKind,
         value: Int?,
         availability: MetricAvailability = .available,
-        statusText: String? = nil
+        statusText: String? = nil,
+        identifier: String? = nil
     ) {
         self.kind = kind
         self.value = value
         self.availability = availability
         self.statusText = statusText
+        self.identifier = identifier
+    }
+}
+
+/// zoom 转场的来源：同一个命名空间下，每一环用 `prefix` + 指标名作为来源标识。
+public struct BSZoomSource {
+    /// 命名空间。
+    public let namespace: Namespace.ID
+    /// 来源标识前缀，例如 `today-metric-`。
+    public let prefix: String
+
+    /// 创建 zoom 来源。
+    public init(namespace: Namespace.ID, prefix: String) {
+        self.namespace = namespace
+        self.prefix = prefix
+    }
+}
+
+private struct BSRingTags: ViewModifier {
+    let identifier: String?
+    let zoomID: String?
+    let namespace: Namespace.ID?
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if let zoomID, let namespace {
+            content
+                .modifier(BSOptionalIdentifier(identifier: identifier))
+                .bodyseekZoomSource(id: zoomID, in: namespace)
+        } else {
+            content
+                .modifier(BSOptionalIdentifier(identifier: identifier))
+        }
     }
 }
 
@@ -69,6 +105,8 @@ public struct BSScoreRing: View {
     private let size: BSScoreRingSize
     private let isLoading: Bool
     private let action: (() -> Void)?
+    private let identifier: String?
+    private let zoom: BSZoomSource?
 
     private static let maxScore: Double = 100
     private static let startAngle: Double = -90
@@ -83,6 +121,8 @@ public struct BSScoreRing: View {
     ///   - size: 环的尺寸。
     ///   - isLoading: 为 `true` 时显示骨架。
     ///   - action: 点击动作（通常进入详情）；为 `nil` 时不可点。
+    ///   - identifier: 无障碍标识。
+    ///   - zoom: zoom 转场来源；为 `nil` 时不参与转场。
     public init(
         kind: MetricKind,
         value: Int?,
@@ -90,7 +130,9 @@ public struct BSScoreRing: View {
         statusText: String? = nil,
         size: BSScoreRingSize = .large,
         isLoading: Bool = false,
-        action: (() -> Void)? = nil
+        action: (() -> Void)? = nil,
+        identifier: String? = nil,
+        zoom: BSZoomSource? = nil
     ) {
         self.kind = kind
         self.value = value
@@ -99,11 +141,18 @@ public struct BSScoreRing: View {
         self.size = size
         self.isLoading = isLoading
         self.action = action
+        self.identifier = identifier
+        self.zoom = zoom
     }
 
     public var body: some View {
         content
             .bsTappable(action)
+            .modifier(BSRingTags(
+                identifier: identifier,
+                zoomID: zoom.map { $0.prefix + kind.rawValue },
+                namespace: zoom?.namespace
+            ))
     }
 
     private var content: some View {
@@ -147,7 +196,7 @@ public struct BSScoreRing: View {
     }
 
     private var captions: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: BSSpace.none) {
             nameLabel
             if let detail = detailText {
                 Text(detail)
@@ -201,12 +250,19 @@ public struct BSScoreRingGroup: View {
     private let items: [BSScoreItem]
     private let isLoading: Bool
     private let onSelect: ((MetricKind) -> Void)?
+    private let zoom: BSZoomSource?
 
     private static let columnCount = 2
 
-    fileprivate init(items: [BSScoreItem], isLoading: Bool, onSelect: ((MetricKind) -> Void)?) {
+    fileprivate init(
+        items: [BSScoreItem],
+        isLoading: Bool,
+        zoom: BSZoomSource?,
+        onSelect: ((MetricKind) -> Void)?
+    ) {
         self.items = items
         self.isLoading = isLoading
+        self.zoom = zoom
         self.onSelect = onSelect
     }
 
@@ -236,7 +292,9 @@ public struct BSScoreRingGroup: View {
             statusText: item.statusText,
             size: size,
             isLoading: isLoading,
-            action: action(for: item)
+            action: action(for: item),
+            identifier: item.identifier,
+            zoom: zoom
         )
         .frame(maxWidth: .infinity)
     }
@@ -252,12 +310,14 @@ public extension BSScoreRing {
     /// - Parameters:
     ///   - items: 五项分数，顺序即显示顺序。
     ///   - isLoading: 为 `true` 时显示骨架。
+    ///   - zoom: zoom 转场来源；为 `nil` 时不参与转场。
     ///   - onSelect: 点击某一环时的回调（通常进入该项详情）。
     static func group(
         _ items: [BSScoreItem],
         isLoading: Bool = false,
+        zoom: BSZoomSource? = nil,
         onSelect: ((MetricKind) -> Void)? = nil
     ) -> BSScoreRingGroup {
-        BSScoreRingGroup(items: items, isLoading: isLoading, onSelect: onSelect)
+        BSScoreRingGroup(items: items, isLoading: isLoading, zoom: zoom, onSelect: onSelect)
     }
 }

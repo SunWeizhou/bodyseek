@@ -104,7 +104,7 @@ public struct BSIntakeRing: View {
                     .rotationEffect(.degrees(Self.startAngle))
                     .padding(BSChartStroke.ringL / 2)
             }
-            VStack(spacing: 0) {
+            VStack(spacing: BSSpace.none) {
                 Text(valueText)
                     .bsText(.heroNumber)
                     .lineLimit(1)

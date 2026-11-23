@@ -75,6 +75,11 @@ public struct BSActionRow: View {
     private let actionTitle: String
     private let onExecute: (() -> Void)?
     private let onUndo: (() -> Void)?
+    private let dismissTitle: String?
+    private let onDismiss: (() -> Void)?
+    private let executeIdentifier: String?
+    private let statusIdentifier: String?
+    private let dismissIdentifier: String?
 
     /// 创建行动行。
     /// - Parameters:
@@ -84,13 +89,23 @@ public struct BSActionRow: View {
     ///   - actionTitle: 执行按钮标题。
     ///   - onExecute: 执行动作；为 `nil` 时不显示按钮。
     ///   - onUndo: 撤销动作；完成状态下显示。
+    ///   - dismissTitle: "跳过"之类的次要按钮标题；需要与 `onDismiss` 同时提供才显示。
+    ///   - onDismiss: 次要按钮动作。
+    ///   - executeIdentifier: 执行按钮的无障碍标识。
+    ///   - statusIdentifier: 完成状态标签的无障碍标识。
+    ///   - dismissIdentifier: 次要按钮的无障碍标识。
     public init(
         title: String,
         basis: String,
         status: BSActionStatus = .idle,
         actionTitle: String = "执行",
         onExecute: (() -> Void)? = nil,
-        onUndo: (() -> Void)? = nil
+        onUndo: (() -> Void)? = nil,
+        dismissTitle: String? = nil,
+        onDismiss: (() -> Void)? = nil,
+        executeIdentifier: String? = nil,
+        statusIdentifier: String? = nil,
+        dismissIdentifier: String? = nil
     ) {
         self.title = title
         self.basis = basis
@@ -98,6 +113,11 @@ public struct BSActionRow: View {
         self.actionTitle = actionTitle
         self.onExecute = onExecute
         self.onUndo = onUndo
+        self.dismissTitle = dismissTitle
+        self.onDismiss = onDismiss
+        self.executeIdentifier = executeIdentifier
+        self.statusIdentifier = statusIdentifier
+        self.dismissIdentifier = dismissIdentifier
     }
 
     public var body: some View {
@@ -120,19 +140,14 @@ public struct BSActionRow: View {
     private var trailing: some View {
         switch status {
         case .idle:
-            if let onExecute {
-                Button(actionTitle, action: onExecute)
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
-                    .tint(BSColor.tint)
-                    .frame(minHeight: BSSize.hitTarget)
-            }
+            idleButtons
         case .running:
             ProgressView()
         case .done:
             HStack(spacing: BSSpace.xs) {
                 Label("已完成", systemImage: "checkmark.circle.fill")
                     .bsText(.label)
+                    .modifier(BSOptionalIdentifier(identifier: statusIdentifier))
                 if let onUndo {
                     Button("撤销", action: onUndo)
                         .buttonStyle(.bordered)
@@ -146,6 +161,43 @@ public struct BSActionRow: View {
         case .failed:
             Label("失败", systemImage: "exclamationmark.circle")
                 .bsText(.label)
+        }
+    }
+}
+
+extension BSActionRow {
+    @ViewBuilder
+    fileprivate var idleButtons: some View {
+        HStack(spacing: BSSpace.xs) {
+            if let onDismiss, let dismissTitle {
+                Button(dismissTitle, action: onDismiss)
+                    .buttonStyle(.bsPressable)
+                    .bsText(.label)
+                    .frame(minHeight: BSSize.hitTarget)
+                    .modifier(BSOptionalIdentifier(identifier: dismissIdentifier))
+            }
+            if let onExecute {
+                Button(actionTitle, action: onExecute)
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                    .tint(BSColor.tint)
+                    .frame(minHeight: BSSize.hitTarget)
+                    .modifier(BSOptionalIdentifier(identifier: executeIdentifier))
+            }
+        }
+    }
+}
+
+/// 有标识时才设置无障碍标识。
+struct BSOptionalIdentifier: ViewModifier {
+    let identifier: String?
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if let identifier {
+            content.accessibilityIdentifier(identifier)
+        } else {
+            content
         }
     }
 }

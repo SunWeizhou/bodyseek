@@ -6,6 +6,8 @@ import SwiftUI
 
 /// 间距令牌，以 4pt 为单位，共 6 级。
 public enum BSSpace {
+    /// 0：不留间距（紧贴的两个元素）。
+    public static let none: CGFloat = 0
     /// 4：图标与文字之间、数值与单位之间。
     public static let xxs: CGFloat = 4
     /// 8：组件内部的紧凑行距、chip 内边距。
@@ -44,6 +46,12 @@ public enum BSOpacity {
 
 /// 尺寸令牌：点击区域、分数环、图表高度，以及拖拽关闭的阈值。
 public enum BSSize {
+    /// 8：圆点、色块标记。
+    public static let dot: CGFloat = 8
+    /// 24：行内图标、固定宽度的小标签。
+    public static let glyph: CGFloat = 24
+    /// 36：圆形图标底、头像。
+    public static let avatar: CGFloat = 36
     /// 44：最小点击区域。
     public static let hitTarget: CGFloat = 44
     /// 112：L0 主分数环。
