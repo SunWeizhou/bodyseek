@@ -394,6 +394,20 @@ public enum BevelScoringEngine {
             }
         }
 
+        // UI v4：逐日滚动的平时范围。窗口取每天之前的 28 天（不含当天），需要向前多读 28 天历史。
+        let priorDays = rollingWindowDays
+        let extendedStart = calendar.date(byAdding: .day, value: -priorDays, to: start) ?? start
+        var extendedValues: [Double?] = []
+        extendedValues.reserveCapacity(horizon.dayCount + priorDays)
+        for offset in 0..<(horizon.dayCount + priorDays) {
+            guard let date = calendar.date(byAdding: .day, value: offset, to: extendedStart) else {
+                extendedValues.append(nil)
+                continue
+            }
+            extendedValues.append(byDay[date]?.score(for: kind).value.map(Double.init))
+        }
+        let rolling = rollingBands(values: extendedValues)
+
         let validValues = rawPoints.compactMap(\.value)
         let baselineBand: BaselineBand? = if validValues.count >= 5,
             let q25 = percentile(validValues, 0.25),
@@ -434,14 +448,18 @@ public enum BevelScoringEngine {
             status = "已积累 \(coveredDays)/\(horizon.dayCount) 天有效样本。"
         }
 
-        let dailyPoints = rawPoints.map { pt in
-            ChartPointSnapshot(
+        let dailyPoints = rawPoints.enumerated().map { index, pt in
+            let band = rolling[priorDays + index]
+            return ChartPointSnapshot(
                 dayKey: pt.dayKey,
                 date: pt.date,
                 value: pt.value,
                 baselineLow: baselineBand?.lower,
                 baselineHigh: baselineBand?.upper,
-                availability: pt.availability
+                availability: pt.availability,
+                rollingLow: band?.lower,
+                rollingHigh: band?.upper,
+                rollingSampleCount: band?.sampleCount
             )
         }
 
@@ -465,6 +483,31 @@ public enum BevelScoringEngine {
             statusSummary: status,
             algorithmVersion: .scoreV2
         )
+    }
+
+    /// 平时范围滚动窗口：每天之前的 28 天。
+    public static let rollingWindowDays = 28
+    /// 窗口内至少 7 天有效观测才生成区间。
+    public static let rollingMinimumSamples = 7
+
+    /// 逐日滚动的平时范围。
+    ///
+    /// 第 `i` 天取 `values[i - window ..< i]`（不含当天）里非 nil 的值，有效观测少于 `minimumSamples`
+    /// 时该天不给区间。缺失值（nil）直接跳过，不会被当作 0。
+    public static func rollingBands(
+        values: [Double?],
+        window: Int = rollingWindowDays,
+        minimumSamples: Int = rollingMinimumSamples
+    ) -> [RollingBand?] {
+        values.indices.map { index in
+            let lowerIndex = Swift.max(0, index - window)
+            let observed = values[lowerIndex..<index].compactMap { $0 }
+            guard observed.count >= minimumSamples,
+                  let q25 = percentile(Array(observed), 0.25),
+                  let q75 = percentile(Array(observed), 0.75)
+            else { return nil }
+            return RollingBand(lower: q25, upper: q75, sampleCount: observed.count)
+        }
     }
 
     private static func buildCapsules(
@@ -541,7 +584,10 @@ public enum BevelScoringEngine {
                     p75: p75,
                     max: maxVal,
                     sampleCount: values.count,
-                    totalDays: acc.points.count
+                    totalDays: acc.points.count,
+                    rollingLow: last.rollingLow,
+                    rollingHigh: last.rollingHigh,
+                    rollingSampleCount: last.rollingSampleCount
                 )
             )
         }

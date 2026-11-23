@@ -24,6 +24,24 @@ public struct BaselineBand: Hashable, Codable, Sendable {
     }
 }
 
+/// 逐日滚动的“平时范围”：某一天之前 28 天有效观测的 P25–P75（不含当天）。
+public struct RollingBand: Hashable, Codable, Sendable {
+    public let lower: Double
+    public let upper: Double
+    /// 窗口内的有效观测天数（≥ 7 才会生成区间）。
+    public let sampleCount: Int
+
+    public init(lower: Double, upper: Double, sampleCount: Int) {
+        self.lower = min(lower, upper)
+        self.upper = max(lower, upper)
+        self.sampleCount = sampleCount
+    }
+
+    public var range: ClosedRange<Double> {
+        lower...upper
+    }
+}
+
 public struct ChartPointSnapshot: Identifiable, Hashable, Codable, Sendable {
     public let id: String
     public let dayKey: DayKey
@@ -32,6 +50,12 @@ public struct ChartPointSnapshot: Identifiable, Hashable, Codable, Sendable {
     public let baselineLow: Double?
     public let baselineHigh: Double?
     public let availability: MetricAvailability
+    /// UI v4：逐日滚动的平时范围下沿（前 28 天有效观测的 P25，不含当天）；有效观测 < 7 天时为 nil。
+    public let rollingLow: Double?
+    /// UI v4：逐日滚动的平时范围上沿（P75）。
+    public let rollingHigh: Double?
+    /// UI v4：滚动窗口内的有效观测天数。
+    public let rollingSampleCount: Int?
 
     public init(
         id: String? = nil,
@@ -40,7 +64,10 @@ public struct ChartPointSnapshot: Identifiable, Hashable, Codable, Sendable {
         value: Double?,
         baselineLow: Double? = nil,
         baselineHigh: Double? = nil,
-        availability: MetricAvailability
+        availability: MetricAvailability,
+        rollingLow: Double? = nil,
+        rollingHigh: Double? = nil,
+        rollingSampleCount: Int? = nil
     ) {
         self.id = id ?? dayKey.isoString
         self.dayKey = dayKey
@@ -49,6 +76,15 @@ public struct ChartPointSnapshot: Identifiable, Hashable, Codable, Sendable {
         self.baselineLow = baselineLow
         self.baselineHigh = baselineHigh
         self.availability = availability
+        self.rollingLow = rollingLow
+        self.rollingHigh = rollingHigh
+        self.rollingSampleCount = rollingSampleCount
+    }
+
+    /// 本点的滚动平时范围；没有区间时为 nil。
+    public var rollingBand: RollingBand? {
+        guard let rollingLow, let rollingHigh, let rollingSampleCount else { return nil }
+        return RollingBand(lower: rollingLow, upper: rollingHigh, sampleCount: rollingSampleCount)
     }
 }
 
@@ -66,6 +102,10 @@ public struct RangeCapsuleBucket: Identifiable, Hashable, Codable, Sendable {
     public let max: Double
     public let sampleCount: Int
     public let totalDays: Int
+    /// UI v4：桶内最后一天的滚动平时范围（P25 / P75 / 样本数）；不足 7 天为 nil。
+    public let rollingLow: Double?
+    public let rollingHigh: Double?
+    public let rollingSampleCount: Int?
 
     public init(
         id: String,
@@ -80,7 +120,10 @@ public struct RangeCapsuleBucket: Identifiable, Hashable, Codable, Sendable {
         p75: Double,
         max: Double,
         sampleCount: Int,
-        totalDays: Int
+        totalDays: Int,
+        rollingLow: Double? = nil,
+        rollingHigh: Double? = nil,
+        rollingSampleCount: Int? = nil
     ) {
         self.id = id
         self.label = label
@@ -95,6 +138,15 @@ public struct RangeCapsuleBucket: Identifiable, Hashable, Codable, Sendable {
         self.max = max
         self.sampleCount = sampleCount
         self.totalDays = totalDays
+        self.rollingLow = rollingLow
+        self.rollingHigh = rollingHigh
+        self.rollingSampleCount = rollingSampleCount
+    }
+
+    /// 桶内最后一天的滚动平时范围。
+    public var rollingBand: RollingBand? {
+        guard let rollingLow, let rollingHigh, let rollingSampleCount else { return nil }
+        return RollingBand(lower: rollingLow, upper: rollingHigh, sampleCount: rollingSampleCount)
     }
 }
 
