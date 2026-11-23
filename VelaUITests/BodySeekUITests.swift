@@ -354,12 +354,10 @@ final class BodySeekUITests: XCTestCase {
 
         XCTAssertTrue(app.staticTexts["身体状态简报"].firstMatch.waitForExistence(timeout: 6))
 
-        // Confirm-to-write memory proposal card must appear before strip turns active
-        let confirmMemBtn = app.buttons["coach-memory-proposal-confirm"].firstMatch
-        XCTAssertTrue(confirmMemBtn.waitForExistence(timeout: 6))
-        confirmMemBtn.tap()
-
-        XCTAssertTrue(app.staticTexts["已确认写入 短期约束"].waitForExistence(timeout: 5))
+        // A 级动作直接执行，Coach 回执卡出现，不再有确认卡片。
+        let memoryReceipt = app.otherElements["coach-receipt-card"].firstMatch
+        XCTAssertTrue(memoryReceipt.waitForExistence(timeout: 6))
+        XCTAssertFalse(app.buttons["coach-memory-proposal-confirm"].exists)
 
         let memoryStrip = app.buttons["coach-memory-strip"]
         XCTAssertTrue(memoryStrip.waitForExistence(timeout: 5))
@@ -368,6 +366,12 @@ final class BodySeekUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["三层长期记忆管理"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["短期约束"].exists)
         app.buttons["coach-memory-sheet-done"].tap()
+
+        // 回执上的撤销按钮可单独点击；撤销后按钮消失。
+        let memoryUndo = app.buttons["coach-receipt-undo"].firstMatch
+        XCTAssertTrue(memoryUndo.waitForExistence(timeout: 5))
+        memoryUndo.tap()
+        XCTAssertTrue(waitForDisappearance(of: memoryUndo, timeout: 8))
 
         // 3. Settings proactive insights toggle & privacy outbound payload viewer sheet
         tapTab("今日", in: app)
@@ -435,28 +439,30 @@ final class BodySeekUITests: XCTestCase {
         input.typeText("给昨晚那次 Watch 训练补上腿训标注")
         app.buttons["coach-send-button"].tap()
 
-        let confirm = app.buttons["coach-annotation-proposal-confirm"].firstMatch
-        if !confirm.waitForExistence(timeout: 8) {
-            let candidate = app.otherElements["coach-annotation-candidate-card"].firstMatch
-            XCTAssertTrue(candidate.waitForExistence(timeout: 4), "expected a unique confirmation or a candidate list")
-            candidate.buttons.firstMatch.tap()
-            XCTAssertTrue(confirm.waitForExistence(timeout: 5))
-        }
-        confirm.tap()
-
-        XCTAssertTrue(app.staticTexts["已保存训练复盘"].firstMatch.waitForExistence(timeout: 8))
-        let undo = app.buttons["coach-annotation-undo"].firstMatch
+        // 唯一匹配时直接标注并出现回执卡；不再有确认卡片。
+        let receipt = app.otherElements["coach-receipt-card"].firstMatch
+        XCTAssertTrue(receipt.waitForExistence(timeout: 8))
+        XCTAssertFalse(app.buttons["coach-annotation-proposal-confirm"].exists)
+        let undo = app.buttons["coach-receipt-undo"].firstMatch
         XCTAssertTrue(undo.waitForExistence(timeout: 5))
         undo.tap()
 
-        let undoneText = app.staticTexts["已撤销这次训练标注"].firstMatch.waitForExistence(timeout: 8)
-        let undoneCard = app.otherElements["coach-annotation-undone-card"].firstMatch.waitForExistence(timeout: 2)
-        XCTAssertTrue(undoneText || undoneCard)
+        // 撤销后按钮消失，状态恢复。
+        XCTAssertTrue(waitForDisappearance(of: undo, timeout: 8))
 
         tapTab("健身", in: app)
         XCTAssertTrue(app.staticTexts["肌群恢复"].waitForExistence(timeout: 6))
         tapTab("Coach", in: app)
-        XCTAssertTrue(app.otherElements["coach-annotation-undone-card"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.otherElements["coach-receipt-card"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["coach-receipt-undo"].exists)
+    }
+
+    private func waitForDisappearance(of element: XCUIElement, timeout: TimeInterval) -> Bool {
+        let gone = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"),
+            object: element
+        )
+        return XCTWaiter().wait(for: [gone], timeout: timeout) == .completed
     }
 
     func testCaptureLightAndDarkScreenshotsWhenRequested() throws {

@@ -11,8 +11,14 @@ public actor AgentCapturedSideEffects: Sendable {
     public private(set) var workoutAnnotationCandidates: [CoachWorkoutAnnotationCandidate] = []
     public private(set) var toolOutputs: [String] = []
     public private(set) var toolsInvoked: [String] = []
+    /// 通过动作层自动执行（A、B 级）并返回的回执。
+    public private(set) var appliedActions: [AppActionReceipt] = []
 
     public init() {}
+
+    public func recordAppliedAction(_ receipt: AppActionReceipt) {
+        appliedActions.append(receipt)
+    }
 
     public func recordProposal(_ proposal: WorkoutProposal) {
         workoutProposal = proposal
@@ -56,6 +62,8 @@ public struct AgentExecutionContext: Sendable {
     public let dominantHand: DominantHand
     public let sleepGoalMinutes: Int
     public let effects: AgentCapturedSideEffects
+    /// 动作层入口；为 `nil` 时提案工具只生成确认卡片，不直接写入。
+    public let actionGateway: AgentActionGateway?
 
     public init(
         snapshot: BodySeekDashboardSnapshot,
@@ -76,7 +84,8 @@ public struct AgentExecutionContext: Sendable {
         sleepGoalMinutes: Int = 450,
         asOf: Date? = nil,
         conversationHistory: [CoachMessage] = [],
-        effects: AgentCapturedSideEffects = AgentCapturedSideEffects()
+        effects: AgentCapturedSideEffects = AgentCapturedSideEffects(),
+        actionGateway: AgentActionGateway? = nil
     ) {
         self.snapshot = snapshot
         self.conversationHistory = Array(conversationHistory.suffix(6))
@@ -102,6 +111,7 @@ public struct AgentExecutionContext: Sendable {
         self.dominantHand = dominantHand
         self.sleepGoalMinutes = sleepGoalMinutes
         self.effects = effects
+        self.actionGateway = actionGateway
     }
 
     private static func fallbackStoredWorkouts(from snapshot: BodySeekDashboardSnapshot) -> [StoredWorkoutRecord] {
@@ -255,7 +265,7 @@ public enum CoachToolRegistry {
         )),
         OpenAIToolDefinition(function: OpenAIFunctionDefinition(
             name: "propose_plan_change",
-            description: "生成待用户确认的结构化今日训练处方卡片，不会静默写入数据库。",
+            description: "生成待用户确认的结构化今日训练处方卡片（C 级：必须用户确认，不会静默写入数据库）。",
             parameters: OpenAIToolParametersObject(
                 properties: [
                     "title": OpenAIToolParameterSchema(type: "string", description: "课表标题"),
@@ -270,7 +280,7 @@ public enum CoachToolRegistry {
         )),
         OpenAIToolDefinition(function: OpenAIFunctionDefinition(
             name: "propose_memory",
-            description: "生成一条待用户确认的记忆提案（profile或activeConstraint）；未获确认前不会写入。",
+            description: "保存一条记忆（profile 或 activeConstraint）。A 级：直接保存并返回可撤销的回执；动作层不可用或失败时退回待用户确认的提案卡片。",
             parameters: OpenAIToolParametersObject(
                 properties: [
                     "tier": OpenAIToolParameterSchema(type: "string", description: "profile, activeConstraint 或 verifiedPattern", enumValues: ["profile", "activeConstraint", "verifiedPattern"]),
@@ -284,13 +294,33 @@ public enum CoachToolRegistry {
         )),
         OpenAIToolDefinition(function: OpenAIFunctionDefinition(
             name: "propose_workout_annotation",
-            description: "解析用户的一句话训练描述并生成待确认的 Watch 肌群标注提案。保留用户所说的训练日期。",
+            description: "解析用户的一句话训练描述并给 Watch 训练补肌群标注。A 级：唯一匹配时直接标注并返回可撤销的回执；有多条候选或动作层不可用时退回待确认卡片。保留用户所说的训练日期。",
             parameters: OpenAIToolParametersObject(
                 properties: [
                     "rawText": OpenAIToolParameterSchema(type: "string", description: "用户描述今天练了什么与感受的一句话"),
                     "workoutUUID": OpenAIToolParameterSchema(type: "string", description: "可选 Watch 训练 UUID。省略时按描述中的日期匹配，未说明日期时只查今天。"),
                 ],
                 required: ["rawText"]
+            )
+        )),
+        OpenAIToolDefinition(function: OpenAIFunctionDefinition(
+            name: "execute_action",
+            description: "通过动作层执行写入。A 级（save_memory、annotate_workout）直接执行并返回可撤销回执；B 级（retire_memory）直接执行，24 小时内可撤销；C 级（delete_meal）不会执行，只返回需要用户确认。",
+            parameters: OpenAIToolParametersObject(
+                properties: [
+                    "action": OpenAIToolParameterSchema(type: "string", description: "save_memory、retire_memory、annotate_workout 或 delete_meal", enumValues: ["save_memory", "retire_memory", "annotate_workout", "delete_meal"]),
+                    "content": OpenAIToolParameterSchema(type: "string", description: "save_memory：记忆内容"),
+                    "tier": OpenAIToolParameterSchema(type: "string", description: "save_memory：profile 或 activeConstraint", enumValues: ["profile", "activeConstraint", "verifiedPattern"]),
+                    "category": OpenAIToolParameterSchema(type: "string", description: "save_memory：injury、goal、preference 或 schedule"),
+                    "expiresDays": OpenAIToolParameterSchema(type: "integer", description: "save_memory：activeConstraint 过期天数，默认 14"),
+                    "patternID": OpenAIToolParameterSchema(type: "string", description: "save_memory：verifiedPattern 必填的已确认规律 UUID"),
+                    "memoryID": OpenAIToolParameterSchema(type: "string", description: "retire_memory：要停用的记忆 UUID"),
+                    "rawText": OpenAIToolParameterSchema(type: "string", description: "annotate_workout：用户描述训练的一句话"),
+                    "workoutUUID": OpenAIToolParameterSchema(type: "string", description: "annotate_workout：可选 Watch 训练 UUID"),
+                    "dayKey": OpenAIToolParameterSchema(type: "string", description: "delete_meal：YYYY-MM-DD"),
+                    "entryID": OpenAIToolParameterSchema(type: "string", description: "delete_meal：餐食记录 UUID"),
+                ],
+                required: ["action"]
             )
         )),
     ]
@@ -366,6 +396,8 @@ public enum CoachToolRegistry {
                 workoutUUID: stringArg(args, "workoutUUID"),
                 context: context
             )
+        case "execute_action":
+            output = await executeActionJSON(argumentsJSON: argumentsJSON, context: context)
         default:
             output = encodeEnvelope(tool: name, state: "missing", coverage: 0, reason: "未知工具 \(name)", data: ["error": "unknown_tool"])
         }
@@ -1338,6 +1370,8 @@ public enum CoachToolRegistry {
             let proposalID: String
             let title: String
             let exerciseCount: Int
+            /// 训练计划修改在动作目录里按 C 级处理：必须用户确认后才会写入。
+            let authorization: String
         }
         return encodeEnvelope(
             tool: "propose_plan_change",
@@ -1348,7 +1382,8 @@ public enum CoachToolRegistry {
                 status: "pending_user_confirmation",
                 proposalID: proposal.id.uuidString,
                 title: title,
-                exerciseCount: items.count
+                exerciseCount: items.count,
+                authorization: "C"
             )
         )
     }
@@ -1404,6 +1439,15 @@ public enum CoachToolRegistry {
             confirmedAt: now,
             retiredAt: nil
         )
+        // A 级：有动作层时直接保存并返回回执；失败或需要确认时退回确认卡片。
+        if let proposal = makeProposal(
+            kind: .commitMemory,
+            payload: CommitMemoryPayload(memory: record),
+            rationale: "Coach 根据对话保存[\(tier.titleLabel)]记忆",
+            context: context
+        ), case let .applied(receipt)? = await runThroughGateway(proposal, context: context) {
+            return appliedEnvelope(tool: "propose_memory", receipt: receipt)
+        }
         await context.effects.recordMemoryProposal(record)
 
         struct ProposedMemAck: Encodable {
@@ -1455,6 +1499,9 @@ public enum CoachToolRegistry {
 
         switch resolution {
         case let .unique(candidate):
+            if let applied = await applyAnnotationDirectly(candidate, context: context) {
+                return applied
+            }
             await context.effects.recordWorkoutAnnotationProposal(candidate.proposal)
             await context.effects.recordWorkoutAnnotationCandidates([candidate])
             return encodeEnvelope(
@@ -1525,6 +1572,206 @@ public enum CoachToolRegistry {
                     windowDescription: nil
                 )
             )
+        }
+    }
+
+    // MARK: - Action Layer (A / B / C)
+
+    private enum GatewayResult {
+        case applied(AppActionReceipt)
+        case needsConfirmation(String)
+        case failed(String)
+    }
+
+    private struct AppliedActionAck: Encodable {
+        let status: String
+        let receiptID: String
+        let kind: String
+        let authorization: String
+        let title: String
+        let detail: String
+        let undoable: Bool
+        let undoWindowHours: Int?
+    }
+
+    private static func makeProposal<P: Encodable>(
+        kind: ActionProposal.Kind,
+        payload: P,
+        rationale: String,
+        context: AgentExecutionContext
+    ) -> ActionProposal? {
+        guard context.actionGateway != nil else { return nil }
+        do {
+            return try ActionProposal(
+                kind: kind,
+                origin: .agent,
+                encodablePayload: payload,
+                rationale: rationale,
+                createdAt: context.asOf
+            )
+        } catch {
+            logger.error("Failed building action proposal \(kind.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
+    }
+
+    private static func runThroughGateway(_ proposal: ActionProposal, context: AgentExecutionContext) async -> GatewayResult? {
+        guard let gateway = context.actionGateway else { return nil }
+        do {
+            switch try await gateway.execute(proposal) {
+            case let .executed(receipt):
+                await context.effects.recordAppliedAction(receipt)
+                return .applied(receipt)
+            case let .needsConfirmation(_, title):
+                return .needsConfirmation(title)
+            }
+        } catch {
+            logger.error("Action layer failed \(proposal.kind.rawValue, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return .failed(error.localizedDescription)
+        }
+    }
+
+    private static func appliedEnvelope(tool: String, receipt: AppActionReceipt) -> String {
+        encodeEnvelope(
+            tool: tool,
+            state: "available",
+            coverage: 1.0,
+            reason: nil,
+            data: AppliedActionAck(
+                status: "applied",
+                receiptID: receipt.id.uuidString,
+                kind: receipt.kind.rawValue,
+                authorization: receipt.risk.rawValue.uppercased(),
+                title: receipt.title,
+                detail: receipt.detail,
+                undoable: receipt.isUndoable,
+                undoWindowHours: receipt.undoDeadline == nil ? nil : 24
+            )
+        )
+    }
+
+    private static func applyAnnotationDirectly(
+        _ candidate: CoachWorkoutAnnotationCandidate,
+        context: AgentExecutionContext
+    ) async -> String? {
+        let annotation = candidate.proposal
+        guard let proposal = makeProposal(
+            kind: .annotateWorkout,
+            payload: AnnotateWorkoutPayload(
+                workoutUUID: annotation.workoutUUID,
+                rawText: annotation.rawText,
+                parserVersion: annotation.proposal.parserVersion,
+                muscleLoads: annotation.muscleLoads,
+                expectedRecordState: annotation.recordState
+            ),
+            rationale: "Coach 根据用户描述给训练补标注",
+            context: context
+        ) else { return nil }
+        guard case let .applied(receipt)? = await runThroughGateway(proposal, context: context) else { return nil }
+        return appliedEnvelope(tool: "propose_workout_annotation", receipt: receipt)
+    }
+
+    private static func executeActionJSON(argumentsJSON: String, context: AgentExecutionContext) async -> String {
+        guard context.actionGateway != nil else {
+            return encodeEnvelope(
+                tool: "execute_action",
+                state: "missing",
+                coverage: 0,
+                reason: "动作层未接入，不能直接执行；请改用提案工具生成确认卡片",
+                data: ["status": "unavailable"]
+            )
+        }
+        switch ExecuteActionRequest.parse(argumentsJSON: argumentsJSON) {
+        case let .failure(error):
+            return encodeEnvelope(
+                tool: "execute_action",
+                state: "missing",
+                coverage: 0,
+                reason: error.message,
+                data: ["status": "invalid_arguments"]
+            )
+        case let .success(request):
+            switch request {
+            case let .saveMemory(tier, content, category, expiresDays, patternID):
+                return await proposeMemoryJSON(
+                    tierRaw: tier,
+                    content: content,
+                    categoryRaw: category,
+                    expiresDays: expiresDays,
+                    patternIDString: patternID,
+                    context: context
+                )
+            case let .annotateWorkout(rawText, workoutUUID):
+                return await proposeWorkoutAnnotationJSON(rawText: rawText, workoutUUID: workoutUUID, context: context)
+            case let .retireMemory(memoryID):
+                return await retireMemoryJSON(memoryID: memoryID, context: context)
+            case let .deleteMeal(dayKey, entryID):
+                return await deleteMealJSON(dayKey: dayKey, entryID: entryID, context: context)
+            }
+        }
+    }
+
+    private static func retireMemoryJSON(memoryID: UUID, context: AgentExecutionContext) async -> String {
+        guard let memory = context.tieredMemories.first(where: { $0.id == memoryID && $0.retiredAt == nil }) else {
+            return encodeEnvelope(
+                tool: "execute_action",
+                state: "missing",
+                coverage: 0,
+                reason: "没有找到生效中的这条记忆",
+                data: ["status": "not_found"]
+            )
+        }
+        guard let proposal = makeProposal(
+            kind: .retireMemory,
+            payload: RetireMemoryPayload(memoryID: memoryID, retiredAt: context.asOf),
+            rationale: "Coach 停用记忆：\(String(memory.content.prefix(30)))",
+            context: context
+        ) else {
+            return encodeEnvelope(tool: "execute_action", state: "missing", coverage: 0, reason: "动作提案生成失败", data: ["status": "failed"])
+        }
+        switch await runThroughGateway(proposal, context: context) {
+        case let .applied(receipt)?:
+            return appliedEnvelope(tool: "execute_action", receipt: receipt)
+        case let .needsConfirmation(title)?:
+            return encodeEnvelope(
+                tool: "execute_action",
+                state: "available",
+                coverage: 1.0,
+                reason: "\(title)需要用户先确认",
+                data: ["status": "needs_confirmation"]
+            )
+        case let .failed(message)?:
+            return encodeEnvelope(tool: "execute_action", state: "missing", coverage: 0, reason: message, data: ["status": "failed"])
+        case nil:
+            return encodeEnvelope(tool: "execute_action", state: "missing", coverage: 0, reason: "动作层未接入", data: ["status": "unavailable"])
+        }
+    }
+
+    private static func deleteMealJSON(dayKey: DayKey, entryID: UUID, context: AgentExecutionContext) async -> String {
+        guard let proposal = makeProposal(
+            kind: .deleteNutritionMeal,
+            payload: DeleteNutritionMealPayload(dayKey: dayKey, entryID: entryID),
+            rationale: "Coach 建议删除一条餐食记录",
+            context: context
+        ) else {
+            return encodeEnvelope(tool: "execute_action", state: "missing", coverage: 0, reason: "动作提案生成失败", data: ["status": "failed"])
+        }
+        // C 级：网关只会返回"需要确认"，不会写入；删除要由用户在饮食页确认。
+        switch await runThroughGateway(proposal, context: context) {
+        case let .needsConfirmation(title)?:
+            return encodeEnvelope(
+                tool: "execute_action",
+                state: "available",
+                coverage: 1.0,
+                reason: "\(title)需要用户先确认，请让用户在饮食页自己删除",
+                data: ["status": "needs_confirmation"]
+            )
+        case let .applied(receipt)?:
+            return appliedEnvelope(tool: "execute_action", receipt: receipt)
+        case let .failed(message)?:
+            return encodeEnvelope(tool: "execute_action", state: "missing", coverage: 0, reason: message, data: ["status": "failed"])
+        case nil:
+            return encodeEnvelope(tool: "execute_action", state: "missing", coverage: 0, reason: "动作层未接入", data: ["status": "unavailable"])
         }
     }
 

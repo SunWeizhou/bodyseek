@@ -194,6 +194,15 @@ public struct CoachView: View {
                 CoachMarkdownReply(source: msg.text)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
+                ForEach(msg.appliedActions) { receipt in
+                    CoachReceiptCard(
+                        receipt: receipt,
+                        isUndone: store.undoneReceiptIDs.contains(receipt.id),
+                        isPending: store.pendingReceiptUndoIDs.contains(receipt.id),
+                        onUndo: { store.send(.undoReceiptTapped(messageID: msg.id, receiptID: receipt.id)) }
+                    )
+                }
+
                 if let memProposal = msg.memoryProposal,
                    !store.dismissedMemoryProposalMessageIDs.contains(msg.id)
                 {

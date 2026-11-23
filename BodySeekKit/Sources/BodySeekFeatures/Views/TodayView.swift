@@ -391,6 +391,11 @@ public struct TodayView: View {
                             Divider()
                         }
                         aiSuggestion
+                        if store.dailyBrief != nil {
+                            BriefFeedbackBar(selected: store.briefFeedback) { rating in
+                                store.send(.briefFeedbackTapped(rating))
+                            }
+                        }
                     }
 
                     if !otherSuggestions.isEmpty {

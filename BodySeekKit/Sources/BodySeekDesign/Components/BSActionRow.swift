@@ -160,6 +160,7 @@ public struct BSReceipt: View {
     private let after: String?
     private let failureReason: String?
     private let onUndo: (() -> Void)?
+    private let undoIdentifier: String
 
     /// 创建回执。
     /// - Parameters:
@@ -171,6 +172,7 @@ public struct BSReceipt: View {
     ///   - after: B 级：改动后的值。
     ///   - failureReason: 失败时显示的原因。
     ///   - onUndo: 撤销动作；仅在完成状态下显示按钮。
+    ///   - undoIdentifier: 撤销按钮的无障碍标识，便于 UI 测试单独点击。
     public init(
         title: String,
         detail: String,
@@ -179,7 +181,8 @@ public struct BSReceipt: View {
         before: String? = nil,
         after: String? = nil,
         failureReason: String? = nil,
-        onUndo: (() -> Void)? = nil
+        onUndo: (() -> Void)? = nil,
+        undoIdentifier: String = "bs-receipt-undo"
     ) {
         self.title = title
         self.detail = detail
@@ -189,6 +192,7 @@ public struct BSReceipt: View {
         self.after = after
         self.failureReason = failureReason
         self.onUndo = onUndo
+        self.undoIdentifier = undoIdentifier
     }
 
     public var body: some View {
@@ -203,6 +207,7 @@ public struct BSReceipt: View {
                             .buttonStyle(.bordered)
                             .controlSize(.small)
                             .frame(minHeight: BSSize.hitTarget)
+                            .accessibilityIdentifier(undoIdentifier)
                     }
                 }
                 Text(status == .failed ? (failureReason ?? detail) : detail)
@@ -222,7 +227,8 @@ public struct BSReceipt: View {
             }
         }
         .modifier(BSOutcomeFeedback(status: status))
-        .accessibilityElement(children: .combine)
+        // 用 contain 而不是 combine：撤销按钮要能被单独点击。
+        .accessibilityElement(children: .contain)
     }
 
     private var statusImage: String {

@@ -1,5 +1,6 @@
 import BodySeekAgent
 import BodySeekCore
+import BodySeekStore
 import ComposableArchitecture
 import Foundation
 
@@ -9,6 +10,10 @@ public struct TodayFeature: Sendable {
     public struct State: Equatable, Sendable {
         public var snapshot: BodySeekDashboardSnapshot
         public var briefingStatus: AIBriefingStatus = .idle
+        /// 今天的每日简报（唯一的结论来源）；页面上的 AI 解读读它，不再自己生成。
+        public var dailyBrief: DailyBrief?
+        /// 用户对今天简报的反馈；一天只记一次。
+        public var briefFeedback: BriefFeedbackRating?
         public var postWorkoutAdvice: String?
         public var isLoading: Bool = false
         public var showEvidenceBreakdown: Bool = false
@@ -66,6 +71,7 @@ public struct TodayFeature: Sendable {
         case openSettingsTapped
         case openCheckInTapped
         case regenerateBriefingTapped
+        case briefFeedbackTapped(BriefFeedbackRating)
         case proactiveInsightActionTapped(ProactiveInsight)
         case dismissProactiveInsightTapped(String)
         case delegate(Delegate)
@@ -85,6 +91,7 @@ public struct TodayFeature: Sendable {
             case openWorkoutInbox
             case proactiveInsightDismissed(String)
             case regenerateBriefingRequested
+            case briefFeedbackSubmitted(BriefFeedbackRating)
         }
     }
 
@@ -136,6 +143,11 @@ public struct TodayFeature: Sendable {
 
             case .regenerateBriefingTapped:
                 return .send(.delegate(.regenerateBriefingRequested))
+
+            case let .briefFeedbackTapped(rating):
+                guard state.dailyBrief != nil, state.briefFeedback == nil else { return .none }
+                state.briefFeedback = rating
+                return .send(.delegate(.briefFeedbackSubmitted(rating)))
 
             case let .proactiveInsightActionTapped(insight):
                 switch insight.route {

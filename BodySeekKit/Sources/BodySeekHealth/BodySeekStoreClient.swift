@@ -17,6 +17,7 @@ public actor BodySeekSharedStore {
     private var cachedRepo: BodySeekRepository?
     private var cachedExecutor: ActionExecutor?
     private var cachedReadModel: BodySeekReadModel?
+    private var cachedBodyModel: BodyModelStore?
     private var hasCheckedLegacyImport = false
     private var lastBackfillRunAt: Date?
     private var cachedSyncEngine: SyncEngine?
@@ -49,6 +50,13 @@ public actor BodySeekSharedStore {
         let rm = BodySeekReadModel(database: try database())
         cachedReadModel = rm
         return rm
+    }
+
+    public func bodyModelStore() throws -> BodyModelStore {
+        if let cachedBodyModel { return cachedBodyModel }
+        let store = BodyModelStore(database: try database())
+        cachedBodyModel = store
+        return store
     }
 
     @discardableResult
@@ -173,6 +181,22 @@ public struct BodySeekStoreClient: Sendable {
     public var undoWorkoutAnnotation: @Sendable (_ auditID: UUID) async throws -> ActionAuditEntry = { _ in
         throw BodySeekDatabaseError.undoUnsupported(reason: "当前存储未配置撤销入口")
     }
+    /// 动作层：按风险级别执行。A、B 级直接执行并返回回执；C 级在 `confirmed == false` 时返回"需要确认"。
+    public var executeAction: @Sendable (_ proposal: ActionProposal, _ source: String, _ confirmed: Bool) async throws -> AppActionOutcome = { proposal, _, _ in
+        throw BodySeekDatabaseError.undoUnsupported(reason: "当前存储未配置动作层：\(proposal.kind.rawValue)")
+    }
+    /// 动作层：按原操作 ID 撤销（训练标注、记忆、营养日志）。
+    public var undoAction: @Sendable (_ auditID: UUID) async throws -> ActionAuditEntry = { _ in
+        throw BodySeekDatabaseError.undoUnsupported(reason: "当前存储未配置撤销入口")
+    }
+    /// 动作层：最近执行的动作回执，新的在前。
+    public var loadRecentActionReceipts: @Sendable (_ limit: Int) async throws -> [AppActionReceipt] = { _ in [] }
+    /// 某条 Coach 消息上保存的回执（带最新的撤销状态）。
+    public var loadMessageReceipts: @Sendable (_ messageID: UUID) async throws -> [AppActionReceipt] = { _ in [] }
+    /// 订阅身体模型的只读快照（数据库变化驱动）。
+    public var observeBodyModel: @Sendable () async -> AsyncThrowingStream<BodyModelSnapshot, Error> = {
+        AsyncThrowingStream { $0.finish() }
+    }
     public var loadCheckIns: @Sendable () async throws -> [DailyCheckIn] = { [] }
     public var loadPlanItems: @Sendable (_ dayKey: DayKey) async throws -> [PlanItemRecord] = { _ in [] }
     public var loadExperimentPlanItems: @Sendable () async throws -> [PlanItemRecord] = { [] }
@@ -286,6 +310,38 @@ extension BodySeekStoreClient: DependencyKey {
                 }
                 let exec = try await BodySeekSharedStore.shared.executor()
                 return try await exec.undoWorkoutAnnotation(originalAuditID: auditID)
+            },
+            executeAction: { proposal, source, confirmed in
+                let exec = try await liveOrPreviewExecutor(preview: preview)
+                return try await exec.executeAction(proposal, source: source, confirmed: confirmed)
+            },
+            undoAction: { auditID in
+                let exec = try await liveOrPreviewExecutor(preview: preview)
+                return try await exec.undoAction(originalAuditID: auditID)
+            },
+            loadRecentActionReceipts: { limit in
+                let repo = try await liveOrPreviewRepo(preview: preview)
+                return try await repo.loadRecentActionReceipts(limit: limit)
+            },
+            loadMessageReceipts: { messageID in
+                let repo = try await liveOrPreviewRepo(preview: preview)
+                return try await repo.loadMessageReceipts(messageID: messageID)
+            },
+            observeBodyModel: {
+                if ProcessInfo.processInfo.arguments.contains("-velaPreviewEmptyDashboard") {
+                    return AsyncThrowingStream { $0.finish() }
+                }
+                do {
+                    if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard") {
+                        let (db, _, _, _) = try await preview.resolve()
+                        return BodyModelStore(database: db).observe()
+                    }
+                    _ = try await BodySeekSharedStore.shared.ensureLegacyMigratedIfNeeded()
+                    return try await BodySeekSharedStore.shared.bodyModelStore().observe()
+                } catch {
+                    logger.error("Failed starting observeBodyModel: \(error.localizedDescription, privacy: .public)")
+                    return AsyncThrowingStream { $0.finish(throwing: error) }
+                }
             },
             loadCheckIns: {
                 if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard")
@@ -416,6 +472,16 @@ extension BodySeekStoreClient: DependencyKey {
         )
     }()
 
+    private static func liveOrPreviewExecutor(preview: PreviewGRDBContainer) async throws -> ActionExecutor {
+        if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard")
+            || ProcessInfo.processInfo.arguments.contains("-velaPreviewEmptyDashboard")
+        {
+            let (_, _, exec, _) = try await preview.resolve()
+            return exec
+        }
+        return try await BodySeekSharedStore.shared.executor()
+    }
+
     private static func liveOrPreviewRepo(preview: PreviewGRDBContainer) async throws -> BodySeekRepository {
         if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard")
             || ProcessInfo.processInfo.arguments.contains("-velaPreviewEmptyDashboard")
@@ -452,6 +518,25 @@ extension BodySeekStoreClient: DependencyKey {
                 let (_, _, exec, _) = try await preview.resolve()
                 return try await exec.undoWorkoutAnnotation(originalAuditID: auditID)
             },
+            executeAction: { proposal, source, confirmed in
+                let (_, _, exec, _) = try await preview.resolve()
+                return try await exec.executeAction(proposal, source: source, confirmed: confirmed)
+            },
+            undoAction: { auditID in
+                let (_, _, exec, _) = try await preview.resolve()
+                return try await exec.undoAction(originalAuditID: auditID)
+            },
+            loadRecentActionReceipts: { limit in
+                let (_, repo, _, _) = try await preview.resolve()
+                return try await repo.loadRecentActionReceipts(limit: limit)
+            },
+            loadMessageReceipts: { messageID in
+                let (_, repo, _, _) = try await preview.resolve()
+                return try await repo.loadMessageReceipts(messageID: messageID)
+            },
+            // 测试值默认不启动数据库观察，避免 TestStore 出现未声明的长生命周期 effect；
+            // 需要时在测试里覆盖 `observeBodyModel`。
+            observeBodyModel: { AsyncThrowingStream { $0.finish() } },
             loadCheckIns: {
                 let (_, repo, _, _) = try await preview.resolve()
                 return try await repo.loadCheckIns()

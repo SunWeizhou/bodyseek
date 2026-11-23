@@ -318,6 +318,12 @@ public struct ActionAuditEntry: Identifiable, Hashable, Codable, Sendable {
     public let undoOf: UUID?
     /// The undo audit row that undid this row.
     public let undoneBy: UUID?
+    /// 动作层写入的风险级别（`a` / `b` / `c`）；旧记录与直接写入为 `nil`。
+    public let riskLevel: String?
+    /// 动作来源（`coach` / `page` / `system` 等）；旧记录为 `nil`。
+    public let source: String?
+    /// 撤销期限；`nil` 表示没有期限。
+    public let undoDeadline: Date?
 
     public init(
         id: UUID = UUID(),
@@ -329,7 +335,10 @@ public struct ActionAuditEntry: Identifiable, Hashable, Codable, Sendable {
         snapshotVersion: Int = 1,
         snapshotJSON: String? = nil,
         undoOf: UUID? = nil,
-        undoneBy: UUID? = nil
+        undoneBy: UUID? = nil,
+        riskLevel: String? = nil,
+        source: String? = nil,
+        undoDeadline: Date? = nil
     ) {
         self.id = id
         self.proposalJSON = proposalJSON
@@ -341,6 +350,9 @@ public struct ActionAuditEntry: Identifiable, Hashable, Codable, Sendable {
         self.snapshotJSON = snapshotJSON
         self.undoOf = undoOf
         self.undoneBy = undoneBy
+        self.riskLevel = riskLevel
+        self.source = source
+        self.undoDeadline = undoDeadline
     }
 }
 

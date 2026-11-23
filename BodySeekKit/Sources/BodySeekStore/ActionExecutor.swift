@@ -13,7 +13,11 @@ public final class ActionExecutor: Sendable {
     }
 
     @discardableResult
-    public func execute(_ proposal: ActionProposal, now: Date = Date()) async throws -> ActionAuditEntry {
+    public func execute(
+        _ proposal: ActionProposal,
+        now: Date = Date(),
+        metadata: ActionAuditMetadata? = nil
+    ) async throws -> ActionAuditEntry {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         let proposalData = try encoder.encode(proposal)
@@ -151,12 +155,37 @@ public final class ActionExecutor: Sendable {
 
                 case .commitMemory:
                     let payload = try proposal.decodePayload(CommitMemoryPayload.self)
+                    let existedBefore = try Bool.fetchOne(
+                        db,
+                        sql: "SELECT 1 FROM memory WHERE id = ?",
+                        arguments: [payload.memory.id.uuidString]
+                    ) ?? false
                     try BodySeekRepository.saveTieredMemorySync(db: db, record: payload.memory)
+                    snapshotVersion = MemoryUndoSnapshot.currentVersion
+                    snapshotJSON = try Self.encodeSnapshot(
+                        MemoryUndoSnapshot(memoryID: payload.memory.id, existedBefore: existedBefore, previousRetiredAt: nil),
+                        encoder: encoder
+                    )
                     affectedIDs = [payload.memory.id.uuidString]
 
                 case .retireMemory:
                     let payload = try proposal.decodePayload(RetireMemoryPayload.self)
+                    let retiredRow = try Row.fetchOne(
+                        db,
+                        sql: "SELECT retired_at FROM memory WHERE id = ?",
+                        arguments: [payload.memoryID.uuidString]
+                    )
+                    let previousRetired: Double? = retiredRow.flatMap { $0["retired_at"] as Double? }
                     try BodySeekRepository.retireMemorySync(db: db, memoryID: payload.memoryID, retiredAt: payload.retiredAt)
+                    snapshotVersion = MemoryUndoSnapshot.currentVersion
+                    snapshotJSON = try Self.encodeSnapshot(
+                        MemoryUndoSnapshot(
+                            memoryID: payload.memoryID,
+                            existedBefore: true,
+                            previousRetiredAt: previousRetired.map(Date.init(timeIntervalSince1970:))
+                        ),
+                        encoder: encoder
+                    )
                     affectedIDs = [payload.memoryID.uuidString]
 
                 case .adjustPlan:
@@ -202,8 +231,8 @@ public final class ActionExecutor: Sendable {
                     guard !entries.isEmpty, entries.allSatisfy({ $0.dayKey == dayKey }) else {
                         throw BodySeekDatabaseError.invalidProposalPayload(kind: proposal.kind)
                     }
-                    var log = try BodySeekRepository.loadDailyNutritionLogSync(db: db, dayKey: dayKey)
-                        ?? DailyNutritionLog(dayKey: dayKey)
+                    let beforeLog = try BodySeekRepository.loadDailyNutritionLogSync(db: db, dayKey: dayKey)
+                    var log = beforeLog ?? DailyNutritionLog(dayKey: dayKey)
                     var affectedMeals = Set(entries.map(\.mealType))
                     for entry in entries {
                         if let idx = log.entries.firstIndex(where: { $0.id == entry.id }) {
@@ -221,11 +250,15 @@ public final class ActionExecutor: Sendable {
                     log.updatedAt = now
                     log.recalculateTotals()
                     try BodySeekRepository.saveDailyNutritionLogSync(db: db, log: log)
+                    try Self.captureNutritionSnapshot(
+                        db, dayKey: dayKey, before: beforeLog, version: &snapshotVersion, json: &snapshotJSON, encoder: encoder
+                    )
                     affectedIDs = [dayKey.isoString] + entries.map { $0.id.uuidString }
 
                 case .deleteNutritionMeal:
                     let payload = try proposal.decodePayload(DeleteNutritionMealPayload.self)
-                    guard var log = try BodySeekRepository.loadDailyNutritionLogSync(db: db, dayKey: payload.dayKey),
+                    let beforeLog = try BodySeekRepository.loadDailyNutritionLogSync(db: db, dayKey: payload.dayKey)
+                    guard var log = beforeLog,
                           let index = log.entries.firstIndex(where: { $0.id == payload.entryID })
                     else { throw BodySeekDatabaseError.invalidProposalPayload(kind: proposal.kind) }
                     let removed = log.entries.remove(at: index)
@@ -234,12 +267,15 @@ public final class ActionExecutor: Sendable {
                     log.updatedAt = now
                     log.recalculateTotals()
                     try BodySeekRepository.saveDailyNutritionLogSync(db: db, log: log)
+                    try Self.captureNutritionSnapshot(
+                        db, dayKey: payload.dayKey, before: beforeLog, version: &snapshotVersion, json: &snapshotJSON, encoder: encoder
+                    )
                     affectedIDs = [payload.dayKey.isoString, payload.entryID.uuidString]
 
                 case .closeNutritionDay:
                     let payload = try proposal.decodePayload(CloseNutritionDayPayload.self)
-                    var log = try BodySeekRepository.loadDailyNutritionLogSync(db: db, dayKey: payload.dayKey)
-                        ?? DailyNutritionLog(dayKey: payload.dayKey)
+                    let beforeLog = try BodySeekRepository.loadDailyNutritionLogSync(db: db, dayKey: payload.dayKey)
+                    var log = beforeLog ?? DailyNutritionLog(dayKey: payload.dayKey)
                     log.dietDayComplete = payload.markComplete
                     if let sportHours = payload.sportHours { log.sportHours = sportHours }
                     if let sportKcal = payload.sportKcal { log.sportKcal = sportKcal }
@@ -249,6 +285,9 @@ public final class ActionExecutor: Sendable {
                     log.updatedAt = now
                     log.recalculateTotals()
                     try BodySeekRepository.saveDailyNutritionLogSync(db: db, log: log)
+                    try Self.captureNutritionSnapshot(
+                        db, dayKey: payload.dayKey, before: beforeLog, version: &snapshotVersion, json: &snapshotJSON, encoder: encoder
+                    )
                     affectedIDs = [payload.dayKey.isoString]
                 }
 
@@ -260,7 +299,10 @@ public final class ActionExecutor: Sendable {
                     decidedAt: now,
                     affectedIDs: affectedIDs,
                     snapshotVersion: snapshotVersion,
-                    snapshotJSON: snapshotJSON
+                    snapshotJSON: snapshotJSON,
+                    riskLevel: metadata?.riskLevel,
+                    source: metadata?.source,
+                    undoDeadline: metadata?.undoDeadline
                 )
                 try Self.insertAuditSync(db: db, audit: audit, encoder: encoder)
                 return audit
@@ -529,7 +571,7 @@ public final class ActionExecutor: Sendable {
         }
     }
 
-    private static func insertAuditSync(db: Database, audit: ActionAuditEntry, encoder: JSONEncoder) throws {
+    static func insertAuditSync(db: Database, audit: ActionAuditEntry, encoder: JSONEncoder) throws {
         let affectedData = try encoder.encode(audit.affectedIDs)
         guard let affectedJSON = String(data: affectedData, encoding: .utf8) else {
             throw BodySeekDatabaseError.invalidJSONEncoding(context: "ActionAuditEntry.affectedIDs")
@@ -538,8 +580,9 @@ public final class ActionExecutor: Sendable {
             sql: """
             INSERT INTO action_audit
                 (id, proposal_json, origin, decision, decided_at, affected_ids_json,
-                 snapshot_version, snapshot_json, undo_of, undone_by)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 snapshot_version, snapshot_json, undo_of, undone_by,
+                 risk_level, source, undo_deadline)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             arguments: [
                 audit.id.uuidString,
@@ -552,6 +595,9 @@ public final class ActionExecutor: Sendable {
                 audit.snapshotJSON,
                 audit.undoOf?.uuidString,
                 audit.undoneBy?.uuidString,
+                audit.riskLevel,
+                audit.source,
+                audit.undoDeadline?.timeIntervalSince1970,
             ]
         )
     }

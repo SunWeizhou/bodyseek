@@ -1504,6 +1504,8 @@ public final class BodySeekRepository: Sendable {
         let workoutAnnotationCandidates: [CoachWorkoutAnnotationCandidate]?
         let unverifiedNumbers: [String]
         let toolsInvoked: [String]
+        /// 动作层自动执行的回执；旧消息没有这个字段，按空数组处理。
+        let appliedActions: [AppActionReceipt]?
     }
 
     public func loadMessages(threadID: String = "default") async throws -> [CoachMessage] {
@@ -1575,10 +1577,44 @@ public final class BodySeekRepository: Sendable {
                     workoutAnnotationCandidates: trace?.workoutAnnotationCandidates ?? [],
                     annotationDecision: annotationDecision,
                     unverifiedNumbers: trace?.unverifiedNumbers ?? [],
-                    toolsInvoked: trace?.toolsInvoked ?? []
+                    toolsInvoked: trace?.toolsInvoked ?? [],
+                    appliedActions: try Self.refreshReceipts(trace?.appliedActions ?? [], db: db)
                 )
             }
         }
+    }
+
+    /// 回执保存的是执行当时的状态；读取时根据审计表补上"是否已撤销"。
+    private static func refreshReceipts(_ receipts: [AppActionReceipt], db: Database) throws -> [AppActionReceipt] {
+        try receipts.map { receipt in
+            var refreshed = receipt
+            let row = try Row.fetchOne(
+                db,
+                sql: "SELECT decided_at FROM action_audit WHERE undo_of = ? AND decision = ?",
+                arguments: [receipt.id.uuidString, ActionAuditDecision.undone.rawValue]
+            )
+            let undoneAt: Double? = row.flatMap { $0["decided_at"] as Double? }
+            refreshed.undoneAt = undoneAt.map(Date.init(timeIntervalSince1970:))
+            return refreshed
+        }
+    }
+
+    /// 某条消息上已保存的动作回执（带最新的撤销状态）。
+    public func loadMessageReceipts(messageID: UUID) async throws -> [AppActionReceipt] {
+        try await database.writer.read { db in
+            guard let row = try Row.fetchOne(
+                db,
+                sql: "SELECT tool_trace_json FROM coach_message WHERE id = ?",
+                arguments: [messageID.uuidString]
+            ), let traceJSON = row["tool_trace_json"] as String? else { return [] }
+            let trace = try Self.decodeJSON(traceJSON, as: CoachMessageTraceMetadata.self)
+            return try Self.refreshReceipts(trace.appliedActions ?? [], db: db)
+        }
+    }
+
+    /// 最近由动作层执行的动作回执（新的在前）。
+    public func loadRecentActionReceipts(limit: Int = 20) async throws -> [AppActionReceipt] {
+        try await ActionExecutor(database: database).recentReceipts(limit: limit)
     }
 
     public func appendMessage(_ msg: CoachMessage, threadID: String = "default") async throws {
@@ -1592,6 +1628,7 @@ public final class BodySeekRepository: Sendable {
             || !msg.workoutAnnotationCandidates.isEmpty
             || !msg.unverifiedNumbers.isEmpty
             || !msg.toolsInvoked.isEmpty
+            || !msg.appliedActions.isEmpty
         let traceJSON: String? = if hasTrace {
             try Self.encodeJSONString(
                 CoachMessageTraceMetadata(
@@ -1599,7 +1636,8 @@ public final class BodySeekRepository: Sendable {
                     workoutAnnotationProposal: msg.workoutAnnotationProposal,
                     workoutAnnotationCandidates: msg.workoutAnnotationCandidates.isEmpty ? nil : msg.workoutAnnotationCandidates,
                     unverifiedNumbers: msg.unverifiedNumbers,
-                    toolsInvoked: msg.toolsInvoked
+                    toolsInvoked: msg.toolsInvoked,
+                    appliedActions: msg.appliedActions.isEmpty ? nil : msg.appliedActions
                 ),
                 label: "CoachMessage.trace"
             )
@@ -1669,7 +1707,8 @@ public final class BodySeekRepository: Sendable {
         try await database.writer.read { db in
             var sql = """
                 SELECT id, proposal_json, origin, decision, decided_at, affected_ids_json,
-                       snapshot_version, snapshot_json, undo_of, undone_by
+                       snapshot_version, snapshot_json, undo_of, undone_by,
+                       risk_level, source, undo_deadline
                 FROM action_audit
                 ORDER BY decided_at DESC
                 """
@@ -1703,7 +1742,10 @@ public final class BodySeekRepository: Sendable {
             snapshotVersion: (row["snapshot_version"] as Int?) ?? 1,
             snapshotJSON: row["snapshot_json"],
             undoOf: undoOf,
-            undoneBy: undoneBy
+            undoneBy: undoneBy,
+            riskLevel: row["risk_level"],
+            source: row["source"],
+            undoDeadline: (row["undo_deadline"] as Double?).map(Date.init(timeIntervalSince1970:))
         )
     }
 

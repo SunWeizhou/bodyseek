@@ -6,6 +6,40 @@
 
 ## [Unreleased]
 
+### V6 第五轮：每日简报（2026-11-22）
+
+> 详见 `docs/validation/v6-round5-2026-11-22.md`。
+
+#### Added
+
+- `DailyBrief`：唯一的结论对象（headline、changes、actions、各页面解读、证据）。引擎顺序为云端 → 端侧 → 本地模板，含未核实数字时回落；按输入摘要缓存，输入变化即过期重生成。
+- `BriefFeedbackBar`：准 / 不准 / 没用，写入 `brief_feedback`。
+- 测试：`DailyBriefTests`。
+
+#### Changed
+
+- 营养页、趋势页的 AI 解读槽位改读简报的 `pageNotes`，不再各自调用 `generatePageInsight`。
+- `BSReceipt` 的无障碍层级由 `combine` 改为 `contain`，撤销按钮可单独点击并带标识（`coach-receipt-undo`）。
+- UI 测试 `testCoachAnnotationConfirmAndUndo`、`testM3CoachProposals…` 改为断言回执卡与撤销。
+
+### V6 第四轮：读写通路与动作层（2026-11-22）
+
+> 未编译。详见 `docs/validation/v6-round4-2026-11-22.md`。
+
+#### Added
+
+- 动作层：`ActionExecutor.executeAction` 按 AppAction 风险级别执行（A、B 级直接执行并返回回执，C 级返回"需要确认"），单事务写入业务数据与 `action_audit`（`risk_level`、`source`、`undo_deadline`、before/after 快照）；`undoAction` 按原操作 ID 撤销，检查冲突，B 级 24 小时期限，训练标注复用原有撤销实现。
+- `BodyModelStore`（`BodySeekStore`）：用 `ValueObservation` 广播身体模型只读快照；`AppFeature` 增加数据库观察驱动的刷新，原刷新路径保留作兜底。
+- Coach：`execute_action` 工具；`propose_memory`、`propose_workout_annotation` 在有动作层时直接执行并返回回执；`propose_plan_change` 保持 C 级确认卡片；系统提示词补充三级授权；端侧模型新增对应工具。
+- `CoachReceiptCard`：用 `BSReceipt` 展示回执并支持撤销，撤销后刷新相关页面。
+- `BodySeekStoreClient` 新增 `executeAction`、`undoAction`、`loadRecentActionReceipts`、`loadMessageReceipts`、`observeBodyModel`。
+- 测试：`ActionLayerTests`、`CoachActionLayerTests`。
+
+#### Changed
+
+- 设计门禁扫描范围加入 `BodySeekDesign/Components`（Gallery 不纳入），基线 767 / 66 → 769 / 66。
+- `undoConflict` 的提示语改为通用。
+
 ### V6 第一轮：地基整理（2026-11-22）
 
 > 本轮没有在有 Xcode 工具链的环境里编译和测试；新增 Swift 代码待本机 `swift test` 验证。详见 `docs/validation/v6-round1-2026-11-22.md`。

@@ -1,6 +1,7 @@
 import BodySeekAgent
 import BodySeekCore
 import BodySeekHealth
+import BodySeekStore
 import ComposableArchitecture
 import Foundation
 
@@ -37,6 +38,9 @@ public struct CoachFeature: Sendable {
         public var confirmedAnnotationProposalMessageIDs: Set<UUID> = []
         public var annotationCandidateSelections: [UUID: CoachWorkoutAnnotationProposal] = [:]
         public var undoneAnnotationMessageIDs: Set<UUID> = []
+        /// 已撤销的动作回执（动作层自动执行的 A、B 级动作）。
+        public var undoneReceiptIDs: Set<UUID> = []
+        var pendingReceiptUndoIDs: Set<UUID> = []
         var pendingAnnotationDecisionMessageIDs: Set<UUID> = []
         var pendingAnnotationUndoMessageIDs: Set<UUID> = []
         public var lastError: String?
@@ -125,6 +129,9 @@ public struct CoachFeature: Sendable {
         case undoAnnotationTapped(messageID: UUID)
         case annotationUndone(messageID: UUID)
         case annotationUndoFailed(messageID: UUID, String)
+        case undoReceiptTapped(messageID: UUID, receiptID: UUID)
+        case receiptUndone(receiptID: UUID, kind: ActionProposal.Kind)
+        case receiptUndoFailed(receiptID: UUID, String)
         case memorySheetPresented(Bool)
         case deleteMemoryTapped(UUID)
         case retireTieredMemoryTapped(UUID)
@@ -142,6 +149,8 @@ public struct CoachFeature: Sendable {
             case patternFindingsUpdated([PatternFindingRecord])
             case workoutAnnotationCommitted
             case workoutAnnotationUndone
+            /// 动作层执行或撤销了动作；页面据此刷新相关数据（数据库观察之外的兜底路径）。
+            case appliedActionsChanged([ActionProposal.Kind])
             case openSettings
         }
     }
@@ -180,7 +189,8 @@ public struct CoachFeature: Sendable {
                 state.isSending = false
                 state.lastError = storeError
                 state.messages.append(reply)
-                return .none
+                guard !reply.appliedActions.isEmpty else { return .none }
+                return .send(.delegate(.appliedActionsChanged(reply.appliedActions.map(\.kind))))
 
             case .newConversationTapped:
                 guard !state.isSending, !state.isResettingConversation, state.pendingAnnotationDecisionMessageIDs.isEmpty else { return .none }
@@ -206,6 +216,7 @@ public struct CoachFeature: Sendable {
                 state.confirmedAnnotationProposalMessageIDs.removeAll()
                 state.annotationCandidateSelections.removeAll()
                 state.undoneAnnotationMessageIDs.removeAll()
+                state.undoneReceiptIDs.removeAll()
                 state.messages = [State.makeWelcomeMessage()]
                 return .none
 
@@ -348,6 +359,39 @@ public struct CoachFeature: Sendable {
                 state.lastError = message
                 return .none
 
+            case let .undoReceiptTapped(messageID, receiptID):
+                let receipt = state.messages
+                    .first(where: { $0.id == messageID })?
+                    .appliedActions.first(where: { $0.id == receiptID })
+                guard let receipt,
+                      !state.pendingReceiptUndoIDs.contains(receiptID),
+                      !state.undoneReceiptIDs.contains(receiptID)
+                else { return .none }
+                guard receipt.canUndo(at: now) else {
+                    state.lastError = receipt.undoneAt == nil ? AppActionError.undoWindowExpired.localizedDescription : nil
+                    return .none
+                }
+                state.pendingReceiptUndoIDs.insert(receiptID)
+                let kind = receipt.kind
+                return .run { send in
+                    do {
+                        _ = try await bodySeekStoreClient.undoAction(receiptID)
+                        await send(.receiptUndone(receiptID: receiptID, kind: kind))
+                    } catch {
+                        await send(.receiptUndoFailed(receiptID: receiptID, "撤销失败：\(error.localizedDescription)"))
+                    }
+                }
+
+            case let .receiptUndone(receiptID, kind):
+                state.pendingReceiptUndoIDs.remove(receiptID)
+                state.undoneReceiptIDs.insert(receiptID)
+                return .send(.delegate(.appliedActionsChanged([kind])))
+
+            case let .receiptUndoFailed(receiptID, message):
+                state.pendingReceiptUndoIDs.remove(receiptID)
+                state.lastError = message
+                return .none
+
             case let .memorySheetPresented(presented):
                 state.showMemorySheet = presented
                 return .none
@@ -481,6 +525,14 @@ public struct CoachFeature: Sendable {
         }
     }
 
+    /// Coach 的动作层入口：来源固定为 `coach`，A、B 级直接执行，C 级返回"需要确认"。
+    private func makeActionGateway() -> AgentActionGateway {
+        let client = bodySeekStoreClient
+        return AgentActionGateway { proposal in
+            try await client.executeAction(proposal, ActionSource.coach, false)
+        }
+    }
+
     private func enqueueQuestion(_ question: String, state: inout State) -> Effect<Action> {
         let userMsg = CoachMessage(id: uuid(), role: .user, text: question, timestamp: now)
         if state.isAtWelcome { state.messages = [] }
@@ -506,7 +558,8 @@ public struct CoachFeature: Sendable {
             dominantHand: state.dominantHand,
             sleepGoalMinutes: state.sleepGoalMinutes,
             asOf: userMsg.timestamp,
-            conversationHistory: Array(state.messages.dropLast().suffix(6))
+            conversationHistory: Array(state.messages.dropLast().suffix(6)),
+            actionGateway: makeActionGateway()
         )
         return .run { send in
             var storeError: String?

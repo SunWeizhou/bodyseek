@@ -68,6 +68,8 @@ public struct TrendsFeature: Sendable {
         public var personalForecast: PersonalForecastState
         public var selectedForecastTargetName: String = "hrv_sdnn_ms"
         public var aiInsightsByScope: [InsightScopeKey: AIBriefingStatus] = [:]
+        /// 今天的每日简报；趋势页的 AI 解读读 `pageNotes[trends]`。
+        public var dailyBrief: DailyBrief?
         public var aiInsightStatus: AIBriefingStatus {
             aiInsightsByScope[currentInsightScopeKey] ?? .idle
         }
@@ -300,6 +302,7 @@ public struct TrendsFeature: Sendable {
         case forecastTargetSelected(String)
         case refreshAIInsightTapped
         case aiInsightLoaded(InsightScopeKey, AIBriefingStatus)
+        case dailyBriefUpdated(DailyBrief?)
         case askCoachTapped(String)
         case storeOperationFailed(String)
         case delegate(Delegate)
@@ -322,6 +325,12 @@ public struct TrendsFeature: Sendable {
     @Dependency(\.date.now) var now
 
     public init() {}
+
+    /// 页面解读槽位：把每日简报里这一页的文案转成页面已有的状态枚举。
+    static func briefStatus(for brief: DailyBrief?) -> AIBriefingStatus {
+        guard let brief else { return .unconfigured(reason: "今天的简报还没有生成") }
+        return .generated(text: brief.note(for: .trends), engineName: brief.engine.title)
+    }
 
     public var body: some ReducerOf<Self> {
         Reduce { state, action in
@@ -498,24 +507,14 @@ public struct TrendsFeature: Sendable {
                     state.aiInsightsByScope[scope] = .generated(text: state.deterministicTrendSummary, engineName: "预览模式")
                     return .none
                 }
-                state.aiInsightsByScope[scope] = .loading
-                let topic = "趋势、统计预测与个人规律解读"
-                let summary = state.deterministicTrendSummary
-                let patternNotes = state.patternFindings
-                    .filter { $0.status != .dismissed }
-                    .prefix(3)
-                    .map(\.statement)
-                    .joined(separator: "；")
-                let promptContext = "\(summary) \(patternNotes.isEmpty ? "" : "近期统计规律：\(patternNotes)。")"
-                let execContext = AgentExecutionContext(
-                    snapshot: state.snapshot,
-                    patternFindings: state.patternFindings
-                )
-                return .run { send in
-                    let status = await coachAIClient.generatePageInsight(topic, promptContext, execContext)
-                    await send(.aiInsightLoaded(scope, status))
-                }
-                .cancellable(id: CancelID.aiInsight, cancelInFlight: true)
+                // 趋势页的解读来自每日简报；`generatePageInsight` 保留在 CoachAIClient 里，但页面不再调用。
+                state.aiInsightsByScope[scope] = Self.briefStatus(for: state.dailyBrief)
+                return .cancel(id: CancelID.aiInsight)
+
+            case let .dailyBriefUpdated(brief):
+                state.dailyBrief = brief
+                state.aiInsightsByScope[state.currentInsightScopeKey] = Self.briefStatus(for: brief)
+                return .none
 
             case let .aiInsightLoaded(scope, status):
                 guard scope == state.currentInsightScopeKey else { return .none }

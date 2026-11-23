@@ -67,6 +67,8 @@ public struct NutritionFeature: Sendable {
         public var isSaving: Bool = false
         public var isPreviewMode: Bool
         public var coachAdviceByScope: [AdviceScopeKey: AIBriefingStatus] = [:]
+        /// 今天的每日简报；营养页的 AI 解读读 `pageNotes[nutrition]`。
+        public var dailyBrief: DailyBrief?
         public var coachAdviceStatus: AIBriefingStatus {
             coachAdviceByScope[currentAdviceScopeKey] ?? .idle
         }
@@ -255,6 +257,7 @@ public struct NutritionFeature: Sendable {
         case mutationFailed(String)
         case generateNutritionAdviceTapped
         case nutritionAdviceLoaded(AdviceScopeKey, AIBriefingStatus)
+        case dailyBriefUpdated(DailyBrief?)
         case askCoachTapped(String)
         case delegate(Delegate)
 
@@ -279,6 +282,12 @@ public struct NutritionFeature: Sendable {
     @Dependency(\.uuid) var uuid
 
     public init() {}
+
+    /// 页面解读槽位：把每日简报里这一页的文案转成页面已有的状态枚举。
+    static func briefStatus(for brief: DailyBrief?) -> AIBriefingStatus {
+        guard let brief else { return .unconfigured(reason: "今天的简报还没有生成") }
+        return .generated(text: brief.note(for: .nutrition), engineName: brief.engine.title)
+    }
 
     public var body: some ReducerOf<Self> {
         Reduce { state, action in
@@ -626,25 +635,14 @@ public struct NutritionFeature: Sendable {
                     state.coachAdviceByScope[scope] = .generated(text: state.deterministicAdviceSummary, engineName: "预览模式")
                     return .none
                 }
-                state.coachAdviceByScope[scope] = .loading
-                let topic = "营养摄入与下顿配餐建议"
-                let summary = state.deterministicAdviceSummary
-                let todayStrain = state.snapshot.today.strain.value.map { "今日负荷 \($0) 分" } ?? "今日负荷待同步"
-                let lows = state.periodSummary.metricAverages.filter { $0.displayStatus == .low }.prefix(5)
-                    .map { "\($0.metricName)(\($0.isEstimateOnly ? "估算均值" : "均值") \($0.averageValue.map { String(format: "%.1f", $0) } ?? "--")\($0.unit))" }
-                    .joined(separator: "、")
-                let promptContext = "\(summary) \(todayStrain)。偏低项：\(lows.isEmpty ? "无明显偏低项" : lows)。"
-                let execContext = AgentExecutionContext(
-                    snapshot: state.snapshot,
-                    todayNutritionLog: state.selectedDayLog,
-                    nutritionTargetPlan: state.targetPlan,
-                    nutritionLogs: state.logs
-                )
-                return .run { send in
-                    let status = await coachAIClient.generatePageInsight(topic, promptContext, execContext)
-                    await send(.nutritionAdviceLoaded(scope, status))
-                }
-                .cancellable(id: CancelID.nutritionAdvice, cancelInFlight: true)
+                // 营养页的解读来自每日简报；`generatePageInsight` 保留在 CoachAIClient 里，但页面不再调用。
+                state.coachAdviceByScope[scope] = Self.briefStatus(for: state.dailyBrief)
+                return .cancel(id: CancelID.nutritionAdvice)
+
+            case let .dailyBriefUpdated(brief):
+                state.dailyBrief = brief
+                state.coachAdviceByScope[state.currentAdviceScopeKey] = Self.briefStatus(for: brief)
+                return .none
 
             case let .nutritionAdviceLoaded(scope, status):
                 guard scope == state.currentAdviceScopeKey else { return .none }

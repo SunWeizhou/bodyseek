@@ -38,6 +38,8 @@ public struct AppFeature: Sendable {
         /// Cold-start briefing/backfill/workout sync is scheduled once per process,
         /// whether it comes from the synced ReadModel cache or the direct fetch.
         public var didScheduleColdStartWork: Bool = false
+        /// 数据库观察驱动的刷新：上一次收到的身体模型指纹；`nil` 表示还没收到第一帧。
+        var lastBodyModelRevision: BodyModelRevision?
 
         public init(
             hasCompletedOnboarding: Bool = false,
@@ -146,6 +148,10 @@ public struct AppFeature: Sendable {
             error: String?
         )
         case briefingGenerated(AIBriefingStatus)
+        /// 每日简报生成或命中缓存；今日、趋势、营养三页的 AI 解读都读它。
+        case dailyBriefLoaded(DailyBriefResult)
+        /// 身体模型快照变化（数据库观察驱动，旧的手动刷新路径保留作兜底）。
+        case bodyModelChanged(BodyModelSnapshot)
         case healthUpdateTick
         case clearMetricDetailPaths
         case today(TodayFeature.Action)
@@ -166,6 +172,8 @@ public struct AppFeature: Sendable {
         case dashboardObservation
         case loadSnapshot
         case briefing
+        case bodyModelObservation
+        case bodyModelRefresh
     }
 
     @Dependency(\.healthKitClient) var healthKitClient
@@ -173,6 +181,7 @@ public struct AppFeature: Sendable {
     @Dependency(\.fitnessStoreClient) var fitnessStoreClient
     @Dependency(\.bodySeekStoreClient) var bodySeekStoreClient
     @Dependency(\.coachAIClient) var coachAIClient
+    @Dependency(\.dailyBriefClient) var dailyBriefClient
     @Dependency(\.continuousClock) var clock
     @Dependency(\.date.now) var now
 
@@ -216,7 +225,8 @@ public struct AppFeature: Sendable {
                     loadSupplementalContextEffect(dayKey: state.snapshot.referenceDate.physiologicalDayKey(), referenceDate: now),
                     .send(.workout(.onAppear)),
                     observeHealthUpdatesEffect(),
-                    observeStoredDashboardEffect(goalMinutes: state.preferences.sleepGoalMinutes)
+                    observeStoredDashboardEffect(goalMinutes: state.preferences.sleepGoalMinutes),
+                    observeBodyModelEffect()
                 )
 
             case let .tabSelected(tab):
@@ -375,6 +385,22 @@ public struct AppFeature: Sendable {
                 state.today.briefingStatus = status
                 return .none
 
+            case let .dailyBriefLoaded(result):
+                let brief = result.brief
+                if state.today.dailyBrief?.dayKey != brief.dayKey {
+                    state.today.briefFeedback = nil
+                }
+                state.today.dailyBrief = brief
+                let status = AIBriefingStatus.generated(text: brief.note(for: .today), engineName: brief.engine.title)
+                return .merge(
+                    .send(.briefingGenerated(status)),
+                    .send(.trends(.dailyBriefUpdated(brief))),
+                    .send(.nutrition(.dailyBriefUpdated(brief)))
+                )
+
+            case let .bodyModelChanged(model):
+                return reduceBodyModel(model, state: &state)
+
             case .healthUpdateTick:
                 return loadSnapshotEffect(goalMinutes: state.preferences.sleepGoalMinutes, referenceDate: now)
 
@@ -461,7 +487,17 @@ public struct AppFeature: Sendable {
                     return .none
 
                 case .regenerateBriefingRequested:
-                    return requestBriefing(state: &state)
+                    return requestBriefing(state: &state, force: true)
+
+                case let .briefFeedbackSubmitted(rating):
+                    let dayKey = state.today.dailyBrief?.dayKey ?? state.snapshot.today.dayKey
+                    return .run { send in
+                        do {
+                            try await dailyBriefClient.submitFeedback(rating, dayKey)
+                        } catch {
+                            await send(.persistenceFailed("保存简报反馈失败：\(error.localizedDescription)"))
+                        }
+                    }
                 }
 
             // MARK: - Workout Delegates
@@ -578,6 +614,20 @@ public struct AppFeature: Sendable {
 
                 case .workoutAnnotationCommitted, .workoutAnnotationUndone:
                     return .send(.workout(.onAppear))
+
+                case let .appliedActionsChanged(kinds):
+                    // 兜底路径：数据库观察已经会刷新；这里再按动作种类主动刷新一次，防止观察延迟。
+                    var refresh: [Effect<Action>] = [
+                        loadFitnessStoreEffect(),
+                        loadSupplementalContextEffect(
+                            dayKey: state.snapshot.referenceDate.physiologicalDayKey(),
+                            referenceDate: now
+                        ),
+                    ]
+                    if kinds.contains(.annotateWorkout) {
+                        refresh.append(.send(.workout(.onAppear)))
+                    }
+                    return .merge(refresh)
 
                 case .openSettings:
                     state.settings = SettingsFeature.State(
@@ -804,6 +854,52 @@ public struct AppFeature: Sendable {
         .cancellable(id: CancelID.loadSnapshot, cancelInFlight: true)
     }
 
+    private func observeBodyModelEffect() -> Effect<Action> {
+        .run { send in
+            do {
+                let stream = await bodySeekStoreClient.observeBodyModel()
+                for try await model in stream {
+                    await send(.bodyModelChanged(model))
+                }
+            } catch {
+                await send(.persistenceFailed("监听身体模型更新失败：\(error.localizedDescription)"))
+            }
+        }
+        .cancellable(id: CancelID.bodyModelObservation, cancelInFlight: true)
+    }
+
+    /// 数据库观察到身体模型变化后，只刷新真正变了的那部分；第一帧只记录基线。
+    private func reduceBodyModel(_ model: BodyModelSnapshot, state: inout State) -> Effect<Action> {
+        let previous = state.lastBodyModelRevision
+        state.lastBodyModelRevision = model.revision
+        guard let previous else { return .none }
+        let current = model.revision
+        var effects: [Effect<Action>] = []
+
+        if previous.memoryCount != current.memoryCount || previous.memoryStamp != current.memoryStamp {
+            state.tieredMemories = model.activeMemories
+            state.coach.tieredMemories = model.activeMemories
+            state.settings?.tieredMemories = model.activeMemories
+        }
+        if previous.annotationCount != current.annotationCount {
+            effects.append(.send(.workout(.onAppear)))
+        }
+        let contextChanged = previous.nutritionLogCount != current.nutritionLogCount
+            || previous.nutritionStamp != current.nutritionStamp
+            || previous.planItemDigest != current.planItemDigest
+            || previous.checkInCount != current.checkInCount
+        if contextChanged {
+            effects.append(
+                loadSupplementalContextEffect(
+                    dayKey: state.snapshot.referenceDate.physiologicalDayKey(),
+                    referenceDate: now
+                )
+                .cancellable(id: CancelID.bodyModelRefresh, cancelInFlight: true)
+            )
+        }
+        return .merge(effects)
+    }
+
     private func observeStoredDashboardEffect(goalMinutes: Int) -> Effect<Action> {
         .run { send in
             do {
@@ -954,7 +1050,7 @@ public struct AppFeature: Sendable {
         }
     }
 
-    private func requestBriefing(state: inout State) -> Effect<Action> {
+    private func requestBriefing(state: inout State, force: Bool = false) -> Effect<Action> {
         refreshTrainingAdvice(&state)
         guard state.today.postWorkoutAdvice == nil else { return .cancel(id: CancelID.briefing) }
         state.today.briefingStatus = .loading
@@ -977,9 +1073,10 @@ public struct AppFeature: Sendable {
             sleepGoalMinutes: state.preferences.sleepGoalMinutes,
             asOf: now
         )
+        // 页面不再直接调用 `generateBriefing`（保留在 CoachAIClient 里）；结论统一来自每日简报。
         return .run { send in
-            let status = await coachAIClient.generateBriefing(context)
-            await send(.briefingGenerated(status))
+            let result = await dailyBriefClient.current(context, force)
+            await send(.dailyBriefLoaded(result))
         }
         .cancellable(id: CancelID.briefing, cancelInFlight: true)
     }

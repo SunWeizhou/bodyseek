@@ -29,6 +29,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 FEATURES = "BodySeekKit/Sources/BodySeekFeatures"
 CHARTS = "BodySeekKit/Sources/BodySeekDesign/Charts"
+COMPONENTS = "BodySeekKit/Sources/BodySeekDesign/Components"
 TOKENS = "BodySeekKit/Sources/BodySeekDesign/Tokens"
 
 
@@ -150,7 +151,7 @@ def scan_file(path: Path, rel: str, in_charts: bool) -> list[tuple[str, int]]:
 
 def collect_files(root: Path) -> list[tuple[Path, str, bool]]:
     files: list[tuple[Path, str, bool]] = []
-    for base, in_charts in ((FEATURES, False), (CHARTS, True)):
+    for base, in_charts in ((FEATURES, False), (COMPONENTS, False), (CHARTS, True)):
         base_path = root / base
         if not base_path.is_dir():
             print(f"警告：目录不存在 {base}", file=sys.stderr)

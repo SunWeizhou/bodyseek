@@ -107,6 +107,12 @@ public struct AppActionReceipt: Identifiable, Hashable, Codable, Sendable {
     public let isUndoable: Bool
     /// 撤销期限；`nil` 表示没有期限。
     public let undoDeadline: Date?
+    /// B 级动作：改动前的值（用于改动前后对比）。
+    public let beforeText: String?
+    /// B 级动作：改动后的值。
+    public let afterText: String?
+    /// 撤销时间；`nil` 表示尚未撤销。
+    public var undoneAt: Date?
 
     /// 创建回执。
     public init(
@@ -117,7 +123,10 @@ public struct AppActionReceipt: Identifiable, Hashable, Codable, Sendable {
         detail: String,
         executedAt: Date,
         isUndoable: Bool,
-        undoDeadline: Date? = nil
+        undoDeadline: Date? = nil,
+        beforeText: String? = nil,
+        afterText: String? = nil,
+        undoneAt: Date? = nil
     ) {
         self.id = id
         self.kind = kind
@@ -127,6 +136,30 @@ public struct AppActionReceipt: Identifiable, Hashable, Codable, Sendable {
         self.executedAt = executedAt
         self.isUndoable = isUndoable
         self.undoDeadline = undoDeadline
+        self.beforeText = beforeText
+        self.afterText = afterText
+        self.undoneAt = undoneAt
+    }
+
+    /// 在给定时刻是否还能撤销：可撤销、未撤销、未超过期限。
+    public func canUndo(at date: Date) -> Bool {
+        guard isUndoable, undoneAt == nil else { return false }
+        if let undoDeadline { return date <= undoDeadline }
+        return true
+    }
+}
+
+/// 动作层一次执行的结果。
+public enum AppActionOutcome: Hashable, Sendable {
+    /// A、B 级：已经执行，附回执。
+    case executed(AppActionReceipt)
+    /// C 级：没有执行，需要用户先确认。
+    case needsConfirmation(kind: ActionProposal.Kind, title: String)
+
+    /// 已执行时的回执。
+    public var receipt: AppActionReceipt? {
+        if case let .executed(receipt) = self { return receipt }
+        return nil
     }
 }
 
@@ -136,6 +169,8 @@ public enum AppActionError: Error, LocalizedError, Sendable, Equatable {
     case confirmationRequired(kind: ActionProposal.Kind)
     /// 已超过撤销期限。
     case undoWindowExpired
+    /// 这个动作没有可用的撤销快照，或已经被撤销。
+    case notUndoable(reason: String)
 
     public var errorDescription: String? {
         switch self {
@@ -143,6 +178,8 @@ public enum AppActionError: Error, LocalizedError, Sendable, Equatable {
             "这个操作需要你先确认（\(AppActionCatalog.descriptor(for: kind).title)）。"
         case .undoWindowExpired:
             "已超过撤销期限。"
+        case let .notUndoable(reason):
+            "这个操作无法撤销：\(reason)"
         }
     }
 }

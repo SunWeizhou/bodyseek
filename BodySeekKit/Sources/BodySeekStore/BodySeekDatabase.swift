@@ -25,7 +25,7 @@ public enum BodySeekDatabaseError: Error, LocalizedError, Sendable {
         case let .undoUnsupported(reason):
             "该操作无法撤销：\(reason)"
         case let .undoConflict(reason):
-            "训练记录之后已被修改或删除，撤销会覆盖新内容：\(reason)。当前记录未变。"
+            "撤销会覆盖之后的新改动：\(reason)。当前记录未变。"
         case let .recordChanged(table, key):
             "确认卡展示后记录已变化（\(table): \(key)），请刷新训练记录后重试。"
         }
