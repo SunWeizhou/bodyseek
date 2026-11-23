@@ -39,6 +39,7 @@ public struct WorkoutView: View {
         } links: {
             archiveSection
         }
+        .oneLineHeader(subtitle: "肌群恢复与训练")
         .onAppear {
             store.send(.onAppear)
         }

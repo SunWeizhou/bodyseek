@@ -72,6 +72,15 @@ public enum BSColor {
     /// 能量。
     public static var energy: Color { BevelTheme.energyColor }
 
+    // MARK: - 体征色（v4）
+
+    /// 静息心率。
+    public static var heart: Color { BevelTheme.heartColor }
+    /// 呼吸率。
+    public static var respiration: Color { BevelTheme.respirationColor }
+    /// 血氧。
+    public static var oxygen: Color { BevelTheme.oxygenColor }
+
     // MARK: - 强调色
 
     /// App 全局强调色，等于恢复色。

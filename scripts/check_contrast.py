@@ -26,6 +26,10 @@ THEME = (
 )
 TEXT_MIN = 4.5
 TEXT_TOKENS = ("ink", "inkSecondary", "deviationInk", "brand")
+# UI v4 体征色：图形色，对画布与卡片面在浅色 / 深色下都必须 >= 3:1（WCAG 非文字对比度）。
+GRAPHIC_TOKENS = ("heartColor", "respirationColor", "oxygenColor")
+GRAPHIC_MIN = 3.0
+CARD_SURFACE = ("#FFFFFF", "#1C1C1E")  # BevelTheme.card
 
 
 def luminance(hex_color):
@@ -87,6 +91,24 @@ def main():
                     f"  {token} {value} on {canvas_hex} = {ratio:.2f}:1 (< {TEXT_MIN})"
                 )
 
+    for token in GRAPHIC_TOKENS:
+        pair = by_name.get(token)
+        if pair is None:
+            failures.append(f"  graphic token {token} missing")
+            continue
+        light, dark = pair
+        for mode, value, canvas_hex, card_hex in (
+            ("light", light, light_canvas, CARD_SURFACE[0]),
+            ("dark", dark, dark_canvas, CARD_SURFACE[1]),
+        ):
+            for surface_name, surface_hex in (("canvas", canvas_hex), ("card", card_hex)):
+                ratio = contrast(value, surface_hex)
+                print(f"{token} {mode} {value} on {surface_name} {surface_hex} = {ratio:.2f}:1")
+                if ratio < GRAPHIC_MIN:
+                    failures.append(
+                        f"  {token} {value} on {surface_name} {surface_hex} = {ratio:.2f}:1 (< {GRAPHIC_MIN})"
+                    )
+
     # 报告项：其余文字语义色 <3:1 只提示（图标/装饰色按图形目标 3:1）。
     text_like = re.compile(
         r"(accent|brand|state|system|info|strain|energy|stress|sleep|recovery|meta|ink|fg|Text|poor|moderate|good|danger)",
@@ -110,13 +132,14 @@ def main():
         print("\n".join(warnings))
 
     if failures:
-        print("FAIL (text tokens WCAG AA >=4.5:1):")
+        print("FAIL (text tokens >=4.5:1 / graphic tokens >=3:1):")
         print("\n".join(failures))
         if report_only:
             return 0
         return 1
 
-    print(f"contrast OK: text tokens {', '.join(TEXT_TOKENS)} all >= {TEXT_MIN}:1")
+    print(f"contrast OK: text tokens {', '.join(TEXT_TOKENS)} all >= {TEXT_MIN}:1; "
+          f"graphic tokens {', '.join(GRAPHIC_TOKENS)} all >= {GRAPHIC_MIN}:1")
     return 0
 
 

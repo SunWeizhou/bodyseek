@@ -39,6 +39,7 @@ public struct DesignSystemGallery: View {
                 GalleryCharts(isLoading: isLoading)
                 GalleryCoach(isLoading: isLoading)
                 GalleryStructure()
+                GalleryV4(isLoading: isLoading)
             }
         }
         .dynamicTypeSize(largeText ? .accessibility3 : .large)
@@ -210,6 +211,52 @@ private struct GalleryCoach: View {
                 title: "修改睡眠目标", detail: "睡眠目标", status: .failed, failureReason: "目标超出允许范围"
             )
             BSAskCoachButton {}
+        }
+    }
+}
+
+private struct GalleryV4: View {
+    let isLoading: Bool
+
+    var body: some View {
+        BSSection("UI v4") {
+            BSCard {
+                VStack(alignment: .leading, spacing: BSSpace.s) {
+                    BSPageHeader("今日", subtitle: "11月23日 周一") {
+                        BSHeaderButton(
+                            systemImage: "square.and.pencil", label: "打卡", identifier: "gallery-header-button"
+                        ) {}
+                    }
+                    estimateBar
+                    HStack(spacing: BSSpace.s) {
+                        swatch(BSColor.heart, "心率")
+                        swatch(BSColor.respiration, "呼吸")
+                        swatch(BSColor.oxygen, "血氧")
+                    }
+                }
+                .redacted(reason: isLoading ? .placeholder : [])
+            }
+        }
+    }
+
+    private var estimateBar: some View {
+        HStack(spacing: BSSpace.none) {
+            Capsule()
+                .fill(BSColor.energy)
+                .frame(width: BSSize.ringL)
+            BSStripeFill(color: BSColor.energy)
+                .frame(width: BSSize.ringM)
+            Spacer(minLength: BSSpace.none)
+        }
+        .frame(height: BSSize.dot)
+        .background(BSColor.surfaceInset, in: Capsule())
+        .clipShape(Capsule())
+    }
+
+    private func swatch(_ color: Color, _ name: String) -> some View {
+        HStack(spacing: BSSpace.xxs) {
+            Circle().fill(color).frame(width: BSSize.dot, height: BSSize.dot)
+            Text(name).bsText(.caption)
         }
     }
 }

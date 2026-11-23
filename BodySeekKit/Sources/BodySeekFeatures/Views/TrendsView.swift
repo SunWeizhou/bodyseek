@@ -32,6 +32,7 @@ public struct TrendsView: View {
         } links: {
             labSection
         }
+        .oneLineHeader(subtitle: store.horizon.title)
         .onChange(of: store.horizon) {
             readouts = [:]
         }

@@ -24,10 +24,11 @@ public struct NutritionBoardView: View {
         } links: {
             linksContent
         }
-        .toolbar {
-            ToolbarItem(placement: .bodyseekLeading) {
-                moreMenu
+        .oneLineHeader(subtitle: "今日饮食") {
+            BSHeaderButton(systemImage: "plus", label: "记一餐", identifier: "nutrition-log-meal-header") {
+                store.send(.mealLoggerPresented(true))
             }
+            moreMenu
         }
         .onAppear {
             store.send(.onAppear)
@@ -53,7 +54,7 @@ public struct NutritionBoardView: View {
     // MARK: - 工具栏与弹层
 
     private var moreMenu: some View {
-        Menu {
+        BSHeaderMenu(systemImage: "ellipsis", label: "更多", identifier: "nutrition-more-menu") {
             Button {
                 store.send(.mealLoggerPresented(true))
             } label: {
@@ -80,10 +81,7 @@ public struct NutritionBoardView: View {
             } label: {
                 Label("导出营养目标", systemImage: "doc.badge.gearshape")
             }
-        } label: {
-            Image(systemName: "ellipsis.circle")
         }
-        .accessibilityIdentifier("nutrition-more-menu")
     }
 
     private var mealLoggerBinding: Binding<NutritionFeature.MealLogger?> {

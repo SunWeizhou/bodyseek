@@ -12,6 +12,7 @@ public struct BSPage<Hero: View, Note: View, Sections: View, Links: View>: View 
     private let note: Note
     private let sections: Sections
     private let links: Links
+    private var header: BSPageHeaderConfig?
 
     /// 创建完整页面骨架。
     /// - Parameters:
@@ -40,27 +41,77 @@ public struct BSPage<Hero: View, Note: View, Sections: View, Links: View>: View 
         self.links = links()
     }
 
+    /// 改用一行式标题栏（UI v4 §1.1）：隐藏系统导航栏，标题与副标题同一行，右侧放按钮。
+    /// - Parameters:
+    ///   - subtitle: 同一行的灰色副标题。
+    ///   - trailing: 右侧按钮（`BSHeaderButton` / `BSHeaderMenu`）。
+    public func oneLineHeader<Trailing: View>(
+        subtitle: String? = nil,
+        @ViewBuilder trailing: () -> Trailing
+    ) -> BSPage {
+        var copy = self
+        copy.header = BSPageHeaderConfig(subtitle: subtitle, trailing: AnyView(trailing()))
+        return copy
+    }
+
+    /// 改用一行式标题栏，右侧没有按钮。
+    public func oneLineHeader(subtitle: String? = nil) -> BSPage {
+        oneLineHeader(subtitle: subtitle) { EmptyView() }
+    }
+
     public var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: BSSpace.l) {
-                hero
-                    .frame(maxWidth: .infinity)
-                note
-                sections
-                links
+            VStack(alignment: .leading, spacing: BSSpace.xs) {
+                headerRow
+                VStack(alignment: .leading, spacing: BSSpace.l) {
+                    hero
+                        .frame(maxWidth: .infinity)
+                    note
+                    sections
+                    links
+                }
             }
             .padding(.horizontal, BSSpace.m)
-            .padding(.top, BSSpace.xs)
+            .padding(.top, header == nil ? BSSpace.xs : BSSpace.none)
             .padding(.bottom, BSSpace.xl)
             .redacted(reason: isLoading ? .placeholder : [])
         }
         .background(BSColor.canvas.ignoresSafeArea())
         .modifier(BSRefreshModifier(action: onRefresh))
         .navigationTitle(title)
-        #if os(iOS)
-        .navigationBarTitleDisplayMode(.large)
-        #endif
+        .modifier(BSPageChromeModifier(usesHeader: header != nil))
         .bodyseekScrollEdgeEffect()
+    }
+
+    @ViewBuilder
+    private var headerRow: some View {
+        if let header {
+            BSPageHeader(title, subtitle: header.subtitle) {
+                header.trailing
+            }
+        }
+    }
+}
+
+private struct BSPageHeaderConfig {
+    let subtitle: String?
+    let trailing: AnyView
+}
+
+private struct BSPageChromeModifier: ViewModifier {
+    let usesHeader: Bool
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        #if os(iOS)
+        if usesHeader {
+            content.toolbar(.hidden, for: .navigationBar)
+        } else {
+            content.navigationBarTitleDisplayMode(.large)
+        }
+        #else
+        content
+        #endif
     }
 }
 

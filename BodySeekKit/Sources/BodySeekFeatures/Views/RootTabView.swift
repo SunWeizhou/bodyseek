@@ -66,6 +66,10 @@ public struct RootTabView: View {
         }
     }
 
+    private var openSettingsAction: @MainActor () -> Void {
+        { store.send(.today(.openSettingsTapped)) }
+    }
+
     private var mainTabView: some View {
         TabView(
             selection: Binding(
@@ -122,5 +126,6 @@ public struct RootTabView: View {
             }
         }
         .bodyseekMinimizeTabBarOnScroll()
+        .environment(\.bsOpenSettings, openSettingsAction)
     }
 }

@@ -25,60 +25,55 @@ public struct TodayView: View {
         } links: {
             EmptyView()
         }
+        .oneLineHeader(subtitle: dateSubtitle) {
+            recordMenu
+        }
         .refreshable {
             store.send(.refreshTapped)
         }
-        .toolbar {
-            toolbarContent
-        }
     }
 
-    // MARK: - Toolbar
+    private var dateSubtitle: String {
+        store.snapshot.referenceDate.formatted(
+            Date.FormatStyle()
+                .locale(Locale(identifier: "zh_CN"))
+                .month(.defaultDigits)
+                .day()
+                .weekday(.abbreviated)
+        )
+    }
 
-    @ToolbarContentBuilder
-    private var toolbarContent: some ToolbarContent {
-        ToolbarItemGroup(placement: .bodyseekTrailing) {
-            Menu {
-                Button {
-                    store.send(.refreshTapped)
-                } label: {
-                    Label("刷新健康数据", systemImage: "arrow.clockwise")
-                }
-                Button {
-                    store.send(.openCheckInTapped)
-                } label: {
-                    Label("记录今日状态", systemImage: "square.and.pencil")
-                }
-                Button {
-                    store.send(.openNutritionTapped)
-                } label: {
-                    Label("记录饮食与营养", systemImage: "fork.knife")
-                }
-                Button {
-                    store.send(.askCoachTapped("请解读我今天的身体恢复与睡眠状态"))
-                } label: {
-                    Label("询问 Coach", systemImage: "sparkles")
-                }
-                if !store.snapshot.isAuthorized {
-                    Button {
-                        store.send(.authorizationTapped)
-                    } label: {
-                        Label("授权 Apple 健康", systemImage: "heart.text.square")
-                    }
-                }
-            } label: {
-                Image(systemName: "plus")
-            }
-            .accessibilityLabel("记录")
-            .accessibilityIdentifier("bodyseek-menu")
+    // MARK: - 标题栏按钮
 
+    private var recordMenu: some View {
+        BSHeaderMenu(systemImage: "square.and.pencil", label: "记录", identifier: "bodyseek-menu") {
             Button {
-                store.send(.openSettingsTapped)
+                store.send(.refreshTapped)
             } label: {
-                Image(systemName: "person.crop.circle")
+                Label("刷新健康数据", systemImage: "arrow.clockwise")
             }
-            .accessibilityLabel("设置")
-            .accessibilityIdentifier("settings-button")
+            Button {
+                store.send(.openCheckInTapped)
+            } label: {
+                Label("记录今日状态", systemImage: "square.and.pencil")
+            }
+            Button {
+                store.send(.openNutritionTapped)
+            } label: {
+                Label("记录饮食与营养", systemImage: "fork.knife")
+            }
+            Button {
+                store.send(.askCoachTapped("请解读我今天的身体恢复与睡眠状态"))
+            } label: {
+                Label("询问 Coach", systemImage: "sparkles")
+            }
+            if !store.snapshot.isAuthorized {
+                Button {
+                    store.send(.authorizationTapped)
+                } label: {
+                    Label("授权 Apple 健康", systemImage: "heart.text.square")
+                }
+            }
         }
     }
 

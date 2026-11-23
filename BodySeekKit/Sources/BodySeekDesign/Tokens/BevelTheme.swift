@@ -77,6 +77,11 @@ public enum BevelTheme {
     public static let heartRateAverage = adaptive("#FF5252", "#FF6B6B")
     public static let infoBlue = adaptive("#30A2FF", "#5AB0FF")
 
+    // v4 体征色（Apple 健康同类配色），浅色 / 深色各一套，见 scripts/check_contrast.py
+    public static let heartColor = adaptive("#D92D4A", "#FF6B81")
+    public static let respirationColor = adaptive("#0A83A0", "#4FD1E8")
+    public static let oxygenColor = adaptive("#2F6BE8", "#6EA2FF")
+
     public static let dangerColor = adaptive("#D92D20", "#FF6B6B")
 
     // MARK: - Daily Nutrition 4-State Circle Tokens (每日营养素)
