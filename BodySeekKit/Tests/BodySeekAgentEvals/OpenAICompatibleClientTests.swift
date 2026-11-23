@@ -615,8 +615,9 @@ final class OpenAICompatibleClientTests: XCTestCase {
             userQuestion: "我今天如何"
         )
         XCTAssertEqual(hallucinated.unverifiedTokens.count, 2)
-        XCTAssertTrue(hallucinated.annotatedText.contains("95 分（未核实）"))
-        XCTAssertTrue(hallucinated.annotatedText.contains("42 bpm（未核实）"))
+        // UI v4 §6.1：正文不再插入"未核实"标记，改由页面底部汇总行展示。
+        XCTAssertEqual(hallucinated.annotatedText, "今日恢复 95 分，静息心率 42 bpm，建议维持。")
+        XCTAssertFalse(hallucinated.annotatedText.contains("未核实"))
     }
 
     func testMemoryContextSelectorFiltersExpiredRetiredRelevanceAndVerifiedPatternGate() {

@@ -393,6 +393,9 @@ final class BodySeekAgentEvalsTests: XCTestCase {
         var provenancePassCount = 0
         var directWriteViolations = 0
         var failureReasons: [String] = []
+        var defensivePhraseCount = 0
+        var verifiedNumbers = 0
+        var unverifiedNumbers = 0
 
         for evalCase in cases {
             let (ctx, repo) = buildContext(scenario: evalCase.scenario)
@@ -420,6 +423,15 @@ final class BodySeekAgentEvalsTests: XCTestCase {
                 directWriteViolations += 1
             }
 
+            defensivePhraseCount += AgentEvalMetrics.defensivePhraseCount(in: msg.text)
+            let provenanceReport = NumericProvenanceVerifier.verify(
+                responseText: msg.text,
+                toolOutputs: await ctx.effects.toolOutputs,
+                userQuestion: evalCase.question
+            )
+            verifiedNumbers += provenanceReport.verifiedCount
+            unverifiedNumbers += provenanceReport.unverifiedTokens.count
+
             let toolsMatch = Set(evalCase.expectedTools).isSubset(of: Set(msg.toolsInvoked))
             let hasLeak = msg.text.contains("<tool_call>") || msg.text.contains("DSML") || msg.text.contains("<function_calls>")
             if hasLeak { leakCount += 1 }
@@ -440,6 +452,11 @@ final class BodySeekAgentEvalsTests: XCTestCase {
 
         let rate = (Double(passedCount) / Double(cases.count)) * 100.0
         print(String(format: "AGENT_EVALS_M3: passed=%d/%d rate=%.1f%% tool_leak=%d provenance_pass=%d/%d direct_write_violations=%d", passedCount, cases.count, rate, leakCount, provenancePassCount, cases.count, directWriteViolations))
+
+        let unverifiedRate = AgentEvalMetrics.unverifiedRate(verified: verifiedNumbers, unverified: unverifiedNumbers)
+        print(String(format: "AGENT_EVALS_UIV4: defensive_phrase_count=%d unverified_rate=%.1f%% verified=%d unverified=%d", defensivePhraseCount, unverifiedRate, verifiedNumbers, unverifiedNumbers))
+        XCTAssertEqual(defensivePhraseCount, 0, "defensive_phrase_count 门槛为 0")
+        XCTAssertLessThanOrEqual(unverifiedRate, AgentEvalMetrics.maxUnverifiedRatePercent, "unverified_rate 门槛为 ≤ 5%")
 
         XCTAssertTrue(failureReasons.isEmpty, "Eval failures: \(failureReasons.joined(separator: " | "))")
         XCTAssertGreaterThanOrEqual(passedCount, 26, "Pass rate must be >= 85%")

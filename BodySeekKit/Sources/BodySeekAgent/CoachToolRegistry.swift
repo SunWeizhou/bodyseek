@@ -434,7 +434,10 @@ public enum CoachToolRegistry {
             let unreviewedWatchWorkouts: Int
             let todayCheckInEnergy: Int?
             let todayCheckInStress: Int?
+            /// 预先算好的派生值（UI v4 §6.1），回答里直接引用，不必自己换算。
+            let derived: TodayDerivedValues
         }
+
 
         let today = context.snapshot.today
         let scores = MetricKind.allCases.map { kind in
@@ -482,7 +485,8 @@ public enum CoachToolRegistry {
             priorBaselineDays: context.snapshot.trainingLoad.priorBaselineDays,
             unreviewedWatchWorkouts: unreviewed,
             todayCheckInEnergy: todayCheckIn?.energy,
-            todayCheckInStress: todayCheckIn?.stress
+            todayCheckInStress: todayCheckIn?.stress,
+            derived: todayDerived(today: today, context: context)
         )
         return encodeEnvelope(
             tool: "get_today_context",
@@ -491,6 +495,46 @@ public enum CoachToolRegistry {
             reason: reasonStr,
             algorithmVersion: context.snapshot.scoreAlgorithmVersion.description,
             data: payload
+        )
+    }
+
+    private static let percentScale = 100.0
+    private static let derivedWindowDays = 14
+    private static let recoveryWindowDays = 7
+
+    private static func oneDecimal(_ value: Double) -> Double {
+        (value * 10).rounded() / 10
+    }
+
+    private static func difference(_ lhs: Double?, _ rhs: Double?) -> Double? {
+        guard let lhs, let rhs else { return nil }
+        return oneDecimal(lhs - rhs)
+    }
+
+    private static func mean(_ values: [Double]) -> Double? {
+        values.isEmpty ? nil : values.reduce(0, +) / Double(values.count)
+    }
+
+    /// 今日关键值与近期窗口均值的差值，以及睡眠时长的两种写法（x.y 小时 / x 小时 y 分）。
+    private static func todayDerived(today: DailyComputedDay, context: AgentExecutionContext) -> TodayDerivedValues {
+        let prior = context.snapshot.historyDays.filter { $0.dayKey != today.dayKey }
+        let window = Array(prior.suffix(derivedWindowDays))
+        let hrvMean = mean(window.compactMap(\.raw.hrvMs))
+        let rhrMean = mean(window.compactMap(\.raw.restingHeartRateBpm))
+        let recoveryMean = mean(prior.suffix(recoveryWindowDays).compactMap { $0.recovery.value.map(Double.init) })
+        let minutes = today.raw.sleepAsleepMinutes
+        return TodayDerivedValues(
+            sleepAsleepHours: minutes.map { oneDecimal(Double($0) / 60) },
+            sleepAsleepHourPart: minutes.map { $0 / 60 },
+            sleepAsleepMinutePart: minutes.map { $0 % 60 },
+            sleepAsleepText: minutes.map { "\($0 / 60) 小时 \($0 % 60) 分" },
+            hrv14dMeanMs: hrvMean.map(oneDecimal),
+            hrvVs14dMeanMs: difference(today.raw.hrvMs, hrvMean),
+            restingHeartRate14dMeanBpm: rhrMean.map(oneDecimal),
+            restingHeartRateVs14dMeanBpm: difference(today.raw.restingHeartRateBpm, rhrMean),
+            recovery7dMean: recoveryMean.map(oneDecimal),
+            recoveryVs7dMean: difference(today.recovery.value.map(Double.init), recoveryMean),
+            recordedDays14d: window.filter { $0.raw.hrvMs != nil || $0.raw.sleepAsleepMinutes != nil }.count
         )
     }
 
@@ -512,6 +556,12 @@ public enum CoachToolRegistry {
             let excludedDays: Int
             let knownZeroDays: Int
             let missingDays: Int
+            /// 预先算好的派生值（UI v4 §6.1）。
+            let mean: Double?
+            let firstHalfMean: Double?
+            let secondHalfMean: Double?
+            let deltaPercentFromFirstHalf: Double?
+            let latestVsMean: Double?
         }
 
         let kind = MetricKind(rawValue: metricRaw.lowercased()) ?? .recovery
@@ -554,6 +604,15 @@ public enum CoachToolRegistry {
         }
 
         let latestScore = slice.last?.score(for: kind)
+        let windowMean = mean(vals.map(Double.init))
+        let halves: (first: Double, second: Double)? = {
+            guard vals.count >= 4 else { return nil }
+            let mid = vals.count / 2
+            guard let first = mean(vals.prefix(mid).map(Double.init)),
+                  let second = mean(vals.suffix(vals.count - mid).map(Double.init))
+            else { return nil }
+            return (first, second)
+        }()
         let coverage = total > 0 ? Double(vals.count + knownZero) / Double(total) : 0
         let stateStr = vals.isEmpty && knownZero == 0 ? "missing" : "available"
         let reasonStr = stateStr == "missing" ? "该窗口内 \(kind.title) 无有效观测值" : nil
@@ -580,7 +639,14 @@ public enum CoachToolRegistry {
                 latestState: latestScore.map { stateLabel(for: $0.availability) } ?? "missing",
                 excludedDays: excluded,
                 knownZeroDays: knownZero,
-                missingDays: missing
+                missingDays: missing,
+                mean: windowMean.map(oneDecimal),
+                firstHalfMean: halves.map { oneDecimal($0.first) },
+                secondHalfMean: halves.map { oneDecimal($0.second) },
+                deltaPercentFromFirstHalf: halves.flatMap { pair in
+                    pair.first > 0 ? oneDecimal((pair.second - pair.first) / pair.first * percentScale) : nil
+                },
+                latestVsMean: difference(latestScore?.value.map(Double.init), windowMean)
             )
         )
     }
@@ -1862,4 +1928,19 @@ public enum CoachToolRegistry {
             return "{}"
         }
     }
+}
+
+/// `get_today_context` 里预先算好的派生值（UI v4 §6.1）：窗口均值、差值、睡眠时长两种写法。
+struct TodayDerivedValues: Encodable {
+    let sleepAsleepHours: Double?
+    let sleepAsleepHourPart: Int?
+    let sleepAsleepMinutePart: Int?
+    let sleepAsleepText: String?
+    let hrv14dMeanMs: Double?
+    let hrvVs14dMeanMs: Double?
+    let restingHeartRate14dMeanBpm: Double?
+    let restingHeartRateVs14dMeanBpm: Double?
+    let recovery7dMean: Double?
+    let recoveryVs7dMean: Double?
+    let recordedDays14d: Int
 }

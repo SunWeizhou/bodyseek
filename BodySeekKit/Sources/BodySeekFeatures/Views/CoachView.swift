@@ -180,19 +180,12 @@ public struct CoachView: View {
                             .font(.footnote.weight(.medium))
                             .foregroundStyle(BevelTheme.inkSecondary)
                     }
-                    if !msg.unverifiedNumbers.isEmpty {
-                        Text("含未核实数字")
-                            .font(.caption2.weight(.semibold))
-                            .padding(.horizontal, BSSpace.xs)
-                            .padding(.vertical, BSSpace.xxs)
-                            .background(BevelTheme.dangerColor.opacity(BSOpacity.faint), in: Capsule())
-                            .foregroundStyle(BevelTheme.dangerColor)
-                            .accessibilityIdentifier("coach-unverified-badge")
-                    }
                 }
 
                 CoachMarkdownReply(source: msg.text)
                     .frame(maxWidth: .infinity, alignment: .leading)
+
+                verificationFooter(msg)
 
                 ForEach(msg.appliedActions) { receipt in
                     CoachReceiptCard(
@@ -244,6 +237,31 @@ public struct CoachView: View {
                     workoutProposalCard(proposal, messageID: msg.id)
                 }
             }
+        }
+    }
+
+    /// 回复底部一行核对汇总（UI v4 §6.1）：正文里不再逐个标"未核实"。
+    @ViewBuilder
+    private func verificationFooter(_ msg: CoachMessage) -> some View {
+        if !msg.toolsInvoked.isEmpty {
+            let count = msg.unverifiedNumbers.count
+            let title = count == 0 ? "文中数字都已和本机数据核对 · 查看依据" : "有 \(count) 个数字未能核对 · 查看"
+            DisclosureGroup {
+                VStack(alignment: .leading, spacing: BSSpace.xxs) {
+                    ForEach(msg.unverifiedNumbers, id: \.self) { token in
+                        Text("未能核对：\(token)")
+                            .bsText(.caption)
+                    }
+                    Text("本轮读取：" + msg.toolsInvoked.joined(separator: "、"))
+                        .bsText(.caption)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, BSSpace.xxs)
+            } label: {
+                Text(title)
+                    .bsText(.caption)
+            }
+            .accessibilityIdentifier("coach-verification-footer")
         }
     }
 

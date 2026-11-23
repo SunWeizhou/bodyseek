@@ -36,12 +36,15 @@ public enum NumericProvenanceVerifier {
 
         let allowed = collectAllowedNumbers(from: toolOutputs + [userQuestion])
         let typedFacts = collectTypedFacts(from: toolOutputs)
+        // UI v4 §6.1：显示精度内的四舍五入、分钟 / 小时换算、同一指标同一单位的差值，都算有来源。
+        let allowedRaw = collectRawNumbers(from: toolOutputs + [userQuestion])
+            + derivedNumbers(facts: typedFacts, toolOutputs: toolOutputs)
         let protectedRanges = findProtectedRanges(in: responseText)
 
         // Pattern matches numbers tied to health measurement units (excludes 天/月/年/条).
         let unitPattern = #"(?<![0-9A-Za-z.\-])(\d+(?:\.\d+)?)\s*(%|ms|bpm|kcal|大卡|千卡|小时|分钟|h(?![a-zA-Z])|kg|km|公里|mL|毫升|mg|毫克|μg|ug|步|分(?!钟|析|布|配|类|享|别|歧|开|化|为|期))"#
         // Pattern matches numbers directly preceded by explicit physiological metric labels.
-        let prefixPattern = #"(?:HRV|静息心率|平均心率|心率|恢复(?:度|得分|评分)?|睡眠(?:分|评分)?|负荷(?:分)?|压力(?:分)?|能量(?:分)?|ACWR|RPE|TRIMP)\s*(?:[:：=≈约达为是]|\s)\s*(\d+(?:\.\d+)?)"#
+        let prefixPattern = #"(?:HRV|静息心率|平均心率|心率|恢复(?:度|得分|评分)?|睡眠(?:分|评分)?|负荷(?:分)?|压力(?:分)?|能量(?:分)?|ACWR|RPE|TRIMP)\s*(?:[:：=≈约达为是]|\s)\s*(\d+(?:\.\d+)?)(?![\d.])(?!\s*[次天晚餐组条项个])"#
 
         var candidates: [CandidateMatch] = []
 
@@ -91,7 +94,6 @@ public enum NumericProvenanceVerifier {
 
         var verifiedCount = 0
         var unverifiedTokens: [String] = []
-        var insertions: [(offset: Int, label: String)] = []
         let nsResponse = responseText as NSString
 
         for cand in uniqueCandidates {
@@ -103,38 +105,22 @@ public enum NumericProvenanceVerifier {
             // A number that does not appear in typed evidence may still come from a
             // legacy tool result in the same turn. Only enforce metric/date/unit when
             // the value is actually present in typed evidence.
-            let verified = typedResult ?? isAllowedNumber(cand.numberString, allowed: allowed)
+            let verified = typedResult
+                ?? (isAllowedNumber(cand.numberString, allowed: allowed)
+                    || isDerivedNumber(cand.numberString, allowedRaw: allowedRaw))
             if verified {
                 verifiedCount += 1
             } else {
-                let matchedSnippet = nsResponse.substring(with: cand.fullRange)
-                unverifiedTokens.append(matchedSnippet)
-                let tailLength = min(10, nsResponse.length - cand.insertionPoint)
-                let tailSnippet = tailLength > 0
-                    ? nsResponse.substring(with: NSRange(location: cand.insertionPoint, length: tailLength))
-                    : ""
-                if !tailSnippet.contains("未核实") {
-                    insertions.append((cand.insertionPoint, "（未核实）"))
-                }
+                unverifiedTokens.append(nsResponse.substring(with: cand.fullRange))
             }
         }
 
-        guard !insertions.isEmpty else {
-            return NumericProvenanceReport(
-                annotatedText: responseText,
-                unverifiedTokens: unverifiedTokens,
-                verifiedCount: verifiedCount
-            )
+        // UI v4 §6.1：正文不再逐个插入"未核实"标记；未能核对的数字交给页面底部汇总行展示。
+        if !unverifiedTokens.isEmpty {
+            logger.warning("Flagged \(unverifiedTokens.count, privacy: .public) unverified health numbers in Coach reply.")
         }
-
-        let mutable = NSMutableString(string: responseText)
-        for ins in insertions.sorted(by: { $0.offset > $1.offset }) {
-            mutable.insert(ins.label, at: ins.offset)
-        }
-
-        logger.warning("Flagged \(unverifiedTokens.count, privacy: .public) unverified health numbers in Coach reply.")
         return NumericProvenanceReport(
-            annotatedText: mutable as String,
+            annotatedText: responseText,
             unverifiedTokens: unverifiedTokens,
             verifiedCount: verifiedCount
         )
@@ -166,6 +152,7 @@ public enum NumericProvenanceVerifier {
 
     private struct TypedEvidenceFact {
         let scaledValues: Set<Int>
+        let value: Double
         let unit: String
         let metric: String
         let dayKey: String?
@@ -195,6 +182,7 @@ public enum NumericProvenanceVerifier {
                 }
                 facts.append(TypedEvidenceFact(
                     scaledValues: scaled,
+                    value: value,
                     unit: unit,
                     metric: metric,
                     dayKey: item["dayKey"] as? String
@@ -346,6 +334,7 @@ public enum NumericProvenanceVerifier {
                     guard let val = Double(raw), val.isFinite else { continue }
                     insertScaled(val, into: &allowedScaled)
                     insertScaled(val.rounded(), into: &allowedScaled)
+                    insertScaled(abs(val), into: &allowedScaled)
                 }
             }
         }
@@ -368,6 +357,95 @@ public enum NumericProvenanceVerifier {
             return true
         }
         return false
+    }
+
+    // MARK: - Derived values (UI v4 §6.1)
+
+    /// 工具文字里出现的所有数字（含负数的绝对值）。
+    private static func collectRawNumbers(from texts: [String]) -> [Double] {
+        guard let regex = numberRegex else { return [] }
+        var result: [Double] = []
+        for text in texts {
+            let ns = text as NSString
+            for match in regex.matches(in: text, options: [], range: NSRange(location: 0, length: ns.length)) {
+                if let value = Double(ns.substring(with: match.range)), value.isFinite {
+                    result.append(abs(value))
+                }
+            }
+        }
+        return result
+    }
+
+    /// 由类型化证据推出的允许值：同一指标、同一单位任意两个值的差值的绝对值；分钟与小时互换，
+    /// 以及"x 小时 y 分"的两个分量。
+    private static func derivedNumbers(facts: [TypedEvidenceFact], toolOutputs: [String]) -> [Double] {
+        var result: [Double] = []
+        var groups: [String: [Double]] = [:]
+        for fact in facts {
+            groups["\(fact.metric)|\(fact.unit)", default: []].append(fact.value)
+        }
+        for (key, values) in groups {
+            var pool = values
+            for i in values.indices {
+                for j in values.indices where j > i {
+                    pool.append(abs(values[i] - values[j]))
+                }
+            }
+            result.append(contentsOf: pool)
+            let unit = key.split(separator: "|").last.map(String.init) ?? ""
+            for value in pool {
+                result.append(contentsOf: timeConversions(of: value, unit: unit))
+            }
+        }
+        for text in toolOutputs {
+            result.append(contentsOf: minuteFieldConversions(in: text))
+        }
+        return result
+    }
+
+    private static let minutesPerHour = 60.0
+
+    private static func timeConversions(of value: Double, unit: String) -> [Double] {
+        switch unit {
+        case "minutes":
+            let hours = value / minutesPerHour
+            return [hours, hours.rounded(.down), value.truncatingRemainder(dividingBy: minutesPerHour)]
+        case "hours":
+            let minutes = value * minutesPerHour
+            return [minutes, value.rounded(.down), minutes.truncatingRemainder(dividingBy: minutesPerHour)]
+        default:
+            return []
+        }
+    }
+
+    /// 工具 JSON 里名字带 minutes 的字段（例如 sleepAsleepMinutes）也给出小时换算。
+    private static func minuteFieldConversions(in text: String) -> [Double] {
+        guard let data = text.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data)
+        else { return [] }
+        var result: [Double] = []
+        func walk(_ node: Any, key: String) {
+            if let dict = node as? [String: Any] {
+                for (childKey, child) in dict { walk(child, key: childKey) }
+            } else if let array = node as? [Any] {
+                for child in array { walk(child, key: key) }
+            } else if let number = node as? NSNumber, key.lowercased().contains("minutes") {
+                result.append(contentsOf: timeConversions(of: number.doubleValue, unit: "minutes"))
+            }
+        }
+        walk(object, key: "")
+        return result
+    }
+
+    /// 显示精度内的四舍五入：回答里的整数或一位小数，等于某个允许值按同样精度取整的结果。
+    private static func isDerivedNumber(_ numberString: String, allowedRaw: [Double]) -> Bool {
+        guard let value = Double(numberString), value.isFinite else { return false }
+        let decimals = numberString.split(separator: ".").dropFirst().first.map { min($0.count, 2) } ?? 0
+        let factor = pow(10.0, Double(decimals))
+        let epsilon = 1e-6
+        return allowedRaw.contains { raw in
+            abs((raw * factor).rounded() / factor - value) < epsilon
+        }
     }
 
     private static func findProtectedRanges(in text: String) -> [NSRange] {
