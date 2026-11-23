@@ -6,6 +6,26 @@
 
 ## [Unreleased]
 
+### V6 第六轮：页面迁移与图表重画（2026-11-23）
+
+> 详见 `docs/validation/v6-round6-2026-11-22.md`。设计门禁 769 / 66 → 0 / 0。
+
+#### Added
+
+- `BSBodyMap`（包装 `MuscleMap`）、`FitnessFatigueChart`、`IntakeBarChart`；`BodySeekCore/FitnessFatigue.swift`（体能 CTL 42 天、疲劳 ATL 7 天，指数加权）与 7 项单元测试。
+- 令牌：`BSSpace.none`、`BSSize.dot / glyph / avatar / bodyMapWidth / bodyMapHeight`、`BSChartStroke.estimateDash`。
+- 营养页微量营养素二级页；趋势页"实验室"二级页（预测、规律、个人对照实验）。
+
+#### Changed
+
+- 五个一级页面按 L0–L3 重排：今日（分数环 + 简报 + 行动 / 睡眠 / 体征 / 摘要）、健身（肌群图 + 体能疲劳 + 待复盘行动行）、营养（摄入环 + 简报 + 本周热量）、趋势（五项分数纵览 + 五张统计头联动的趋势图 + 实验室）、Coach 与指标详情（`BSCard` 与令牌）。
+- 图表按 dataviz §4 重画：去掉渐变、多余图层和多余虚线，线宽与颜色改用令牌。
+- `BSScoreRing`、`BSActionRow`、`BSStateView`、`BSCoachNote` 增加无障碍标识与 zoom 来源参数。
+
+#### Removed
+
+- 今日页的快速结论横幅、主动洞察列表、AI 参考依据折叠区；营养页的"AI 解读"按钮和底部快捷栏；趋势页的指标切换条、恢复与负荷对照卡。`TrainingLoadDashboardCard`、`LoadRecoveryComboChart` 文件保留，页面不再调用。
+
 ### V6 第五轮：每日简报（2026-11-22）
 
 > 详见 `docs/validation/v6-round5-2026-11-22.md`。
