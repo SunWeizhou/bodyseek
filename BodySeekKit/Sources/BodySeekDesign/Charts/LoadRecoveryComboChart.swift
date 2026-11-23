@@ -44,7 +44,7 @@ public struct LoadRecoveryComboChart: View {
             let horizon: TrendHorizon = ordered.count <= 10 ? .week : (ordered.count <= 45 ? .month : .sixMonths)
             let header = headerStrings(ordered: ordered)
 
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: BSSpace.s) {
                 ChartLockedReadoutHeader(
                     primaryText: header.primary,
                     secondaryText: header.secondary,
@@ -57,9 +57,9 @@ public struct LoadRecoveryComboChart: View {
                     }
                 )
 
-                HStack(spacing: 14) {
+                HStack(spacing: BSSpace.m) {
                     legendItem(color: BevelTheme.recoveryColor, label: "恢复曲线", isBar: false)
-                    legendItem(color: BevelTheme.strainColor.opacity(0.65), label: "每日负荷", isBar: true)
+                    legendItem(color: BevelTheme.strainColor.opacity(BSOpacity.scrim), label: "每日负荷", isBar: true)
                     Spacer()
                 }
 
@@ -86,22 +86,22 @@ public struct LoadRecoveryComboChart: View {
                             series: .value("段", pt.segmentID)
                         )
                         .interpolationMethod(.monotone)
-                        .lineStyle(StrokeStyle(lineWidth: 2.3, lineCap: .round))
+                        .lineStyle(StrokeStyle(lineWidth: BSChartStroke.data, lineCap: .round))
                         .foregroundStyle(BevelTheme.recoveryColor)
                     }
 
                     if let selectedDay {
                         RuleMark(x: .value("选中日", selectedDay.date))
-                            .lineStyle(StrokeStyle(lineWidth: 1.2, dash: [3, 3]))
-                            .foregroundStyle(BevelTheme.inkSecondary.opacity(0.75))
+                            .lineStyle(StrokeStyle(lineWidth: BSChartStroke.rule, dash: BSChartStroke.estimateDash))
+                            .foregroundStyle(BevelTheme.inkSecondary.opacity(BSOpacity.scrim))
 
                         if let rec = selectedDay.recovery.value {
                             PointMark(x: .value("选中日", selectedDay.date), y: .value("恢复", rec))
                                 .symbol {
                                     Circle()
                                         .fill(BevelTheme.recoveryColor)
-                                        .overlay(Circle().strokeBorder(BevelTheme.card, lineWidth: 2))
-                                        .frame(width: 9, height: 9)
+                                        .overlay(Circle().strokeBorder(BSColor.surface, lineWidth: BSChartStroke.data))
+                                        .frame(width: BSSize.dot, height: BSSize.dot)
                                 }
                         }
                     }
@@ -109,8 +109,8 @@ public struct LoadRecoveryComboChart: View {
                 .chartYScale(domain: 0...100)
                 .chartYAxis {
                     AxisMarks(position: .trailing, values: [0, 50, 100]) { value in
-                        AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                            .foregroundStyle(BevelTheme.hairline.opacity(0.7))
+                        AxisGridLine(stroke: StrokeStyle(lineWidth: BSChartStroke.grid))
+                            .foregroundStyle(BevelTheme.hairline.opacity(BSOpacity.scrim))
                         AxisValueLabel {
                             if let v = value.as(Int.self) {
                                 Text("\(v)")
@@ -196,15 +196,15 @@ public struct LoadRecoveryComboChart: View {
     }
 
     private func legendItem(color: Color, label: String, isBar: Bool) -> some View {
-        HStack(spacing: 5) {
+        HStack(spacing: BSSpace.xxs) {
             if isBar {
-                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                RoundedRectangle(cornerRadius: BSRadius.s, style: .continuous)
                     .fill(color)
-                    .frame(width: 10, height: 8)
+                    .frame(width: BSSize.dot, height: BSSize.dot)
             } else {
                 Capsule()
                     .fill(color)
-                    .frame(width: 14, height: 3)
+                    .frame(width: BSSize.dot, height: BSSize.dot)
             }
             Text(label)
                 .font(.caption2)

@@ -20,7 +20,7 @@ public struct MetricDetailView: View {
 
     public var body: some View {
         let content = ScrollView {
-            LazyVStack(alignment: .leading, spacing: 16) {
+            LazyVStack(alignment: .leading, spacing: BSSpace.m) {
                 headerCard
 
                 horizonPicker
@@ -39,13 +39,13 @@ public struct MetricDetailView: View {
                     }
                     .foregroundStyle(BevelTheme.onBrand)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(BevelTheme.brand, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .padding(.vertical, BSSpace.m)
+                    .background(BevelTheme.brand, in: RoundedRectangle(cornerRadius: BSRadius.m, style: .continuous))
                 }
                 .accessibilityIdentifier("detail-ask-coach")
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(.horizontal, BSSpace.m)
+            .padding(.vertical, BSSpace.s)
         }
         .background(BevelTheme.canvas.ignoresSafeArea())
         .navigationTitle(store.kind.title)
@@ -73,18 +73,18 @@ public struct MetricDetailView: View {
 
     private var headerCard: some View {
         let tint = BevelTheme.color(for: store.kind)
-        return BevelCard {
-            HStack(spacing: 16) {
+        return BSCard {
+            HStack(spacing: BSSpace.m) {
                 MetricRingView(score: store.currentScore, diameter: 86, lineWidth: 10)
 
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: BSSpace.xs) {
+                    HStack(spacing: BSSpace.xs) {
                         Text(store.currentScore.badge)
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(tint)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(tint.opacity(0.14), in: Capsule())
+                            .padding(.horizontal, BSSpace.xs)
+                            .padding(.vertical, BSSpace.xxs)
+                            .background(tint.opacity(BSOpacity.faint), in: Capsule())
 
                         if let delta = store.currentScore.baselineDelta {
                             let sign = delta >= 0 ? "+" : ""
@@ -168,8 +168,8 @@ public struct MetricDetailView: View {
         let sourcesText = day.raw.sourceNames.isEmpty ? store.snapshot.sourceLabel : day.raw.sourceNames.joined(separator: " · ")
         let covText = "\(store.activeChartSnapshot.coveredDays)/\(store.activeChartSnapshot.totalDays) 天"
 
-        return BevelCard {
-            VStack(alignment: .leading, spacing: 10) {
+        return BSCard {
+            VStack(alignment: .leading, spacing: BSSpace.s) {
                 Text("L3 数据溯源与算法边界")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(BevelTheme.ink)

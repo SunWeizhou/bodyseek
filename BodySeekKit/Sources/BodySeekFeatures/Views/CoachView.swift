@@ -23,7 +23,7 @@ public struct CoachView: View {
     public var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 20) {
+                LazyVStack(alignment: .leading, spacing: BSSpace.l) {
                     if store.isAtWelcome {
                         welcomePanel
                             .id(ScrollTarget.welcome)
@@ -37,16 +37,16 @@ public struct CoachView: View {
                                 .controlSize(.small)
                                 .font(.footnote)
                                 .foregroundStyle(BevelTheme.inkSecondary)
-                                .padding(.vertical, 8)
+                                .padding(.vertical, BSSpace.xs)
                         }
                     }
-                    Color.clear.frame(height: 1)
+                    Color.clear.frame(height: BSSize.dot)
                         .accessibilityHidden(true)
                         .id(ScrollTarget.latest)
                 }
-                .padding(.horizontal, 18)
-                .padding(.vertical, 14)
-                .frame(maxWidth: 680)
+                .padding(.horizontal, BSSpace.m)
+                .padding(.vertical, BSSpace.m)
+                .frame(maxWidth: BSSize.chartDetail)
                 .frame(maxWidth: .infinity)
             }
             .defaultScrollAnchor(store.isAtWelcome ? .top : .bottom, for: .initialOffset)
@@ -72,25 +72,25 @@ public struct CoachView: View {
                         scroll(to: ScrollTarget.latest, anchor: .bottom, using: proxy)
                     }
                     .buttonStyle(.borderedProminent)
-                    .padding(.trailing, 18)
-                    .padding(.bottom, 8)
+                    .padding(.trailing, BSSpace.m)
+                    .padding(.bottom, BSSpace.xs)
                     .accessibilityIdentifier("coach-jump-to-latest")
                 }
             }
         }
-        .safeAreaInset(edge: .top, spacing: 0) {
+        .safeAreaInset(edge: .top, spacing: BSSpace.none) {
             if let err = store.lastError {
                 Text(err)
                     .font(.caption)
                     .foregroundStyle(BevelTheme.dangerColor)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 6)
+                    .padding(.horizontal, BSSpace.m)
+                    .padding(.vertical, BSSpace.xs)
                     .background(BevelTheme.canvas)
                     .accessibilityIdentifier("coach-error-banner")
             }
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
+        .safeAreaInset(edge: .bottom, spacing: BSSpace.none) {
             composerBar
         }
         .background(BevelTheme.canvas.ignoresSafeArea())
@@ -145,7 +145,7 @@ public struct CoachView: View {
     }
 
     private func scroll(to id: some Hashable, anchor: UnitPoint, using proxy: ScrollViewProxy) {
-        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.22)) {
+        withAnimation(BSMotion.animation(BSMotion.standard, reduceMotion: reduceMotion)) {
             proxy.scrollTo(id, anchor: anchor)
         }
     }
@@ -159,13 +159,13 @@ public struct CoachView: View {
                     .font(.body)
                     .textSelection(.enabled)
                     .foregroundStyle(BevelTheme.onBrand)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(BevelTheme.brand, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .padding(.horizontal, BSSpace.m)
+                    .padding(.vertical, BSSpace.s)
+                    .background(BevelTheme.brand, in: RoundedRectangle(cornerRadius: BSRadius.l, style: .continuous))
             }
         } else {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 6) {
+            VStack(alignment: .leading, spacing: BSSpace.s) {
+                HStack(spacing: BSSpace.xs) {
                     if let engine = msg.engineLabel {
                         Menu {
                             Text(engine)
@@ -183,9 +183,9 @@ public struct CoachView: View {
                     if !msg.unverifiedNumbers.isEmpty {
                         Text("含未核实数字")
                             .font(.caption2.weight(.semibold))
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 2)
-                            .background(BevelTheme.dangerColor.opacity(0.14), in: Capsule())
+                            .padding(.horizontal, BSSpace.xs)
+                            .padding(.vertical, BSSpace.xxs)
+                            .background(BevelTheme.dangerColor.opacity(BSOpacity.faint), in: Capsule())
                             .foregroundStyle(BevelTheme.dangerColor)
                             .accessibilityIdentifier("coach-unverified-badge")
                     }
@@ -249,8 +249,8 @@ public struct CoachView: View {
 
     private func memoryProposalCard(_ memory: TieredMemoryRecord, messageID: UUID) -> some View {
         let isCommitted = store.confirmedMemoryProposalMessageIDs.contains(messageID)
-        return BevelCard(padding: 12) {
-            VStack(alignment: .leading, spacing: 8) {
+        return BSCard {
+            VStack(alignment: .leading, spacing: BSSpace.xs) {
                 HStack {
                     Label("保存这条记忆？", systemImage: "brain.head.profile")
                         .font(.caption.weight(.semibold))
@@ -258,8 +258,8 @@ public struct CoachView: View {
                     Spacer()
                     Text(memory.tier.titleLabel)
                         .font(.caption2.weight(.semibold))
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 2)
+                        .padding(.horizontal, BSSpace.xs)
+                        .padding(.vertical, BSSpace.xxs)
                         .background(BevelTheme.surfaceElevated, in: Capsule())
                         .foregroundStyle(BevelTheme.inkSecondary)
                 }
@@ -280,18 +280,18 @@ public struct CoachView: View {
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(BevelTheme.recoveryColor)
                 } else {
-                    HStack(spacing: 10) {
+                    HStack(spacing: BSSpace.s) {
                         Button {
                             store.send(.confirmMemoryProposalTapped(messageID: messageID, memory: memory))
                         } label: {
                             Text("保存记忆")
                                 .font(.caption.weight(.semibold))
                                 .frame(maxWidth: .infinity)
-                                .padding(.vertical, 8)
+                                .padding(.vertical, BSSpace.xs)
                                 .background(BevelTheme.brand, in: Capsule())
                                 .foregroundStyle(BevelTheme.onBrand)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.bsPressable)
                         .accessibilityIdentifier("coach-memory-proposal-confirm")
 
                         Button {
@@ -300,9 +300,9 @@ public struct CoachView: View {
                             Text("暂不保存")
                                 .font(.caption.weight(.medium))
                                 .foregroundStyle(BevelTheme.inkSecondary)
-                                .padding(.horizontal, 10)
+                                .padding(.horizontal, BSSpace.s)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.bsPressable)
                         .accessibilityIdentifier("coach-memory-proposal-dismiss")
                     }
                 }
@@ -316,8 +316,8 @@ public struct CoachView: View {
         _ candidates: [CoachWorkoutAnnotationCandidate],
         messageID: UUID
     ) -> some View {
-        BevelCard(padding: 12) {
-            VStack(alignment: .leading, spacing: 8) {
+        BSCard {
+            VStack(alignment: .leading, spacing: BSSpace.xs) {
                 Label("选择要复盘的训练", systemImage: "list.bullet.rectangle")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(BevelTheme.strainColor)
@@ -328,8 +328,8 @@ public struct CoachView: View {
                     Button {
                         store.send(.selectAnnotationCandidate(messageID: messageID, candidate: candidate))
                     } label: {
-                        HStack(spacing: 10) {
-                            VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: BSSpace.s) {
+                            VStack(alignment: .leading, spacing: BSSpace.xxs) {
                                 Text(candidate.proposal.workoutTitle)
                                     .font(.caption.weight(.semibold))
                                     .foregroundStyle(BevelTheme.ink)
@@ -345,10 +345,10 @@ public struct CoachView: View {
                                 .font(.caption2)
                                 .foregroundStyle(BevelTheme.inkSecondary)
                         }
-                        .padding(.vertical, 6)
+                        .padding(.vertical, BSSpace.xs)
                         .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.bsPressable)
                     .accessibilityIdentifier("coach-annotation-candidate-\(candidate.proposal.workoutUUID)")
                     if candidate.id != candidates.last?.id {
                         Divider().overlay(BevelTheme.hairline)
@@ -361,8 +361,8 @@ public struct CoachView: View {
     }
 
     private func annotationUndoneCard(_ message: CoachMessage) -> some View {
-        BevelCard(padding: 12) {
-            VStack(alignment: .leading, spacing: 6) {
+        BSCard {
+            VStack(alignment: .leading, spacing: BSSpace.xs) {
                 Label("这次训练标注已撤销", systemImage: "arrow.uturn.backward.circle")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(BevelTheme.inkSecondary)
@@ -388,8 +388,8 @@ public struct CoachView: View {
     ) -> some View {
         let isCommitted = applied || store.confirmedAnnotationProposalMessageIDs.contains(messageID)
         let isUndone = undone || store.undoneAnnotationMessageIDs.contains(messageID)
-        return BevelCard(padding: 12) {
-            VStack(alignment: .leading, spacing: 8) {
+        return BSCard {
+            VStack(alignment: .leading, spacing: BSSpace.xs) {
                 Label("保存这次训练复盘？", systemImage: "text.bubble.fill")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(BevelTheme.strainColor)
@@ -424,23 +424,23 @@ public struct CoachView: View {
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(BevelTheme.dangerColor)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.bsPressable)
                         .disabled(store.pendingAnnotationUndoMessageIDs.contains(messageID))
                         .accessibilityIdentifier("coach-annotation-undo")
                     }
                 } else {
-                    HStack(spacing: 10) {
+                    HStack(spacing: BSSpace.s) {
                         Button {
                             store.send(.confirmAnnotationProposalTapped(messageID: messageID, proposal: proposal))
                         } label: {
                             Text("保存到训练记录")
                                 .font(.caption.weight(.semibold))
                                 .frame(maxWidth: .infinity)
-                                .padding(.vertical, 8)
+                                .padding(.vertical, BSSpace.xs)
                                 .background(BevelTheme.brand, in: Capsule())
                                 .foregroundStyle(BevelTheme.onBrand)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.bsPressable)
                         .accessibilityIdentifier("coach-annotation-proposal-confirm")
 
                         Button {
@@ -450,7 +450,7 @@ public struct CoachView: View {
                                 .font(.caption.weight(.medium))
                                 .foregroundStyle(BevelTheme.inkSecondary)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.bsPressable)
                     }
                 }
             }
@@ -462,8 +462,8 @@ public struct CoachView: View {
     private func evidenceSparklineCard(for kind: MetricKind) -> some View {
         let tint = BevelTheme.color(for: kind)
         let title = kind == .recovery ? "HRV · 近 14 天" : "\(kind.title) · 近 14 天"
-        return BevelCard(padding: 12) {
-            VStack(alignment: .leading, spacing: 8) {
+        return BSCard {
+            VStack(alignment: .leading, spacing: BSSpace.xs) {
                 HStack {
                     Text(title)
                         .font(.caption.weight(.semibold))
@@ -483,8 +483,8 @@ public struct CoachView: View {
     }
 
     private func workoutProposalCard(_ proposal: WorkoutProposal, messageID: UUID) -> some View {
-        BevelCard(padding: 14) {
-            VStack(alignment: .leading, spacing: 10) {
+        BSCard {
+            VStack(alignment: .leading, spacing: BSSpace.s) {
                 HStack {
                     Label("训练建议", systemImage: "dumbbell.fill")
                         .font(.caption.weight(.semibold))
@@ -492,8 +492,8 @@ public struct CoachView: View {
                     Spacer()
                     Text(proposal.template.focusTag)
                         .font(.caption2)
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 2)
+                        .padding(.horizontal, BSSpace.xs)
+                        .padding(.vertical, BSSpace.xxs)
                         .background(BevelTheme.surfaceElevated, in: Capsule())
                         .foregroundStyle(BevelTheme.inkSecondary)
                 }
@@ -506,7 +506,7 @@ public struct CoachView: View {
                     .font(.caption)
                     .foregroundStyle(BevelTheme.inkSecondary)
 
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: BSSpace.xxs) {
                     ForEach(proposal.template.exercises) { item in
                         let name = ExerciseCatalog.find(id: item.exerciseID)?.name ?? item.exerciseID
                         HStack {
@@ -520,10 +520,10 @@ public struct CoachView: View {
                         }
                     }
                 }
-                .padding(8)
-                .background(BevelTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .padding(BSSpace.xs)
+                .background(BevelTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: BSRadius.s, style: .continuous))
 
-                HStack(spacing: 8) {
+                HStack(spacing: BSSpace.xs) {
                     Button {
                         store.send(.applyProposalTapped(messageID: messageID, proposal: proposal, startImmediately: false))
                     } label: {
@@ -531,10 +531,10 @@ public struct CoachView: View {
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(BevelTheme.onBrand)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 9)
+                            .padding(.vertical, BSSpace.xs)
                             .background(BevelTheme.brand, in: Capsule())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.bsPressable)
                     .accessibilityIdentifier("coach-proposal-save")
 
                     Button {
@@ -543,10 +543,10 @@ public struct CoachView: View {
                         Text("不用了")
                             .font(.caption.weight(.medium))
                             .foregroundStyle(BevelTheme.inkSecondary)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 9)
+                            .padding(.horizontal, BSSpace.s)
+                            .padding(.vertical, BSSpace.xs)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.bsPressable)
                 }
             }
         }
@@ -555,17 +555,17 @@ public struct CoachView: View {
     }
 
     private var welcomePanel: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: BSSpace.m) {
             Text("今天想了解什么？")
                 .font(.title2.weight(.semibold))
                 .accessibilityAddTraits(.isHeader)
-            VStack(spacing: 8) {
+            VStack(spacing: BSSpace.xs) {
                 ForEach(store.quickPrompts, id: \.title) { prompt in
                     Button {
                         store.send(.quickPromptTapped(prompt.question))
                     } label: {
-                        HStack(spacing: 12) {
-                            VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: BSSpace.s) {
+                            VStack(alignment: .leading, spacing: BSSpace.xxs) {
                                 Text(prompt.title).font(.subheadline.weight(.semibold))
                                 Text(prompt.question)
                                     .font(.footnote)
@@ -577,24 +577,24 @@ public struct CoachView: View {
                                 .foregroundStyle(BevelTheme.brand)
                                 .accessibilityHidden(true)
                         }
-                        .padding(12)
-                        .background(BevelTheme.card, in: RoundedRectangle(cornerRadius: 14))
-                        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(BevelTheme.hairline, lineWidth: 0.5))
+                        .padding(BSSpace.s)
+                        .background(BevelTheme.card, in: RoundedRectangle(cornerRadius: BSRadius.m))
+                        .overlay(RoundedRectangle(cornerRadius: BSRadius.m).strokeBorder(BevelTheme.hairline, lineWidth: 0.5))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.bsPressable)
                     .disabled(store.isResettingConversation)
                 }
             }
         }
         .foregroundStyle(BevelTheme.ink)
-        .padding(.vertical, 10)
+        .padding(.vertical, BSSpace.s)
         .accessibilityIdentifier("coach-welcome-panel")
     }
 
     private var composerBar: some View {
         let canSend = !store.draftText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && !store.isSending && !store.isResettingConversation
-        return HStack(alignment: .bottom, spacing: 8) {
+        return HStack(alignment: .bottom, spacing: BSSpace.xs) {
             TextField(
                 "问 Coach…",
                 text: Binding(
@@ -605,8 +605,8 @@ public struct CoachView: View {
             )
             .lineLimit(1...4)
             .focused($isComposerFocused)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
+            .padding(.horizontal, BSSpace.m)
+            .padding(.vertical, BSSpace.s)
             .accessibilityIdentifier("coach-full-input")
 
             Button {
@@ -615,7 +615,7 @@ public struct CoachView: View {
             } label: {
                 Image(systemName: "arrow.up.circle.fill")
                     .font(.title2)
-                    .frame(width: 44, height: 44)
+                    .frame(width: BSSize.hitTarget, height: BSSize.hitTarget)
                     .foregroundStyle(
                         canSend ? BevelTheme.brand : BevelTheme.inkSecondary
                     )
@@ -624,12 +624,12 @@ public struct CoachView: View {
             .accessibilityLabel("发送")
             .accessibilityIdentifier("coach-send-button")
         }
-        .padding(3)
-        .background(BevelTheme.card, in: RoundedRectangle(cornerRadius: 22))
-        .overlay(RoundedRectangle(cornerRadius: 22).strokeBorder(BevelTheme.hairline, lineWidth: 0.5))
-        .padding(.horizontal, 14)
-        .padding(.vertical, 6)
-        .frame(maxWidth: 680)
+        .padding(BSSpace.xxs)
+        .background(BevelTheme.card, in: RoundedRectangle(cornerRadius: BSRadius.l))
+        .overlay(RoundedRectangle(cornerRadius: BSRadius.l).strokeBorder(BevelTheme.hairline, lineWidth: 0.5))
+        .padding(.horizontal, BSSpace.m)
+        .padding(.vertical, BSSpace.xs)
+        .frame(maxWidth: BSSize.chartDetail)
         .frame(maxWidth: .infinity)
         .background(.bar)
     }

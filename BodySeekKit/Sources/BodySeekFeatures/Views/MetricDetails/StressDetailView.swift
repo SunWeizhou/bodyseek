@@ -19,9 +19,9 @@ public struct StressDetailView: View {
 
     public var body: some View {
         let excludedHours = workoutHoursSet()
-        VStack(alignment: .leading, spacing: 16) {
-            BevelCard {
-                VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: BSSpace.m) {
+            BSCard {
+                VStack(alignment: .leading, spacing: BSSpace.s) {
                     Text("日内自主神经压力节律（估算至当前时刻）")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(BevelTheme.stressColor)
@@ -47,8 +47,8 @@ public struct StressDetailView: View {
 
             stressZoneBreakdownCard(excludedHours: excludedHours)
 
-            BevelCard {
-                VStack(alignment: .leading, spacing: 12) {
+            BSCard {
+                VStack(alignment: .leading, spacing: BSSpace.s) {
                     Text("压力趋势")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(BevelTheme.stressColor)
@@ -71,8 +71,8 @@ public struct StressDetailView: View {
         let mediumHours = validBins.filter { $0.level == .medium }.count
         let elevatedHours = validBins.filter { $0.level == .elevated }.count
 
-        return BevelCard {
-            VStack(alignment: .leading, spacing: 10) {
+        return BSCard {
+            VStack(alignment: .leading, spacing: BSSpace.s) {
                 Text("高压时段 vs 恢复时段")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(BevelTheme.ink)
@@ -82,9 +82,9 @@ public struct StressDetailView: View {
                         .font(.caption)
                         .foregroundStyle(BevelTheme.inkSecondary)
                 } else {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 120), spacing: 10)], alignment: .leading, spacing: 8) {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 120), spacing: BSSpace.s)], alignment: .leading, spacing: BSSpace.xs) {
                         bucketChip(title: "放松恢复", hours: restHours, color: BevelTheme.recoveryColor)
-                        bucketChip(title: "轻度激活", hours: lowHours, color: BevelTheme.stressColor.opacity(0.65))
+                        bucketChip(title: "轻度激活", hours: lowHours, color: BevelTheme.stressColor.opacity(BSOpacity.scrim))
                         bucketChip(title: "中等压力", hours: mediumHours, color: BevelTheme.energyColor)
                         bucketChip(title: "高压警示", hours: elevatedHours, color: BevelTheme.stressColor)
                     }
@@ -94,10 +94,10 @@ public struct StressDetailView: View {
     }
 
     private func bucketChip(title: String, hours: Int, color: Color) -> some View {
-        HStack(spacing: 8) {
+        HStack(spacing: BSSpace.xs) {
             Circle()
                 .fill(color)
-                .frame(width: 8, height: 8)
+                .frame(width: BSSize.dot, height: BSSize.dot)
             Text(title)
                 .font(.caption)
                 .foregroundStyle(BevelTheme.inkSecondary)
@@ -107,9 +107,9 @@ public struct StressDetailView: View {
                 .fontDesign(.rounded)
                 .foregroundStyle(BevelTheme.ink)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .background(BevelTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .padding(.horizontal, BSSpace.s)
+        .padding(.vertical, BSSpace.xs)
+        .background(BevelTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: BSRadius.s, style: .continuous))
     }
 
     private func workoutHoursSet() -> Set<Int> {

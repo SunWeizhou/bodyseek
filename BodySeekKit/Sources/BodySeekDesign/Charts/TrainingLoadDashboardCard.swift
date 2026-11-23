@@ -41,7 +41,7 @@ public struct TrainingLoadDashboardCard: View {
         let dailyBaseline = load.chronic28dWeeklyAvg > 0 ? load.chronic28dWeeklyAvg / 7.0 : nil
 
         BevelCard {
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: BSSpace.m) {
                 headerRow(zoneTint: zoneTint)
 
                 gaugeSection(zoneTint: zoneTint)
@@ -58,16 +58,16 @@ public struct TrainingLoadDashboardCard: View {
     }
 
     private func headerRow(zoneTint: Color) -> some View {
-        HStack(spacing: 8) {
+        HStack(spacing: BSSpace.xs) {
             Label("训练负荷", systemImage: "flame.fill")
                 .font(.headline)
                 .foregroundStyle(BevelTheme.ink)
 
             Text(load.zone.title)
                 .font(.caption2.weight(.semibold))
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(zoneTint.opacity(0.15), in: Capsule())
+                .padding(.horizontal, BSSpace.xs)
+                .padding(.vertical, BSSpace.xxs)
+                .background(zoneTint.opacity(BSOpacity.faint), in: Capsule())
                 .foregroundStyle(zoneTint)
 
             Spacer()
@@ -79,10 +79,10 @@ public struct TrainingLoadDashboardCard: View {
     }
 
     private func gaugeSection(zoneTint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
+        VStack(alignment: .leading, spacing: BSSpace.xs) {
+            HStack(alignment: .firstTextBaseline, spacing: BSSpace.xs) {
                 Text(load.acwrRatio.map { String(format: "%.2f", $0) } ?? "—")
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .bsText(.heroNumber)
                     .monospacedDigit()
                     .contentTransition(.numericText())
                     .foregroundStyle(BevelTheme.ink)
@@ -116,7 +116,7 @@ public struct TrainingLoadDashboardCard: View {
         let sweetStartFrac = (0.8 - minScale) / span
         let sweetEndFrac = (1.32 - minScale) / span
 
-        return VStack(spacing: 4) {
+        return VStack(spacing: BSSpace.xxs) {
             GeometryReader { geo in
                 let width = max(1, geo.size.width)
                 let wLow = width * sweetStartFrac
@@ -124,16 +124,16 @@ public struct TrainingLoadDashboardCard: View {
                 let wHigh = max(0, width - wLow - wSweet)
 
                 ZStack(alignment: .leading) {
-                    HStack(spacing: 2) {
-                        RoundedRectangle(cornerRadius: 4, style: .continuous)
-                            .fill(BevelTheme.energyColor.opacity(0.28))
-                            .frame(width: max(4, wLow - 1), height: 8)
-                        RoundedRectangle(cornerRadius: 4, style: .continuous)
-                            .fill(BevelTheme.recoveryColor.opacity(0.36))
-                            .frame(width: max(4, wSweet - 2), height: 8)
-                        RoundedRectangle(cornerRadius: 4, style: .continuous)
-                            .fill(BevelTheme.dangerColor.opacity(0.28))
-                            .frame(width: max(4, wHigh - 1), height: 8)
+                    HStack(spacing: BSSpace.xxs) {
+                        RoundedRectangle(cornerRadius: BSRadius.s, style: .continuous)
+                            .fill(BevelTheme.energyColor.opacity(BSOpacity.muted))
+                            .frame(width: max(4, wLow - 1), height: BSSize.dot)
+                        RoundedRectangle(cornerRadius: BSRadius.s, style: .continuous)
+                            .fill(BevelTheme.recoveryColor.opacity(BSOpacity.disabled))
+                            .frame(width: max(4, wSweet - 2), height: BSSize.dot)
+                        RoundedRectangle(cornerRadius: BSRadius.s, style: .continuous)
+                            .fill(BevelTheme.dangerColor.opacity(BSOpacity.muted))
+                            .frame(width: max(4, wHigh - 1), height: BSSize.dot)
                     }
 
                     if let ratio {
@@ -142,15 +142,14 @@ public struct TrainingLoadDashboardCard: View {
                         let centerX = min(max(7, width * frac), max(7, width - 7))
                         Circle()
                             .fill(zoneTint)
-                            .overlay(Circle().strokeBorder(BevelTheme.card, lineWidth: 2))
-                            .shadow(color: Color.black.opacity(0.15), radius: 2, x: 0, y: 1)
-                            .frame(width: 14, height: 14)
+                            .overlay(Circle().strokeBorder(BSColor.surface, lineWidth: BSChartStroke.data))
+                            .frame(width: BSSize.dot, height: BSSize.dot)
                             .offset(x: centerX - 7)
                     }
                 }
                 .frame(maxHeight: .infinity, alignment: .center)
             }
-            .frame(height: 16)
+            .frame(height: BSSize.glyph)
 
             HStack {
                 Text("偏低 <0.8")
@@ -171,12 +170,12 @@ public struct TrainingLoadDashboardCard: View {
             return Int((((load.acute7dLoad - load.chronic28dWeeklyAvg) / load.chronic28dWeeklyAvg) * 100).rounded())
         }()
 
-        return HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 3) {
+        return HStack(spacing: BSSpace.s) {
+            VStack(alignment: .leading, spacing: BSSpace.xxs) {
                 Text("近 7 天急性负荷")
                     .font(.caption2.weight(.medium))
                     .foregroundStyle(BevelTheme.inkSecondary)
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                HStack(alignment: .firstTextBaseline, spacing: BSSpace.xs) {
                     Text("\(Int(load.acute7dLoad.rounded()))")
                         .font(.title3.weight(.bold).monospacedDigit())
                         .fontDesign(.rounded)
@@ -188,18 +187,18 @@ public struct TrainingLoadDashboardCard: View {
                             : (deltaPercent < -20 ? BevelTheme.energyColor : BevelTheme.recoveryColor)
                         Text("\(sign)\(deltaPercent)%")
                             .font(.caption2.weight(.semibold).monospacedDigit())
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(tint.opacity(0.14), in: Capsule())
+                            .padding(.horizontal, BSSpace.xs)
+                            .padding(.vertical, BSSpace.xxs)
+                            .background(tint.opacity(BSOpacity.faint), in: Capsule())
                             .foregroundStyle(tint)
                     }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(10)
-            .background(BevelTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .padding(BSSpace.s)
+            .background(BevelTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: BSRadius.m, style: .continuous))
 
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: BSSpace.xxs) {
                 Text("28 天周均基线")
                     .font(.caption2.weight(.medium))
                     .foregroundStyle(BevelTheme.inkSecondary)
@@ -209,8 +208,8 @@ public struct TrainingLoadDashboardCard: View {
                     .foregroundStyle(BevelTheme.ink)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(10)
-            .background(BevelTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .padding(BSSpace.s)
+            .background(BevelTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: BSRadius.m, style: .continuous))
         }
     }
 
@@ -221,7 +220,7 @@ public struct TrainingLoadDashboardCard: View {
             Text("积累更多训练负荷日后，这里会展示近 14 天每日负荷柱状走势。")
                 .font(.caption)
                 .foregroundStyle(BevelTheme.inkSecondary)
-                .padding(.vertical, 4)
+                .padding(.vertical, BSSpace.xxs)
         } else {
             let maxVal = max(points.map(\.load).max() ?? 100, (dailyBaseline ?? 0) * 1.15)
             let topBound = max(60.0, ceil(maxVal * 1.16 / 10.0) * 10.0)
@@ -229,13 +228,13 @@ public struct TrainingLoadDashboardCard: View {
             let yTicks = ChartAxisSupport.yAxisTicks(for: yDomain, count: 3)
             let tickDates = ChartAxisSupport.explicitTickDates(from: points.map(\.date), maxTicks: 3)
 
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: BSSpace.xs) {
                 if let selectedPoint {
                     let dateStr = ChartAxisSupport.formatAxisDate(selectedPoint.date, horizon: .month)
                     let sub = selectedPoint.trimpScore > 0
                         ? "\(dateStr) · TRIMP \(Int(selectedPoint.trimpScore.rounded()))"
                         : dateStr
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    HStack(alignment: .firstTextBaseline, spacing: BSSpace.xs) {
                         Text("负荷 \(Int(selectedPoint.load.rounded()))")
                             .font(.subheadline.weight(.bold).monospacedDigit())
                             .fontDesign(.rounded)
@@ -252,7 +251,7 @@ public struct TrainingLoadDashboardCard: View {
                                 .font(.caption)
                                 .foregroundStyle(BevelTheme.inkSecondary)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.bsPressable)
                         .accessibilityLabel("清除选点")
                     }
                 } else {
@@ -272,8 +271,8 @@ public struct TrainingLoadDashboardCard: View {
                 Chart {
                     if let dailyBaseline, dailyBaseline > 0 {
                         RuleMark(y: .value("日均基线", dailyBaseline))
-                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                            .foregroundStyle(BevelTheme.inkSecondary.opacity(0.5))
+                            .lineStyle(StrokeStyle(lineWidth: BSChartStroke.rule, dash: BSChartStroke.estimateDash))
+                            .foregroundStyle(BevelTheme.inkSecondary.opacity(BSOpacity.disabled))
                     }
 
                     ForEach(points) { pt in
@@ -296,15 +295,15 @@ public struct TrainingLoadDashboardCard: View {
 
                     if let selectedPoint {
                         RuleMark(x: .value("选中日", selectedPoint.date))
-                            .lineStyle(StrokeStyle(lineWidth: 1.2, dash: [3, 3]))
-                            .foregroundStyle(BevelTheme.strainColor.opacity(0.75))
+                            .lineStyle(StrokeStyle(lineWidth: BSChartStroke.rule, dash: BSChartStroke.estimateDash))
+                            .foregroundStyle(BevelTheme.strainColor.opacity(BSOpacity.scrim))
                     }
                 }
                 .chartYScale(domain: yDomain)
                 .chartYAxis {
                     AxisMarks(position: .trailing, values: yTicks) { value in
-                        AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                            .foregroundStyle(BevelTheme.hairline.opacity(0.7))
+                        AxisGridLine(stroke: StrokeStyle(lineWidth: BSChartStroke.grid))
+                            .foregroundStyle(BevelTheme.hairline.opacity(BSOpacity.scrim))
                         AxisValueLabel {
                             if let v = value.as(Double.self) {
                                 Text(ChartAxisSupport.formatYAxisTick(v))
@@ -331,19 +330,19 @@ public struct TrainingLoadDashboardCard: View {
                 .onChange(of: rawSelectedDate) { _, newValue in
                     handleSelectionChange(newValue, points: points)
                 }
-                .frame(height: 118)
+                .frame(height: BSSize.chartCompact)
                 .bodyseekSelectionHaptic(trigger: selectedPoint?.id)
             }
         }
     }
 
     private var coachInsightStrip: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .top, spacing: 8) {
+        VStack(alignment: .leading, spacing: BSSpace.xs) {
+            HStack(alignment: .top, spacing: BSSpace.xs) {
                 Image(systemName: "sparkles")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(BevelTheme.brand)
-                    .padding(.top, 2)
+                    .padding(.top, BSSpace.xxs)
                 Text(coachMicroInsight)
                     .font(.caption)
                     .foregroundStyle(BevelTheme.ink)
@@ -351,21 +350,21 @@ public struct TrainingLoadDashboardCard: View {
             }
 
             Button(action: onAskCoach) {
-                HStack(spacing: 6) {
+                HStack(spacing: BSSpace.xs) {
                     Image(systemName: "bubble.left.and.text.bubble.right.fill")
                     Text("问 Coach 今日训练强度")
                 }
                 .font(.caption.weight(.semibold))
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 9)
-                .background(BevelTheme.brandSoft, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .padding(.vertical, BSSpace.xs)
+                .background(BevelTheme.brandSoft, in: RoundedRectangle(cornerRadius: BSRadius.s, style: .continuous))
                 .foregroundStyle(BevelTheme.brand)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.bsPressable)
             .accessibilityIdentifier("workout-load-ask-coach")
         }
-        .padding(10)
-        .background(BevelTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .padding(BSSpace.s)
+        .background(BevelTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: BSRadius.m, style: .continuous))
     }
 
     private func handleSelectionChange(_ date: Date?, points: [LoadBarPoint]) {

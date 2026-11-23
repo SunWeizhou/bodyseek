@@ -22,9 +22,9 @@ public struct EnergyDetailView: View {
         let peak = sorted.max { $0.value < $1.value }
         let latest = sorted.last
 
-        VStack(alignment: .leading, spacing: 16) {
-            BevelCard {
-                VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: BSSpace.m) {
+            BSCard {
+                VStack(alignment: .leading, spacing: BSSpace.s) {
                     Text("能量充放电估算轨迹")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(BevelTheme.energyColor)
@@ -37,8 +37,8 @@ public struct EnergyDetailView: View {
                 }
             }
 
-            BevelCard {
-                VStack(alignment: .leading, spacing: 10) {
+            BSCard {
+                VStack(alignment: .leading, spacing: BSSpace.s) {
                     Text("今日主要回充与消耗事件")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(BevelTheme.ink)
@@ -66,8 +66,8 @@ public struct EnergyDetailView: View {
                 }
             }
 
-            BevelCard {
-                VStack(alignment: .leading, spacing: 12) {
+            BSCard {
+                VStack(alignment: .leading, spacing: BSSpace.s) {
                     Text("能量储备趋势")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(BevelTheme.energyColor)
@@ -84,11 +84,11 @@ public struct EnergyDetailView: View {
     }
 
     private func eventRow(icon: String, tint: Color, title: String, value: String) -> some View {
-        HStack(spacing: 10) {
+        HStack(spacing: BSSpace.s) {
             Image(systemName: icon)
                 .font(.subheadline)
                 .foregroundStyle(tint)
-                .frame(width: 24)
+                .frame(width: BSSize.glyph)
             Text(title)
                 .font(.subheadline)
                 .foregroundStyle(BevelTheme.inkSecondary)

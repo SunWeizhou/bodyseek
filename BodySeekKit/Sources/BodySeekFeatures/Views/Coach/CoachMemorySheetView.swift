@@ -56,7 +56,7 @@ public struct CoachMemorySheetView: View {
                 if !candidateFindings.isEmpty {
                     Section("候选个人规律 · 待你确认 (\(candidateFindings.count))") {
                         ForEach(candidateFindings) { finding in
-                            VStack(alignment: .leading, spacing: 6) {
+                            VStack(alignment: .leading, spacing: BSSpace.xs) {
                                 Text(finding.statement)
                                     .font(.subheadline.weight(.medium))
                                     .foregroundStyle(BevelTheme.ink)
@@ -70,10 +70,10 @@ public struct CoachMemorySheetView: View {
                                         .font(.caption.weight(.semibold))
                                         .foregroundStyle(BevelTheme.brand)
                                 }
-                                .buttonStyle(.plain)
+                                .buttonStyle(.bsPressable)
                                 .accessibilityIdentifier("memory-confirm-pattern-\(finding.id.uuidString)")
                             }
-                            .padding(.vertical, 4)
+                            .padding(.vertical, BSSpace.xxs)
                         }
                     }
                 }
@@ -99,7 +99,7 @@ public struct CoachMemorySheetView: View {
     }
 
     private func memoryRow(_ record: TieredMemoryRecord, now: Date) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: BSSpace.xxs) {
             HStack {
                 Text(record.tier.titleLabel)
                     .font(.caption.weight(.semibold))
@@ -109,9 +109,9 @@ public struct CoachMemorySheetView: View {
                     let daysLeft = max(0, Int(ceil(exp.timeIntervalSince(now) / 86_400)))
                     Text(daysLeft == 0 ? "今日到期" : "剩余 \(daysLeft) 天")
                         .font(.caption2.weight(.medium))
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 2)
-                        .background(BevelTheme.energyColor.opacity(0.14), in: Capsule())
+                        .padding(.horizontal, BSSpace.xs)
+                        .padding(.vertical, BSSpace.xxs)
+                        .background(BevelTheme.energyColor.opacity(BSOpacity.faint), in: Capsule())
                         .foregroundStyle(BevelTheme.energyColor)
                 }
             }

@@ -27,7 +27,7 @@ public struct EnergyAreaChart: View {
                     height: max(120, height)
                 )
             } else {
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                RoundedRectangle(cornerRadius: BSRadius.s, style: .continuous)
                     .fill(BevelTheme.scoreTrack)
                     .frame(height: height)
             }
@@ -52,39 +52,27 @@ public struct EnergyAreaChart: View {
                 }
 
                 let chart = Chart {
-                    if interactive {
-                        RuleMark(y: .value("平衡线", 50))
-                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                            .foregroundStyle(BevelTheme.inkSecondary.opacity(0.35))
-                    }
-
                     ForEach(sorted) { pt in
                         AreaMark(
                             x: .value("时刻", pt.date),
                             y: .value("能量", pt.value)
                         )
                         .interpolationMethod(.catmullRom)
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [BevelTheme.energyColor.opacity(0.28), BevelTheme.energyColor.opacity(0.02)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
+                        .foregroundStyle(BSColor.energy.opacity(BSOpacity.faint))
 
                         LineMark(
                             x: .value("时刻", pt.date),
                             y: .value("能量", pt.value)
                         )
                         .interpolationMethod(.catmullRom)
-                        .lineStyle(StrokeStyle(lineWidth: 2.1, lineCap: .round))
+                        .lineStyle(StrokeStyle(lineWidth: BSChartStroke.data, lineCap: .round))
                         .foregroundStyle(BevelTheme.energyColor)
                     }
 
                     if interactive, let selectedPoint {
                         RuleMark(x: .value("选中时刻", selectedPoint.date))
-                            .lineStyle(StrokeStyle(lineWidth: 1.2, dash: [3, 3]))
-                            .foregroundStyle(BevelTheme.energyColor.opacity(0.75))
+                            .lineStyle(StrokeStyle(lineWidth: BSChartStroke.rule))
+                            .foregroundStyle(BSColor.separator)
                     }
 
                     if let active = selectedPoint ?? (interactive ? sorted.last : nil) {
@@ -95,7 +83,6 @@ public struct EnergyAreaChart: View {
                         .symbol {
                             Circle()
                                 .fill(BevelTheme.energyColor)
-                                .overlay(Circle().strokeBorder(BevelTheme.card, lineWidth: 1.8))
                                 .frame(width: selectedPoint != nil ? 10 : 8, height: selectedPoint != nil ? 10 : 8)
                         }
                     }
@@ -105,8 +92,8 @@ public struct EnergyAreaChart: View {
                 .chartYAxis {
                     if interactive {
                         AxisMarks(position: .trailing, values: [0, 50, 100]) { value in
-                            AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                                .foregroundStyle(BevelTheme.hairline.opacity(0.7))
+                            AxisGridLine(stroke: StrokeStyle(lineWidth: BSChartStroke.grid))
+                                .foregroundStyle(BSColor.separator)
                             AxisValueLabel {
                                 if let v = value.as(Int.self) {
                                     Text("\(v)")

@@ -24,9 +24,9 @@ public struct SleepDetailView: View {
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            BevelCard {
-                VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: BSSpace.m) {
+            BSCard {
+                VStack(alignment: .leading, spacing: BSSpace.s) {
                     HStack {
                         Label("昨夜睡眠分期阶梯", systemImage: MetricKind.sleep.systemImage)
                             .font(.subheadline.weight(.semibold))
@@ -45,8 +45,8 @@ public struct SleepDetailView: View {
 
             regularityAndDebtCard
 
-            BevelCard {
-                VStack(alignment: .leading, spacing: 12) {
+            BSCard {
+                VStack(alignment: .leading, spacing: BSSpace.s) {
                     Text("睡眠质量趋势")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(BevelTheme.sleepColor)
@@ -70,8 +70,8 @@ public struct SleepDetailView: View {
         let total = max(1, deep + core + rem + awake)
         let hasData = (deep + core + rem + awake) > 0
 
-        return BevelCard {
-            VStack(alignment: .leading, spacing: 12) {
+        return BSCard {
+            VStack(alignment: .leading, spacing: BSSpace.s) {
                 HStack {
                     Text("阶段构成占比")
                         .font(.subheadline.weight(.semibold))
@@ -88,16 +88,16 @@ public struct SleepDetailView: View {
 
                 if hasData {
                     GeometryReader { geo in
-                        HStack(spacing: 2) {
+                        HStack(spacing: BSSpace.xxs) {
                             stageBar(minutes: deep, total: total, width: geo.size.width, color: BevelTheme.sleepStageColor(.deep))
                             stageBar(minutes: core, total: total, width: geo.size.width, color: BevelTheme.sleepStageColor(.core))
                             stageBar(minutes: rem, total: total, width: geo.size.width, color: BevelTheme.sleepStageColor(.rem))
                             stageBar(minutes: awake, total: total, width: geo.size.width, color: BevelTheme.sleepStageColor(.awake))
                         }
                     }
-                    .frame(height: 10)
+                    .frame(height: BSSize.dot)
 
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 8)], alignment: .leading, spacing: 6) {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: BSSpace.xs)], alignment: .leading, spacing: BSSpace.xs) {
                         stageRow(.deep, minutes: day.raw.deepMinutes, total: total)
                         stageRow(.core, minutes: day.raw.coreMinutes, total: total)
                         stageRow(.rem, minutes: day.raw.remMinutes, total: total)
@@ -115,7 +115,7 @@ public struct SleepDetailView: View {
     @ViewBuilder
     private func stageBar(minutes: Int, total: Int, width: CGFloat, color: Color) -> some View {
         if minutes > 0 {
-            RoundedRectangle(cornerRadius: 4, style: .continuous)
+            RoundedRectangle(cornerRadius: BSRadius.s, style: .continuous)
                 .fill(color)
                 .frame(width: max(4, width * CGFloat(Double(minutes) / Double(total))))
         }
@@ -127,10 +127,10 @@ public struct SleepDetailView: View {
         } else {
             "--"
         }
-        return HStack(spacing: 6) {
+        return HStack(spacing: BSSpace.xs) {
             Circle()
                 .fill(BevelTheme.sleepStageColor(stage))
-                .frame(width: 8, height: 8)
+                .frame(width: BSSize.dot, height: BSSize.dot)
             Text(stage.title)
                 .font(.caption)
                 .foregroundStyle(BevelTheme.inkSecondary)
@@ -172,14 +172,14 @@ public struct SleepDetailView: View {
             "--"
         }
 
-        return BevelCard {
-            VStack(alignment: .leading, spacing: 10) {
+        return BSCard {
+            VStack(alignment: .leading, spacing: BSSpace.s) {
                 Text("规律性与睡眠债（目标 \(String(format: "%.1f", Double(sleepGoalMinutes) / 60.0))h）")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(BevelTheme.ink)
 
                 HStack {
-                    VStack(alignment: .leading, spacing: 3) {
+                    VStack(alignment: .leading, spacing: BSSpace.xxs) {
                         Text("近 14 天入睡波动")
                             .font(.caption)
                             .foregroundStyle(BevelTheme.inkSecondary)
@@ -189,7 +189,7 @@ public struct SleepDetailView: View {
                             .foregroundStyle(spreadText == "--" ? BevelTheme.inkSecondary : BevelTheme.ink)
                     }
                     Spacer()
-                    VStack(alignment: .trailing, spacing: 3) {
+                    VStack(alignment: .trailing, spacing: BSSpace.xxs) {
                         Text("近 \(recent7.count) 日睡眠盈亏")
                             .font(.caption)
                             .foregroundStyle(BevelTheme.inkSecondary)

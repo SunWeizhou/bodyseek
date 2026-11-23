@@ -34,7 +34,7 @@ public struct IntradayBarChart: View {
                     height: max(120, height)
                 )
             } else {
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                RoundedRectangle(cornerRadius: BSRadius.s, style: .continuous)
                     .fill(BevelTheme.scoreTrack)
                     .frame(height: height)
             }
@@ -69,7 +69,7 @@ public struct IntradayBarChart: View {
                                 yStart: .value("底", 0),
                                 yEnd: .value("顶", 100)
                             )
-                            .foregroundStyle(BevelTheme.inkSecondary.opacity(0.14))
+                            .foregroundStyle(Color.secondary.opacity(BSOpacity.faint))
                         } else {
                             BarMark(
                                 x: .value("小时", hourVal),
@@ -78,16 +78,8 @@ public struct IntradayBarChart: View {
                                 width: .fixed(barWidth)
                             )
                             .cornerRadius(barWidth / 2)
-                            .foregroundStyle(
-                                color(for: bin).opacity(selectedBin == nil || isSelected ? 0.92 : 0.38)
-                            )
+                            .foregroundStyle(selectedBin == nil || isSelected ? color(for: bin) : BSColor.dimmed)
                         }
-                    }
-
-                    if interactive, let selectedBin {
-                        RuleMark(x: .value("选中时段", Double(selectedBin.hour)))
-                            .lineStyle(StrokeStyle(lineWidth: 1.2, dash: [3, 3]))
-                            .foregroundStyle(activeColor.opacity(0.75))
                     }
                 }
                 .chartYScale(domain: 0...100)
@@ -96,8 +88,8 @@ public struct IntradayBarChart: View {
                 .chartYAxis {
                     if interactive {
                         AxisMarks(position: .trailing, values: [0, 50, 100]) { value in
-                            AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                                .foregroundStyle(BevelTheme.hairline.opacity(0.7))
+                            AxisGridLine(stroke: StrokeStyle(lineWidth: BSChartStroke.grid))
+                                .foregroundStyle(BSColor.separator)
                             AxisValueLabel {
                                 if let v = value.as(Int.self) {
                                     Text("\(v)")
@@ -160,13 +152,9 @@ public struct IntradayBarChart: View {
         }
     }
 
+    /// 单色柱：高度表示强度，不再按档位换色。
     private func color(for bin: StressTimelineBin) -> Color {
-        switch bin.level {
-        case .rest: BevelTheme.recoveryColor.opacity(0.65)
-        case .low: BevelTheme.stressColor.opacity(0.55)
-        case .medium: BevelTheme.energyColor
-        case .elevated: BevelTheme.stressColor
-        }
+        BSColor.stress
     }
 
     private func levelLabel(_ level: StressLevel) -> String {

@@ -24,9 +24,9 @@ public struct RecoveryDetailView: View {
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            BevelCard {
-                VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: BSSpace.m) {
+            BSCard {
+                VStack(alignment: .leading, spacing: BSSpace.s) {
                     Text("恢复储备趋势")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(BevelTheme.recoveryColor)
@@ -57,8 +57,8 @@ public struct RecoveryDetailView: View {
         let spo2Base = median(prior28.compactMap { $0.raw.oxygenSaturationPct })
         let walkHRBase = median(prior28.compactMap { $0.raw.walkingHeartRateAvgBpm })
 
-        return BevelCard {
-            VStack(alignment: .leading, spacing: 12) {
+        return BSCard {
+            VStack(alignment: .leading, spacing: BSSpace.s) {
                 Text("生理体征偏离 · 对照个人 28 天基线")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(BevelTheme.ink)
@@ -105,7 +105,7 @@ public struct RecoveryDetailView: View {
         delta: Double?,
         scale: Double
     ) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: BSSpace.xs) {
             HStack {
                 Text(title)
                     .font(.subheadline)
@@ -124,20 +124,20 @@ public struct RecoveryDetailView: View {
                 ZStack(alignment: .leading) {
                     Capsule()
                         .fill(BevelTheme.scoreTrack)
-                        .frame(height: 6)
+                        .frame(height: BSSize.dot)
                     Rectangle()
-                        .fill(BevelTheme.inkSecondary.opacity(0.45))
-                        .frame(width: 1.5, height: 10)
+                        .fill(BevelTheme.inkSecondary.opacity(BSOpacity.disabled))
+                        .frame(width: BSSize.dot, height: BSSize.dot)
                         .offset(x: mid - 0.75)
                     if delta != nil {
                         Capsule()
                             .fill(abs(clamped) > 0.65 ? BevelTheme.strainColor : BevelTheme.recoveryColor)
-                            .frame(width: max(4, offsetWidth), height: 6)
+                            .frame(width: max(4, offsetWidth), height: BSSize.dot)
                             .offset(x: clamped >= 0 ? mid : (mid - max(4, offsetWidth)))
                     }
                 }
             }
-            .frame(height: 10)
+            .frame(height: BSSize.dot)
 
             Text(baselineText ?? "基线样本积累中")
                 .font(.caption2)
@@ -146,8 +146,8 @@ public struct RecoveryDetailView: View {
     }
 
     private var contributorsCard: some View {
-        BevelCard {
-            VStack(alignment: .leading, spacing: 10) {
+        BSCard {
+            VStack(alignment: .leading, spacing: BSSpace.s) {
                 Text("评分贡献因子（\(score.algorithmVersion.description)）")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(BevelTheme.ink)
@@ -158,13 +158,13 @@ public struct RecoveryDetailView: View {
                         .foregroundStyle(BevelTheme.inkSecondary)
                 } else {
                     ForEach(score.contributors) { item in
-                        HStack(alignment: .top, spacing: 10) {
+                        HStack(alignment: .top, spacing: BSSpace.s) {
                             Circle()
                                 .fill(impactColor(item.impact))
-                                .frame(width: 8, height: 8)
-                                .padding(.top, 5)
+                                .frame(width: BSSize.dot, height: BSSize.dot)
+                                .padding(.top, BSSpace.xxs)
 
-                            VStack(alignment: .leading, spacing: 2) {
+                            VStack(alignment: .leading, spacing: BSSpace.xxs) {
                                 HStack {
                                     Text(item.label)
                                         .font(.subheadline.weight(.medium))

@@ -54,13 +54,13 @@ public struct CheckInSheetView: View {
                 }
 
                 Section {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 84), spacing: 8)], spacing: 8) {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 84), spacing: BSSpace.xs)], spacing: BSSpace.xs) {
                         ForEach(quickSorenessMuscles) { muscle in
                             let level = soreness[muscle] ?? 0
                             Button {
                                 cycleSoreness(for: muscle)
                             } label: {
-                                HStack(spacing: 4) {
+                                HStack(spacing: BSSpace.xxs) {
                                     Text(muscle.title)
                                         .font(.caption.weight(.medium))
                                         .lineLimit(1)
@@ -70,23 +70,23 @@ public struct CheckInSheetView: View {
                                     }
                                 }
                                 .frame(maxWidth: .infinity)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 8)
+                                .padding(.horizontal, BSSpace.xs)
+                                .padding(.vertical, BSSpace.xs)
                                 .background(
-                                    level > 0 ? BevelTheme.strainColor.opacity(0.18) : BevelTheme.surfaceElevated,
-                                    in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    level > 0 ? BevelTheme.strainColor.opacity(BSOpacity.muted) : BevelTheme.surfaceElevated,
+                                    in: RoundedRectangle(cornerRadius: BSRadius.s, style: .continuous)
                                 )
                                 .overlay(
-                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                        .strokeBorder(level > 0 ? BevelTheme.strainColor.opacity(0.6) : Color.clear, lineWidth: 1)
+                                    RoundedRectangle(cornerRadius: BSRadius.s, style: .continuous)
+                                        .strokeBorder(level > 0 ? BevelTheme.strainColor.opacity(BSOpacity.scrim) : Color.clear, lineWidth: 1)
                                 )
                                 .foregroundStyle(level > 0 ? BevelTheme.strainColor : BevelTheme.inkSecondary)
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.bsPressable)
                             .accessibilityIdentifier("checkin-soreness-\(muscle.rawValue)")
                         }
                     }
-                    .padding(.vertical, 4)
+                    .padding(.vertical, BSSpace.xxs)
                 } header: {
                     Text("部位酸痛 / 紧绷（可选，轻点切换 轻 → 中 → 重）")
                 }
@@ -134,7 +134,7 @@ public struct CheckInSheetView: View {
         tint: Color,
         identifierPrefix: String
     ) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: BSSpace.xs) {
             HStack {
                 Text(title)
                     .font(.subheadline.weight(.semibold))
@@ -145,36 +145,36 @@ public struct CheckInSheetView: View {
                     .foregroundStyle(tint)
             }
 
-            HStack(spacing: 8) {
+            HStack(spacing: BSSpace.xs) {
                 ForEach(1...5, id: \.self) { score in
                     let isSelected = value.wrappedValue == score
                     Button {
                         value.wrappedValue = score
                     } label: {
-                        VStack(spacing: 2) {
+                        VStack(spacing: BSSpace.xxs) {
                             Text("\(score)")
                                 .font(.subheadline.weight(.bold).monospacedDigit())
                             Text(labels[score - 1])
                                 .font(.caption2)
                         }
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
+                        .padding(.vertical, BSSpace.xs)
                         .background(
-                            isSelected ? tint.opacity(0.20) : BevelTheme.surfaceElevated,
-                            in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            isSelected ? tint.opacity(BSOpacity.muted) : BevelTheme.surfaceElevated,
+                            in: RoundedRectangle(cornerRadius: BSRadius.s, style: .continuous)
                         )
                         .overlay(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            RoundedRectangle(cornerRadius: BSRadius.s, style: .continuous)
                                 .strokeBorder(isSelected ? tint : Color.clear, lineWidth: 1.2)
                         )
                         .foregroundStyle(isSelected ? tint : BevelTheme.inkSecondary)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.bsPressable)
                     .accessibilityIdentifier("\(identifierPrefix)-\(score)")
                 }
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, BSSpace.xxs)
     }
 
     private func cycleSoreness(for muscle: BodyRegionMuscle) {

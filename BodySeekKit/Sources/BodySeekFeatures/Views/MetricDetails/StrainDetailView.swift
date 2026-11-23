@@ -21,13 +21,13 @@ public struct StrainDetailView: View {
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: BSSpace.m) {
             acwrGaugeCard
 
             workoutsBreakdownCard
 
-            BevelCard {
-                VStack(alignment: .leading, spacing: 12) {
+            BSCard {
+                VStack(alignment: .leading, spacing: BSSpace.s) {
                     Text("训练负荷趋势")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(BevelTheme.strainColor)
@@ -48,8 +48,8 @@ public struct StrainDetailView: View {
     }
 
     private var acwrGaugeCard: some View {
-        BevelCard {
-            VStack(alignment: .leading, spacing: 12) {
+        BSCard {
+            VStack(alignment: .leading, spacing: BSSpace.s) {
                 HStack {
                     Text("急慢性负荷比 (ACWR)")
                         .font(.subheadline.weight(.semibold))
@@ -57,13 +57,13 @@ public struct StrainDetailView: View {
                     Spacer()
                     Text(trainingLoad.zone.title)
                         .font(.caption.weight(.semibold))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(zoneColor(trainingLoad.zone).opacity(0.16), in: Capsule())
+                        .padding(.horizontal, BSSpace.xs)
+                        .padding(.vertical, BSSpace.xxs)
+                        .background(zoneColor(trainingLoad.zone).opacity(BSOpacity.faint), in: Capsule())
                         .foregroundStyle(zoneColor(trainingLoad.zone))
                 }
 
-                HStack(spacing: 18) {
+                HStack(spacing: BSSpace.m) {
                     metricCell(title: "ACWR", value: trainingLoad.acwrRatio.map { String(format: "%.2f", $0) } ?? "--")
                     metricCell(title: "7 天急性", value: String(format: "%.0f", trainingLoad.acute7dLoad))
                     metricCell(title: "28 天周均", value: String(format: "%.0f", trainingLoad.chronic28dWeeklyAvg))
@@ -76,22 +76,22 @@ public struct StrainDetailView: View {
                     ZStack(alignment: .leading) {
                         Capsule()
                             .fill(BevelTheme.scoreTrack)
-                            .frame(height: 8)
-                        RoundedRectangle(cornerRadius: 4, style: .continuous)
-                            .fill(BevelTheme.recoveryColor.opacity(0.28))
-                            .frame(width: sweetEnd - sweetStart, height: 8)
+                            .frame(height: BSSize.dot)
+                        RoundedRectangle(cornerRadius: BSRadius.s, style: .continuous)
+                            .fill(BevelTheme.recoveryColor.opacity(BSOpacity.muted))
+                            .frame(width: sweetEnd - sweetStart, height: BSSize.dot)
                             .offset(x: sweetStart)
                         if let ratio = trainingLoad.acwrRatio {
                             let clamped = min(maxScale, max(0, ratio))
                             let x = CGFloat(clamped / maxScale) * max(1, geo.size.width - 10)
                             Circle()
                                 .fill(zoneColor(trainingLoad.zone))
-                                .frame(width: 12, height: 12)
+                                .frame(width: BSSize.dot, height: BSSize.dot)
                                 .offset(x: x)
                         }
                     }
                 }
-                .frame(height: 12)
+                .frame(height: BSSize.dot)
 
                 Text("安全适配甜区：0.80–1.32 · TRIMP 按 Watch 心率区间计算，不与系统估算重复叠加")
                     .font(.caption2)
@@ -101,7 +101,7 @@ public struct StrainDetailView: View {
     }
 
     private func metricCell(title: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: BSSpace.xxs) {
             Text(title)
                 .font(.caption2)
                 .foregroundStyle(BevelTheme.inkSecondary)
@@ -113,8 +113,8 @@ public struct StrainDetailView: View {
     }
 
     private var workoutsBreakdownCard: some View {
-        BevelCard {
-            VStack(alignment: .leading, spacing: 12) {
+        BSCard {
+            VStack(alignment: .leading, spacing: BSSpace.s) {
                 Text("当日 Apple Watch 训练与心率区间")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(BevelTheme.ink)
@@ -125,7 +125,7 @@ public struct StrainDetailView: View {
                         .foregroundStyle(BevelTheme.inkSecondary)
                 } else {
                     ForEach(day.raw.workouts) { workout in
-                        VStack(alignment: .leading, spacing: 8) {
+                        VStack(alignment: .leading, spacing: BSSpace.xs) {
                             HStack {
                                 Label(workout.activityName, systemImage: workout.symbolName)
                                     .font(.subheadline.weight(.semibold))
@@ -137,7 +137,7 @@ public struct StrainDetailView: View {
                                     .foregroundStyle(BevelTheme.inkSecondary)
                             }
 
-                            HStack(spacing: 10) {
+                            HStack(spacing: BSSpace.s) {
                                 if let avgHR = workout.averageHeartRate {
                                     tagPill("均心率 \(Int(avgHR.rounded())) bpm", tint: BevelTheme.heartRateAverage)
                                 }
@@ -155,8 +155,8 @@ public struct StrainDetailView: View {
                                 ZoneBar(zones: zones, showsTrimp: true)
                             }
                         }
-                        .padding(10)
-                        .background(BevelTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .padding(BSSpace.s)
+                        .background(BevelTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: BSRadius.m, style: .continuous))
                     }
                 }
             }
@@ -167,9 +167,9 @@ public struct StrainDetailView: View {
         Text(text)
             .font(.caption2.weight(.medium).monospacedDigit())
             .fontDesign(.rounded)
-            .padding(.horizontal, 7)
-            .padding(.vertical, 3)
-            .background(tint.opacity(0.14), in: Capsule())
+            .padding(.horizontal, BSSpace.xs)
+            .padding(.vertical, BSSpace.xxs)
+            .background(tint.opacity(BSOpacity.faint), in: Capsule())
             .foregroundStyle(tint)
     }
 

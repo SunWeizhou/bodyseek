@@ -16,8 +16,8 @@ public struct OnboardingView: View {
             BevelAmbientAura(recoveryScore: 84)
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: BSSpace.l) {
+                    VStack(alignment: .leading, spacing: BSSpace.m) {
                         BodySeekBrandMark(size: 52)
                         Text("BodySeek")
                             .font(.largeTitle.weight(.bold))
@@ -28,7 +28,7 @@ public struct OnboardingView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
 
-                    VStack(spacing: 12) {
+                    VStack(spacing: BSSpace.s) {
                         featureRow(
                             icon: "figure.strengthtraining.traditional",
                             tint: BevelTheme.strainColor,
@@ -49,13 +49,13 @@ public struct OnboardingView: View {
                         )
                     }
                 }
-                .padding(.horizontal, 24)
-                .padding(.top, 24)
-                .padding(.bottom, 16)
+                .padding(.horizontal, BSSpace.l)
+                .padding(.top, BSSpace.l)
+                .padding(.bottom, BSSpace.m)
             }
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            VStack(spacing: 10) {
+        .safeAreaInset(edge: .bottom, spacing: BSSpace.none) {
+            VStack(spacing: BSSpace.s) {
                 Button(action: onAuthorizeAndStart) {
                     Text("连接 Apple 健康并开始")
                         .font(.headline)
@@ -63,9 +63,9 @@ public struct OnboardingView: View {
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 14)
-                        .background(BevelTheme.brand, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .padding(.horizontal, BSSpace.s)
+                        .padding(.vertical, BSSpace.m)
+                        .background(BevelTheme.brand, in: RoundedRectangle(cornerRadius: BSRadius.m, style: .continuous))
                 }
                 .accessibilityIdentifier("onboarding-authorize-start")
 
@@ -76,14 +76,14 @@ public struct OnboardingView: View {
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
+                        .padding(.vertical, BSSpace.s)
                 }
                 .accessibilityIdentifier("onboarding-skip-button")
             }
-            .padding(.horizontal, 24)
-            .padding(.top, 12)
-            .padding(.bottom, 16)
-            .background(BevelTheme.canvas.opacity(0.96))
+            .padding(.horizontal, BSSpace.l)
+            .padding(.top, BSSpace.s)
+            .padding(.bottom, BSSpace.m)
+            .background(BevelTheme.canvas.opacity(BSOpacity.scrim))
             .overlay(alignment: .top) {
                 Divider()
             }
@@ -92,14 +92,14 @@ public struct OnboardingView: View {
     }
 
     private func featureRow(icon: String, tint: Color, title: String, detail: String) -> some View {
-        BevelCard(padding: 14) {
-            HStack(alignment: .top, spacing: 12) {
+        BSCard {
+            HStack(alignment: .top, spacing: BSSpace.s) {
                 Image(systemName: icon)
                     .font(.title3)
                     .foregroundStyle(tint)
-                    .frame(width: 28)
+                    .frame(width: BSSize.glyph)
 
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: BSSpace.xxs) {
                     Text(title)
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(BevelTheme.ink)

@@ -246,7 +246,7 @@ public struct ChartSelectionCallout: View {
     }
 
     public var body: some View {
-        VStack(alignment: .center, spacing: 1) {
+        VStack(alignment: .center, spacing: BSSpace.none) {
             Text(valueText)
                 .font(.caption.weight(.bold).monospacedDigit())
                 .fontDesign(.rounded)
@@ -255,14 +255,13 @@ public struct ChartSelectionCallout: View {
                 .font(.caption2.monospacedDigit())
                 .foregroundStyle(BevelTheme.inkSecondary)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(BevelTheme.card, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .padding(.horizontal, BSSpace.xs)
+        .padding(.vertical, BSSpace.xxs)
+        .background(BSColor.surface, in: RoundedRectangle(cornerRadius: BSRadius.s, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .strokeBorder(BevelTheme.hairline, lineWidth: 0.75)
+            RoundedRectangle(cornerRadius: BSRadius.s, style: .continuous)
+                .strokeBorder(BevelTheme.hairline, lineWidth: BSChartStroke.rule)
         )
-        .shadow(color: Color.black.opacity(0.08), radius: 4, x: 0, y: 2)
     }
 }
 
@@ -286,7 +285,7 @@ public struct DiagonalHatchView: View {
                 path.addLine(to: CGPoint(x: x + size.height, y: 0))
                 x += spacing
             }
-            context.stroke(path, with: .color(tint.opacity(0.28)), lineWidth: 1)
+            context.stroke(path, with: .color(tint.opacity(BSOpacity.muted)), lineWidth: BSChartStroke.rule)
         }
         .clipped()
     }
@@ -316,13 +315,13 @@ public struct ChartLockedReadoutHeader: View {
 
     public var body: some View {
         ViewThatFits(in: .horizontal) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: BSSpace.xs) {
                 primaryLabel
                 Spacer(minLength: 6)
                 trailingControls
             }
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: BSSpace.xxs) {
                 primaryLabel
                 trailingControls
             }
@@ -339,7 +338,7 @@ public struct ChartLockedReadoutHeader: View {
     }
 
     private var trailingControls: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: BSSpace.xs) {
             Text(secondaryText)
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(BevelTheme.inkSecondary)
@@ -350,7 +349,7 @@ public struct ChartLockedReadoutHeader: View {
                         .font(.caption)
                         .foregroundStyle(BevelTheme.inkSecondary)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.bsPressable)
                 .accessibilityLabel("清除选点")
             }
         }
@@ -373,7 +372,7 @@ public struct ChartEmptyPlaceholder: View {
     }
 
     public var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: BSSpace.xs) {
             Image(systemName: systemImage)
                 .font(.title2)
                 .foregroundStyle(BevelTheme.inkSecondary)

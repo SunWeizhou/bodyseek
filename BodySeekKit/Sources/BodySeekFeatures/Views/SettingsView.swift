@@ -37,7 +37,7 @@ public struct SettingsView: View {
                         LabeledContent("每日睡眠目标", value: String(format: "%.2f 小时", hours))
                     }
 
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: BSSpace.xs) {
                         Text("持拍手 / 惯用手（羽毛球等单侧归因）")
                             .font(.subheadline)
                         Picker(
@@ -135,7 +135,7 @@ public struct SettingsView: View {
                             .foregroundStyle(BevelTheme.inkSecondary)
                     } else if !store.tieredMemories.isEmpty {
                         ForEach(store.tieredMemories.filter { $0.isActive() }) { record in
-                            VStack(alignment: .leading, spacing: 3) {
+                            VStack(alignment: .leading, spacing: BSSpace.xxs) {
                                 HStack {
                                     Text(record.tier.titleLabel)
                                         .font(.caption.weight(.semibold))
@@ -157,7 +157,7 @@ public struct SettingsView: View {
                         }
                     } else {
                         ForEach(store.memories) { mem in
-                            VStack(alignment: .leading, spacing: 3) {
+                            VStack(alignment: .leading, spacing: BSSpace.xxs) {
                                 Text(mem.category.title)
                                     .font(.caption.weight(.semibold))
                                     .foregroundStyle(BevelTheme.brand)
@@ -235,14 +235,14 @@ public struct SettingsView: View {
     private var privacyPayloadSheet: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: BSSpace.s) {
                     Text("API Key 仅保留在 Keychain 与 HTTP Authorization 请求头，不会写入外发对话 JSON。以下为最近一次发往云端模型的完整请求脱敏快照：")
                         .font(.caption)
                         .foregroundStyle(BevelTheme.inkSecondary)
 
                     if let snap = store.lastOutboundPayload {
-                        BevelCard(padding: 12) {
-                            VStack(alignment: .leading, spacing: 6) {
+                        BSCard {
+                            VStack(alignment: .leading, spacing: BSSpace.xs) {
                                 Text("Endpoint: \(snap.endpointURL)")
                                     .font(.caption2.monospaced())
                                 Text("Model: \(snap.modelName) · Messages: \(snap.messageCount)")
@@ -257,14 +257,14 @@ public struct SettingsView: View {
                             }
                         }
                     } else {
-                        BevelCard(padding: 14) {
+                        BSCard {
                             Text("本次应用会话尚未向云端 AI 发送任何数据。预览模式或端侧 Apple Intelligence 模式下不会外发健康 JSON。")
                                 .font(.footnote)
                                 .foregroundStyle(BevelTheme.inkSecondary)
                         }
                     }
                 }
-                .padding(16)
+                .padding(BSSpace.m)
             }
             .background(BevelTheme.canvas.ignoresSafeArea())
             .navigationTitle("外发云端 AI 数据预览")

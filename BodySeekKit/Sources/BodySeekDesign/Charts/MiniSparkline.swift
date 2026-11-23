@@ -61,39 +61,14 @@ public struct MiniSparkline: View {
             let latestPoint = prepared.runs.last?.last
 
             Chart {
-                if let band = baselineRange {
-                    let clampedLow = min(yDomain.upperBound, max(yDomain.lowerBound, band.lowerBound))
-                    let clampedHigh = max(clampedLow, min(yDomain.upperBound, band.upperBound))
-                    RectangleMark(
-                        yStart: .value("基线下", clampedLow),
-                        yEnd: .value("基线上", clampedHigh)
-                    )
-                    .foregroundStyle(tint.opacity(0.09))
-                }
-
                 ForEach(multiRuns) { pt in
-                    AreaMark(
-                        x: .value("日期", pt.date),
-                        yStart: .value("底", yDomain.lowerBound),
-                        yEnd: .value("数值", pt.value),
-                        series: .value("段", pt.segmentID)
-                    )
-                    .interpolationMethod(.monotone)
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [tint.opacity(0.22), tint.opacity(0.0)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-
                     LineMark(
                         x: .value("日期", pt.date),
                         y: .value("数值", pt.value),
                         series: .value("段", pt.segmentID)
                     )
                     .interpolationMethod(.monotone)
-                    .lineStyle(StrokeStyle(lineWidth: 2.0, lineCap: .round, lineJoin: .round))
+                    .lineStyle(StrokeStyle(lineWidth: BSChartStroke.data, lineCap: .round, lineJoin: .round))
                     .foregroundStyle(tint)
                 }
 
@@ -112,18 +87,9 @@ public struct MiniSparkline: View {
                         y: .value("最新值", latestPoint.value)
                     )
                     .symbol {
-                        ZStack {
-                            Circle()
-                                .fill(tint.opacity(0.22))
-                                .frame(width: 10, height: 10)
-                            Circle()
-                                .fill(tint)
-                                .overlay(
-                                    Circle()
-                                        .strokeBorder(BevelTheme.card, lineWidth: 1.2)
-                                )
-                                .frame(width: 5.5, height: 5.5)
-                        }
+                        Circle()
+                            .fill(tint)
+                            .frame(width: BSSize.dot, height: BSSize.dot)
                     }
                 }
             }
@@ -193,9 +159,8 @@ public struct MiniSparkline: View {
             .fill(.clear)
             .overlay {
                 Capsule()
-                    .strokeBorder(style: StrokeStyle(lineWidth: 1.4, dash: [5, 4]))
-                    .foregroundStyle(BevelTheme.inkSecondary.opacity(0.4))
-                    .frame(height: 1.5)
+                    .fill(Color.secondary.opacity(BSOpacity.muted))
+                    .frame(height: BSChartStroke.micro)
             }
     }
 }
