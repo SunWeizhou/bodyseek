@@ -88,7 +88,7 @@ public struct NutritionMealLoggerSheet: View {
                             if mealType == .water { mealType = .lunch }
                         } label: {
                             HStack {
-                                VStack(alignment: .leading, spacing: 2) {
+                                VStack(alignment: .leading, spacing: BSSpace.xxs) {
                                     Text(item.name)
                                         .font(.subheadline.weight(.medium))
                                         .foregroundStyle(BevelTheme.ink)
@@ -331,7 +331,7 @@ public struct NutritionLibrarySheet: View {
 
                 Section("已建档食物条目（\(store.foodLibrary.count)）") {
                     ForEach(store.foodLibrary) { item in
-                        VStack(alignment: .leading, spacing: 4) {
+                        VStack(alignment: .leading, spacing: BSSpace.xxs) {
                             HStack {
                                 Text(item.name)
                                     .font(.subheadline.weight(.semibold))
@@ -339,8 +339,8 @@ public struct NutritionLibrarySheet: View {
                                 Spacer()
                                 Text(item.category)
                                     .font(.caption2)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
+                                    .padding(.horizontal, BSSpace.xs)
+                                    .padding(.vertical, BSSpace.xxs)
                                     .background(BevelTheme.surfaceElevated, in: Capsule())
                                     .foregroundStyle(BevelTheme.inkSecondary)
                             }
@@ -367,7 +367,7 @@ public struct NutritionLibrarySheet: View {
                     Text(foodSearchError)
                         .font(.caption2)
                         .foregroundStyle(BevelTheme.dangerColor)
-                        .padding(.top, 4)
+                        .padding(.top, BSSpace.xxs)
                 }
             }
             .navigationTitle("营养库")
@@ -553,7 +553,7 @@ public struct NutritionMarkdownSheet: View {
                     .font(.caption.monospaced())
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(16)
+                    .padding(BSSpace.m)
             }
             .background(BevelTheme.canvas.ignoresSafeArea())
             .navigationTitle("Obsidian Markdown 导出")

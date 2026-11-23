@@ -134,7 +134,7 @@ struct NutritionMealAssistantView: View {
         .navigationTitle("AI 记饮食")
         .bodyseekNavigationBarInline()
         .scrollDismissesKeyboard(.interactively)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
+        .safeAreaInset(edge: .bottom, spacing: BSSpace.none) {
             if rows.isEmpty {
                 analysisBar
             }
@@ -196,7 +196,7 @@ struct NutritionMealAssistantView: View {
     private static let meals = MealType.allCases.filter { $0 != .water }
 
     private var analysisBar: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: BSSpace.xs) {
             if let errorMessage {
                 Text(errorMessage)
                     .font(.footnote)
@@ -226,15 +226,15 @@ struct NutritionMealAssistantView: View {
                     .frame(maxWidth: .infinity, alignment: .center)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
+        .padding(.horizontal, BSSpace.m)
+        .padding(.vertical, BSSpace.xs)
         .background(.bar)
     }
 
     private func draftSubtotal(_ entries: [MealEntry]) -> some View {
         var log = DailyNutritionLog(dayKey: day, entries: entries)
         log.recalculateTotals()
-        return VStack(alignment: .leading, spacing: 5) {
+        return VStack(alignment: .leading, spacing: BSSpace.xxs) {
             Text("营养小计").font(.subheadline.weight(.semibold))
             if let kcal = log.dietKcal {
                 if let range = MealEnergySummary(entries: entries).displayRange {
@@ -264,7 +264,7 @@ struct NutritionMealAssistantView: View {
     private func draftRow(_ row: Binding<DraftRow>) -> some View {
         let item = row.wrappedValue
         let entry = item.entry(day: day)
-        return VStack(alignment: .leading, spacing: 8) {
+        return VStack(alignment: .leading, spacing: BSSpace.xs) {
             HStack {
                 Text(item.name).font(.headline)
                 Spacer()
