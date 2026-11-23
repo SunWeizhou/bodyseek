@@ -395,7 +395,8 @@ public struct AppFeature: Sendable {
                 return .merge(
                     .send(.briefingGenerated(status)),
                     .send(.trends(.dailyBriefUpdated(brief))),
-                    .send(.nutrition(.dailyBriefUpdated(brief)))
+                    .send(.nutrition(.dailyBriefUpdated(brief))),
+                    .send(.workout(.dailyBriefUpdated(brief)))
                 )
 
             case let .bodyModelChanged(model):

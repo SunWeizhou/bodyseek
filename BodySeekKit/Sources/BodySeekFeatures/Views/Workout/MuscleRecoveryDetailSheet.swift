@@ -21,9 +21,9 @@ public struct MuscleRecoveryDetailSheet: View {
 
         return NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: BSSpace.m) {
                     BevelCard(padding: 16) {
-                        VStack(alignment: .leading, spacing: 12) {
+                        VStack(alignment: .leading, spacing: BSSpace.s) {
                             HStack {
                                 Text(muscle.title)
                                     .font(.title2.weight(.bold))
@@ -31,14 +31,14 @@ public struct MuscleRecoveryDetailSheet: View {
                                 Spacer()
                                 Text("启发式估计")
                                     .font(.caption.weight(.semibold))
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 4)
+                                    .padding(.horizontal, BSSpace.s)
+                                    .padding(.vertical, BSSpace.xxs)
                                     .background(BevelTheme.surfaceElevated, in: Capsule())
                                     .foregroundStyle(BevelTheme.inkSecondary)
                                     .accessibilityIdentifier("muscle-recovery-heuristic-badge")
                             }
 
-                            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            HStack(alignment: .firstTextBaseline, spacing: BSSpace.xs) {
                                 Text("\(est.recoveryPercent)%")
                                     .font(.system(.largeTitle, design: .rounded).weight(.bold))
                                     .monospacedDigit()
@@ -71,7 +71,7 @@ public struct MuscleRecoveryDetailSheet: View {
                     }
 
                     BevelCard(padding: 14) {
-                        VStack(alignment: .leading, spacing: 8) {
+                        VStack(alignment: .leading, spacing: BSSpace.xs) {
                             Label("全身衰减系数依据（无循环负荷依赖）", systemImage: "waveform.path.ecg")
                                 .font(.subheadline.weight(.semibold))
                                 .foregroundStyle(BevelTheme.ink)
@@ -83,13 +83,13 @@ public struct MuscleRecoveryDetailSheet: View {
 
                     if !est.contributingEvents.isEmpty {
                         BevelCard(padding: 14) {
-                            VStack(alignment: .leading, spacing: 10) {
+                            VStack(alignment: .leading, spacing: BSSpace.s) {
                                 Text("近 7 天关联刺激记录")
                                     .font(.subheadline.weight(.semibold))
                                     .foregroundStyle(BevelTheme.ink)
                                 ForEach(est.contributingEvents) { ev in
                                     HStack {
-                                        VStack(alignment: .leading, spacing: 2) {
+                                        VStack(alignment: .leading, spacing: BSSpace.xxs) {
                                             Text(ev.workoutTitle)
                                                 .font(.footnote.weight(.medium))
                                                 .foregroundStyle(BevelTheme.ink)
@@ -113,7 +113,7 @@ public struct MuscleRecoveryDetailSheet: View {
 
                     if !matchingExercises.isEmpty {
                         BevelCard(padding: 14) {
-                            VStack(alignment: .leading, spacing: 8) {
+                            VStack(alignment: .leading, spacing: BSSpace.xs) {
                                 Text("目标肌群动作参考")
                                     .font(.subheadline.weight(.semibold))
                                     .foregroundStyle(BevelTheme.ink)
@@ -139,18 +139,18 @@ public struct MuscleRecoveryDetailSheet: View {
                         Label("让 AI 教练按该肌群状态排课", systemImage: "sparkles")
                             .font(.subheadline.weight(.semibold))
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(BevelTheme.brand, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .padding(.vertical, BSSpace.s)
+                            .background(BevelTheme.brand, in: RoundedRectangle(cornerRadius: BSRadius.m, style: .continuous))
                             .foregroundStyle(BevelTheme.onBrand)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.bsPressable)
 
                     Text(est.disclaimer)
                         .font(.caption2)
                         .foregroundStyle(BevelTheme.inkSecondary)
-                        .padding(.horizontal, 4)
+                        .padding(.horizontal, BSSpace.xxs)
                 }
-                .padding(16)
+                .padding(BSSpace.m)
             }
             .background(BevelTheme.canvas.ignoresSafeArea())
             .navigationTitle("\(muscle.title) · 启发式恢复")

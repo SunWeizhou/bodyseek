@@ -46,6 +46,10 @@ public enum BSOpacity {
 
 /// 尺寸令牌：点击区域、分数环、图表高度，以及拖拽关闭的阈值。
 public enum BSSize {
+    /// 148：人体肌群图的宽度。
+    public static let bodyMapWidth: CGFloat = 148
+    /// 245：人体肌群图的高度。
+    public static let bodyMapHeight: CGFloat = 245
     /// 8：圆点、色块标记。
     public static let dot: CGFloat = 8
     /// 24：行内图标、固定宽度的小标签。

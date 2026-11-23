@@ -21,12 +21,12 @@ public struct WorkoutReviewSheetView: View {
             Group {
                 if let draft = store.reviewDraft {
                     ScrollView {
-                        VStack(alignment: .leading, spacing: 16) {
+                        VStack(alignment: .leading, spacing: BSSpace.m) {
                             workoutMetaHeader(draft.workout)
                             inputSection(draft)
                             confirmationCard(draft)
                         }
-                        .padding(16)
+                        .padding(BSSpace.m)
                     }
                 }
             }
@@ -64,7 +64,7 @@ public struct WorkoutReviewSheetView: View {
     private func workoutMetaHeader(_ w: StoredWorkoutRecord) -> some View {
         let durationMin = max(1, Int((w.end.timeIntervalSince(w.start) / 60).rounded()))
         return BevelCard(padding: 14) {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: BSSpace.xs) {
                 HStack {
                     Label(w.type, systemImage: "applewatch.radiowaves.left.and.right")
                         .font(.subheadline.weight(.semibold))
@@ -75,7 +75,7 @@ public struct WorkoutReviewSheetView: View {
                         .foregroundStyle(BevelTheme.inkSecondary)
                 }
 
-                HStack(spacing: 12) {
+                HStack(spacing: BSSpace.s) {
                     Text("\(durationMin) 分钟")
                     Text("\(Int(w.energy.rounded())) kcal")
                     if let avgHR = w.avgHR {
@@ -97,7 +97,7 @@ public struct WorkoutReviewSheetView: View {
 
     private func inputSection(_ draft: WorkoutReviewDraft) -> some View {
         BevelCard(padding: 14) {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: BSSpace.s) {
                 HStack {
                     Text("练完后打字或听写一句话")
                         .font(.subheadline.weight(.semibold))
@@ -119,12 +119,12 @@ public struct WorkoutReviewSheetView: View {
                 )
                 .lineLimit(2...5)
                 .textFieldStyle(.plain)
-                .padding(12)
-                .background(BevelTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .padding(BSSpace.s)
+                .background(BevelTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: BSRadius.m, style: .continuous))
                 .accessibilityIdentifier("workout-review-input")
 
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
+                    HStack(spacing: BSSpace.xs) {
                         ForEach(Array(quickSamples.enumerated()), id: \.offset) { idx, sample in
                             Button {
                                 store.send(.reviewTextChanged(sample))
@@ -133,12 +133,12 @@ public struct WorkoutReviewSheetView: View {
                                 Text(sample)
                                     .font(.caption2)
                                     .lineLimit(1)
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 6)
+                                    .padding(.horizontal, BSSpace.s)
+                                    .padding(.vertical, BSSpace.xs)
                                     .background(BevelTheme.surfaceElevated, in: Capsule())
                                     .foregroundStyle(BevelTheme.inkSecondary)
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.bsPressable)
                             .accessibilityIdentifier("workout-review-chip-\(idx)")
                         }
                     }
@@ -150,11 +150,11 @@ public struct WorkoutReviewSheetView: View {
                     Label("智能解析肌群与身体信号", systemImage: "wand.and.stars")
                         .font(.subheadline.weight(.semibold))
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(BevelTheme.brandSoft, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .padding(.vertical, BSSpace.s)
+                        .background(BevelTheme.brandSoft, in: RoundedRectangle(cornerRadius: BSRadius.m, style: .continuous))
                         .foregroundStyle(BevelTheme.brand)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.bsPressable)
                 .accessibilityIdentifier("workout-review-parse")
             }
         }
@@ -165,7 +165,7 @@ public struct WorkoutReviewSheetView: View {
             !draft.primaryMuscles.contains($0) && !draft.secondaryMuscles.contains($0)
         }
         return BevelCard(padding: 14) {
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: BSSpace.m) {
                 HStack {
                     Text("确认卡（可点按切换/增删）")
                         .font(.subheadline.weight(.semibold))
@@ -174,8 +174,8 @@ public struct WorkoutReviewSheetView: View {
                     if let source = draft.proposal?.parserSource {
                         Text(source.badgeTitle)
                             .font(.caption2.weight(.semibold))
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 3)
+                            .padding(.horizontal, BSSpace.xs)
+                            .padding(.vertical, BSSpace.xxs)
                             .background(BevelTheme.brandSoft, in: Capsule())
                             .foregroundStyle(BevelTheme.brand)
                     }
@@ -187,7 +187,7 @@ public struct WorkoutReviewSheetView: View {
                         .foregroundStyle(BevelTheme.inkSecondary)
                 }
 
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: BSSpace.xs) {
                     Text("主受刺激肌群（深色实心 · 点按降为次要）")
                         .font(.caption)
                         .foregroundStyle(BevelTheme.inkSecondary)
@@ -206,7 +206,7 @@ public struct WorkoutReviewSheetView: View {
                         Text("辅助协同肌群（点按升为主受刺激）")
                             .font(.caption)
                             .foregroundStyle(BevelTheme.inkSecondary)
-                            .padding(.top, 4)
+                            .padding(.top, BSSpace.xxs)
                         muscleChipFlow(
                             muscles: draft.secondaryMuscles,
                             isPrimary: false
@@ -238,7 +238,7 @@ public struct WorkoutReviewSheetView: View {
                             .accessibilityIdentifier("workout-review-add-muscle")
                             Spacer()
                         }
-                        .padding(.top, 2)
+                        .padding(.top, BSSpace.xxs)
                     }
                 }
 
@@ -264,7 +264,7 @@ public struct WorkoutReviewSheetView: View {
                 }
 
                 if !draft.exercises.isEmpty {
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: BSSpace.xs) {
                         Text("识别动作")
                             .font(.caption)
                             .foregroundStyle(BevelTheme.inkSecondary)
@@ -276,7 +276,7 @@ public struct WorkoutReviewSheetView: View {
 
                 if !draft.bodySignals.isEmpty {
                     Divider()
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: BSSpace.xs) {
                         Label("身体信号 → 自动创建 14 天约束记忆", systemImage: "exclamationmark.shield")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(BevelTheme.energyColor)
@@ -287,7 +287,7 @@ public struct WorkoutReviewSheetView: View {
                                     set: { _ in store.send(.toggleBodySignalMemory(signal.id)) }
                                 )
                             ) {
-                                VStack(alignment: .leading, spacing: 2) {
+                                VStack(alignment: .leading, spacing: BSSpace.xxs) {
                                     Text("\(signal.region)\(signal.symptom)")
                                         .font(.caption.weight(.semibold))
                                         .foregroundStyle(BevelTheme.ink)
@@ -316,11 +316,11 @@ public struct WorkoutReviewSheetView: View {
                     Text(draft.isSaving ? "正在保存并重算恢复..." : "确认并更新肌群恢复")
                         .font(.subheadline.weight(.semibold))
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(confirmEnabled ? BevelTheme.brand : BevelTheme.scoreTrack, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .padding(.vertical, BSSpace.s)
+                        .background(confirmEnabled ? BevelTheme.brand : BevelTheme.scoreTrack, in: RoundedRectangle(cornerRadius: BSRadius.m, style: .continuous))
                         .foregroundStyle(confirmEnabled ? BevelTheme.onBrand : BevelTheme.inkSecondary)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.bsPressable)
                 .disabled(!confirmEnabled)
                 .accessibilityIdentifier("workout-review-confirm")
             }
@@ -329,9 +329,9 @@ public struct WorkoutReviewSheetView: View {
 
     private func muscleChipFlow(muscles: [BodyRegionMuscle], isPrimary: Bool) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: BSSpace.xs) {
                 ForEach(muscles) { muscle in
-                    HStack(spacing: 4) {
+                    HStack(spacing: BSSpace.xxs) {
                         Button {
                             store.send(.toggleMuscleInDraft(muscle))
                         } label: {
@@ -339,19 +339,19 @@ public struct WorkoutReviewSheetView: View {
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(isPrimary ? BevelTheme.onBrand : BevelTheme.ink)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.bsPressable)
 
                         Button {
                             store.send(.removeMuscleFromDraft(muscle))
                         } label: {
                             Image(systemName: "xmark.circle.fill")
                                 .font(.caption2)
-                                .foregroundStyle(isPrimary ? BevelTheme.onBrand.opacity(0.85) : BevelTheme.inkSecondary)
+                                .foregroundStyle(isPrimary ? BevelTheme.onBrand.opacity(BSOpacity.scrim) : BevelTheme.inkSecondary)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.bsPressable)
                     }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
+                    .padding(.horizontal, BSSpace.s)
+                    .padding(.vertical, BSSpace.xs)
                     .background(
                         isPrimary ? BevelTheme.brand : BevelTheme.surfaceElevated,
                         in: Capsule()

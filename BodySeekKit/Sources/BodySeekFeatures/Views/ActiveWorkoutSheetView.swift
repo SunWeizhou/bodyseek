@@ -15,7 +15,7 @@ public struct ActiveWorkoutSheetView: View {
             Group {
                 if let draft = store.activeWorkout {
                     ScrollView {
-                        VStack(spacing: 14) {
+                        VStack(spacing: BSSpace.m) {
                             summaryStrip(draft)
 
                             if let restRemaining = draft.restSecondsRemaining {
@@ -32,15 +32,15 @@ public struct ActiveWorkoutSheetView: View {
                                 Label("从动作库新增动作", systemImage: "plus.circle")
                                     .font(.subheadline.weight(.semibold))
                                     .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 12)
-                                    .background(BevelTheme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                    .padding(.vertical, BSSpace.s)
+                                    .background(BevelTheme.card, in: RoundedRectangle(cornerRadius: BSRadius.m, style: .continuous))
                                     .foregroundStyle(BevelTheme.brand)
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.bsPressable)
 
                             rpeCard(current: draft.rpe)
                         }
-                        .padding(16)
+                        .padding(BSSpace.m)
                     }
                     .background(BevelTheme.canvas)
                     .navigationTitle(draft.title)
@@ -83,7 +83,7 @@ public struct ActiveWorkoutSheetView: View {
     private func summaryStrip(_ draft: ActiveWorkoutDraft) -> some View {
         BevelCard(padding: 12) {
             HStack {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: BSSpace.xxs) {
                     Text("已完成组次")
                         .font(.caption2)
                         .foregroundStyle(BevelTheme.inkSecondary)
@@ -93,7 +93,7 @@ public struct ActiveWorkoutSheetView: View {
                         .contentTransition(.numericText())
                 }
                 Spacer()
-                VStack(alignment: .trailing, spacing: 2) {
+                VStack(alignment: .trailing, spacing: BSSpace.xxs) {
                     Text("累计容量")
                         .font(.caption2)
                         .foregroundStyle(BevelTheme.inkSecondary)
@@ -108,11 +108,11 @@ public struct ActiveWorkoutSheetView: View {
 
     private func restBanner(seconds: Int) -> some View {
         BevelCard(padding: 12) {
-            HStack(spacing: 10) {
+            HStack(spacing: BSSpace.s) {
                 Image(systemName: "timer")
                     .font(.title3)
                     .foregroundStyle(BevelTheme.brand)
-                VStack(alignment: .leading, spacing: 1) {
+                VStack(alignment: .leading, spacing: BSSpace.none) {
                     Text("组间休息倒计时")
                         .font(.caption)
                         .foregroundStyle(BevelTheme.inkSecondary)
@@ -132,7 +132,7 @@ public struct ActiveWorkoutSheetView: View {
                     store.send(.skipRestTimerTapped)
                 }
                 .font(.caption.weight(.semibold))
-                .buttonStyle(.plain)
+                .buttonStyle(.bsPressable)
                 .foregroundStyle(BevelTheme.inkSecondary)
             }
         }
@@ -141,9 +141,9 @@ public struct ActiveWorkoutSheetView: View {
     private func exerciseCard(_ record: LoggedExerciseRecord, exIdx: Int) -> some View {
         let def = ExerciseCatalog.find(id: record.exerciseID)
         return BevelCard(padding: 14) {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: BSSpace.s) {
                 HStack {
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: BSSpace.xxs) {
                         Text(def?.name ?? record.exerciseID)
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(BevelTheme.ink)
@@ -160,20 +160,20 @@ public struct ActiveWorkoutSheetView: View {
                 }
 
                 HStack {
-                    Text("组次").frame(width: 34, alignment: .leading)
+                    Text("组次").frame(width: BSSize.avatar, alignment: .leading)
                     Text("重量 (kg)").frame(maxWidth: .infinity, alignment: .center)
                     Text("次数").frame(maxWidth: .infinity, alignment: .center)
-                    Text("完成").frame(width: 44, alignment: .trailing)
+                    Text("完成").frame(width: BSSize.hitTarget, alignment: .trailing)
                 }
                 .font(.caption2)
                 .foregroundStyle(BevelTheme.inkSecondary)
 
                 ForEach(Array(record.sets.enumerated()), id: \.element.id) { setIdx, entry in
-                    HStack(spacing: 8) {
+                    HStack(spacing: BSSpace.xs) {
                         Text("#\(entry.setIndex)")
                             .font(.caption.monospacedDigit())
                             .foregroundStyle(BevelTheme.inkSecondary)
-                            .frame(width: 34, alignment: .leading)
+                            .frame(width: BSSize.avatar, alignment: .leading)
 
                         Stepper(
                             value: Binding(
@@ -185,7 +185,7 @@ public struct ActiveWorkoutSheetView: View {
                         ) {
                             Text(String(format: "%.1f", entry.weightKg))
                                 .font(.subheadline.monospacedDigit())
-                                .frame(minWidth: 42)
+                                .frame(minWidth: BSSize.hitTarget)
                         }
                         .frame(maxWidth: .infinity)
 
@@ -199,7 +199,7 @@ public struct ActiveWorkoutSheetView: View {
                         ) {
                             Text("\(entry.reps)")
                                 .font(.subheadline.monospacedDigit())
-                                .frame(minWidth: 26)
+                                .frame(minWidth: BSSize.glyph)
                         }
                         .frame(maxWidth: .infinity)
 
@@ -210,8 +210,8 @@ public struct ActiveWorkoutSheetView: View {
                                 .font(.title3)
                                 .foregroundStyle(entry.isCompleted ? BevelTheme.recoveryColor : BevelTheme.inkSecondary)
                         }
-                        .buttonStyle(.plain)
-                        .frame(width: 44, alignment: .trailing)
+                        .buttonStyle(.bsPressable)
+                        .frame(width: BSSize.hitTarget, alignment: .trailing)
                         .accessibilityIdentifier("workout.completeSet.\(exIdx).\(setIdx)")
                     }
                 }
@@ -223,14 +223,14 @@ public struct ActiveWorkoutSheetView: View {
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(BevelTheme.brand)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.bsPressable)
             }
         }
     }
 
     private func rpeCard(current: Int) -> some View {
         BevelCard(padding: 14) {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: BSSpace.xs) {
                 HStack {
                     Text("主观疲劳度 (Session RPE)")
                         .font(.subheadline.weight(.semibold))
@@ -239,7 +239,7 @@ public struct ActiveWorkoutSheetView: View {
                         .font(.subheadline.weight(.bold).monospacedDigit())
                         .foregroundStyle(BevelTheme.brand)
                 }
-                HStack(spacing: 6) {
+                HStack(spacing: BSSpace.xs) {
                     ForEach(5...10, id: \.self) { level in
                         Button {
                             store.send(.activeWorkoutRPEChanged(level))
@@ -247,14 +247,14 @@ public struct ActiveWorkoutSheetView: View {
                             Text("\(level)")
                                 .font(.caption.weight(.semibold))
                                 .frame(maxWidth: .infinity)
-                                .padding(.vertical, 8)
+                                .padding(.vertical, BSSpace.xs)
                                 .background(
                                     level == current ? BevelTheme.brand : BevelTheme.surfaceElevated,
-                                    in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    in: RoundedRectangle(cornerRadius: BSRadius.s, style: .continuous)
                                 )
                                 .foregroundStyle(level == current ? BevelTheme.onBrand : BevelTheme.ink)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.bsPressable)
                     }
                 }
             }
@@ -268,7 +268,7 @@ public struct ActiveWorkoutSheetView: View {
                     store.send(.activeWorkoutAddExerciseTapped(ex))
                 } label: {
                     HStack {
-                        VStack(alignment: .leading, spacing: 2) {
+                        VStack(alignment: .leading, spacing: BSSpace.xxs) {
                             Text(ex.name)
                                 .font(.subheadline.weight(.medium))
                                 .foregroundStyle(BevelTheme.ink)

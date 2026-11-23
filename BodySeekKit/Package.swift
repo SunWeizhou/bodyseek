@@ -72,6 +72,7 @@ let package = Package(
             dependencies: [
                 "BodySeekCore",
                 .product(name: "SleepChartKit", package: "SleepChartKit"),
+                .product(name: "MuscleMap", package: "MuscleMap"),
             ],
             resources: [.copy("Resources/SleepChartKit-LICENSE.txt")],
             swiftSettings: warningsAsErrors

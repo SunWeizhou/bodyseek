@@ -1,3 +1,4 @@
+import BodySeekAgent
 import BodySeekCore
 import BodySeekHealth
 import ComposableArchitecture
@@ -88,6 +89,8 @@ public struct WorkoutFeature: Sendable {
         public var isSavingWorkout: Bool = false
         public var statusMessage: String?
         public var lastError: String?
+        /// 今天的每日简报；健身页的 Coach 解读读 `pageNotes[workout]`。
+        public var dailyBrief: DailyBrief?
 
         public init(
             snapshot: BodySeekDashboardSnapshot,
@@ -274,6 +277,7 @@ public struct WorkoutFeature: Sendable {
         case askCoachTapped(String)
         case openTrendsTapped
         case clearStatusBanner
+        case dailyBriefUpdated(DailyBrief?)
         case delegate(Delegate)
 
         @CasePathable
@@ -944,6 +948,10 @@ public struct WorkoutFeature: Sendable {
             case .clearStatusBanner:
                 state.statusMessage = nil
                 state.lastError = nil
+                return .none
+
+            case let .dailyBriefUpdated(brief):
+                state.dailyBrief = brief
                 return .none
 
             case .delegate:

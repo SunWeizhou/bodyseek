@@ -21,9 +21,9 @@ public struct WorkoutDetailSheetView: View {
 
         return NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: BSSpace.m) {
                     BevelCard(padding: 16) {
-                        VStack(alignment: .leading, spacing: 10) {
+                        VStack(alignment: .leading, spacing: BSSpace.s) {
                             HStack {
                                 Text(workout.type)
                                     .font(.headline)
@@ -36,20 +36,20 @@ public struct WorkoutDetailSheetView: View {
                                 .font(.caption)
                                 .foregroundStyle(BevelTheme.inkSecondary)
 
-                            HStack(spacing: 16) {
+                            HStack(spacing: BSSpace.m) {
                                 statItem("时长", value: "\(durationMin) 分钟")
                                 statItem("活动消耗", value: "\(Int(workout.energy.rounded())) kcal")
                                 if let avgHR = workout.avgHR {
                                     statItem("平均心率", value: "\(Int(avgHR.rounded())) bpm")
                                 }
                             }
-                            .padding(.top, 4)
+                            .padding(.top, BSSpace.xxs)
                         }
                     }
 
                     if let zones = workout.zones, zones.totalZoneMinutes > 0 {
                         BevelCard(padding: 14) {
-                            VStack(alignment: .leading, spacing: 10) {
+                            VStack(alignment: .leading, spacing: BSSpace.s) {
                                 Text("心率分区与 TRIMP")
                                     .font(.subheadline.weight(.semibold))
                                     .foregroundStyle(BevelTheme.ink)
@@ -59,11 +59,11 @@ public struct WorkoutDetailSheetView: View {
                     }
 
                     BevelCard(padding: 14) {
-                        VStack(alignment: .leading, spacing: 8) {
+                        VStack(alignment: .leading, spacing: BSSpace.xs) {
                             Text("用力评分溯源（手打与估算分存）")
                                 .font(.subheadline.weight(.semibold))
                                 .foregroundStyle(BevelTheme.ink)
-                            HStack(spacing: 12) {
+                            HStack(spacing: BSSpace.s) {
                                 effortBox(
                                     title: "用户主观用力 (EffortUser)",
                                     value: workout.effortUser.map { String(format: "%.1f / 10", $0) } ?? "未填写",
@@ -79,7 +79,7 @@ public struct WorkoutDetailSheetView: View {
                     }
 
                     BevelCard(padding: 14) {
-                        VStack(alignment: .leading, spacing: 10) {
+                        VStack(alignment: .leading, spacing: BSSpace.s) {
                             HStack {
                                 Text("肌群归因与复盘标注")
                                     .font(.subheadline.weight(.semibold))
@@ -94,9 +94,9 @@ public struct WorkoutDetailSheetView: View {
                                 Text("“\(annotation.rawText)”")
                                     .font(.footnote)
                                     .foregroundStyle(BevelTheme.ink)
-                                    .padding(10)
+                                    .padding(BSSpace.s)
                                     .frame(maxWidth: .infinity, alignment: .leading)
-                                    .background(BevelTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                    .background(BevelTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: BSRadius.s, style: .continuous))
                             }
 
                             if loads.isEmpty {
@@ -130,14 +130,14 @@ public struct WorkoutDetailSheetView: View {
                         Label(annotation == nil ? "补充一句话复盘" : "修改训练复盘", systemImage: "square.and.pencil")
                             .font(.subheadline.weight(.semibold))
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(BevelTheme.brand, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .padding(.vertical, BSSpace.s)
+                            .background(BevelTheme.brand, in: RoundedRectangle(cornerRadius: BSRadius.m, style: .continuous))
                             .foregroundStyle(BevelTheme.onBrand)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.bsPressable)
                     .accessibilityIdentifier("workout-detail-edit-review")
                 }
-                .padding(16)
+                .padding(BSSpace.m)
             }
             .background(BevelTheme.canvas.ignoresSafeArea())
             .navigationTitle("训练详情")
@@ -154,7 +154,7 @@ public struct WorkoutDetailSheetView: View {
     }
 
     private func statItem(_ title: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: BSSpace.xxs) {
             Text(title)
                 .font(.caption2)
                 .foregroundStyle(BevelTheme.inkSecondary)
@@ -166,7 +166,7 @@ public struct WorkoutDetailSheetView: View {
     }
 
     private func effortBox(title: String, value: String, tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: BSSpace.xxs) {
             Text(title)
                 .font(.caption2)
                 .foregroundStyle(BevelTheme.inkSecondary)
@@ -176,8 +176,8 @@ public struct WorkoutDetailSheetView: View {
                 .foregroundStyle(tint)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(10)
-        .background(BevelTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .padding(BSSpace.s)
+        .background(BevelTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: BSRadius.s, style: .continuous))
     }
 
     private func reviewBadge(_ state: WorkoutReviewState) -> some View {
@@ -189,9 +189,9 @@ public struct WorkoutDetailSheetView: View {
         }
         return Text(title)
             .font(.caption2.weight(.semibold))
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(tint.opacity(0.14), in: Capsule())
+            .padding(.horizontal, BSSpace.xs)
+            .padding(.vertical, BSSpace.xxs)
+            .background(tint.opacity(BSOpacity.faint), in: Capsule())
             .foregroundStyle(tint)
     }
 }
