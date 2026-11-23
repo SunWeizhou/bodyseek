@@ -203,11 +203,23 @@ final class BodySeekUITests: XCTestCase {
         let threeYBtn = app.buttons["trends-horizon-threeYears"]
         XCTAssertTrue(threeYBtn.waitForExistence(timeout: 5))
         threeYBtn.tap()
-        let patternsCard = app.otherElements["trends-patterns-card"]
-        for _ in 0..<12 where !patternsCard.exists || !patternsCard.isHittable {
+        // 规律、预测、对照实验都收进了"实验室"二级页。
+        openTrendsLab("我的规律", in: app)
+        XCTAssertTrue(app.otherElements["trends-patterns-card"].waitForExistence(timeout: 5))
+    }
+
+    /// 在趋势页最下方的"实验室"里点开一个入口。
+    private func openTrendsLab(_ title: String, in app: XCUIApplication) {
+        let entry = app.staticTexts[title].firstMatch
+        for _ in 0..<14 where !entry.exists || !entry.isHittable {
             app.swipeUp()
         }
-        XCTAssertTrue(patternsCard.waitForExistence(timeout: 5))
+        XCTAssertTrue(entry.waitForExistence(timeout: 5), "找不到实验室入口：\(title)")
+        entry.tap()
+    }
+
+    private func leaveTrendsLab(in app: XCUIApplication) {
+        app.navigationBars.buttons.element(boundBy: 0).tap()
     }
 
     func testNutritionBreakfastShowsDetailsWhenExpanded() {
@@ -562,24 +574,26 @@ final class BodySeekUITests: XCTestCase {
 
         XCTAssertTrue(app.otherElements["trends-ai-insight-card"].waitForExistence(timeout: 5))
 
+        // 1. 实验室 · 明日预测：端侧预测卡 + 非诊断声明
+        openTrendsLab("明日预测", in: app)
         let forecastCard = app.otherElements["trends-personal-forecast-card"]
-
-        // 1. CoreML Personal Forecast Card + non-diagnostic disclaimer
-        XCTAssertTrue(scrollDownUntil(forecastCard))
         XCTAssertTrue(forecastCard.waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["身体预测"].exists)
         XCTAssertTrue(app.staticTexts["统计预测 · 非诊断"].exists)
+        leaveTrendsLab(in: app)
 
-        // 2. One-tap confirm an M4a candidate pattern -> promoted to Confirmed / Coach 记忆
+        // 2. 实验室 · 我的规律：一键确认候选规律，升级为"已确认"并进入 Coach 记忆
+        openTrendsLab("我的规律", in: app)
         let confirmPredicate = NSPredicate(format: "identifier BEGINSWITH 'trends-pattern-confirm-'")
         let confirmBtn = app.buttons.matching(confirmPredicate).firstMatch
         XCTAssertTrue(scrollDownUntil(confirmBtn))
         XCTAssertTrue(confirmBtn.waitForExistence(timeout: 5))
         confirmBtn.tap()
-
         XCTAssertTrue(app.staticTexts["已确认"].waitForExistence(timeout: 5))
+        leaveTrendsLab(in: app)
 
-        // 3. Start 14-day N-of-1 Self-Experiment from template & verify persisted status
+        // 3. 实验室 · 个人对照实验：从模板开始 14 天实验并确认状态
+        openTrendsLab("个人对照实验", in: app)
         let startBtn = app.buttons["trends-nof1-start-early_bedtime_2330"]
         XCTAssertTrue(scrollDownUntil(startBtn))
         XCTAssertTrue(startBtn.waitForExistence(timeout: 5))

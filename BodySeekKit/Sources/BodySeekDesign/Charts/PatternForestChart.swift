@@ -34,13 +34,13 @@ public struct PatternForestChart: View {
                 .font(.caption)
                 .foregroundStyle(BevelTheme.inkSecondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.vertical, 6)
+                .padding(.vertical, BSSpace.xs)
         } else {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: BSSpace.xs) {
                 Chart {
                     RuleMark(x: .value("零效应", 0))
-                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                        .foregroundStyle(BevelTheme.inkSecondary.opacity(0.55))
+                        .lineStyle(StrokeStyle(lineWidth: BSChartStroke.rule))
+                        .foregroundStyle(BSColor.separator)
 
                     ForEach(rows) { row in
                         let tint = row.isPositive ? BevelTheme.recoveryColor : BevelTheme.strainColor
@@ -50,8 +50,8 @@ public struct PatternForestChart: View {
                             xEnd: .value("95% CI 上界", row.highNorm),
                             y: .value("规律", row.label)
                         )
-                        .lineStyle(StrokeStyle(lineWidth: 2.2, lineCap: .round))
-                        .foregroundStyle(tint.opacity(0.55))
+                        .lineStyle(StrokeStyle(lineWidth: BSChartStroke.data, lineCap: .round))
+                        .foregroundStyle(tint.opacity(BSOpacity.scrim))
 
                         PointMark(
                             x: .value("均值效应", row.midNorm),
@@ -62,13 +62,13 @@ public struct PatternForestChart: View {
                                 .fill(tint)
                                 .overlay(
                                     Circle()
-                                        .strokeBorder(row.isConfirmed ? BevelTheme.brand : BevelTheme.card, lineWidth: 1.6)
+                                        .strokeBorder(row.isConfirmed ? BevelTheme.brand : BSColor.surface, lineWidth: BSChartStroke.micro)
                                 )
-                                .frame(width: 9, height: 9)
+                                .frame(width: BSSize.dot, height: BSSize.dot)
                         }
                         .annotation(
                             position: row.midNorm >= 0 ? .trailing : .leading,
-                            spacing: 6
+                            spacing: BSSpace.xs
                         ) {
                             Text(row.effectText)
                                 .font(.caption2.weight(.semibold).monospacedDigit())
@@ -92,7 +92,7 @@ public struct PatternForestChart: View {
                 }
                 .frame(height: max(108, min(height, CGFloat(rows.count) * 40 + 16)))
 
-                Text("虚线为零效应基线，横线为 95% 置信区间（已按各自尺度对齐，标注为原始均值变化）")
+                Text("竖线为零效应基线，横线为 95% 置信区间（已按各自尺度对齐，标注为原始均值变化）")
                     .font(.caption2)
                     .foregroundStyle(BevelTheme.inkSecondary)
             }

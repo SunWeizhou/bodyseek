@@ -88,18 +88,12 @@ public struct ForecastFanChart: View {
         let lastX = targetDate.addingTimeInterval(20 * 3600)
         let xDomain = firstX...max(lastX, firstX.addingTimeInterval(86_400))
         let tickDates = ChartAxisSupport.explicitTickDates(from: history.map(\.date) + [targetDate], maxTicks: 4)
-        let medianHistory: Double? = {
-            guard !history.isEmpty else { return nil }
-            let sorted = history.map(\.value).sorted()
-            return sorted[sorted.count / 2]
-        }()
-
         let selectable = buildSelectables(history: history, predPoint: predPoint, low80: low80, high80: high80)
         let defaultSecondary: String = isPercent
             ? String(format: "80%%区间 %.1f–%.1f%%", low80, high80)
             : String(format: "80%%区间 %.1f–%.1f %@", low80, high80, unitLabel)
 
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: BSSpace.xs) {
             ChartLockedReadoutHeader(
                 primaryText: selectedItem?.valueText ?? "明日预测 \(formatValue(predPoint))",
                 secondaryText: selectedItem?.subtitleText ?? defaultSecondary,
@@ -112,34 +106,14 @@ public struct ForecastFanChart: View {
             )
 
             Chart {
-                if let medianHistory {
-                    RuleMark(y: .value("近期中位", medianHistory))
-                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                        .foregroundStyle(BevelTheme.inkSecondary.opacity(0.4))
-                }
-
                 ForEach(history) { pt in
-                    AreaMark(
-                        x: .value("日期", pt.date),
-                        yStart: .value("底", yDomain.lowerBound),
-                        yEnd: .value("实测", pt.value)
-                    )
-                    .interpolationMethod(.monotone)
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [tint.opacity(0.18), tint.opacity(0.01)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-
                     LineMark(
                         x: .value("日期", pt.date),
                         y: .value("实测", pt.value),
                         series: .value("系列", "history")
                     )
                     .interpolationMethod(.monotone)
-                    .lineStyle(StrokeStyle(lineWidth: 2.2, lineCap: .round, lineJoin: .round))
+                    .lineStyle(StrokeStyle(lineWidth: BSChartStroke.data, lineCap: .round, lineJoin: .round))
                     .foregroundStyle(tint)
                 }
 
@@ -153,19 +127,10 @@ public struct ForecastFanChart: View {
                             y: .value("预测连线", pt.value),
                             series: .value("系列", "forecast")
                         )
-                        .lineStyle(StrokeStyle(lineWidth: 1.8, dash: [4, 4]))
-                        .foregroundStyle(tint.opacity(0.75))
+                        .lineStyle(StrokeStyle(lineWidth: BSChartStroke.data, dash: BSChartStroke.estimateDash))
+                        .foregroundStyle(tint)
                     }
                 }
-
-                BarMark(
-                    x: .value("日期", targetDate),
-                    yStart: .value("90%下界", low90),
-                    yEnd: .value("90%上界", high90),
-                    width: .fixed(22)
-                )
-                .cornerRadius(6)
-                .foregroundStyle(tint.opacity(0.16))
 
                 BarMark(
                     x: .value("日期", targetDate),
@@ -174,7 +139,7 @@ public struct ForecastFanChart: View {
                     width: .fixed(12)
                 )
                 .cornerRadius(4)
-                .foregroundStyle(tint.opacity(0.36))
+                .foregroundStyle(tint.opacity(BSOpacity.disabled))
 
                 PointMark(
                     x: .value("日期", targetDate),
@@ -183,22 +148,22 @@ public struct ForecastFanChart: View {
                 .symbol {
                     Circle()
                         .fill(tint)
-                        .overlay(Circle().strokeBorder(BevelTheme.card, lineWidth: 2))
-                        .frame(width: 9.5, height: 9.5)
+                        .overlay(Circle().strokeBorder(BSColor.surface, lineWidth: BSChartStroke.data))
+                        .frame(width: BSSize.dot, height: BSSize.dot)
                 }
 
                 if let selectedItem {
                     RuleMark(x: .value("选中日", selectedItem.date))
-                        .lineStyle(StrokeStyle(lineWidth: 1.2, dash: [3, 3]))
-                        .foregroundStyle(tint.opacity(0.75))
+                        .lineStyle(StrokeStyle(lineWidth: BSChartStroke.rule))
+                        .foregroundStyle(BSColor.separator)
                 }
             }
             .chartYScale(domain: yDomain)
             .chartXScale(domain: xDomain)
             .chartYAxis {
                 AxisMarks(position: .trailing, values: yTicks) { value in
-                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                        .foregroundStyle(BevelTheme.hairline.opacity(0.7))
+                    AxisGridLine(stroke: StrokeStyle(lineWidth: BSChartStroke.grid))
+                        .foregroundStyle(BSColor.separator)
                     AxisValueLabel {
                         if let v = value.as(Double.self) {
                             Text(isPercent ? "\(Int(v.rounded()))%" : ChartAxisSupport.formatYAxisTick(v))
@@ -240,16 +205,16 @@ public struct ForecastFanChart: View {
             .frame(height: height)
             .bodyseekSelectionHaptic(trigger: selectedItem?.id)
 
-            HStack(spacing: 12) {
-                HStack(spacing: 5) {
-                    Capsule().fill(tint).frame(width: 12, height: 3)
+            HStack(spacing: BSSpace.s) {
+                HStack(spacing: BSSpace.xxs) {
+                    Capsule().fill(tint).frame(width: BSSize.dot, height: BSSize.dot)
                     Text("近 14 日实测")
                 }
-                HStack(spacing: 5) {
-                    RoundedRectangle(cornerRadius: 2, style: .continuous)
-                        .fill(tint.opacity(0.32))
-                        .frame(width: 10, height: 10)
-                    Text("80% / 90% 共形区间")
+                HStack(spacing: BSSpace.xxs) {
+                    RoundedRectangle(cornerRadius: BSRadius.s, style: .continuous)
+                        .fill(tint.opacity(BSOpacity.disabled))
+                        .frame(width: BSSize.dot, height: BSSize.dot)
+                    Text("80% 共形区间")
                 }
                 Spacer()
                 Text("预测 \(formatValue(predPoint))")

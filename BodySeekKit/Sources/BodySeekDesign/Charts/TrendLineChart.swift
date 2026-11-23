@@ -8,6 +8,7 @@ public struct TrendLineChart: View {
     public let tint: Color
     public let unitLabel: String
     public let height: CGFloat
+    public let showsHeader: Bool
     public let onSelectDate: (@MainActor (Date?) -> Void)?
 
     @State private var rawSelectedDate: Date?
@@ -18,12 +19,14 @@ public struct TrendLineChart: View {
         tint: Color,
         unitLabel: String = "分",
         height: CGFloat = 208,
+        showsHeader: Bool = true,
         onSelectDate: (@MainActor (Date?) -> Void)? = nil
     ) {
         self.snapshot = snapshot
         self.tint = tint
         self.unitLabel = unitLabel
         self.height = height
+        self.showsHeader = showsHeader
         self.onSelectDate = onSelectDate
     }
 
@@ -50,18 +53,20 @@ public struct TrendLineChart: View {
             let tickDates = ChartAxisSupport.explicitTickDates(from: snapshot.dailyPoints.map(\.date), maxTicks: 4)
             let header = headerStrings(segments: segments)
 
-            VStack(alignment: .leading, spacing: 10) {
-                ChartLockedReadoutHeader(
-                    primaryText: header.primary,
-                    secondaryText: header.secondary,
-                    tint: tint,
-                    isLocked: scrubbedPoint != nil,
-                    onClear: scrubbedPoint == nil ? nil : {
-                        rawSelectedDate = nil
-                        scrubbedPoint = nil
-                        onSelectDate?(nil)
-                    }
-                )
+            VStack(alignment: .leading, spacing: BSSpace.s) {
+                if showsHeader {
+                    ChartLockedReadoutHeader(
+                        primaryText: header.primary,
+                        secondaryText: header.secondary,
+                        tint: tint,
+                        isLocked: scrubbedPoint != nil,
+                        onClear: scrubbedPoint == nil ? nil : {
+                            rawSelectedDate = nil
+                            scrubbedPoint = nil
+                            onSelectDate?(nil)
+                        }
+                    )
+                }
 
                 Chart {
                     if let band = snapshot.baselineBand {
@@ -71,13 +76,7 @@ public struct TrendLineChart: View {
                             yStart: .value("基线下界", clampedLow),
                             yEnd: .value("基线上界", clampedHigh)
                         )
-                        .foregroundStyle(tint.opacity(0.09))
-                    }
-
-                    if let median = snapshot.medianValue {
-                        RuleMark(y: .value("个人中位", median))
-                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                            .foregroundStyle(BevelTheme.inkSecondary.opacity(0.45))
+                        .foregroundStyle(Color.secondary.opacity(BSOpacity.faint))
                     }
 
                     ForEach(excludedPoints) { excluded in
@@ -87,33 +86,27 @@ public struct TrendLineChart: View {
                             yStart: .value("下", yDomain.lowerBound),
                             yEnd: .value("上", yDomain.upperBound)
                         )
-                        .foregroundStyle(BevelTheme.inkSecondary.opacity(0.10))
+                        .foregroundStyle(Color.secondary.opacity(BSOpacity.faint))
                     }
 
                     ForEach(segments) { item in
-                        AreaMark(
-                            x: .value("日期", item.point.date),
-                            yStart: .value("底", yDomain.lowerBound),
-                            yEnd: .value(snapshot.kind.title, item.numericValue),
-                            series: .value("分段", item.segmentID)
-                        )
-                        .interpolationMethod(.monotone)
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [tint.opacity(0.22), tint.opacity(0.01)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-
                         LineMark(
                             x: .value("日期", item.point.date),
                             y: .value(snapshot.kind.title, item.numericValue),
                             series: .value("分段", item.segmentID)
                         )
                         .interpolationMethod(.monotone)
-                        .lineStyle(StrokeStyle(lineWidth: 2.3, lineCap: .round, lineJoin: .round))
+                        .lineStyle(StrokeStyle(lineWidth: BSChartStroke.data, lineCap: .round, lineJoin: .round))
                         .foregroundStyle(tint)
+
+                        if snapshot.horizon.dayCount <= Self.dotHorizonDays {
+                            PointMark(
+                                x: .value("日期", item.point.date),
+                                y: .value(snapshot.kind.title, item.numericValue)
+                            )
+                            .symbolSize(Self.pointSymbolSize)
+                            .foregroundStyle(tint)
+                        }
 
                         if item.isKnownZero {
                             PointMark(
@@ -122,17 +115,17 @@ public struct TrendLineChart: View {
                             )
                             .symbol {
                                 Circle()
-                                    .fill(BevelTheme.card)
-                                    .overlay(Circle().strokeBorder(tint, lineWidth: 2))
-                                    .frame(width: 7, height: 7)
+                                    .fill(BSColor.surface)
+                                    .overlay(Circle().strokeBorder(tint, lineWidth: BSChartStroke.data))
+                                    .frame(width: BSSize.dot, height: BSSize.dot)
                             }
                         }
                     }
 
                     if let scrubbedPoint {
                         RuleMark(x: .value("选中日", scrubbedPoint.date))
-                            .lineStyle(StrokeStyle(lineWidth: 1.2, dash: [3, 3]))
-                            .foregroundStyle(tint.opacity(0.75))
+                            .lineStyle(StrokeStyle(lineWidth: BSChartStroke.rule))
+                            .foregroundStyle(BSColor.separator)
 
                         if let value = scrubbedPoint.value {
                             PointMark(
@@ -142,8 +135,8 @@ public struct TrendLineChart: View {
                             .symbol {
                                 Circle()
                                     .fill(tint)
-                                    .overlay(Circle().strokeBorder(BevelTheme.card, lineWidth: 2))
-                                    .frame(width: 10, height: 10)
+                                    .overlay(Circle().strokeBorder(BSColor.surface, lineWidth: BSChartStroke.data))
+                                    .frame(width: BSSize.dot, height: BSSize.dot)
                             }
                         }
                     } else if let latest = segments.last {
@@ -154,16 +147,15 @@ public struct TrendLineChart: View {
                         .symbol {
                             Circle()
                                 .fill(tint)
-                                .overlay(Circle().strokeBorder(BevelTheme.card, lineWidth: 1.8))
-                                .frame(width: 8, height: 8)
+                                .frame(width: BSSize.dot, height: BSSize.dot)
                         }
                     }
                 }
                 .chartYScale(domain: yDomain)
                 .chartYAxis {
                     AxisMarks(position: .trailing, values: yTicks) { value in
-                        AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                            .foregroundStyle(BevelTheme.hairline.opacity(0.7))
+                        AxisGridLine(stroke: StrokeStyle(lineWidth: BSChartStroke.grid))
+                            .foregroundStyle(BSColor.separator)
                         AxisValueLabel {
                             if let v = value.as(Double.self) {
                                 Text(ChartAxisSupport.formatYAxisTick(v))
@@ -217,8 +209,17 @@ public struct TrendLineChart: View {
         }
     }
 
+    private static let dotHorizonDays = 7
+    private static let pointSymbolSize: CGFloat = 36
+
     private func handleSelectionChange(_ date: Date?) {
-        guard let date else { return }
+        guard let date else {
+            if !showsHeader, scrubbedPoint != nil {
+                scrubbedPoint = nil
+                onSelectDate?(nil)
+            }
+            return
+        }
         guard let nearest = snapshot.dailyPoints.min(by: {
             abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date))
         }) else { return }

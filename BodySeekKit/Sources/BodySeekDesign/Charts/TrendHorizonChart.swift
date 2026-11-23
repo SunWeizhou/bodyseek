@@ -9,6 +9,7 @@ public struct TrendHorizonChart: View {
     public let tint: Color
     public let unitLabel: String
     public let height: CGFloat
+    public let showsHeader: Bool
     public let onSelectDate: (@MainActor (Date?) -> Void)?
     public let onSelectBucket: (@MainActor (RangeCapsuleBucket?) -> Void)?
 
@@ -17,6 +18,7 @@ public struct TrendHorizonChart: View {
         tint: Color,
         unitLabel: String = "分",
         height: CGFloat = 208,
+        showsHeader: Bool = true,
         onSelectDate: (@MainActor (Date?) -> Void)? = nil,
         onSelectBucket: (@MainActor (RangeCapsuleBucket?) -> Void)? = nil
     ) {
@@ -24,6 +26,7 @@ public struct TrendHorizonChart: View {
         self.tint = tint
         self.unitLabel = unitLabel
         self.height = height
+        self.showsHeader = showsHeader
         self.onSelectDate = onSelectDate
         self.onSelectBucket = onSelectBucket
     }
@@ -35,6 +38,7 @@ public struct TrendHorizonChart: View {
                 tint: tint,
                 unitLabel: unitLabel,
                 height: height,
+                showsHeader: showsHeader,
                 onSelectDate: onSelectDate
             )
         } else {
@@ -43,6 +47,7 @@ public struct TrendHorizonChart: View {
                 tint: tint,
                 unitLabel: unitLabel,
                 height: height,
+                showsHeader: showsHeader,
                 onSelectBucket: onSelectBucket
             )
         }

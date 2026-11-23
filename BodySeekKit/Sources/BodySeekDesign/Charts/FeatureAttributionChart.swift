@@ -29,7 +29,7 @@ public struct FeatureAttributionChart: View {
                 .font(.caption)
                 .foregroundStyle(BevelTheme.inkSecondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.vertical, 6)
+                .padding(.vertical, BSSpace.xs)
         } else {
             let scaled = nonZero.map { item -> (driver: PersonalForecastDriver, value: Double) in
                 let v = isPercent ? item.contribution * 100.0 : item.contribution
@@ -40,8 +40,8 @@ public struct FeatureAttributionChart: View {
 
             Chart {
                 RuleMark(x: .value("基线", 0))
-                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
-                    .foregroundStyle(BevelTheme.inkSecondary.opacity(0.45))
+                    .lineStyle(StrokeStyle(lineWidth: BSChartStroke.rule))
+                    .foregroundStyle(BSColor.separator)
 
                 ForEach(scaled, id: \.driver.id) { entry in
                     let favorable = isFavorable(contribution: entry.driver.contribution)
@@ -53,10 +53,10 @@ public struct FeatureAttributionChart: View {
                         y: .value("因素", entry.driver.label)
                     )
                     .cornerRadius(4)
-                    .foregroundStyle(tint.opacity(0.84))
+                    .foregroundStyle(tint.opacity(BSOpacity.scrim))
                     .annotation(
                         position: entry.value >= 0 ? .trailing : .leading,
-                        spacing: 5
+                        spacing: BSSpace.xxs
                     ) {
                         Text(formatSigned(entry.value, unit: entry.driver.unit))
                             .font(.caption2.weight(.semibold).monospacedDigit())

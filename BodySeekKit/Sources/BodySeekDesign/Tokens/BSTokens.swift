@@ -80,6 +80,8 @@ public enum BSSize {
 
 /// 图表线宽令牌（单位 pt）。图表代码里的 `lineWidth:` 只能取这些值。
 public enum BSChartStroke {
+    /// 虚线节奏：只用于"估算 / 预测"部分（数据可视化规范 V5：虚线只表示估算）。
+    public static let estimateDash: [CGFloat] = [4, 4]
     /// 0.5：横向网格线。
     public static let grid: CGFloat = 0.5
     /// 1：参考线、选中竖线、分隔线。

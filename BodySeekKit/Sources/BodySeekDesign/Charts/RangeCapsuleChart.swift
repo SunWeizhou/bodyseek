@@ -8,6 +8,7 @@ public struct RangeCapsuleChart: View {
     public let tint: Color
     public let unitLabel: String
     public let height: CGFloat
+    public let showsHeader: Bool
     public let onSelectBucket: (@MainActor (RangeCapsuleBucket?) -> Void)?
 
     @State private var rawSelectedDate: Date?
@@ -18,12 +19,14 @@ public struct RangeCapsuleChart: View {
         tint: Color,
         unitLabel: String = "分",
         height: CGFloat = 208,
+        showsHeader: Bool = true,
         onSelectBucket: (@MainActor (RangeCapsuleBucket?) -> Void)? = nil
     ) {
         self.snapshot = snapshot
         self.tint = tint
         self.unitLabel = unitLabel
         self.height = height
+        self.showsHeader = showsHeader
         self.onSelectBucket = onSelectBucket
     }
 
@@ -51,19 +54,21 @@ public struct RangeCapsuleChart: View {
             let capsuleWidth = max(4.5, min(11.0, 210.0 / CGFloat(max(1, buckets.count))))
             let header = headerStrings(buckets: buckets)
 
-            VStack(alignment: .leading, spacing: 10) {
-                ChartLockedReadoutHeader(
-                    primaryText: header.primary,
-                    secondaryText: header.secondary,
-                    tint: tint,
-                    isLocked: selectedBucket != nil,
-                    onClear: selectedBucket == nil ? nil : {
-                        rawSelectedDate = nil
-                        selectedBucket = nil
-                        onSelectBucket?(nil)
-                    }
-                )
-                .accessibilityIdentifier("trends-capsule-chart-readout")
+            VStack(alignment: .leading, spacing: BSSpace.s) {
+                if showsHeader {
+                    ChartLockedReadoutHeader(
+                        primaryText: header.primary,
+                        secondaryText: header.secondary,
+                        tint: tint,
+                        isLocked: selectedBucket != nil,
+                        onClear: selectedBucket == nil ? nil : {
+                            rawSelectedDate = nil
+                            selectedBucket = nil
+                            onSelectBucket?(nil)
+                        }
+                    )
+                    .accessibilityIdentifier("trends-capsule-chart-readout")
+                }
 
                 Chart {
                     if let band = snapshot.baselineBand {
@@ -73,84 +78,19 @@ public struct RangeCapsuleChart: View {
                             yStart: .value("基线下界", clampedLow),
                             yEnd: .value("基线上界", clampedHigh)
                         )
-                        .foregroundStyle(tint.opacity(0.08))
-                    }
-
-                    if let median = snapshot.medianValue {
-                        RuleMark(y: .value("中位", median))
-                            .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                            .foregroundStyle(BevelTheme.inkSecondary.opacity(0.45))
-                    }
-
-                    if let selectedBucket {
-                        let selMid = midpointDate(for: selectedBucket)
-                        RuleMark(x: .value("选中周期", selMid))
-                            .lineStyle(StrokeStyle(lineWidth: 1.2, dash: [3, 3]))
-                            .foregroundStyle(tint.opacity(0.75))
+                        .foregroundStyle(Color.secondary.opacity(BSOpacity.faint))
                     }
 
                     ForEach(buckets) { bucket in
-                        let mid = midpointDate(for: bucket)
-                        let isSelected = selectedBucket?.id == bucket.id
-
-                        if bucket.p25 == bucket.p75, bucket.sampleCount == 1 {
-                            let bottom = min(bucket.median, yDomain.lowerBound)
-                            BarMark(
-                                x: .value("周期", mid),
-                                yStart: .value("底", bottom),
-                                yEnd: .value("值", bucket.median),
-                                width: .fixed(capsuleWidth)
-                            )
-                            .cornerRadius(capsuleWidth / 2)
-                            .foregroundStyle(tint.opacity(isSelected ? 0.90 : 0.34))
-
-                            PointMark(
-                                x: .value("周期", mid),
-                                y: .value("中位", bucket.median)
-                            )
-                            .symbol {
-                                Circle()
-                                    .fill(isSelected ? BevelTheme.ink : tint)
-                                    .overlay(Circle().strokeBorder(BevelTheme.card, lineWidth: 1.5))
-                                    .frame(width: isSelected ? 8.5 : 6.5, height: isSelected ? 8.5 : 6.5)
-                            }
-                        } else {
-                            RuleMark(
-                                x: .value("周期", mid),
-                                yStart: .value("极小", bucket.min),
-                                yEnd: .value("极大", bucket.max)
-                            )
-                            .lineStyle(StrokeStyle(lineWidth: 1.3, lineCap: .round))
-                            .foregroundStyle(tint.opacity(isSelected ? 0.65 : 0.28))
-
-                            BarMark(
-                                x: .value("周期", mid),
-                                yStart: .value("P25", bucket.p25),
-                                yEnd: .value("P75", bucket.p75),
-                                width: .fixed(capsuleWidth)
-                            )
-                            .cornerRadius(capsuleWidth / 2)
-                            .foregroundStyle(tint.opacity(isSelected ? 0.92 : 0.46))
-
-                            PointMark(
-                                x: .value("周期", mid),
-                                y: .value("中位", bucket.median)
-                            )
-                            .symbol {
-                                Circle()
-                                    .fill(isSelected ? BevelTheme.ink : tint)
-                                    .overlay(Circle().strokeBorder(BevelTheme.card, lineWidth: 1.5))
-                                    .frame(width: isSelected ? 8.5 : 6.5, height: isSelected ? 8.5 : 6.5)
-                            }
-                        }
+                        capsuleMarks(bucket, capsuleWidth: capsuleWidth)
                     }
                 }
                 .chartXScale(domain: domain)
                 .chartYScale(domain: yDomain)
                 .chartYAxis {
                     AxisMarks(position: .trailing, values: yTicks) { value in
-                        AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                            .foregroundStyle(BevelTheme.hairline.opacity(0.7))
+                        AxisGridLine(stroke: StrokeStyle(lineWidth: BSChartStroke.grid))
+                            .foregroundStyle(BSColor.separator)
                         AxisValueLabel {
                             if let v = value.as(Double.self) {
                                 Text(ChartAxisSupport.formatYAxisTick(v))
@@ -195,8 +135,42 @@ public struct RangeCapsuleChart: View {
         }
     }
 
+    /// 一个胶囊：P25–P75 的圆角柱 + 嵌在里面的中位白点；选中后其余胶囊变成 `dimmed`。没有极值须线。
+    @ChartContentBuilder
+    private func capsuleMarks(_ bucket: RangeCapsuleBucket, capsuleWidth: CGFloat) -> some ChartContent {
+        let mid = midpointDate(for: bucket)
+        let isDimmed = selectedBucket != nil && selectedBucket?.id != bucket.id
+        let color = isDimmed ? BSColor.dimmed : tint
+        if bucket.p25 == bucket.p75, bucket.sampleCount == 1 {
+            PointMark(x: .value("周期", mid), y: .value("中位", bucket.median))
+                .foregroundStyle(color)
+        } else {
+            BarMark(
+                x: .value("周期", mid),
+                yStart: .value("P25", bucket.p25),
+                yEnd: .value("P75", bucket.p75),
+                width: .fixed(capsuleWidth)
+            )
+            .cornerRadius(capsuleWidth / 2)
+            .foregroundStyle(color)
+
+            PointMark(x: .value("周期", mid), y: .value("中位", bucket.median))
+                .symbol {
+                    Circle()
+                        .fill(BSColor.surface)
+                        .frame(width: max(BSChartStroke.data, capsuleWidth - BSChartStroke.data))
+                }
+        }
+    }
+
     private func handleSelectionChange(_ date: Date?, buckets: [RangeCapsuleBucket]) {
-        guard let date else { return }
+        guard let date else {
+            if !showsHeader, selectedBucket != nil {
+                selectedBucket = nil
+                onSelectBucket?(nil)
+            }
+            return
+        }
         guard let nearest = buckets.min(by: {
             abs(midpointDate(for: $0).timeIntervalSince(date))
                 < abs(midpointDate(for: $1).timeIntervalSince(date))
@@ -230,7 +204,7 @@ public struct RangeCapsuleChart: View {
     @ViewBuilder
     private func axisFooter(domain: ClosedRange<Date>) -> some View {
         if snapshot.horizon.bucketUnit == .day {
-            HStack(spacing: 0) {
+            HStack(spacing: BSSpace.none) {
                 ForEach(snapshot.dailyPoints) { pt in
                     Text(dayLabel(for: pt.date))
                         .frame(maxWidth: .infinity)
@@ -244,7 +218,7 @@ public struct RangeCapsuleChart: View {
             let middle = domain.lowerBound.addingTimeInterval(
                 domain.upperBound.timeIntervalSince(domain.lowerBound) / 2.0
             )
-            HStack(spacing: 0) {
+            HStack(spacing: BSSpace.none) {
                 Text(ChartAxisSupport.formatAxisDate(domain.lowerBound, horizon: snapshot.horizon))
                 Spacer(minLength: 8)
                 Text(ChartAxisSupport.formatAxisDate(middle, horizon: snapshot.horizon))
