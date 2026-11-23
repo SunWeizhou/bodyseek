@@ -6,6 +6,13 @@
 
 ## [Unreleased]
 
+### UI v4 融合（2026-11-23）
+
+> 规格：`docs/design/ui-v4-integration.md`；报告：`docs/validation/ui-v4-2026-11-23.md`。分支 `v6/ui-v4`。
+
+- 文档：dataviz 作废"过程用灰色、只有结论用颜色"；AI 估算改为 45° 斜纹，排除改为中性灰块；design-system §5 指向 v4 规格。
+- 后续步骤（令牌与骨架、平时范围逐日滚动、今日、趋势、营养、健身、Coach 核对）逐步追加于此。
+
 ### V6 第六轮：页面迁移与图表重画（2026-11-23）
 
 > 详见 `docs/validation/v6-round6-2026-11-22.md`。设计门禁 769 / 66 → 0 / 0。
