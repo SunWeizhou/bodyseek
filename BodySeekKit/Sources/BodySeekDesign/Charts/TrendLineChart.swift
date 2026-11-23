@@ -82,16 +82,27 @@ public struct TrendLineChart: View {
                     }
 
                     ForEach(segments) { item in
-                        LineMark(
-                            x: .value("日期", item.point.date),
-                            y: .value(snapshot.kind.title, item.numericValue),
-                            series: .value("分段", item.segmentID)
-                        )
-                        .interpolationMethod(.monotone)
-                        .lineStyle(StrokeStyle(lineWidth: BSChartStroke.data, lineCap: .round, lineJoin: .round))
-                        .foregroundStyle(tint)
+                        if snapshot.kind == .strain {
+                            BarMark(
+                                x: .value("日期", item.point.date),
+                                yStart: .value("底", yDomain.lowerBound),
+                                yEnd: .value(snapshot.kind.title, item.numericValue),
+                                width: .fixed(barWidth)
+                            )
+                            .cornerRadius(BSChartStroke.data)
+                            .foregroundStyle(tint)
+                        } else {
+                            LineMark(
+                                x: .value("日期", item.point.date),
+                                y: .value(snapshot.kind.title, item.numericValue),
+                                series: .value("分段", item.segmentID)
+                            )
+                            .interpolationMethod(.monotone)
+                            .lineStyle(StrokeStyle(lineWidth: BSChartStroke.data, lineCap: .round, lineJoin: .round))
+                            .foregroundStyle(tint)
+                        }
 
-                        if snapshot.horizon.dayCount <= Self.dotHorizonDays {
+                        if snapshot.kind != .strain, snapshot.horizon.dayCount <= Self.dotHorizonDays {
                             PointMark(
                                 x: .value("日期", item.point.date),
                                 y: .value(snapshot.kind.title, item.numericValue)
@@ -170,7 +181,7 @@ public struct TrendLineChart: View {
                         }
                     }
                 }
-                .chartXSelection(value: $rawSelectedDate)
+                .bsChartScrub(selectedDate: $rawSelectedDate)
                 .onChange(of: rawSelectedDate) { _, newValue in
                     handleSelectionChange(newValue)
                 }
@@ -218,6 +229,11 @@ public struct TrendLineChart: View {
                 .foregroundStyle(Color.secondary.opacity(BSOpacity.faint))
             }
         }
+    }
+
+    /// 负荷用柱：7 天用宽柱，30 天用窄柱。
+    private var barWidth: CGFloat {
+        snapshot.horizon.dayCount <= Self.dotHorizonDays ? BSSpace.m : BSSize.dot
     }
 
     private static let dotHorizonDays = 7

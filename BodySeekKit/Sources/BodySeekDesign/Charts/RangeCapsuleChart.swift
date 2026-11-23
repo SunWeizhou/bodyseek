@@ -94,7 +94,7 @@ public struct RangeCapsuleChart: View {
                     }
                 }
                 .chartXAxis(.hidden)
-                .chartXSelection(value: $rawSelectedDate)
+                .bsChartScrub(selectedDate: $rawSelectedDate)
                 .onChange(of: rawSelectedDate) { _, newValue in
                     handleSelectionChange(newValue, buckets: buckets)
                 }

@@ -140,10 +140,16 @@ public struct BSHeaderMenu<Content: View>: View {
     }
 }
 
-private struct BSHeaderGlyph: View {
-    let systemImage: String
+/// 标题栏圆形图标的外观，供 `NavigationLink` 等自定义入口作为标签使用。
+public struct BSHeaderGlyph: View {
+    private let systemImage: String
 
-    var body: some View {
+    /// 创建圆形图标外观。
+    public init(systemImage: String) {
+        self.systemImage = systemImage
+    }
+
+    public var body: some View {
         Image(systemName: systemImage)
             .font(.subheadline.weight(.semibold))
             .foregroundStyle(.primary)

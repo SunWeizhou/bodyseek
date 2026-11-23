@@ -79,7 +79,7 @@ public struct BSChartHeader<Trailing: View>: View {
             VStack(alignment: .trailing, spacing: BSSpace.xxs) {
                 trailing
                 if let onClear {
-                    Button("清除", action: onClear)
+                    Button("清除选中", action: onClear)
                         .font(.subheadline)
                         .buttonStyle(BSPressableStyle())
                         .frame(minHeight: BSSize.hitTarget)

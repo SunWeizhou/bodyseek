@@ -31,8 +31,11 @@ public struct TrendHorizonChart: View {
         self.onSelectBucket = onSelectBucket
     }
 
+    private static let lineHorizonDays = 30
+
     public var body: some View {
-        if snapshot.capsules.isEmpty {
+        // UI v4 §5.3：7 天 / 30 天用折线（负荷用柱），6 个月 / 3 年用胶囊图。
+        if snapshot.capsules.isEmpty || snapshot.horizon.dayCount <= Self.lineHorizonDays {
             TrendLineChart(
                 snapshot: snapshot,
                 tint: tint,

@@ -42,4 +42,18 @@ final class UIv4ScreenshotTests: XCTestCase {
         sleep(1)
         try save("today-advice-sheet", in: app)
     }
+
+    func testShotTrendsSelectedPoint() throws {
+        let app = launchApp(tab: 3)
+        let readout = app.otherElements["trends-main-chart-readout"]
+        XCTAssertTrue(readout.waitForExistence(timeout: 10))
+        sleep(1)
+        let frame = readout.frame
+        let window = app.windows.firstMatch.frame
+        let target = app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: window.width * 0.62, dy: frame.maxY + 110))
+        target.tap()
+        sleep(1)
+        try save("trends-selected", in: app)
+    }
 }

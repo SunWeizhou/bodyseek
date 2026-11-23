@@ -60,6 +60,21 @@ public struct BSPage<Hero: View, Note: View, Sections: View, Links: View>: View 
     }
 
     public var body: some View {
+        ScrollViewReader { reader in
+            scrollContent
+                .environment(\.bsScrollTo, scrollAction(reader))
+        }
+    }
+
+    private func scrollAction(_ reader: ScrollViewProxy) -> @MainActor (String) -> Void {
+        { id in
+            withAnimation(.spring(BSMotion.standard)) {
+                reader.scrollTo(id, anchor: .top)
+            }
+        }
+    }
+
+    private var scrollContent: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: BSSpace.xs) {
                 headerRow
@@ -90,6 +105,18 @@ public struct BSPage<Hero: View, Note: View, Sections: View, Links: View>: View 
                 header.trailing
             }
         }
+    }
+}
+
+private struct BSScrollToKey: EnvironmentKey {
+    static let defaultValue: (@MainActor (String) -> Void)? = nil
+}
+
+public extension EnvironmentValues {
+    /// 页面内滚动到带 `.id(_:)` 的位置；由 `BSPage` 注入，页面外为 `nil`。
+    var bsScrollTo: (@MainActor (String) -> Void)? {
+        get { self[BSScrollToKey.self] }
+        set { self[BSScrollToKey.self] = newValue }
     }
 }
 
