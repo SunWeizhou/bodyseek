@@ -474,7 +474,7 @@ final class BodySeekUITests: XCTestCase {
         XCTAssertTrue(waitForDisappearance(of: undo, timeout: 8))
 
         tapTab("健身", in: app)
-        XCTAssertTrue(app.staticTexts["肌群恢复"].waitForExistence(timeout: 6))
+        XCTAssertTrue(app.staticTexts["肌群疲劳"].waitForExistence(timeout: 6))
         tapTab("Coach", in: app)
         XCTAssertTrue(app.otherElements["coach-receipt-card"].firstMatch.waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["coach-receipt-undo"].exists)
@@ -564,7 +564,7 @@ final class BodySeekUITests: XCTestCase {
         try snap("08-trends-3y-capsules")
 
         tapTab("健身", in: app)
-        XCTAssertTrue(app.staticTexts["肌群恢复"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["肌群疲劳"].waitForExistence(timeout: 5))
         try snap("09-workout-musclemap")
     }
 

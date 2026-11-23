@@ -24,6 +24,7 @@ public struct WorkoutView: View {
     @State private var showAllArchive = false
     @State private var archiveFilter: ArchiveFilter = .all
     @State private var selectedLoadPoint: FitnessFatiguePoint?
+    @State private var showAdvice = false
 
     public init(store: StoreOf<WorkoutFeature>) {
         self.store = store
@@ -37,7 +38,7 @@ public struct WorkoutView: View {
         } sections: {
             sectionsContent
         } links: {
-            archiveSection
+            EmptyView()
         }
         .oneLineHeader(subtitle: "肌群恢复与训练")
         .onAppear {
@@ -56,6 +57,10 @@ public struct WorkoutView: View {
                     return
                 }
             }
+        }
+        .sheet(isPresented: $showAdvice) {
+            adviceSheet
+                .presentationDetents([.medium, .large])
         }
         .sheet(isPresented: reviewSheetBinding) {
             WorkoutReviewSheetView(store: store)
@@ -139,21 +144,19 @@ public struct WorkoutView: View {
     private var bodyMapCard: some View {
         BSCard {
             VStack(alignment: .leading, spacing: BSSpace.s) {
-                HStack {
-                    VStack(alignment: .leading, spacing: BSSpace.xxs) {
-                        Text("肌群恢复")
-                            .bsText(.cardTitle)
-                        Text("估算于 \(store.recoverySnapshot.asOf, format: .dateTime.hour().minute())")
-                            .bsText(.caption)
-                    }
+                HStack(alignment: .firstTextBaseline, spacing: BSSpace.xs) {
+                    Text("肌群疲劳")
+                        .bsText(.cardTitle)
+                    Text("模型估算")
+                        .bsText(.caption)
                     Spacer(minLength: BSSpace.xs)
-                    sidePicker
                 }
-                overallStatusRow
+                sidePicker
                 HStack(alignment: .top, spacing: BSSpace.m) {
                     bodyMap
                     musclePanel
                 }
+                overallStatusRow
                 legend
             }
         }
@@ -168,7 +171,6 @@ public struct WorkoutView: View {
             Text("背面").tag(BodySideOption.back)
         }
         .pickerStyle(.segmented)
-        .frame(width: BSSize.ringL)
         .accessibilityIdentifier("workout.bodySidePicker")
     }
 
@@ -177,16 +179,17 @@ public struct WorkoutView: View {
         return HStack(alignment: .top, spacing: BSSpace.m) {
             statBlock("体能", value: formatLoad(latest?.fitness))
             statBlock("疲劳", value: formatLoad(latest?.fatigue))
-            statBlock("状态差", value: formatForm(latest?.form))
+            statBlock("状态差", value: formatForm(latest?.form), isNegative: (latest?.form ?? 0) < 0)
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("workout-overall-status")
     }
 
-    private func statBlock(_ title: String, value: String) -> some View {
+    private func statBlock(_ title: String, value: String, isNegative: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: BSSpace.xxs) {
             Text(value)
                 .bsText(.number)
+                .foregroundStyle(isNegative ? BSColor.strain : Color.primary)
             Text(title)
                 .bsText(.label)
         }
@@ -279,17 +282,24 @@ public struct WorkoutView: View {
     }
 
     private func rankRow(_ est: MuscleRecoveryEstimate) -> some View {
-        let tint = est.isReadyForPrimaryWork ? BSColor.recovery : BSColor.strain
+        let fatigue = Self.fullScale - est.recoveryPercent
         return Button {
             store.send(.inspectMuscleRecovery(est.muscle))
         } label: {
-            HStack {
-                Text(est.muscle.title)
-                    .bsText(.label)
-                Spacer()
-                Text("\(est.recoveryPercent)%")
-                    .bsText(.label)
-                    .foregroundStyle(tint)
+            VStack(spacing: BSSpace.xxs) {
+                HStack {
+                    Text(est.muscle.title)
+                        .bsText(.label)
+                    Spacer()
+                    Text("\(fatigue) / \(Self.fullScale)")
+                        .bsText(.caption)
+                }
+                BSStripedProgressBar(
+                    recorded: Double(fatigue),
+                    estimated: 0,
+                    target: Double(Self.fullScale),
+                    tint: BSColor.strain
+                )
             }
             .frame(minHeight: BSSize.hitTarget)
             .contentShape(.rect)
@@ -297,6 +307,8 @@ public struct WorkoutView: View {
         .buttonStyle(.bsPressable)
         .accessibilityIdentifier("workout-muscle-rank-\(est.muscle.rawValue)")
     }
+
+    private static let fullScale = 100
 
     private var legend: some View {
         HStack(spacing: BSSpace.s) {
@@ -320,12 +332,39 @@ public struct WorkoutView: View {
     // MARK: - L1 Coach 解读
 
     private var noteSection: some View {
-        BSCoachNote(
-            noteText,
-            engine: BSBriefEngine(store.dailyBrief?.engine),
-            onAsk: askCoachAction,
-            askIdentifier: "workout-ask-coach-button"
-        )
+        BSCoachEntryRow(
+            title: "今天练什么",
+            summary: noteText,
+            identifier: "workout-advice-entry"
+        ) {
+            showAdvice = true
+        }
+    }
+
+    private var adviceSheet: some View {
+        NavigationStack {
+            ScrollView {
+                BSCoachNote(
+                    noteText,
+                    engine: BSBriefEngine(store.dailyBrief?.engine),
+                    onAsk: {
+                        showAdvice = false
+                        askCoachAction()
+                    },
+                    askIdentifier: "workout-ask-coach-button"
+                )
+                .padding(BSSpace.m)
+            }
+            .background(BSColor.canvas)
+            .navigationTitle("今天练什么")
+            .bodyseekNavigationBarInline()
+            .toolbar {
+                ToolbarItem(placement: .bodyseekTrailing) {
+                    Button("完成") { showAdvice = false }
+                        .accessibilityIdentifier("workout-advice-done")
+                }
+            }
+        }
     }
 
     private var askCoachAction: () -> Void {
@@ -365,7 +404,73 @@ public struct WorkoutView: View {
         if !store.unreviewedWorkouts.isEmpty {
             reviewSection
         }
+        archiveSection
+        performanceSection
         loadSection
+    }
+
+    // MARK: - 表现记录（真实数据；e1RM 暂无数据模型，显示空状态，不放假数据）
+
+    private var performanceSection: some View {
+        BSSection("表现记录") {
+            BSCard {
+                VStack(spacing: BSSpace.xs) {
+                    performanceRow(
+                        title: "最大摄氧量", systemImage: "lungs.fill", tint: BSColor.respiration,
+                        unit: "mL/kg/min", digits: 1, values: historyValues(\.vo2MaxMlKgMin)
+                    )
+                    Divider()
+                    performanceRow(
+                        title: "体重", systemImage: "scalemass.fill", tint: BSColor.oxygen,
+                        unit: "kg", digits: 1, values: historyValues(\.bodyMassKg)
+                    )
+                    Divider()
+                    BSVitalRow(
+                        title: "深蹲 e1RM", systemImage: "figure.strengthtraining.traditional",
+                        tint: BSColor.strain, value: nil, unit: "kg",
+                        comparison: "复盘里记下重量和次数后可估算"
+                    )
+                }
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("workout-performance-card")
+        }
+    }
+
+    private func historyValues(_ keyPath: KeyPath<DailyRawMetrics, Double?>) -> [Double] {
+        let days = store.snapshot.historyDays.map(\.raw) + [store.snapshot.today.raw]
+        return days.compactMap { $0[keyPath: keyPath] }
+    }
+
+    private func performanceRow(
+        title: String,
+        systemImage: String,
+        tint: Color,
+        unit: String,
+        digits: Int,
+        values: [Double]
+    ) -> some View {
+        let latest = values.last
+        return BSVitalRow(
+            title: title,
+            systemImage: systemImage,
+            tint: tint,
+            value: latest.map { $0.formatted(.number.precision(.fractionLength(digits))) },
+            unit: unit,
+            comparison: changeText(values: values, unit: unit, digits: digits),
+            trend: Array(values.suffix(Self.performanceTrendCount))
+        )
+    }
+
+    private static let performanceTrendCount = 30
+
+    private func changeText(values: [Double], unit: String, digits: Int) -> String {
+        guard let first = values.first, let last = values.last else { return "暂无同步数据" }
+        guard values.count >= 2 else { return "仅 1 次记录" }
+        let delta = last - first
+        let magnitude = abs(delta).formatted(.number.precision(.fractionLength(digits)))
+        if magnitude == (0.0).formatted(.number.precision(.fractionLength(digits))) { return "较此前持平" }
+        return "较此前 \(delta > 0 ? "+" : "−")\(magnitude) \(unit)"
     }
 
     private func proposalCard(_ proposal: WorkoutProposal) -> some View {
@@ -533,7 +638,7 @@ public struct WorkoutView: View {
 
     private var archiveSection: some View {
         BSSection(
-            "手表训练记录",
+            "最近训练",
             actionTitle: archiveToggleTitle,
             action: archiveToggleAction
         ) {
