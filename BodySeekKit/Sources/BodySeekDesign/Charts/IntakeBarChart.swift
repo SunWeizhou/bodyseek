@@ -11,13 +11,22 @@ public struct IntakeBarPoint: Identifiable, Hashable, Sendable {
     public let kcal: Double?
     /// 是否是页面当前选中的那一天。
     public let isSelected: Bool
+    /// `kcal` 中来自 AI 估算的部分；画成斜纹（UI v4 §1.3）。没有估算时为 `nil`。
+    public let estimatedKcal: Double?
 
     /// 创建一天的数据。
-    public init(id: String, label: String, kcal: Double?, isSelected: Bool) {
+    public init(id: String, label: String, kcal: Double?, isSelected: Bool, estimatedKcal: Double? = nil) {
         self.id = id
         self.label = label
         self.kcal = kcal
         self.isSelected = isSelected
+        self.estimatedKcal = estimatedKcal
+    }
+
+    /// 已录入（非估算）部分。
+    var recordedKcal: Double? {
+        guard let kcal else { return nil }
+        return Swift.max(0, kcal - (estimatedKcal ?? 0))
     }
 }
 
@@ -58,6 +67,9 @@ public struct IntakeBarChart: View {
                 AxisValueLabel()
             }
         }
+        .chartOverlay { proxy in
+            stripeOverlay(proxy)
+        }
         .chartXSelection(value: $rawSelectedLabel)
         .onChange(of: rawSelectedLabel) { _, newValue in
             guard let newValue, let point = points.first(where: { $0.label == newValue }) else { return }
@@ -67,12 +79,59 @@ public struct IntakeBarChart: View {
         .accessibilityValue(summary)
     }
 
+    private static let barRatio: CGFloat = 0.6
+
     @ChartContentBuilder
     private func bar(_ point: IntakeBarPoint) -> some ChartContent {
         if let kcal = point.kcal {
-            BarMark(x: .value("日", point.label), y: .value("kcal", kcal))
-                .cornerRadius(BSRadius.s)
-                .foregroundStyle(point.isSelected ? BSColor.tint : BSColor.tint.opacity(BSOpacity.disabled))
+            let recorded = point.recordedKcal ?? kcal
+            BarMark(
+                x: .value("日", point.label),
+                yStart: .value("起", 0),
+                yEnd: .value("已录入", recorded),
+                width: .ratio(Self.barRatio)
+            )
+            .cornerRadius(BSRadius.s)
+            .foregroundStyle(tint(for: point))
+            if kcal > recorded {
+                BarMark(
+                    x: .value("日", point.label),
+                    yStart: .value("估算起", recorded),
+                    yEnd: .value("估算止", kcal),
+                    width: .ratio(Self.barRatio)
+                )
+                .foregroundStyle(Color.clear)
+            }
+        }
+    }
+
+    private func tint(for point: IntakeBarPoint) -> Color {
+        point.isSelected ? BSColor.tint : BSColor.tint.opacity(BSOpacity.disabled)
+    }
+
+    /// AI 估算部分画 45° 斜纹，叠在透明的估算段上。
+    private func stripeOverlay(_ proxy: ChartProxy) -> some View {
+        GeometryReader { geometry in
+            if let plot = proxy.plotFrame.map({ geometry[$0] }), !points.isEmpty {
+                let slot = plot.width / CGFloat(points.count)
+                ForEach(points) { point in
+                    stripe(point, proxy: proxy, plot: plot, width: slot * Self.barRatio)
+                }
+            }
+        }
+        .allowsHitTesting(false)
+    }
+
+    @ViewBuilder
+    private func stripe(_ point: IntakeBarPoint, proxy: ChartProxy, plot: CGRect, width: CGFloat) -> some View {
+        if let kcal = point.kcal, let recorded = point.recordedKcal, kcal > recorded,
+           let centerX = proxy.position(forX: point.label),
+           let top = proxy.position(forY: kcal),
+           let bottom = proxy.position(forY: recorded) {
+            BSStripeFill(color: tint(for: point))
+                .frame(width: width, height: Swift.max(0, bottom - top))
+                .clipShape(RoundedRectangle(cornerRadius: BSRadius.s, style: .continuous))
+                .position(x: plot.minX + centerX, y: plot.minY + (top + bottom) / 2)
         }
     }
 

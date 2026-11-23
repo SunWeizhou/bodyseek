@@ -9,6 +9,7 @@ public struct NutritionBoardView: View {
     private static let calorieID = "diet_kcal"
 
     @Bindable var store: StoreOf<NutritionFeature>
+    @State private var showAdvice = false
 
     public init(store: StoreOf<NutritionFeature>) {
         self.store = store
@@ -18,7 +19,7 @@ public struct NutritionBoardView: View {
         BSPage("营养") {
             heroSection
         } note: {
-            noteSection
+            EmptyView()
         } sections: {
             sectionsContent
         } links: {
@@ -32,6 +33,10 @@ public struct NutritionBoardView: View {
         }
         .onAppear {
             store.send(.onAppear)
+        }
+        .sheet(isPresented: $showAdvice) {
+            adviceSheet
+                .presentationDetents([.medium, .large])
         }
         .sheet(item: mealLoggerBinding) { logger in
             mealLoggerSheet(logger)
@@ -156,21 +161,28 @@ public struct NutritionBoardView: View {
     }
 
     private var intakeCard: some View {
-        BSCard {
-            VStack(alignment: .leading, spacing: BSSpace.s) {
-                Text(intakeTitle)
-                    .bsText(.cardTitle)
-                BSIntakeRing(
-                    calories: store.selectedDayLog?.dietKcal,
-                    target: target(Self.calorieID),
-                    availability: intakeAvailability,
-                    isEstimate: hasEstimates,
-                    macros: macros
-                )
-            }
-        }
+        let split = calorieSplit
+        return BSCalorieCard(
+            title: intakeTitle,
+            recordedKcal: split.recorded,
+            estimatedKcal: split.estimated,
+            pendingMeals: split.pending,
+            targetKcal: target(Self.calorieID),
+            availability: intakeAvailability,
+            macros: macros
+        )
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("nutrition-intake-ring")
+    }
+
+    /// 当天热量拆成已录入、AI 估算与缺热量的餐数；饮水不计入。
+    private var calorieSplit: (recorded: Double, estimated: Double, pending: Int) {
+        let entries = (store.selectedDayLog?.entries ?? []).filter { $0.mealType != .water }
+        let recorded = entries.filter { !$0.isEstimated }.compactMap(\.kcal).reduce(0, +)
+        let estimated = entries.filter(\.isEstimated).compactMap { $0.kcal ?? $0.energyEstimate?.midpointKcal }
+            .reduce(0, +)
+        let pending = Set(entries.filter { $0.kcal == nil && $0.energyEstimate == nil }.map(\.mealType)).count
+        return (recorded, estimated, pending)
     }
 
     private var intakeTitle: String {
@@ -189,21 +201,19 @@ public struct NutritionBoardView: View {
         store.selectedDayLog?.entries.contains(where: \.isEstimated) == true
     }
 
-    private var macros: [BSMacroProgress] {
+    private var macros: [BSMacroSplit] {
         [
-            macro("碳水", id: "diet_carbs_g"),
-            macro("蛋白质", id: "diet_protein_g"),
-            macro("脂肪", id: "diet_fat_g"),
+            macro("碳水", id: "diet_carbs_g", value: \.carbsG),
+            macro("蛋白质", id: "diet_protein_g", value: \.proteinG),
+            macro("脂肪", id: "diet_fat_g", value: \.fatG),
         ]
     }
 
-    private func macro(_ name: String, id: String) -> BSMacroProgress {
-        let reading = NutritionTargetEvaluator.evaluate(
-            metricID: id,
-            log: store.selectedDayLog,
-            validatedPlan: store.periodSummary.validatedPlan
-        )
-        return BSMacroProgress(name: name, value: reading.value, target: target(id), unit: "g")
+    private func macro(_ name: String, id: String, value: KeyPath<MealEntry, Double?>) -> BSMacroSplit {
+        let entries = store.selectedDayLog?.entries ?? []
+        let recorded = entries.filter { !$0.isEstimated }.compactMap { $0[keyPath: value] }.reduce(0, +)
+        let estimated = entries.filter(\.isEstimated).compactMap { $0[keyPath: value] }.reduce(0, +)
+        return BSMacroSplit(name: name, recorded: recorded, estimated: estimated, target: target(id))
     }
 
     private func target(_ id: String) -> Double? {
@@ -213,15 +223,42 @@ public struct NutritionBoardView: View {
 
     // MARK: - L1 Coach 解读
 
-    private var noteSection: some View {
-        BSCoachNote(
-            noteText,
-            engine: BSBriefEngine(store.dailyBrief?.engine),
-            onAsk: askCoachAction,
-            askIdentifier: "nutrition-ask-coach-button"
-        )
+    private var adviceEntry: some View {
+        BSCoachEntryRow(
+            title: "饮食建议",
+            summary: noteText,
+            identifier: "nutrition-advice-entry"
+        ) {
+            showAdvice = true
+        }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("nutrition-coach-advice-card")
+    }
+
+    private var adviceSheet: some View {
+        NavigationStack {
+            ScrollView {
+                BSCoachNote(
+                    noteText,
+                    engine: BSBriefEngine(store.dailyBrief?.engine),
+                    onAsk: {
+                        showAdvice = false
+                        askCoachAction()
+                    },
+                    askIdentifier: "nutrition-ask-coach-button"
+                )
+                .padding(BSSpace.m)
+            }
+            .background(BSColor.canvas)
+            .navigationTitle("饮食建议")
+            .bodyseekNavigationBarInline()
+            .toolbar {
+                ToolbarItem(placement: .bodyseekTrailing) {
+                    Button("完成") { showAdvice = false }
+                        .accessibilityIdentifier("nutrition-advice-done")
+                }
+            }
+        }
     }
 
     private var askCoachAction: () -> Void {
@@ -242,6 +279,9 @@ public struct NutritionBoardView: View {
         }
         BSSection("当天餐次") {
             mealsCard
+        }
+        BSSection("饮食建议") {
+            adviceEntry
         }
         BSSection(weekTitle) {
             weekCard
@@ -338,9 +378,6 @@ public struct NutritionBoardView: View {
     }
 
     private func mealGroup(_ meal: MealType, entries: [MealEntry]) -> some View {
-        let values = entries.compactMap { meal == .water ? $0.waterMl : $0.kcal }
-        let unit = meal == .water ? "mL" : "kcal"
-        let total = values.count == entries.count ? "\(Int(values.reduce(0, +).rounded())) \(unit)" : nil
         let hasEstimates = entries.contains(where: \.isEstimated)
         return DisclosureGroup {
             VStack(alignment: .leading, spacing: BSSpace.s) {
@@ -350,19 +387,52 @@ public struct NutritionBoardView: View {
             }
             .padding(.top, BSSpace.xs)
         } label: {
-            HStack {
-                Text(meal.title)
-                    .bsText(.cardTitle)
-                Text("\(entries.count) 项")
-                    .bsText(.caption)
-                Spacer()
-                if let total {
-                    Text(hasEstimates ? "约 \(total)" : total)
-                        .bsText(.label)
-                }
-            }
+            mealLabel(meal, entries: entries, hasEstimates: hasEstimates)
         }
         .accessibilityIdentifier("nutrition-meal-\(meal.rawValue)")
+    }
+
+    private func mealLabel(_ meal: MealType, entries: [MealEntry], hasEstimates: Bool) -> some View {
+        HStack(spacing: BSSpace.s) {
+            BSIconBlock(systemImage: mealSymbol(meal), tint: BSColor.tint)
+            VStack(alignment: .leading, spacing: BSSpace.xxs) {
+                HStack(spacing: BSSpace.xs) {
+                    Text(meal.title)
+                        .bsText(.cardTitle)
+                    if hasEstimates {
+                        Text("含估算")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(BSColor.tint)
+                            .padding(.horizontal, BSSpace.xs)
+                            .padding(.vertical, BSSpace.xxs)
+                            .background(BSColor.tint.opacity(BSOpacity.faint), in: Capsule())
+                    }
+                }
+                Text("\(entries.count) 项")
+                    .bsText(.caption)
+            }
+            Spacer(minLength: BSSpace.xs)
+            Text(mealTotalText(meal, entries: entries, hasEstimates: hasEstimates))
+                .bsText(.label)
+        }
+    }
+
+    private func mealTotalText(_ meal: MealType, entries: [MealEntry], hasEstimates: Bool) -> String {
+        let values = entries.compactMap { meal == .water ? $0.waterMl : $0.kcal }
+        guard values.count == entries.count else { return meal == .water ? "--" : "待补热量" }
+        let unit = meal == .water ? "mL" : "kcal"
+        let total = "\(Int(values.reduce(0, +).rounded())) \(unit)"
+        return hasEstimates ? "≈ \(total)" : total
+    }
+
+    private func mealSymbol(_ meal: MealType) -> String {
+        switch meal {
+        case .breakfast: "sunrise.fill"
+        case .lunch: "sun.max.fill"
+        case .dinner: "moon.stars.fill"
+        case .snack: "leaf.fill"
+        case .water: "drop.fill"
+        }
     }
 
     private func mealEntryRow(_ entry: MealEntry) -> some View {
@@ -479,9 +549,16 @@ public struct NutritionBoardView: View {
                 id: key.isoString,
                 label: String(key.day),
                 kcal: store.periodSummary.dayLogsByKey[key]?.dietKcal,
-                isSelected: key == store.selectedDayKey
+                isSelected: key == store.selectedDayKey,
+                estimatedKcal: estimatedKcal(on: key)
             )
         }
+    }
+
+    private func estimatedKcal(on key: DayKey) -> Double? {
+        let entries = store.periodSummary.dayLogsByKey[key]?.entries ?? []
+        let value = entries.filter(\.isEstimated).compactMap(\.kcal).reduce(0, +)
+        return value > 0 ? value : nil
     }
 
     private var weekAvailability: MetricAvailability {
