@@ -20,6 +20,7 @@
 		A889A67CA7D501EC0400642F /* BodySeekAppIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E974BE917F29D0ACA303CE02 /* BodySeekAppIntegrationTests.swift */; };
 		B6A23A9084994CF3DD8B40F4 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 9AE69E6819F40934E746AA99 /* Localizable.strings */; };
 		C881CC0F63E055DADB293792 /* BodySeekAgent in Frameworks */ = {isa = PBXBuildFile; productRef = DFF90B05B71199024DB46199 /* BodySeekAgent */; };
+		EB85666C6FDCF17AFA6D3612 /* UIv4ScreenshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4700C64438039661DBF54F2 /* UIv4ScreenshotTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -50,6 +51,7 @@
 		CFE80E1CCB1CCFB4A21F2D23 /* BodySeekKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = BodySeekKit; path = BodySeekKit; sourceTree = SOURCE_ROOT; };
 		D7499466D6D0797FCF7AB6CB /* VelaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VelaApp.swift; sourceTree = "<group>"; };
 		DB48061975AD87F58267ABB3 /* Vela.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Vela.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E4700C64438039661DBF54F2 /* UIv4ScreenshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIv4ScreenshotTests.swift; sourceTree = "<group>"; };
 		E974BE917F29D0ACA303CE02 /* BodySeekAppIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BodySeekAppIntegrationTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -131,6 +133,7 @@
 			isa = PBXGroup;
 			children = (
 				3C55DEC4A06FDADF31AAC755 /* BodySeekUITests.swift */,
+				E4700C64438039661DBF54F2 /* UIv4ScreenshotTests.swift */,
 			);
 			path = VelaUITests;
 			sourceTree = "<group>";
@@ -283,6 +286,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				5DDF685059EB432BB24FF62E /* BodySeekUITests.swift in Sources */,
+				EB85666C6FDCF17AFA6D3612 /* UIv4ScreenshotTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

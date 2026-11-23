@@ -105,6 +105,10 @@ final class BodySeekUITests: XCTestCase {
 
     func testDailyCheckInSheetFlow() {
         let app = launchApp()
+        // UI v4：打卡行在"今日建议"sheet 里。
+        let adviceEntry = app.buttons["today-advice-entry"]
+        XCTAssertTrue(adviceEntry.waitForExistence(timeout: 8))
+        adviceEntry.tap()
         let card = app.buttons["today-checkin-card"]
         for _ in 0..<5 where !card.exists || !card.isHittable {
             app.swipeUp()
@@ -123,6 +127,10 @@ final class BodySeekUITests: XCTestCase {
         }
         saveButton.tap()
 
+        // 打卡保存后重新打开"今日建议"sheet 查看结果。
+        let reopenEntry = app.buttons["today-advice-entry"]
+        XCTAssertTrue(reopenEntry.waitForExistence(timeout: 6))
+        reopenEntry.tap()
         XCTAssertTrue(app.staticTexts["今日体感已记录"].waitForExistence(timeout: 6))
     }
 
@@ -130,6 +138,10 @@ final class BodySeekUITests: XCTestCase {
         let app = launchApp()
 
         // 1. Today's advice follows the preview workout's completion time.
+        // UI v4：行动框在"今日建议"sheet 里。
+        let adviceEntry = app.buttons["today-advice-entry"]
+        XCTAssertTrue(adviceEntry.waitForExistence(timeout: 8))
+        adviceEntry.tap()
         let actionCard = app.otherElements["today-action-card"]
         for _ in 0..<4 where !actionCard.exists || !actionCard.isHittable {
             app.swipeUp()
@@ -145,8 +157,9 @@ final class BodySeekUITests: XCTestCase {
             adoptBtn.tap()
             XCTAssertTrue(actionCard.descendants(matching: .any)[statusIdentifier].waitForExistence(timeout: 4))
         }
-        // L1 简报解读不再放在行动卡里，而是独立的 BSCoachNote。
-        XCTAssertTrue(app.otherElements["today-quick-verdict"].exists)
+        app.buttons["today-advice-done"].tap()
+        // L1 简报解读是主页上的"今日建议"入口行。
+        XCTAssertTrue(app.otherElements["today-quick-verdict"].waitForExistence(timeout: 5))
 
 
         // 2. Bespoke Sleep & Stress detail views

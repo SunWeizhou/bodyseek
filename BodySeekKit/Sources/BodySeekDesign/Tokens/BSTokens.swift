@@ -38,6 +38,8 @@ public enum BSOpacity {
     public static let faint: Double = 0.12
     /// 0.24：个人基线区间带、图表网格线、估算部分。
     public static let muted: Double = 0.24
+    /// 0.52：迷你柱里"前几天"的数据（今天实色，前几天用领域色 × 0.52）。
+    public static let past: Double = 0.52
     /// 0.40：禁用状态。
     public static let disabled: Double = 0.40
     /// 0.70：遮罩、图片上的文字底。

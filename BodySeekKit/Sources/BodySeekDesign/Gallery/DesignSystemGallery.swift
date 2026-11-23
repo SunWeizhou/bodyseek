@@ -228,6 +228,32 @@ private struct GalleryV4: View {
                         ) {}
                     }
                     estimateBar
+                    BSCoachEntryRow(
+                        title: "今日建议", meta: "08:12 生成",
+                        summary: "夜间 HRV 低于平时范围，今天以轻量活动为主。", tag: "3 条行动"
+                    ) {}
+                    BSRecoveryHeroCard(
+                        value: 72, statusText: "平时范围内", caption: "夜间 HRV 低于平时范围",
+                        weekValues: [64, 70, nil, 68, 75, 71, 72], startLabel: "11/17", endLabel: "今天"
+                    ) {}
+                    BSVitalRow(
+                        title: "静息心率", systemImage: "heart.fill", tint: BSColor.heart,
+                        value: "58", unit: "bpm", comparison: "接近平时", trend: [57, 58, 59, 58, 60, 58]
+                    )
+                    HStack(spacing: BSSpace.s) {
+                        BSDomainTile(
+                            kind: .strain, value: 54, caption: "中等负荷", startLabel: "11/17", endLabel: "今天",
+                            action: {}
+                        ) {
+                            LoadWeekBarsMini(values: [30, 60, 0, nil, 45, 70, 54], tint: BSColor.strain)
+                        }
+                        BSDomainTile(
+                            kind: .energy, value: 46, caption: "节奏均衡", startLabel: "今早", endLabel: "现在",
+                            action: {}
+                        ) {
+                            MiniAreaLine(values: [80, 72, 60, 52, 46], tint: BSColor.energy, domain: 0...100)
+                        }
+                    }
                     HStack(spacing: BSSpace.s) {
                         swatch(BSColor.heart, "心率")
                         swatch(BSColor.respiration, "呼吸")

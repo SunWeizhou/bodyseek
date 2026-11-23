@@ -4,10 +4,10 @@ import BodySeekDesign
 import ComposableArchitecture
 import SwiftUI
 
-/// 今日页：按设计系统 §3 / §5 分层。
-/// L0 五项分数环；L1 今日简报；L2 行动、昨夜睡眠、关键体征、训练与营养摘要。
+/// 今日页（UI v4 §2）：恢复主卡（不用环）→ 今日建议入口（sheet）→ 四项指标格（各自专属迷你图）→ 关键体征列表 → 今日记录。
 public struct TodayView: View {
     @Bindable var store: StoreOf<TodayFeature>
+    @State private var showAdvice = false
     private let zoomNamespace: Namespace.ID?
 
     public init(store: StoreOf<TodayFeature>, zoomNamespace: Namespace.ID? = nil) {
@@ -19,7 +19,7 @@ public struct TodayView: View {
         BSPage("今日") {
             heroSection
         } note: {
-            noteSection
+            adviceEntry
         } sections: {
             sectionsContent
         } links: {
@@ -31,16 +31,14 @@ public struct TodayView: View {
         .refreshable {
             store.send(.refreshTapped)
         }
+        .sheet(isPresented: $showAdvice) {
+            TodayAdviceSheet(store: store)
+                .presentationDetents([.medium, .large])
+        }
     }
 
     private var dateSubtitle: String {
-        store.snapshot.referenceDate.formatted(
-            Date.FormatStyle()
-                .locale(Locale(identifier: "zh_CN"))
-                .month(.defaultDigits)
-                .day()
-                .weekday(.abbreviated)
-        )
+        Self.subtitleFormatter.string(from: store.snapshot.referenceDate)
     }
 
     // MARK: - 标题栏按钮
@@ -77,23 +75,32 @@ public struct TodayView: View {
         }
     }
 
-    // MARK: - L0 五项分数
+    // MARK: - L0 恢复主卡与四项指标
 
     private var heroSection: some View {
         VStack(spacing: BSSpace.s) {
             stateBanner
-            Text(headerLine)
-                .bsText(.caption)
-            scoreGroup
+            recoveryCard
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("today-score-instrument")
         }
     }
 
-    private var scoreGroup: some View {
-        BSScoreRing.group(scoreItems, zoom: zoomSource) { kind in
-            store.send(.metricTapped(kind))
+    private var recoveryCard: some View {
+        let recovery = store.today.recovery
+        return BSRecoveryHeroCard(
+            value: recovery.value,
+            availability: recovery.availability,
+            statusText: recovery.badge,
+            caption: recovery.subtitle,
+            weekValues: weekValues { $0.recovery.value.map(Double.init) },
+            startLabel: shortDate(daysAgo: Self.weekSpan),
+            endLabel: "今天",
+            identifier: "today-score-recovery",
+            zoom: zoomSource
+        ) {
+            store.send(.metricTapped(.recovery))
         }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("today-score-instrument")
     }
 
     private var zoomSource: BSZoomSource? {
@@ -101,31 +108,17 @@ public struct TodayView: View {
         return BSZoomSource(namespace: zoomNamespace, prefix: "today-metric-")
     }
 
-    private var scoreItems: [BSScoreItem] {
+    /// 近 7 天（前 6 天 + 今天）某项分数；今天取当日计算结果，前几天取历史。
+    private func weekValues(_ pick: (DailyComputedDay) -> Double?) -> [Double?] {
         let today = store.today
-        return [
-            scoreItem(today.recovery, identifier: "today-score-recovery"),
-            scoreItem(today.sleep, identifier: "today-score-sleep"),
-            scoreItem(today.strain, identifier: "today-score-strain"),
-            scoreItem(today.stress, identifier: "today-card-stress"),
-            scoreItem(today.energy, identifier: "today-card-energy"),
-        ]
+        let prior = store.snapshot.historyDays
+            .filter { $0.dayKey != today.dayKey }
+            .suffix(Self.weekSpan)
+            .map(pick)
+        return prior + [pick(today)]
     }
 
-    private func scoreItem(_ score: MetricScore, identifier: String) -> BSScoreItem {
-        BSScoreItem(
-            kind: score.kind,
-            value: score.value,
-            availability: score.availability,
-            statusText: score.badge,
-            identifier: identifier
-        )
-    }
-
-    private var headerLine: String {
-        let base = "\(formattedEditorialDate(store.today.date)) · \(store.snapshot.sourceLabel)"
-        return store.isLoading ? base + " · 正在更新" : base
-    }
+    private static let weekSpan = 6
 
     /// 页面级提示只在 L0 上方出现，最多一条。
     @ViewBuilder
@@ -143,32 +136,33 @@ public struct TodayView: View {
         }
     }
 
-    // MARK: - L1 今日简报
+    // MARK: - L1 今日建议入口
 
-    private var noteSection: some View {
-        VStack(alignment: .leading, spacing: BSSpace.xs) {
-            BSCoachNote(
-                noteText,
-                engine: noteEngine,
-                evidence: noteEvidence,
-                onAsk: askCoachAction,
-                askIdentifier: "today-ask-coach-button"
-            )
-            .accessibilityElement(children: .contain)
-            .accessibilityIdentifier("today-quick-verdict")
-            if store.dailyBrief != nil {
-                BriefFeedbackBar(selected: store.briefFeedback) { rating in
-                    store.send(.briefFeedbackTapped(rating))
-                }
-            }
+    private var adviceEntry: some View {
+        BSCoachEntryRow(
+            title: "今日建议",
+            meta: adviceMeta,
+            summary: adviceSummary,
+            tag: adviceTag,
+            identifier: "today-advice-entry"
+        ) {
+            showAdvice = true
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("today-quick-verdict")
     }
 
-    private var askCoachAction: () -> Void {
-        { store.send(.askCoachTapped("结合我今天的恢复、睡眠、训练负荷和近期饮食，给一个具体安排")) }
+    private var adviceMeta: String? {
+        guard let brief = store.dailyBrief else { return nil }
+        return Self.timeFormatter.string(from: brief.generatedAt) + " 生成"
     }
 
-    private var noteText: String {
+    private var adviceTag: String? {
+        let count = TodayAdviceSheet.actionCount(store: store)
+        return count > 0 ? "\(count) 条行动" : nil
+    }
+
+    private var adviceSummary: String {
         if let brief = store.dailyBrief { return brief.headline }
         if !store.snapshot.isAuthorized { return "授权 Apple 健康后即可生成今日结论。" }
         if let advice = store.postWorkoutAdvice { return advice }
@@ -176,159 +170,62 @@ public struct TodayView: View {
         return summary.isEmpty ? "同步 HRV、静息心率与睡眠样本后将给出今日结论。" : summary
     }
 
-    private var noteEngine: BSBriefEngine {
-        switch store.dailyBrief?.engine {
-        case .cloud: .cloud
-        case .onDevice: .onDevice
-        case .localTemplate, .none: .localTemplate
-        }
-    }
-
-    private var noteEvidence: [String] {
-        guard let brief = store.dailyBrief else { return [] }
-        return brief.evidence.prefix(3).map(\.summary)
-    }
-
-    // MARK: - L2 展开
+    // MARK: - L2
 
     @ViewBuilder
     private var sectionsContent: some View {
-        actionSection
+        metricTiles
         if store.snapshot.isAuthorized {
-            sleepSection
             vitalsSection
         }
-        summarySection
+        recordsSection
     }
 
-    // ① 今天要不要行动
+    // 四项指标：睡眠 / 负荷 / 压力 / 能量，各自专属迷你图
 
-    private var actionSection: some View {
-        BSSection("今天要不要行动") {
-            VStack(spacing: BSSpace.s) {
-                actionRows
-                checkInRow
-            }
-            .accessibilityElement(children: .contain)
-            .accessibilityIdentifier("today-action-card")
+    private var metricTiles: some View {
+        BSMetricGrid {
+            sleepTile
+            strainTile
+            stressTile
+            energyTile
         }
     }
 
-    @ViewBuilder
-    private var actionRows: some View {
-        if let advice = store.postWorkoutAdvice {
-            postWorkoutCard(advice)
-        } else if !visiblePlanItems.isEmpty {
-            ForEach(visiblePlanItems) { record in
-                planRow(record)
-            }
-        } else {
-            ForEach(briefActions) { action in
-                briefActionRow(action)
-            }
-        }
+    private func tileScore(_ score: MetricScore) -> (value: Int?, availability: MetricAvailability) {
+        (score.value, score.availability)
     }
 
-    private var visiblePlanItems: [PlanItemRecord] {
-        let items = store.planItems.filter { $0.state != .dismissed }
-        let focus = items.filter { $0.kind == .trainingFocus }
-        let rest = items.filter { $0.kind != .trainingFocus }
-        return Array((focus + rest).prefix(3))
-    }
-
-    private var briefActions: [BriefAction] {
-        Array((store.dailyBrief?.actions ?? []).prefix(3))
-    }
-
-    private func postWorkoutCard(_ advice: String) -> some View {
-        BSCard {
-            VStack(alignment: .leading, spacing: BSSpace.xxs) {
-                Label("今天已完成训练", systemImage: "checkmark.circle")
-                    .bsText(.cardTitle)
-                Text(advice)
-                    .bsText(.label)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-
-    private func planRow(_ record: PlanItemRecord) -> some View {
-        let item = record.decodedActionItem()
-        let identifier = record.id.uuidString
-        return BSActionRow(
-            title: item?.title ?? "行动建议",
-            basis: [item?.detail, item?.metricBasis].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: "\n"),
-            status: record.state == .suggested ? .idle : .done,
-            actionTitle: "采纳",
-            onExecute: { store.send(.adoptPlanItem(record.id)) },
-            dismissTitle: "跳过",
-            onDismiss: { store.send(.dismissPlanItem(record.id)) },
-            executeIdentifier: "today-action-adopt-\(identifier)",
-            statusIdentifier: "today-action-status-\(identifier)",
-            dismissIdentifier: "today-action-dismiss-\(identifier)"
-        )
-    }
-
-    private func briefActionRow(_ action: BriefAction) -> some View {
-        BSActionRow(
-            title: action.title,
-            basis: action.basis,
-            actionTitle: "问 Coach",
-            onExecute: { store.send(.askCoachTapped(action.coachPrompt)) }
-        )
-    }
-
-    private var checkInRow: some View {
-        let recorded = store.todayCheckIn != nil
-        return BSActionRow(
-            title: recorded ? "今日体感已记录" : "记录今日体感",
-            basis: checkInBasis,
-            actionTitle: recorded ? "修改" : "打卡",
-            onExecute: { store.send(.openCheckInTapped) },
-            executeIdentifier: "today-checkin-card"
-        )
-    }
-
-    private var checkInBasis: String {
-        guard let checkIn = store.todayCheckIn else {
-            return "10 秒量化主观精力、情绪、压力与酸痛，持续校准个人身体模型"
-        }
-        let soreness = checkIn.soreness.isEmpty ? "" : " · 酸痛 \(checkIn.soreness.count) 处"
-        return "精力 \(checkIn.energy)/5 · 情绪 \(checkIn.mood)/5 · 压力 \(checkIn.stress)/5\(soreness)"
-    }
-
-    // ② 昨夜睡眠
-
-    private var sleepSection: some View {
-        BSSection("昨夜睡眠") {
-            Button {
-                store.send(.metricTapped(.sleep))
-            } label: {
-                sleepChartCard
-            }
-            .buttonStyle(.bsPressable)
-            .accessibilityIdentifier("today-sleep-card")
-        }
-    }
-
-    private var sleepChartCard: some View {
-        BSChartCard(
-            title: "睡眠分期",
-            label: "实际睡眠",
-            value: sleepDurationText,
-            range: formattedEditorialDate(store.today.date),
-            side: store.today.sleep.subtitle,
-            availability: sleepAvailability,
-            height: .standard,
-            caption: "Apple 健康 · 睡眠分期"
+    private var sleepTile: some View {
+        let score = store.today.sleep
+        return BSDomainTile(
+            kind: .sleep,
+            value: score.value,
+            availability: score.availability,
+            caption: sleepCaption,
+            startLabel: sleepStartLabel,
+            endLabel: sleepEndLabel,
+            identifier: "today-score-sleep",
+            zoom: zoomSource,
+            action: { store.send(.metricTapped(.sleep)) }
         ) {
-            SleepStageChart(segments: store.today.raw.sleepSegments, height: BSSize.chartStandard, interactive: false)
+            SleepLanesMini(segments: store.today.raw.sleepSegments, tint: BSColor.sleep)
         }
     }
 
-    private var sleepAvailability: MetricAvailability {
-        if store.today.raw.sleepAsleepMinutes != nil { return .available }
-        return .missing(reason: store.today.sleep.availability.reasonText ?? "昨晚暂无睡眠分段数据")
+    private var sleepCaption: String {
+        if let text = sleepDurationText { return "实睡 \(text)" }
+        return store.today.sleep.subtitle
+    }
+
+    private var sleepStartLabel: String {
+        guard let start = store.today.raw.sleepStart else { return "入睡" }
+        return "入睡 " + Self.timeFormatter.string(from: start)
+    }
+
+    private var sleepEndLabel: String {
+        guard let end = store.today.raw.sleepEnd else { return "醒来" }
+        return "醒来 " + Self.timeFormatter.string(from: end)
     }
 
     private var sleepDurationText: String? {
@@ -338,80 +235,156 @@ public struct TodayView: View {
         return hours > 0 ? "\(hours) 小时 \(remainder) 分" : "\(remainder) 分钟"
     }
 
-    // ③ 关键体征
-
-    private var vitalsSection: some View {
-        BSSection("关键体征") {
-            BSMetricGrid {
-                vitalTile(
-                    title: "HRV",
-                    value: store.today.raw.hrvMs,
-                    unit: "ms",
-                    digits: 0,
-                    points: store.recentHRVSeries,
-                    tint: BSColor.recovery
-                )
-                vitalTile(
-                    title: "静息心率",
-                    value: store.today.raw.restingHeartRateBpm,
-                    unit: "bpm",
-                    digits: 0,
-                    points: store.recentRHRSeries,
-                    tint: BSColor.recovery
-                )
-                vitalTile(
-                    title: "呼吸率",
-                    value: store.today.raw.respiratoryRateBrpm,
-                    unit: "次/分",
-                    digits: 1,
-                    points: store.recentRespiratorySeries,
-                    tint: BSColor.sleep
-                )
-                vitalTile(
-                    title: "血氧饱和度",
-                    value: store.today.raw.oxygenSaturationPct,
-                    unit: "%",
-                    digits: 0,
-                    points: store.recentSpO2Series,
-                    tint: BSColor.sleep
-                )
-            }
+    private var strainTile: some View {
+        let score = store.today.strain
+        return BSDomainTile(
+            kind: .strain,
+            value: score.value,
+            availability: score.availability,
+            caption: score.badge,
+            startLabel: shortDate(daysAgo: Self.weekSpan),
+            endLabel: "今天",
+            identifier: "today-score-strain",
+            zoom: zoomSource,
+            action: { store.send(.metricTapped(.strain)) }
+        ) {
+            LoadWeekBarsMini(values: weekValues { $0.strain.value.map(Double.init) }, tint: BSColor.strain)
         }
     }
 
-    private func vitalTile(
+    private var stressTile: some View {
+        let score = store.today.stress
+        return BSDomainTile(
+            kind: .stress,
+            value: score.value,
+            availability: score.availability,
+            caption: score.badge,
+            startLabel: "00:00",
+            endLabel: "现在",
+            identifier: "today-card-stress",
+            zoom: zoomSource,
+            action: { store.send(.metricTapped(.stress)) }
+        ) {
+            StressHoursMini(
+                bins: store.today.stressTimeline,
+                excludedHours: workoutHours,
+                currentHour: currentHour,
+                tint: BSColor.stress
+            )
+        }
+    }
+
+    private var energyTile: some View {
+        let score = store.today.energy
+        return BSDomainTile(
+            kind: .energy,
+            value: score.value,
+            availability: score.availability,
+            caption: score.badge,
+            startLabel: "今早",
+            endLabel: "现在",
+            identifier: "today-card-energy",
+            zoom: zoomSource,
+            action: { store.send(.metricTapped(.energy)) }
+        ) {
+            EnergyCurveMini(points: store.today.energyCurve, tint: BSColor.energy)
+        }
+    }
+
+    private var currentHour: Int {
+        Calendar.current.component(.hour, from: store.snapshot.referenceDate)
+    }
+
+    /// 训练覆盖的小时：压力在这些时段被屏蔽，画中性灰块。
+    private var workoutHours: Set<Int> {
+        var hours: Set<Int> = []
+        let calendar = Calendar.current
+        for workout in store.today.raw.workouts {
+            let first = calendar.component(.hour, from: workout.startDate)
+            let last = calendar.component(.hour, from: workout.endDate)
+            if last >= first {
+                hours.formUnion(first...last)
+            } else {
+                hours.formUnion(first...(Self.lastHour))
+            }
+        }
+        return hours
+    }
+
+    private static let lastHour = 23
+
+    private func shortDate(daysAgo: Int) -> String {
+        let date = Calendar.current.date(byAdding: .day, value: -daysAgo, to: store.snapshot.referenceDate)
+            ?? store.snapshot.referenceDate
+        return Self.shortDateFormatter.string(from: date)
+    }
+
+    // MARK: - 关键体征
+
+    private var vitalsSection: some View {
+        BSSection("关键体征") {
+            BSCard {
+                VStack(spacing: BSSpace.xs) {
+                    vitalRow(
+                        title: "HRV", systemImage: "waveform.path.ecg", tint: BSColor.recovery,
+                        value: store.today.raw.hrvMs, unit: "ms", digits: 0, points: store.recentHRVSeries
+                    )
+                    Divider()
+                    vitalRow(
+                        title: "静息心率", systemImage: "heart.fill", tint: BSColor.heart,
+                        value: store.today.raw.restingHeartRateBpm, unit: "bpm", digits: 0,
+                        points: store.recentRHRSeries
+                    )
+                    Divider()
+                    vitalRow(
+                        title: "呼吸率", systemImage: "lungs.fill", tint: BSColor.respiration,
+                        value: store.today.raw.respiratoryRateBrpm, unit: "次/分", digits: 1,
+                        points: store.recentRespiratorySeries
+                    )
+                    Divider()
+                    vitalRow(
+                        title: "血氧", systemImage: "drop.fill", tint: BSColor.oxygen,
+                        value: store.today.raw.oxygenSaturationPct, unit: "%", digits: 0,
+                        points: store.recentSpO2Series
+                    )
+                }
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("today-vitals-card")
+        }
+    }
+
+    private func vitalRow(
         title: String,
+        systemImage: String,
+        tint: Color,
         value: Double?,
         unit: String,
         digits: Int,
-        points: [VitalSparkPoint],
-        tint: Color
+        points: [VitalSparkPoint]
     ) -> some View {
         let series = points.compactMap(\.value)
         let average = series.isEmpty ? nil : series.reduce(0, +) / Double(series.count)
-        let delta: Double? = if let value, let average { value - average } else { nil }
-        let valueText = value.map { $0.formatted(.number.precision(.fractionLength(digits))) }
-        return BSMetricTile(
+        return BSVitalRow(
             title: title,
-            value: valueText,
+            systemImage: systemImage,
+            tint: tint,
+            value: value.map { $0.formatted(.number.precision(.fractionLength(digits))) },
             unit: unit,
-            availability: value == nil ? .missing(reason: "暂无数据") : .available,
-            delta: delta,
-            comparison: "vs 14 天",
-            trend: series,
-            tint: tint
+            comparison: BSVitalRow.comparison(value: value, average: average, unit: unit, digits: digits),
+            trend: series
         )
     }
 
-    // ④ 今日训练与营养
+    // MARK: - 今日记录
 
-    private var summarySection: some View {
-        BSSection("今日训练与营养") {
+    private var recordsSection: some View {
+        BSSection("今日记录") {
             VStack(spacing: BSSpace.s) {
-                if store.snapshot.isAuthorized, !store.today.raw.workouts.isEmpty {
+                if store.snapshot.isAuthorized, let workout = store.today.raw.workouts.first {
                     summaryRow(
                         title: "今日训练",
-                        value: workoutSummaryText,
+                        value: workoutSummaryText(workout),
                         systemImage: "figure.run",
                         identifier: "today-workouts-card"
                     ) {
@@ -419,7 +392,7 @@ public struct TodayView: View {
                     }
                 }
                 summaryRow(
-                    title: "今日营养",
+                    title: "今日饮食",
                     value: nutritionSummaryText,
                     systemImage: "fork.knife",
                     identifier: "today-nutrition-card"
@@ -430,24 +403,20 @@ public struct TodayView: View {
         }
     }
 
-    private var workoutSummaryText: String {
-        let workouts = store.today.raw.workouts
-        let minutes = workouts.reduce(0) { $0 + $1.durationMinutes }
-        return "\(workouts.count) 次 · \(minutes) 分钟"
+    private func workoutSummaryText(_ workout: WorkoutSummary) -> String {
+        let extra = store.today.raw.workouts.count - 1
+        let time = Self.timeFormatter.string(from: workout.startDate)
+        let more = extra > 0 ? " 等 \(extra + 1) 次" : ""
+        return "\(workout.activityName)\(more) · \(time) · \(workout.durationMinutes) 分钟"
     }
 
     private var nutritionSummaryText: String {
-        let log = store.todayNutritionLog
-        let kcal = log?.dietKcal.map { "\(Int($0.rounded())) kcal" } ?? "-- kcal"
-        let status: String
-        if log?.dietDayComplete == true {
-            status = "已结账"
-        } else if log == nil {
-            status = "未记录"
-        } else {
-            status = "记录中"
-        }
-        return "\(kcal) · \(status)"
+        guard let log = store.todayNutritionLog, !log.entries.isEmpty else { return "今天还没记录" }
+        let meals = Set(log.entries.map(\.mealType)).count
+        let hasEstimate = log.entries.contains { $0.isEstimated }
+        let prefix = hasEstimate ? "≈" : ""
+        let kcal = log.dietKcal.map { "\(prefix)\(Int($0.rounded())) kcal" } ?? "待补热量"
+        return "已记录 \(meals) 餐 · \(kcal)"
     }
 
     private func summaryRow(
@@ -465,6 +434,7 @@ public struct TodayView: View {
                     Spacer(minLength: BSSpace.xs)
                     Text(value)
                         .bsText(.label)
+                        .lineLimit(1)
                     Image(systemName: "chevron.right")
                         .bsText(.caption)
                 }
@@ -474,16 +444,26 @@ public struct TodayView: View {
         .accessibilityIdentifier(identifier)
     }
 
-    // MARK: - 日期
+    // MARK: - 格式
 
-    private static let editorialDateFormatter: DateFormatter = {
+    private static let subtitleFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "zh_Hans")
-        formatter.dateFormat = "M月d日 EEEE"
+        formatter.dateFormat = "M月d日 EEE"
         return formatter
     }()
 
-    private func formattedEditorialDate(_ date: Date) -> String {
-        Self.editorialDateFormatter.string(from: date)
-    }
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_Hans")
+        formatter.dateFormat = "HH:mm"
+        return formatter
+    }()
+
+    private static let shortDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_Hans")
+        formatter.dateFormat = "M/d"
+        return formatter
+    }()
 }
