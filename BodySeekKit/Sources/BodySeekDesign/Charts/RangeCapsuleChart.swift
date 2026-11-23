@@ -71,15 +71,7 @@ public struct RangeCapsuleChart: View {
                 }
 
                 Chart {
-                    if let band = snapshot.baselineBand {
-                        let clampedLow = min(yDomain.upperBound, max(yDomain.lowerBound, band.lower))
-                        let clampedHigh = max(clampedLow, min(yDomain.upperBound, band.upper))
-                        RectangleMark(
-                            yStart: .value("基线下界", clampedLow),
-                            yEnd: .value("基线上界", clampedHigh)
-                        )
-                        .foregroundStyle(Color.secondary.opacity(BSOpacity.faint))
-                    }
+                    rollingBandMarks(buckets: buckets, yDomain: yDomain)
 
                     ForEach(buckets) { bucket in
                         capsuleMarks(bucket, capsuleWidth: capsuleWidth)
@@ -132,6 +124,25 @@ public struct RangeCapsuleChart: View {
             }
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("trends-capsule-chart")
+        }
+    }
+
+    /// UI v4：按每个桶最后一天的滚动分位画平时范围（中性灰），不足 7 天有效观测的桶不画。
+    @ChartContentBuilder
+    private func rollingBandMarks(buckets: [RangeCapsuleBucket], yDomain: ClosedRange<Double>) -> some ChartContent {
+        ForEach(buckets) { bucket in
+            if let band = bucket.rollingBand {
+                let low = min(yDomain.upperBound, max(yDomain.lowerBound, band.lower))
+                let high = max(low, min(yDomain.upperBound, band.upper))
+                AreaMark(
+                    x: .value("周期", midpointDate(for: bucket)),
+                    yStart: .value("平时下沿", low),
+                    yEnd: .value("平时上沿", high),
+                    series: .value("平时范围", "rolling")
+                )
+                .interpolationMethod(.monotone)
+                .foregroundStyle(Color.secondary.opacity(BSOpacity.faint))
+            }
         }
     }
 

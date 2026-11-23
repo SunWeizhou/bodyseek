@@ -69,15 +69,7 @@ public struct TrendLineChart: View {
                 }
 
                 Chart {
-                    if let band = snapshot.baselineBand {
-                        let clampedLow = min(yDomain.upperBound, max(yDomain.lowerBound, band.lower))
-                        let clampedHigh = max(clampedLow, min(yDomain.upperBound, band.upper))
-                        RectangleMark(
-                            yStart: .value("基线下界", clampedLow),
-                            yEnd: .value("基线上界", clampedHigh)
-                        )
-                        .foregroundStyle(Color.secondary.opacity(BSOpacity.faint))
-                    }
+                    rollingBandMarks(yDomain: yDomain)
 
                     ForEach(excludedPoints) { excluded in
                         RectangleMark(
@@ -205,6 +197,25 @@ public struct TrendLineChart: View {
                         yRange: yDomain
                     )
                 )
+            }
+        }
+    }
+
+    /// UI v4：逐日滚动的平时范围（前 28 天 P25–P75），中性灰填充；有效观测不足的点不画。
+    @ChartContentBuilder
+    private func rollingBandMarks(yDomain: ClosedRange<Double>) -> some ChartContent {
+        ForEach(snapshot.dailyPoints) { point in
+            if let band = point.rollingBand {
+                let low = min(yDomain.upperBound, max(yDomain.lowerBound, band.lower))
+                let high = max(low, min(yDomain.upperBound, band.upper))
+                AreaMark(
+                    x: .value("日期", point.date),
+                    yStart: .value("平时下沿", low),
+                    yEnd: .value("平时上沿", high),
+                    series: .value("平时范围", "rolling")
+                )
+                .interpolationMethod(.monotone)
+                .foregroundStyle(Color.secondary.opacity(BSOpacity.faint))
             }
         }
     }
