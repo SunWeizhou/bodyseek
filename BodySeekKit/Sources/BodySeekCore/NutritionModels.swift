@@ -690,6 +690,83 @@ public enum NutritionTargetStatus: String, Hashable, Codable, Sendable {
     case active
 }
 
+/// 宏量营养素的供能占比拆分：与 `NutritionTargetEvaluator.evaluate` 的 %E 口径一致
+/// （克数 × 能量系数 ÷ 全天总热量）。已录入与 AI 估算分开算，返回百分数。
+///
+/// 全天总热量缺失或不合法时返回 `nil`——供能比算不出来就是算不出来，不按 0 处理。
+public enum NutritionEnergyShare {
+    public static func split(
+        recordedGrams: Double,
+        estimatedGrams: Double,
+        energyFactor: Double,
+        totalKcal: Double
+    ) -> (recordedPercent: Double, estimatedPercent: Double)? {
+        guard energyFactor.isFinite, energyFactor > 0,
+              totalKcal.isFinite, totalKcal > 0,
+              recordedGrams.isFinite, recordedGrams >= 0,
+              estimatedGrams.isFinite, estimatedGrams >= 0
+        else { return nil }
+        let recorded = recordedGrams * energyFactor / totalKcal * 100
+        let estimated = estimatedGrams * energyFactor / totalKcal * 100
+        guard recorded.isFinite, estimated.isFinite else { return nil }
+        // 合计封顶 100%：营养素与能量记录不一致时，多出的部分不画到轨道外。
+        let cappedRecorded = Swift.min(recorded, 100)
+        let cappedEstimated = Swift.min(estimated, 100 - cappedRecorded)
+        return (cappedRecorded, max(0, cappedEstimated))
+    }
+}
+
+/// 目标在进度条上的参照：下限、上限（区间型目标才有），单位与读数一致。
+public struct NutritionTargetBounds: Hashable, Sendable {
+    public let lower: Double?
+    public let upper: Double?
+
+    /// 直接给出下限和上限。
+    public init(lower: Double?, upper: Double?) {
+        self.lower = lower
+        self.upper = upper
+    }
+
+    /// 由采用的目标项得到参照。`min` 只有下限，`max` 只有上限，`range` 两者都有。
+    public init(item: NutritionTargetItem) {
+        switch item.mode {
+        case .min:
+            lower = item.lower
+            upper = nil
+        case .max:
+            lower = nil
+            upper = item.upper
+        case .range:
+            lower = item.lower
+            upper = item.upper
+        }
+    }
+
+    /// 是否是区间型目标。
+    public var isRange: Bool { lower != nil && upper != nil }
+}
+
+/// 目标的文字，例如"45–65%"、"≥82 g"、"≤2000 mg"。
+public enum NutritionTargetText {
+    public static func bounds(_ bounds: NutritionTargetBounds, unit: String) -> String? {
+        let symbol = unit == "%E" ? "%" : " \(unit)"
+        switch (bounds.lower, bounds.upper) {
+        case let (lower?, upper?):
+            return "\(number(lower))–\(number(upper))\(symbol)"
+        case let (lower?, nil):
+            return "≥\(number(lower))\(symbol)"
+        case let (nil, upper?):
+            return "≤\(number(upper))\(symbol)"
+        case (nil, nil):
+            return nil
+        }
+    }
+
+    private static func number(_ value: Double) -> String {
+        value == value.rounded() ? String(Int(value.rounded())) : String(format: "%.1f", value)
+    }
+}
+
 public enum NutritionTargetMode: String, Hashable, Codable, Sendable {
     case min
     case max

@@ -326,4 +326,67 @@ final class NutritionEngineTests: XCTestCase {
         XCTAssertTrue(md.contains("diet_day_complete: true"))
         XCTAssertTrue(md.contains("## 饮食记录"))
     }
+
+    // MARK: - 热量卡：供能比与目标参照
+
+    /// 热量卡上的供能比必须和评价器同一口径。317 g 碳水在 3,022 kcal 里占约 42% 能量，
+    /// 目标是 45–65% 能量；不能把目标的下限 45 当成"45 g"来比。
+    func testCalorieCardEnergyShareMatchesEvaluatorPercentEnergy() throws {
+        let day = DayKey(year: 2026, month: 11, day: 23)
+        var entry = MealEntry(dayKey: day, mealType: .lunch, foodName: "米饭", portionAmount: 500, portionUnit: "g")
+        entry.carbsG = 317
+        entry.kcal = 3_022
+        var log = DailyNutritionLog(dayKey: day, entries: [entry], dietDayComplete: true)
+        log.recalculateTotals()
+
+        let plan = NutritionTargetEvaluator.validate(
+            plan: NutritionPlanFactory.makeDefaultDRIsPlan(
+                for: NutritionPlanFactory.makePreviewProfile(),
+                effectiveFrom: day
+            ),
+            on: day
+        )
+        let reading = NutritionTargetEvaluator.evaluate(metricID: "diet_carbs_g", log: log, validatedPlan: plan)
+        let share = NutritionEnergyShare.split(
+            recordedGrams: 317, estimatedGrams: 0, energyFactor: 4, totalKcal: 3_022
+        )
+
+        let recordedPercent = try XCTUnwrap(share?.recordedPercent)
+        XCTAssertEqual(recordedPercent, try XCTUnwrap(reading.value), accuracy: 1e-9)
+        XCTAssertEqual(recordedPercent, 41.96, accuracy: 0.01)
+        XCTAssertEqual(reading.status, .low)
+
+        let item = try XCTUnwrap(plan.validAdoptedItems["diet_carbs_g"])
+        XCTAssertEqual(item.unit, "%E")
+        let bounds = NutritionTargetBounds(item: item)
+        XCTAssertEqual(bounds.lower, 45)
+        XCTAssertEqual(bounds.upper, 65)
+        XCTAssertTrue(bounds.isRange)
+        XCTAssertEqual(NutritionTargetText.bounds(bounds, unit: "%E"), "45–65%")
+
+        let protein = try XCTUnwrap(plan.validAdoptedItems["diet_protein_g"])
+        let proteinBounds = NutritionTargetBounds(item: protein)
+        XCTAssertNil(proteinBounds.upper)
+        XCTAssertEqual(proteinBounds.lower, 82)
+        XCTAssertEqual(NutritionTargetText.bounds(proteinBounds, unit: "g"), "≥82 g")
+    }
+
+    func testEnergyShareKeepsRecordedAndEstimatedApartAndNeverExceedsTrack() {
+        let split = NutritionEnergyShare.split(
+            recordedGrams: 200, estimatedGrams: 117, energyFactor: 4, totalKcal: 3_022
+        )
+        let recorded = split?.recordedPercent ?? -1
+        let estimated = split?.estimatedPercent ?? -1
+        XCTAssertEqual(recorded + estimated, 41.96, accuracy: 0.01)
+        XCTAssertEqual(recorded, 26.47, accuracy: 0.01)
+
+        // 营养素与能量记录不一致时合计封顶 100%，不画到轨道外。
+        let capped = NutritionEnergyShare.split(recordedGrams: 900, estimatedGrams: 300, energyFactor: 4, totalKcal: 2_000)
+        XCTAssertEqual(capped?.recordedPercent, 100)
+        XCTAssertEqual(capped?.estimatedPercent, 0)
+
+        // 没有全天热量就算不出供能比，不按 0 处理。
+        XCTAssertNil(NutritionEnergyShare.split(recordedGrams: 100, estimatedGrams: 0, energyFactor: 4, totalKcal: 0))
+        XCTAssertNil(NutritionEnergyShare.split(recordedGrams: 100, estimatedGrams: 0, energyFactor: .nan, totalKcal: 2_000))
+    }
 }
