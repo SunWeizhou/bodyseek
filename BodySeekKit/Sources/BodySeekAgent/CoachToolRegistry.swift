@@ -454,6 +454,7 @@ public enum CoachToolRegistry {
         let coverage = Double(availableCount) / Double(MetricKind.allCases.count)
         let todayCheckIn = context.checkIns.first(where: { $0.dayKey == today.dayKey })
         let unreviewed = context.storedWorkouts.filter { $0.reviewState == .unreviewed }.count
+        let derived = todayDerived(today: today, context: context)
 
         let stateStr: String
         let reasonStr: String?
@@ -486,7 +487,7 @@ public enum CoachToolRegistry {
             unreviewedWatchWorkouts: unreviewed,
             todayCheckInEnergy: todayCheckIn?.energy,
             todayCheckInStress: todayCheckIn?.stress,
-            derived: todayDerived(today: today, context: context)
+            derived: derived
         )
         return encodeEnvelope(
             tool: "get_today_context",
@@ -494,8 +495,56 @@ public enum CoachToolRegistry {
             coverage: coverage,
             reason: reasonStr,
             algorithmVersion: context.snapshot.scoreAlgorithmVersion.description,
-            data: payload
+            data: payload,
+            evidence: todayEvidence(today: today, derived: derived)
         )
+    }
+
+    /// `get_today_context` 的类型化证据：今天五项分数、HRV、静息心率、睡眠时长，以及各自的近期均值。
+    ///
+    /// 没有这些证据时，核对器只能按"数字在工具文字里出现过"放行，把 HRV 和恢复分写反也能通过。
+    /// 带上指标、单位和日期后，同值不同指标的写反会被判未核实；差值与单位换算仍按同一指标、同一单位推导。
+    private static func todayEvidence(today: DailyComputedDay, derived: TodayDerivedValues) -> [EvidenceFact] {
+        var facts: [EvidenceFact] = []
+        let dayText = today.dayKey.isoString
+        for kind in MetricKind.allCases {
+            let score = today.score(for: kind)
+            if let value = score.value {
+                facts.append(EvidenceFact(
+                    key: "score.\(kind.rawValue).\(dayText)", value: Double(value), unit: "score_0_100",
+                    metric: kind.rawValue, scope: "day", dayKey: dayText,
+                    state: stateLabel(for: score.availability)
+                ))
+            }
+            if let mean = derived.scores.first(where: { $0.kind == kind.rawValue })?.mean7d {
+                facts.append(EvidenceFact(
+                    key: "score.\(kind.rawValue).avg7d", value: mean, unit: "score_0_100",
+                    metric: kind.rawValue, scope: "avg7d"
+                ))
+            }
+        }
+        if let hrv = today.raw.hrvMs {
+            facts.append(EvidenceFact(key: "hrv.\(dayText)", value: hrv, unit: "ms", metric: "hrv", scope: "day", dayKey: dayText))
+        }
+        if let mean = derived.hrv14dMeanMs {
+            facts.append(EvidenceFact(key: "hrv.avg14d", value: mean, unit: "ms", metric: "hrv", scope: "avg14d"))
+        }
+        if let rhr = today.raw.restingHeartRateBpm {
+            facts.append(EvidenceFact(
+                key: "resting_heart_rate.\(dayText)", value: rhr, unit: "bpm",
+                metric: "resting_heart_rate", scope: "day", dayKey: dayText
+            ))
+        }
+        if let mean = derived.restingHeartRate14dMeanBpm {
+            facts.append(EvidenceFact(key: "resting_heart_rate.avg14d", value: mean, unit: "bpm", metric: "resting_heart_rate", scope: "avg14d"))
+        }
+        if let minutes = today.raw.sleepAsleepMinutes {
+            facts.append(EvidenceFact(
+                key: "sleep_asleep.\(dayText)", value: Double(minutes), unit: "minutes",
+                metric: "sleep_asleep", scope: "day", dayKey: dayText
+            ))
+        }
+        return facts
     }
 
     private static let percentScale = 100.0
@@ -534,7 +583,20 @@ public enum CoachToolRegistry {
             restingHeartRateVs14dMeanBpm: difference(today.raw.restingHeartRateBpm, rhrMean),
             recovery7dMean: recoveryMean.map(oneDecimal),
             recoveryVs7dMean: difference(today.recovery.value.map(Double.init), recoveryMean),
-            recordedDays14d: window.filter { $0.raw.hrvMs != nil || $0.raw.sleepAsleepMinutes != nil }.count
+            recordedDays14d: window.filter { $0.raw.hrvMs != nil || $0.raw.sleepAsleepMinutes != nil }.count,
+            scores: MetricKind.allCases.map { kind in
+                let current = today.score(for: kind).value
+                let recent = prior.suffix(recoveryWindowDays).compactMap { $0.score(for: kind).value }
+                let weekMean = mean(recent.map(Double.init))
+                let previous = prior.last?.score(for: kind).value
+                return ScoreDerivedValues(
+                    kind: kind.rawValue,
+                    yesterday: previous,
+                    mean7d: weekMean.map(oneDecimal),
+                    vsYesterday: difference(current.map(Double.init), previous.map(Double.init)),
+                    vs7dMean: difference(current.map(Double.init), weekMean)
+                )
+            }
         )
     }
 
@@ -1943,4 +2005,15 @@ struct TodayDerivedValues: Encodable {
     let recovery7dMean: Double?
     let recoveryVs7dMean: Double?
     let recordedDays14d: Int
+    /// 五项分数各自较昨天、较近 7 天均值的变化；没有数据的项保持 `nil`。
+    let scores: [ScoreDerivedValues]
+}
+
+/// 一项分数的近期变化（UI v4 §6.1）。`yesterday` 取今天之前最近一天；`mean7d` 不含今天。
+struct ScoreDerivedValues: Encodable {
+    let kind: String
+    let yesterday: Int?
+    let mean7d: Double?
+    let vsYesterday: Double?
+    let vs7dMean: Double?
 }

@@ -211,7 +211,9 @@ public enum NumericProvenanceVerifier {
         }
 
         let context = contextSnippet(around: candidate.fullRange, in: text)
-        let metricFamilies = detectedMetricFamilies(in: context)
+        // 指标归因只看这个数字所在分句里、排在它前面的指标名。"今天 HRV 54 ms，恢复 71 分"里 71 只属于"恢复"；
+        // 以前用前后 80 个字内的所有指标名，同一句提到的别的指标会给写反的数字放行。
+        let metricFamilies = detectedMetricFamilies(in: clauseBefore(candidate.fullRange, in: text))
         if !metricFamilies.isEmpty {
             let factFamilies = Set(matched.map { metricFamily(for: $0.metric) })
             if factFamilies.isDisjoint(with: metricFamilies) {
@@ -296,6 +298,25 @@ public enum NumericProvenanceVerifier {
             families.insert(family)
         }
         return families
+    }
+
+    /// 分句边界：逗号、句号、分号、换行。
+    private static let clauseBoundaryRegex = compileRegex(#"[，。；！？,;\n]"#)
+
+    /// 数字所在分句里、位于数字之前的文字（最多回看 40 个字符）。
+    private static func clauseBefore(_ range: NSRange, in text: String) -> String {
+        let ns = text as NSString
+        let searchStart = max(0, range.location - 40)
+        guard range.location > searchStart else { return "" }
+        let searchRange = NSRange(location: searchStart, length: range.location - searchStart)
+        var start = searchStart
+        if let regex = clauseBoundaryRegex {
+            if let last = regex.matches(in: text, options: [], range: searchRange).last {
+                start = NSMaxRange(last.range)
+            }
+        }
+        guard range.location > start else { return "" }
+        return ns.substring(with: NSRange(location: start, length: range.location - start))
     }
 
     private static func contextSnippet(around range: NSRange, in text: String) -> String {
