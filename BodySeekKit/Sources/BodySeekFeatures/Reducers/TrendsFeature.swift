@@ -96,6 +96,11 @@ public struct TrendsFeature: Sendable {
         /// 现在只在快照或实验条目变化时计算一次。
         private var experimentEvaluations: [EvaluatedExperimentRow] = []
 
+        /// `personalForecast` 是否对应当前的 `snapshot` 与 `eatingAvailableDayKeys`。
+        private var forecastIsCurrent = false
+        /// 上一次算预测时用的饮食可用日。
+        private var forecastEatingKeys: Set<DayKey> = []
+
         public var evaluatedExperiments: [EvaluatedExperimentRow] {
             experimentEvaluations
         }
@@ -181,6 +186,8 @@ public struct TrendsFeature: Sendable {
                 snapshot: snapshot
             )
             self.deterministicTrendSummary = buildDeterministicTrendSummary()
+            self.forecastEatingKeys = self.eatingAvailableDayKeys
+            self.forecastIsCurrent = true
         }
 
         public mutating func updateSnapshot(
@@ -191,12 +198,9 @@ public struct TrendsFeature: Sendable {
             if let eatingAvailableDayKeys {
                 self.eatingAvailableDayKeys = eatingAvailableDayKeys
             }
+            forecastIsCurrent = false
             self.snapshot = newSnapshot
-            self.personalForecast = PersonalForecasterEngine.forecast(
-                historyDays: newSnapshot.historyDays,
-                referenceDate: newSnapshot.referenceDate,
-                eatingAvailableDayKeys: self.eatingAvailableDayKeys
-            )
+            recomputeForecastIfNeeded()
             self.chartCache = precomputedCache ?? BevelScoringEngine.buildAllChartSnapshots(
                 days: newSnapshot.historyDays,
                 referenceDate: newSnapshot.referenceDate
@@ -205,12 +209,21 @@ public struct TrendsFeature: Sendable {
         }
 
         public mutating func refreshPersonalForecast() {
+            recomputeForecastIfNeeded()
+            self.deterministicTrendSummary = buildDeterministicTrendSummary()
+        }
+
+        /// 预测只取决于历史日、参考时刻和"哪些天有饮食记录"。同一份输入在一轮刷新里会被要求算好几次
+        /// （快照更新一次、上下文加载一次、营养数据变化一次），而它跑在主线程上；这里让相同的输入只算一次。
+        private mutating func recomputeForecastIfNeeded() {
+            guard !forecastIsCurrent || forecastEatingKeys != eatingAvailableDayKeys else { return }
             self.personalForecast = PersonalForecasterEngine.forecast(
                 historyDays: snapshot.historyDays,
                 referenceDate: snapshot.referenceDate,
                 eatingAvailableDayKeys: eatingAvailableDayKeys
             )
-            self.deterministicTrendSummary = buildDeterministicTrendSummary()
+            forecastEatingKeys = eatingAvailableDayKeys
+            forecastIsCurrent = true
         }
 
         private mutating func refreshActiveSlices() {

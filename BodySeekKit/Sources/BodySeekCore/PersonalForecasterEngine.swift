@@ -222,9 +222,29 @@ public enum PersonalForecastState: Equatable, Hashable, Codable, Sendable {
 }
 
 #if canImport(CoreML)
+/// 每个进程只安排一次模型预热。
+private let forecasterWarmUpScheduled = OSAllocatedUnfairLock(initialState: false)
+
 /// Thread-safe singleton wrapper compiling & running `BodySeekPersonalForecasterV1.mlpackage` on Apple CoreML runtime.
 public final class CoreMLPersonalForecaster: @unchecked Sendable {
     public static let shared = CoreMLPersonalForecaster()
+
+    /// 在后台把模型编译、加载好。每个进程只安排一次；之后的 `predictRawIfLoaded` 才能给出结果。
+    public static func warmUpIfNeeded() {
+        let shouldStart = forecasterWarmUpScheduled.withLock { scheduled in
+            if scheduled { return false }
+            scheduled = true
+            return true
+        }
+        guard shouldStart else { return }
+        Task.detached(priority: .utility) {
+            do {
+                _ = try shared.loadModel()
+            } catch {
+                shared.logger.error("CoreML forecaster warm-up failed, Swift linear reference stays in use: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+    }
 
     private let lock = NSLock()
     private let logger = Logger(subsystem: "com.sunweizhou.Vela4", category: "CoreMLPersonalForecaster")
@@ -269,11 +289,32 @@ public final class CoreMLPersonalForecaster: @unchecked Sendable {
         return model
     }
 
+    /// 同步预测；模型还没加载时会先加载。只在确定不在主线程时调用。
     public func predictRaw(features: [Double]) throws -> [Double] {
+        let model = try loadModel()
+        return try predict(features: features, with: model)
+    }
+
+    /// 模型已经加载好才预测，否则返回 `nil`；绝不在这里加载模型，也不等待别的线程加载。
+    ///
+    /// `forecast` 跑在主线程上（每次快照更新都会算）。第一次调用时模型要编译、加载，
+    /// 同步等它会卡住启动（系统会报 "This method should not be called on the main thread"）。
+    /// 调用方拿到 `nil` 后先用 Swift 线性参考实现，模型在后台由 `warmUpIfNeeded` 准备好。
+    public func predictRawIfLoaded(features: [Double]) throws -> [Double]? {
         guard features.count == 31 else {
             throw PersonalForecasterError.invalidFeatureVectorLength(expected: 31, actual: features.count)
         }
-        let model = try loadModel()
+        // 另一个线程正在加载时不等待，直接当作未就绪。
+        guard lock.try() else { return nil }
+        defer { lock.unlock() }
+        guard let model = cachedModel else { return nil }
+        return try predict(features: features, with: model)
+    }
+
+    private func predict(features: [Double], with model: MLModel) throws -> [Double] {
+        guard features.count == 31 else {
+            throw PersonalForecasterError.invalidFeatureVectorLength(expected: 31, actual: features.count)
+        }
         let inputArray = try MLMultiArray(shape: [1, 31], dataType: .float32)
         for (idx, val) in features.enumerated() {
             inputArray[[0, NSNumber(value: idx)]] = NSNumber(value: Float(val))
@@ -299,7 +340,10 @@ public enum PersonalForecasterEngine {
     public static let minimumRequiredObservedDays = 7
     private static let logger = Logger(subsystem: "com.sunweizhou.Vela4", category: "PersonalForecasterEngine")
 
-    public static func loadBundledSpec() throws -> PersonalForecasterSpec {
+    /// Bundled spec, read and decoded once per process. The file never changes at runtime, and
+    /// `forecast` runs on the main actor every time a snapshot is applied, so re-reading disk
+    /// and re-decoding JSON on each call was pure main-thread overhead.
+    private static let bundledSpec: Result<PersonalForecasterSpec, Error> = Result {
         guard let url = Bundle.module.url(
             forResource: "personal_forecaster_v1_spec",
             withExtension: "json",
@@ -309,6 +353,10 @@ public enum PersonalForecasterEngine {
         }
         let data = try Data(contentsOf: url)
         return try JSONDecoder().decode(PersonalForecasterSpec.self, from: data)
+    }
+
+    public static func loadBundledSpec() throws -> PersonalForecasterSpec {
+        try bundledSpec.get()
     }
 
     private static let driverGroups: [(id: String, label: String, range: ClosedRange<Int>)] = [
@@ -603,8 +651,12 @@ public enum PersonalForecasterEngine {
 
         #if canImport(CoreML)
         do {
-            rawPredictions = try CoreMLPersonalForecaster.shared.predictRaw(features: features)
-            runtimeBackend = "CoreML (BodySeekPersonalForecasterV1.mlpackage)"
+            // 不在主线程等模型：已加载就用 CoreML，否则先用 Swift 线性参考实现，同时在后台预热。
+            CoreMLPersonalForecaster.warmUpIfNeeded()
+            if let predictions = try CoreMLPersonalForecaster.shared.predictRawIfLoaded(features: features) {
+                rawPredictions = predictions
+                runtimeBackend = "CoreML (BodySeekPersonalForecasterV1.mlpackage)"
+            }
         } catch {
             logger.warning("CoreML prediction unavailable, falling back to Swift LinearSpec reference: \(error.localizedDescription, privacy: .public)")
         }

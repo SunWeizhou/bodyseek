@@ -1,5 +1,4 @@
 import BodySeekCore
-import CryptoKit
 import Foundation
 import GRDB
 import os
@@ -25,7 +24,7 @@ public struct CachedDashboardState: Equatable, Sendable {
 }
 
 /// Precomputed GRDB ReadModel providing cold-start snapshot hydration and
-/// CryptoKit SHA256 content-hash deduplicated `ValueObservation` streams.
+/// content-hash deduplicated `ValueObservation` streams.
 public final class BodySeekReadModel: Sendable {
     public let database: BodySeekDatabase
     private static let logger = Logger(subsystem: "com.sunweizhou.Vela4", category: "BodySeekReadModel")
@@ -145,7 +144,7 @@ public final class BodySeekReadModel: Sendable {
             isAuthorized: isAuthorized,
             calendar: calendar
         )
-        let digest = try computeDigest(snapshot: snapshot)
+        let digest = computeDigest(snapshot: snapshot)
         let chartCache: ChartCache
         if let cached = Self.chartCacheStore.withLock({ $0.values[digest] }) {
             chartCache = cached
@@ -172,27 +171,29 @@ public final class BodySeekReadModel: Sendable {
         )
     }
 
-    private struct DigestEnvelope: Encodable {
-        let referenceDay: DayKey
-        let today: DailyComputedDay
-        let historyDays: [DailyComputedDay]
-        let trainingLoad: TrainingLoadStatus
-        let isAuthorized: Bool
+    /// 管线里有哪些内容要参与去重：参考生理日、今天、全部历史日、训练负荷、是否已授权。
+    ///
+    /// 不含 `referenceDate` 的时刻、`lastUpdatedAt` 和 `sourceLabel`——同一份内容在刷新或换来源时不应被当作新数据。
+    private enum DigestFields {
+        static func hash(_ snapshot: BodySeekDashboardSnapshot, into hasher: inout Hasher) {
+            hasher.combine(snapshot.referenceDate.physiologicalDayKey())
+            hasher.combine(snapshot.today)
+            hasher.combine(snapshot.historyDays.count)
+            for day in snapshot.historyDays {
+                hasher.combine(day)
+            }
+            hasher.combine(snapshot.trainingLoad)
+            hasher.combine(snapshot.isAuthorized)
+        }
     }
 
-    public static func computeDigest(snapshot: BodySeekDashboardSnapshot) throws -> String {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys]
-        encoder.dateEncodingStrategy = .millisecondsSince1970
-        let payload = DigestEnvelope(
-            referenceDay: snapshot.referenceDate.physiologicalDayKey(),
-            today: snapshot.today,
-            historyDays: snapshot.historyDays,
-            trainingLoad: snapshot.trainingLoad,
-            isAuthorized: snapshot.isAuthorized
-        )
-        let data = try encoder.encode(payload)
-        let hash = SHA256.hash(data: data)
-        return hash.map { String(format: "%02x", $0) }.joined()
+    /// 整份快照的内容摘要，用于去重和缓存键。
+    ///
+    /// 只在进程内使用，不落盘。逐个字段喂给 `Hasher`，比把三年数据（约 5–6 MB）编码成 JSON 再算 SHA256 快一个数量级；
+    /// 参与的字段与 `DigestFields` 一致，内容相同则摘要相同，任何一天的数据变化都会改变摘要。
+    public static func computeDigest(snapshot: BodySeekDashboardSnapshot) -> String {
+        var hasher = Hasher()
+        DigestFields.hash(snapshot, into: &hasher)
+        return String(hasher.finalize(), radix: 16)
     }
 }

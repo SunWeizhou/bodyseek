@@ -80,7 +80,15 @@ public enum BevelScoringEngine {
 
         let refStart = calendar.startOfDay(for: referenceDate)
         let entries = normalizedEntries(from: allRawDays, calendar: calendar)
-        let dirtyStarts = dirtyDayKeys.map { $0.calendarDayStart(calendar: calendar) }
+        // Each dirty day invalidates itself and the following 28 days. Expanding them to date
+        // intervals up front keeps the per-entry check to a plain comparison instead of
+        // asking Calendar for a day count for every (day, dirty day) pair.
+        let dirtyRanges: [DateInterval] = dirtyDayKeys.compactMap { key in
+            let start = key.calendarDayStart(calendar: calendar)
+            let end = calendar.date(byAdding: .day, value: 28, to: start)
+                ?? start.addingTimeInterval(28 * 86_400)
+            return DateInterval(start: start, end: end)
+        }
 
         var computed: [DailyComputedDay] = []
         computed.reserveCapacity(entries.count)
@@ -93,10 +101,10 @@ public enum BevelScoringEngine {
                 leftIndex += 1
             }
 
-            let entryKeyStart = entry.dayKey.calendarDayStart(calendar: calendar)
-            let isDirtyAffected = dirtyStarts.contains { dirtyStart in
-                let delta = calendar.dateComponents([.day], from: dirtyStart, to: entryKeyStart).day ?? -1
-                return (0...28).contains(delta)
+            var isDirtyAffected = false
+            if !dirtyRanges.isEmpty {
+                let entryKeyStart = entry.dayKey.calendarDayStart(calendar: calendar)
+                isDirtyAffected = dirtyRanges.contains { $0.contains(entryKeyStart) }
             }
 
             let isTodayEntry = calendar.isDate(entry.dayStart, inSameDayAs: refStart)
@@ -300,6 +308,8 @@ public enum BevelScoringEngine {
         var byHorizon: [TrendHorizon: [MetricKind: ChartSeriesSnapshot]] = [:]
         let byDay = makeChartDayMap(days: days, calendar: calendar)
         for horizon in TrendHorizon.allCases {
+            // 同一个周期的逐日日期五个指标共用，只向日历问一次。
+            let dates = horizonDates(horizon: horizon, referenceDate: referenceDate, calendar: calendar)
             var byKind: [MetricKind: ChartSeriesSnapshot] = [:]
             for kind in MetricKind.allCases {
                 byKind[kind] = buildChartSeriesSnapshotInternal(
@@ -307,7 +317,8 @@ public enum BevelScoringEngine {
                     horizon: horizon,
                     referenceDate: referenceDate,
                     calendar: calendar,
-                    byDay: byDay
+                    byDay: byDay,
+                    dates: dates
                 )
             }
             byHorizon[horizon] = byKind
@@ -357,8 +368,20 @@ public enum BevelScoringEngine {
             horizon: horizon,
             referenceDate: referenceDate,
             calendar: calendar,
-            byDay: makeChartDayMap(days: days, calendar: calendar)
+            byDay: makeChartDayMap(days: days, calendar: calendar),
+            dates: horizonDates(horizon: horizon, referenceDate: referenceDate, calendar: calendar)
         )
+    }
+
+    /// 某个周期逐日的日期，从"周期起点再往前 28 天"开始（平时范围要向前多读 28 天）。
+    /// 同一个周期的日期序列对五个指标都一样，算一次就够。
+    private static func horizonDates(horizon: TrendHorizon, referenceDate: Date, calendar: Calendar) -> [Date?] {
+        let end = calendar.startOfDay(for: referenceDate)
+        let start = calendar.date(byAdding: .day, value: -(horizon.dayCount - 1), to: end) ?? end
+        let extendedStart = calendar.date(byAdding: .day, value: -rollingWindowDays, to: start) ?? start
+        return (0..<(horizon.dayCount + rollingWindowDays)).map { offset in
+            calendar.date(byAdding: .day, value: offset, to: extendedStart)
+        }
     }
 
     private static func buildChartSeriesSnapshotInternal(
@@ -366,16 +389,18 @@ public enum BevelScoringEngine {
         horizon: TrendHorizon,
         referenceDate: Date,
         calendar: Calendar,
-        byDay: [Date: DailyComputedDay]
+        byDay: [Date: DailyComputedDay],
+        dates: [Date?]
     ) -> ChartSeriesSnapshot {
+        // dates 从"周期起点再往前 28 天"开始，所以 dates[rollingWindowDays + index] 是周期内第 index 天。
+        let priorDays = rollingWindowDays
         let end = calendar.startOfDay(for: referenceDate)
-        let start = calendar.date(byAdding: .day, value: -(horizon.dayCount - 1), to: end) ?? end
 
         var rawPoints: [(dayKey: DayKey, date: Date, value: Double?, availability: MetricAvailability)] = []
         rawPoints.reserveCapacity(horizon.dayCount)
 
-        for offset in 0..<horizon.dayCount {
-            guard let date = calendar.date(byAdding: .day, value: offset, to: start) else { continue }
+        for index in 0..<horizon.dayCount {
+            guard priorDays + index < dates.count, let date = dates[priorDays + index] else { continue }
             if let computed = byDay[date] {
                 let score = computed.score(for: kind)
                 rawPoints.append((
@@ -395,16 +420,10 @@ public enum BevelScoringEngine {
         }
 
         // UI v4：逐日滚动的平时范围。窗口取每天之前的 28 天（不含当天），需要向前多读 28 天历史。
-        let priorDays = rollingWindowDays
-        let extendedStart = calendar.date(byAdding: .day, value: -priorDays, to: start) ?? start
         var extendedValues: [Double?] = []
-        extendedValues.reserveCapacity(horizon.dayCount + priorDays)
-        for offset in 0..<(horizon.dayCount + priorDays) {
-            guard let date = calendar.date(byAdding: .day, value: offset, to: extendedStart) else {
-                extendedValues.append(nil)
-                continue
-            }
-            extendedValues.append(byDay[date]?.score(for: kind).value.map(Double.init))
+        extendedValues.reserveCapacity(dates.count)
+        for date in dates {
+            extendedValues.append(date.flatMap { byDay[$0]?.score(for: kind).value.map(Double.init) })
         }
         let rolling = rollingBands(values: extendedValues)
 
