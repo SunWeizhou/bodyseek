@@ -294,11 +294,12 @@ public struct WorkoutView: View {
                     Text("\(fatigue) / \(Self.fullScale)")
                         .bsText(.caption)
                 }
+                // 与人体图同一条色标：以前一律用负荷色，和图例的四级配色、旁边的人体图都对不上。
                 BSStripedProgressBar(
                     recorded: Double(fatigue),
                     estimated: 0,
                     target: Double(Self.fullScale),
-                    tint: BSColor.strain
+                    tint: BSBodyMap.fatigueColor(intensity: Double(fatigue) / Double(Self.fullScale))
                 )
             }
             .frame(minHeight: BSSize.hitTarget)
@@ -334,11 +335,33 @@ public struct WorkoutView: View {
     private var noteSection: some View {
         BSCoachEntryRow(
             title: "今天练什么",
-            summary: noteText,
+            summary: entrySummary,
             identifier: "workout-advice-entry"
         ) {
             showAdvice = true
         }
+    }
+
+    /// 入口行只放得下两行。逐项都写会从中间截断（"股四头肌约 3…"），所以把最该先看到的三件事
+    /// 按短句排开：今天的恢复、还没缓过来的首要肌群、负荷比；完整解读在 sheet 里。
+    /// 每段内部用不断行空格，需要换行时只在" · "处断开，不会出现"负荷 / 比 0.91"。
+    private var entrySummary: String {
+        if store.dailyBrief?.note(for: .workout) != nil { return noteText }
+        let nbsp = "\u{00A0}"
+        var parts: [String] = []
+        if let recovery = store.snapshot.today.recovery.value {
+            parts.append("恢复\(nbsp)\(recovery)\(nbsp)分")
+        }
+        if let tired = store.recoverySnapshot.rankedByFatigue.first(where: { !$0.isReadyForPrimaryWork }) {
+            parts.append("\(tired.muscle.title)约\(nbsp)\(tired.recoveryPercent)%")
+        }
+        if let ratio = store.snapshot.trainingLoad.acwrRatio {
+            parts.append("负荷比\(nbsp)" + ratio.formatted(.number.precision(.fractionLength(2))))
+        }
+        if parts.isEmpty {
+            return "戴表记录训练并一句话复盘后，将自动关联负荷与肌群恢复"
+        }
+        return parts.joined(separator: " · ")
     }
 
     private var adviceSheet: some View {

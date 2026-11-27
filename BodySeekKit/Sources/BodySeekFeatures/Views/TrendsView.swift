@@ -325,6 +325,7 @@ public struct TrendsView: View {
             tint: BSColor.domain(kind),
             meanText: meanValue(snapshot) ?? "--",
             changeText: changeText(snapshot),
+            meanPrefix: meanValue(snapshot) == nil ? nil : "均",
             isSelected: kind == store.selectedKind,
             identifier: "trends-score-\(kind.rawValue)",
             action: { switchKind(kind) },

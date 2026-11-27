@@ -8,6 +8,10 @@ import SwiftUI
 public struct NutritionBoardView: View {
     private static let calorieID = "diet_kcal"
 
+    private static func wholeNumber(_ value: Double) -> String {
+        value.formatted(.number.precision(.fractionLength(0)))
+    }
+
     @Bindable var store: StoreOf<NutritionFeature>
     @State private var showAdvice = false
 
@@ -162,17 +166,24 @@ public struct NutritionBoardView: View {
 
     private var intakeCard: some View {
         let split = calorieSplit
+        let kcalBounds = calorieTarget.map { NutritionTargetBounds(item: $0) }
         return BSCalorieCard(
             title: intakeTitle,
             recordedKcal: split.recorded,
             estimatedKcal: split.estimated,
             pendingMeals: split.pending,
-            targetKcal: target(Self.calorieID),
+            targetKcal: kcalBounds?.lower ?? kcalBounds?.upper,
+            targetKcalUpper: kcalBounds?.upper,
             availability: intakeAvailability,
             macros: macros
         )
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("nutrition-intake-ring")
+    }
+
+    /// 当天采用的日热量目标项。
+    private var calorieTarget: NutritionTargetItem? {
+        store.periodSummary.validatedPlan.validAdoptedItems[Self.calorieID]
     }
 
     /// 当天热量拆成已录入、AI 估算与缺热量的餐数；饮水不计入。
@@ -213,12 +224,49 @@ public struct NutritionBoardView: View {
         let entries = store.selectedDayLog?.entries ?? []
         let recorded = entries.filter { !$0.isEstimated }.compactMap { $0[keyPath: value] }.reduce(0, +)
         let estimated = entries.filter(\.isEstimated).compactMap { $0[keyPath: value] }.reduce(0, +)
-        return BSMacroSplit(name: name, recorded: recorded, estimated: estimated, target: target(id))
+        let hasEstimate = estimated > 0
+        let amountText = (hasEstimate ? "≈" : "") + Self.wholeNumber(recorded + estimated) + " g"
+        let item = target(id)
+        let bounds = item.map { NutritionTargetBounds(item: $0) }
+
+        // 供能比目标（碳水、脂肪的 AMDR）的单位是 "%E"：把克数换算成占当天总热量的百分比，
+        // 与 NutritionTargetEvaluator 的口径一致；克数照旧显示在文字里。
+        if let item, item.unit == "%E", let factor = NutritionCatalog.descriptor(forID: id)?.energyFactor {
+            let split = NutritionEnergyShare.split(
+                recordedGrams: recorded,
+                estimatedGrams: estimated,
+                energyFactor: factor,
+                totalKcal: calorieSplit.recorded + calorieSplit.estimated
+            )
+            return BSMacroSplit(
+                name: name,
+                recorded: split?.recordedPercent ?? 0,
+                estimated: split?.estimatedPercent ?? 0,
+                target: bounds?.lower ?? bounds?.upper,
+                targetUpper: bounds?.upper,
+                unit: "%E",
+                amountText: amountText
+            )
+        }
+        return BSMacroSplit(
+            name: name,
+            recorded: recorded,
+            estimated: estimated,
+            target: bounds?.lower ?? bounds?.upper,
+            targetUpper: bounds?.upper,
+            unit: "g",
+            amountText: amountText
+        )
     }
 
-    private func target(_ id: String) -> Double? {
-        let item = store.periodSummary.validatedPlan.validAdoptedItems[id]
-        return item?.lower ?? item?.upper
+    private func target(_ id: String) -> NutritionTargetItem? {
+        store.periodSummary.validatedPlan.validAdoptedItems[id]
+    }
+
+    /// 周热量图目标线的数值：区间型目标取下限（与原行为一致）。
+    private func targetValue(_ id: String) -> Double? {
+        let bounds = target(id).map { NutritionTargetBounds(item: $0) }
+        return bounds?.lower ?? bounds?.upper
     }
 
     // MARK: - L1 Coach 解读
@@ -535,7 +583,7 @@ public struct NutritionBoardView: View {
             height: .standard,
             caption: "只统计已记录的天数，缺失的天不计作零"
         ) {
-            IntakeBarChart(points: weekPoints, target: target(Self.calorieID)) { id in
+            IntakeBarChart(points: weekPoints, target: targetValue(Self.calorieID)) { id in
                 if let key = store.periodDayKeys.first(where: { $0.isoString == id }) {
                     store.send(.daySelected(key))
                 }

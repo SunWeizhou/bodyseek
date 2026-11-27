@@ -65,13 +65,23 @@ public struct BSBodyMap: View {
         selected.flatMap { Muscle(rawValue: $0) }
     }
 
+    /// 肌群疲劳的四段色标：0 = 充分恢复（轨道色），随疲劳加深依次为轻度残留、能量色、负荷色。
+    /// 人体图和肌群列表的疲劳条共用这一条色标，同一个数值在两处才是同一种颜色。
+    private static let fatigueScale = HeatmapColorScale(colors: [
+        BSColor.surfaceInset,
+        BSColor.tint.opacity(BSOpacity.disabled),
+        BSColor.energy,
+        BSColor.strain,
+    ])
+
+    /// 疲劳强度（0–1）对应的颜色；超出范围按端点取。
+    public static func fatigueColor(intensity: Double) -> Color {
+        let clamped = Swift.min(1, Swift.max(0, intensity.isFinite ? intensity : 0))
+        return fatigueScale.color(for: clamped)
+    }
+
     private var colorScale: HeatmapColorScale {
-        HeatmapColorScale(colors: [
-            BSColor.surfaceInset,
-            BSColor.tint.opacity(BSOpacity.disabled),
-            BSColor.energy,
-            BSColor.strain,
-        ])
+        Self.fatigueScale
     }
 
     private var mapStyle: BodyViewStyle {

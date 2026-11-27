@@ -9,6 +9,7 @@ public struct BSTrendSwitchRow<Mini: View>: View {
     private let systemImage: String
     private let tint: Color
     private let meanText: String
+    private let meanPrefix: String?
     private let changeText: String
     private let isSelected: Bool
     private let identifier: String?
@@ -22,6 +23,8 @@ public struct BSTrendSwitchRow<Mini: View>: View {
     ///   - tint: 领域色。
     ///   - meanText: 周期均值，例如"72"或"7 小时 12 分"。
     ///   - changeText: 周期变化，例如"+3"；没有时传"--"。
+    ///   - meanPrefix: 均值前的小字，例如"均"。右侧数字是整个周期的均值而不是今天的值；没有这枚标注时
+    ///     会被读成"今天恢复 70"，和今日页的当日分数对不上。
     ///   - isSelected: 是否为当前大图指标。
     ///   - identifier: 无障碍标识。
     ///   - action: 点击切换。
@@ -32,6 +35,7 @@ public struct BSTrendSwitchRow<Mini: View>: View {
         tint: Color,
         meanText: String,
         changeText: String,
+        meanPrefix: String? = nil,
         isSelected: Bool,
         identifier: String? = nil,
         action: @escaping () -> Void,
@@ -41,6 +45,7 @@ public struct BSTrendSwitchRow<Mini: View>: View {
         self.systemImage = systemImage
         self.tint = tint
         self.meanText = meanText
+        self.meanPrefix = meanPrefix
         self.changeText = changeText
         self.isSelected = isSelected
         self.identifier = identifier
@@ -59,9 +64,16 @@ public struct BSTrendSwitchRow<Mini: View>: View {
                 mini
                     .frame(width: BSSize.ringM, height: BSSize.glyph)
                 VStack(alignment: .trailing, spacing: BSSpace.xxs) {
-                    Text(meanText)
-                        .bsText(.number)
-                        .lineLimit(1)
+                    HStack(alignment: .firstTextBaseline, spacing: BSSpace.xxs) {
+                        if let meanPrefix {
+                            Text(meanPrefix)
+                                .bsText(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Text(meanText)
+                            .bsText(.number)
+                            .lineLimit(1)
+                    }
                     Text(changeText)
                         .bsText(.caption)
                 }
