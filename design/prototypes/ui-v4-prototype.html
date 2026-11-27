@@ -1,0 +1,1040 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>BodySeek · 交互原型</title>
+<style>
+:root {
+  color-scheme: light;
+  --bg:#f3f5f1; --surface:#fff; --inset:#f3f6f2; --ink:#172720; --muted:#52635a;
+  --line:#e1e8e1; --track:#e5ebe5; --chrome:#f8faf6ec; --accent:#17664e; --on-accent:#fff;
+  --mint:#e1f0e7; --focus:#197454; --hero:#183b31; --hero-ink:#f3fff7; --hero-muted:#bcd4c8;
+  --hero-line:#416056; --hero-graph:#a8e7bd; --shadow:0 1px 2px #17372408,0 5px 20px #17372405;
+  --sleep:#6255a7; --sleep-bg:#efedf8; --strain:#a44e29; --strain-bg:#faeee7;
+  --stress:#9b4364; --stress-bg:#f8ecf2; --energy:#805815; --energy-bg:#f7efd9;
+  --r:1.35rem; --gap:1.25rem; --max:73rem;
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+}
+:root[data-theme="dark"] {
+  color-scheme:dark;
+  --bg:#111a16; --surface:#1b2721; --inset:#24332b; --ink:#eff9f2; --muted:#b1c3b8;
+  --line:#35463d; --track:#324239; --chrome:#18251fee; --accent:#9fe0b8; --on-accent:#152d21;
+  --mint:#294336; --focus:#a8e7bd; --hero:#1c3c32; --hero-ink:#f3fff7; --hero-muted:#bfd8cc;
+  --hero-line:#4b6e60; --hero-graph:#a8e7bd; --shadow:none;
+  --sleep:#c8bbff; --sleep-bg:#36314b; --strain:#ffb38b; --strain-bg:#48322b;
+  --stress:#f2a9c7; --stress-bg:#422d3b; --energy:#f2cf87; --energy-bg:#413720;
+}
+* { box-sizing:border-box }
+body { margin:0; color:var(--ink); background:var(--bg); font-size:1rem; line-height:1.5 }
+button, input, textarea { font:inherit; color:inherit }
+button, a { -webkit-tap-highlight-color:transparent; touch-action:manipulation }
+button { cursor:pointer }
+a { color:inherit }
+button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, canvas:focus-visible, summary:focus-visible { outline:3px solid var(--focus); outline-offset:3px }
+button:active, .nav-link:active { transform:scale(.98) }
+[hidden] { display:none !important }
+h1,h2,h3,p,figure,dl,dd { margin:0 }
+h1 { font-size:clamp(1.95rem,4vw,3.05rem); line-height:1.14; font-weight:730; letter-spacing:-.045em }
+h2 { font-size:1.22rem; line-height:1.3; letter-spacing:-.02em }
+h3 { font-size:1.02rem; line-height:1.4 }
+small,.meta { font-size:.8125rem; color:var(--muted); line-height:1.52 }
+.icon { width:1.25rem; height:1.25rem; flex:none; vertical-align:middle }
+.num { font-variant-numeric:tabular-nums; letter-spacing:-.045em }
+.skip { position:fixed; z-index:20; top:.5rem; left:.5rem; padding:.55rem .85rem; background:var(--surface); transform:translateY(-150%) }
+.skip:focus { transform:none }
+.chrome { position:sticky; top:0; z-index:5; background:var(--chrome); border-bottom:1px solid var(--line); backdrop-filter:blur(18px) saturate(125%); padding-top:env(safe-area-inset-top) }
+.chrome-inner { width:min(var(--max),calc(100% - 3rem)); margin:auto; min-height:4.55rem; display:flex; justify-content:space-between; align-items:center; gap:.65rem; flex-wrap:wrap }
+.brand { text-decoration:none; display:inline-flex; align-items:center; gap:.62rem; flex:1 0 max-content; font-weight:760; font-size:1.18rem; letter-spacing:-.035em; min-height:44px }
+.brand-icon { display:grid; place-items:center; width:2rem; height:2rem; border-radius:.65rem; background:var(--hero); color:#d0f5dd }
+.brand-icon .icon { width:1.17rem; height:1.17rem }
+.main-nav { display:flex; align-items:center; justify-content:center; flex:0 1 auto; flex-wrap:wrap; gap:.24rem }
+.nav-link { text-decoration:none; min-height:44px; padding:.55rem .78rem; border-radius:.72rem; display:flex; align-items:center; justify-content:center; gap:.42rem; font-size:.9rem; color:var(--muted); font-weight:620 }
+.nav-link .icon { width:1.12rem; height:1.12rem }
+.nav-link[aria-current=page] { background:var(--mint); color:var(--accent) }
+.nav-link:hover:not([aria-current=page]), .icon-button:hover { background:var(--inset); color:var(--ink) }
+.top-actions { display:flex; flex:1 0 max-content; align-items:center; justify-content:flex-end; gap:.45rem }
+.demo { border:1px solid var(--line); padding:.28rem .57rem; border-radius:999px; white-space:nowrap; font-size:.75rem; color:var(--muted); background:var(--surface) }
+.icon-button { min-width:44px; min-height:44px; border:1px solid var(--line); border-radius:.72rem; background:var(--surface); display:inline-grid; place-items:center; padding:.45rem }
+.main { container-type:inline-size; width:min(var(--max),calc(100% - 3rem)); margin:0 auto; padding:2.05rem 0 2.5rem; scroll-margin-top:5rem }
+.page-head { display:flex; justify-content:space-between; align-items:flex-end; gap:.85rem; margin-bottom:1.35rem }
+.page-head p { color:var(--muted); margin-top:.36rem; font-size:.89rem }
+.button { min-height:44px; display:inline-flex; align-items:center; justify-content:center; gap:.55rem; border-radius:.76rem; border:1px solid transparent; padding:.58rem .94rem; font-weight:650; font-size:.875rem; text-align:center; background:var(--accent); color:var(--on-accent); text-decoration:none }
+.button.secondary { background:var(--surface); color:var(--accent); border-color:var(--line) }
+.button.tertiary { background:var(--inset); color:var(--ink) }
+.button:hover { filter:brightness(.94) }
+.section-head { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:.35rem .8rem; margin-bottom:.7rem }
+.today-grid { display:grid; grid-template-columns:minmax(0,2.08fr) minmax(0,1fr); grid-template-areas:"hero brief" "metrics vitals" "records records"; align-items:start; gap:var(--gap) }
+.card { background:var(--surface); border:1px solid var(--line); border-radius:var(--r); box-shadow:var(--shadow); min-width:0 }
+.pad { padding:1.16rem }
+.hero { grid-area:hero; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.06fr); background:var(--hero); color:var(--hero-ink); border-radius:var(--r); padding:1.35rem 1.45rem; min-width:0; gap:1.3rem; min-height:15.4rem; border:1px solid var(--hero-line); box-shadow:0 8px 26px #193a3023 }
+.hero h2 { display:flex; align-items:center; gap:.52rem; font-size:1rem; font-weight:650 }
+.hero h2 .icon { color:var(--hero-graph) }
+.score-row { display:flex; align-items:center; flex-wrap:wrap; gap:.52rem .75rem; margin:.45rem 0 .28rem }
+.score { font-size:clamp(3.5rem,6.8vw,5.6rem); line-height:.98; font-weight:680; letter-spacing:-.085em }
+.out-of { color:var(--hero-muted); font-size:.89rem; margin-left:.36rem }
+.status { background:#d2f8dc1d; color:#d5fce0; border:1px solid #b6e9c348; padding:.24rem .57rem; border-radius:.48rem; font-weight:630; font-size:.75rem }
+.hero p { color:var(--hero-muted); font-size:.83rem }
+.hero-link { display:inline-flex; gap:.35rem; align-items:center; min-height:44px; border:0; background:none; color:var(--hero-ink); padding:0 .15rem; margin-top:.35rem; font-weight:650; font-size:.86rem }
+.hero-link:focus-visible { outline-color:#d5fce0 }
+.hero-link .icon { width:.9rem; height:.9rem }
+.hero-figure { border-left:1px solid var(--hero-line); padding-left:1.24rem; align-self:center; min-width:0 }
+.hero-figure figcaption { color:var(--hero-muted); font-size:.81rem; font-weight:560 }
+.hero-figure canvas { height:7.15rem; width:100%; display:block; margin:.3rem 0 .15rem }
+.hero-axis { display:grid; grid-template-columns:1fr 1fr 1fr; color:var(--hero-muted); font-size:.72rem }
+.hero-axis span:nth-child(2) { text-align:center }
+.hero-axis span:last-child { text-align:right }
+.brief { grid-area:brief; min-height:15.4rem; display:flex; flex-direction:column; justify-content:space-between; gap:.65rem; padding:1.18rem 1.28rem }
+.brief-label { display:flex; align-items:center; gap:.56rem; font-size:.85rem; font-weight:670; color:var(--accent) }
+.brief-icon { display:grid; place-items:center; color:var(--accent); background:var(--mint); width:2rem; height:2rem; border-radius:.65rem }
+.brief-icon .icon { width:1.05rem; height:1.05rem }
+.brief h2 { margin-top:.58rem; font-size:clamp(1.13rem,2.1vw,1.49rem) }
+.brief p { margin-top:.37rem; font-size:.86rem; color:var(--muted); line-height:1.65 }
+.brief .button { align-self:flex-start }
+.metrics { grid-area:metrics }
+.metrics-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.78rem }
+.metric { display:block; text-align:left; padding:.82rem .92rem .67rem; min-width:0; width:100%; color:var(--ink) }
+.metric:hover, .row-button:hover { border-color:var(--focus) }
+.metric-top,.row,.spread { display:flex; align-items:center; gap:.62rem }
+.spread { justify-content:space-between }
+.metric-top { justify-content:space-between }
+.metric-name { display:flex; align-items:center; gap:.45rem; font-weight:690; font-size:.91rem }
+.metric-icon { display:grid; place-items:center; background:var(--domain-bg,var(--mint)); color:var(--domain,var(--accent)); width:1.76rem; height:1.76rem; border-radius:.52rem; flex:none }
+.metric-icon .icon { width:1rem; height:1rem }
+.sleep { --domain:var(--sleep); --domain-bg:var(--sleep-bg) }
+.strain { --domain:var(--strain); --domain-bg:var(--strain-bg) }
+.stress { --domain:var(--stress); --domain-bg:var(--stress-bg) }
+.energy { --domain:var(--energy); --domain-bg:var(--energy-bg) }
+.chev { color:var(--muted); width:.9rem; height:.9rem }
+.metric-value { font-size:1.94rem; line-height:1.06; font-weight:700; margin:.36rem 0 .1rem }
+.metric-unit { font-size:.74rem; color:var(--muted); font-weight:550; margin-left:.23rem }
+.metric canvas { display:block; width:100%; height:1.46rem; margin:.27rem 0 .17rem }
+.chart-foot { display:flex; justify-content:space-between; color:var(--muted); gap:.3rem; font-size:.68rem; font-variant-numeric:tabular-nums }
+.vitals { grid-area:vitals }
+.vital-list { padding:.14rem .96rem }
+.vital { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:.5rem; padding:.8rem .17rem; min-height:3.25rem }
+.vital + .vital { border-top:1px solid var(--line) }
+.vital dt { font-weight:630; font-size:.89rem }
+.vital dd { text-align:right; font-variant-numeric:tabular-nums; font-size:.89rem; white-space:nowrap }
+.vital dd small { display:block; font-size:.72rem }
+.records { grid-area:records }
+.record-grid,.two-col { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--gap) }
+.row-button { display:flex; align-items:center; gap:.65rem; min-height:3.65rem; padding:.62rem .75rem; text-align:left; color:var(--ink); width:100% }
+.row-main { flex:1; min-width:0; overflow-wrap:anywhere }
+.row-main small { display:block }
+.date-caption { font-size:.83rem; color:var(--muted); font-weight:500 }
+.page-grid { display:grid; grid-template-columns:minmax(0,1.42fr) minmax(0,1fr); align-items:start; gap:var(--gap) }
+.stack { display:grid; gap:var(--gap); min-width:0 }
+.list-rows { display:grid; gap:.5rem; margin-top:.6rem }
+.inline-head { margin:0 0 .82rem }
+.anatomy { display:grid; grid-template-columns:minmax(5.4rem,.68fr) minmax(0,1fr); gap:1rem; align-items:center }
+.body-map { display:block; width:100%; height:13rem }
+.segment { display:flex; gap:.24rem; width:fit-content; max-width:100%; flex-wrap:wrap; border-radius:.85rem; padding:.2rem; background:var(--inset); border:1px solid var(--line) }
+.segment button { min-height:44px; border:1px solid transparent; border-radius:.62rem; background:transparent; color:var(--muted); font-size:.84rem; padding:.35rem .76rem; font-weight:650 }
+.segment button[aria-pressed=true] { color:var(--accent); background:var(--surface); border-color:var(--line); box-shadow:var(--shadow) }
+.muscle-row { margin:.55rem 0 }
+.muscle-row .spread { font-size:.83rem; margin-bottom:.25rem }
+.progress { display:flex; overflow:hidden; height:.54rem; background:var(--track); border-radius:99px }
+.progress span { background:var(--domain,var(--accent)); display:block; border-radius:99px 0 0 99px }
+.progress span.estimate { border-radius:0; background:repeating-linear-gradient(135deg,var(--domain,var(--accent)) 0 2px,transparent 2px 5px); border-left:1px solid var(--surface) }
+.stat-row { margin-top:.85rem; padding-top:.85rem; border-top:1px solid var(--line); display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.4rem }
+.stat-row strong { display:block; font-size:1.38rem }
+.stat-row .meta { display:block }
+.text-block { margin-top:.56rem; color:var(--muted); font-size:.9rem; line-height:1.68 }
+.meal-total { display:flex; align-items:baseline; flex-wrap:wrap; gap:.25rem .32rem; font-size:clamp(2.45rem,6vw,3.7rem); line-height:1; font-weight:700; margin:.4rem 0; overflow-wrap:anywhere }
+.meal-total small { font-size:.93rem; letter-spacing:0 }
+.macro-row { margin-top:.8rem }
+.macro-row .spread { align-items:baseline; flex-wrap:wrap; font-size:.87rem; margin-bottom:.28rem; gap:.15rem .5rem }
+.legend { display:flex; gap:.38rem .9rem; flex-wrap:wrap; color:var(--muted); font-size:.76rem; margin-top:.67rem }
+.legend span { display:inline-flex; gap:.36rem; align-items:center }
+.key { width:.85rem; height:.56rem; background:var(--domain,var(--accent)); border-radius:.2rem; display:inline-block }
+.key.striped { background:repeating-linear-gradient(135deg,var(--accent) 0 2px,transparent 2px 5px) }
+.key.neutral { background:var(--track); border:1px solid var(--line) }
+.trend-controls { display:flex; flex-wrap:wrap; gap:.55rem; margin-bottom:.9rem }
+.trend-shell { min-width:0 }
+.trend-stat { min-height:5.3rem; display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:.36rem }
+.trend-stat strong { font-size:2.25rem; line-height:1.05 }
+.trend-chart { width:100%; height:13rem; display:block; touch-action:pan-y; cursor:crosshair; border-radius:.38rem }
+.trend-hint { margin-top:.65rem }
+.summary-row { display:flex; justify-content:space-between; gap:.6rem; min-height:2.8rem; align-items:center; border-bottom:1px solid var(--line); font-size:.88rem }
+.summary-row:last-child { border:0 }
+details { border-top:1px solid var(--line); margin-top:.8rem; padding-top:.35rem }
+summary { min-height:44px; display:list-item; padding:.55rem .15rem; font-size:.87rem; font-weight:650; cursor:pointer }
+.data-table { width:100%; border-collapse:collapse; font-size:.83rem; text-align:left }
+.data-table th,.data-table td { padding:.37rem .23rem; border-bottom:1px solid var(--line) }
+.chat-col { display:grid; gap:.9rem; min-width:0 }
+.bubble-user { justify-self:end; max-width:90%; background:var(--mint); color:var(--ink); padding:.7rem .86rem; border-radius:.96rem .96rem .28rem .96rem; overflow-wrap:anywhere }
+.chat-reply { line-height:1.68 }
+.chat-reply p { margin:.52rem 0 }
+.chat-reply ul { margin:.55rem 0; padding-left:1.2rem }
+.chat-reply .button { margin-top:.38rem }
+.suggest { display:flex; flex-wrap:wrap; gap:.42rem }
+.composer { display:flex; gap:.42rem }
+input,textarea { width:100%; min-height:44px; background:var(--surface); border:1px solid var(--line); border-radius:.67rem; padding:.6rem .72rem }
+textarea { min-height:5rem; resize:vertical }
+.field { display:grid; gap:.27rem; font-size:.87rem; font-weight:620; margin:.6rem 0 }
+.action-box { background:var(--inset); border:1px solid var(--line); padding:.82rem; border-radius:.78rem; margin-top:.85rem }
+.action-box .button { margin-top:.65rem }
+.sheet { width:min(34rem,calc(100% - 2rem)); max-height:calc(100dvh - 2rem); overflow:auto; overscroll-behavior:contain; color:var(--ink); background:var(--surface); border:1px solid var(--line); border-radius:1.45rem; margin:auto; padding:0; box-shadow:0 24px 70px #0d211945 }
+.sheet::backdrop { background:#11261e72 }
+.sheet[open] { animation:appear .16s ease-out }
+@keyframes appear { from { opacity:.5; transform:translateY(.4rem) } to { opacity:1; transform:none } }
+.sheet-head { display:flex; justify-content:space-between; gap:.65rem; align-items:center; position:sticky; top:0; z-index:1; padding:.8rem 1.12rem .55rem; background:var(--surface); border-bottom:1px solid var(--line) }
+.sheet-body { padding:.92rem 1.12rem 1.18rem }
+.sheet-body > * + * { margin-top:.7rem }
+.sheet-chart { display:block; width:100%; height:5.2rem; margin-top:.7rem }
+.sheet .summary-row { align-items:baseline }
+.sheet .meta { overflow-wrap:anywhere }
+.toast { position:fixed; bottom:1.15rem; left:50%; z-index:10; transform:translateX(-50%); background:var(--hero); color:var(--hero-ink); padding:.64rem .92rem; border-radius:.8rem; box-shadow:0 8px 22px #0003; margin:0; max-width:calc(100% - 2rem); text-align:center; font-size:.89rem; pointer-events:none }
+@media (min-width:51rem) {
+  .metric { min-height:9.15rem }
+  .metric .chart-foot { font-size:.72rem }
+}
+@media (max-width:50.99rem) {
+  .today-grid { grid-template-columns:minmax(0,1fr); grid-template-areas:"hero" "brief" "metrics" "vitals" "records"; gap:1rem }
+  .page-grid { grid-template-columns:minmax(0,1fr) }
+  .brief { min-height:0 }
+}
+@media (max-width:44rem) {
+  .chrome-inner { min-height:3.65rem; width:calc(100% - 2rem); display:flex; justify-content:space-between; gap:.15rem .64rem; padding-block:.18rem }
+  .main { width:calc(100% - 2rem); padding:1.02rem 0 calc(5.5rem + env(safe-area-inset-bottom)) }
+  .main-nav { position:fixed; z-index:6; bottom:0; left:0; right:0; display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:.11rem; padding:.35rem max(.55rem,env(safe-area-inset-right)) calc(.38rem + env(safe-area-inset-bottom)) max(.55rem,env(safe-area-inset-left)); background:var(--chrome); backdrop-filter:blur(20px) saturate(125%); border-top:1px solid var(--line) }
+  .chrome { backdrop-filter:none }
+  .nav-link { flex-direction:column; padding:.32rem .1rem; gap:.14rem; min-height:3.05rem; font-size:min(.76rem,5.3vw) }
+  .page-head { margin-bottom:.91rem; align-items:center }
+  .hero { min-height:0; padding:.98rem; gap:.65rem; grid-template-columns:minmax(0,1fr) minmax(0,.83fr) }
+  .hero-figure { padding-left:.65rem }
+  .hero-figure canvas { height:4.4rem }
+  .score { font-size:3.6rem }
+  .score-row { gap:.22rem .4rem }
+  .hero p { font-size:.75rem }
+  .hero-axis { grid-template-columns:1fr 1fr }
+  .hero-axis span:nth-child(2) { display:none }
+  .brief { padding:.85rem .95rem; gap:.5rem }
+  .brief h2 { margin-top:.42rem }
+  .metrics-grid { gap:.6rem }
+  .metric { padding:.72rem .65rem .57rem }
+  .metric-value { font-size:1.67rem }
+  .record-grid { grid-template-columns:minmax(0,1fr); gap:.52rem }
+  .sheet { width:100%; max-width:none; margin:auto 0 0; max-height:calc(100dvh - 1rem - env(safe-area-inset-top)); border-radius:1.35rem 1.35rem 0 0 }
+  .sheet-body { padding-bottom:calc(1.18rem + env(safe-area-inset-bottom)) }
+  .toast { bottom:calc(4.6rem + env(safe-area-inset-bottom)) }
+}
+@media (max-width:22rem) {
+  .main,.chrome-inner { width:calc(100% - 1.4rem) }
+  .hero { grid-template-columns:minmax(0,1fr) }
+  .hero-figure { border-left:0; padding:.42rem 0 0; border-top:1px solid var(--hero-line) }
+  .hero-figure canvas { height:2.8rem }
+  .metric-name { gap:.25rem }
+  .page-head { flex-wrap:wrap }
+}
+@container (max-width:17.9rem) {
+  .metrics-grid { grid-template-columns:repeat(auto-fit,minmax(min(100%,8.55rem),1fr)) }
+  .two-col,.anatomy,.hero { grid-template-columns:minmax(0,1fr) }
+  .body-map { height:9rem }
+  .meal-total { font-size:clamp(1.9rem,13vw,2.45rem) }
+  .hero-figure { border-left:0; padding:.42rem 0 0; border-top:1px solid var(--hero-line) }
+  .page-head { flex-wrap:wrap }
+  .vital dd { white-space:normal }
+}
+@media (prefers-reduced-motion:reduce) {
+  *,*::before,*::after { animation:none !important; transition:none !important; scroll-behavior:auto !important }
+  button:active,.nav-link:active { transform:none; opacity:.82 }
+}
+@media (prefers-reduced-transparency:reduce),(prefers-contrast:more) {
+  .chrome,.main-nav { background:var(--surface); backdrop-filter:none; border-color:var(--muted) }
+}
+@media (forced-colors:active) {
+  .nav-link[aria-current=page], .segment button[aria-pressed=true], .status { border:2px solid Highlight }
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">跳到主要内容</a>
+<header class="chrome">
+  <div class="chrome-inner">
+    <a href="#today" class="brand" aria-label="BodySeek 今日"><span class="brand-icon" data-icon="pulse"></span>BodySeek</a>
+    <nav class="main-nav" aria-label="主导航"></nav>
+    <div class="top-actions"><span class="demo">示例数据</span><button class="icon-button" id="theme-toggle" type="button" aria-label="切换深色模式"></button></div>
+  </div>
+</header>
+<main class="main" id="main" tabindex="-1"></main>
+<dialog class="sheet" id="sheet" aria-labelledby="sheet-title">
+  <div class="sheet-head"><h2 id="sheet-title"></h2><button class="icon-button" id="sheet-close" type="button" aria-label="关闭" data-icon="close"></button></div>
+  <div class="sheet-body" id="sheet-body"></div>
+</dialog>
+<p role="status" id="announcement" class="toast" hidden></p>
+<noscript>请启用 JavaScript 以查看 BodySeek 交互原型。</noscript>
+<script>
+const icons = {
+  pulse:'M2 12h5l3-7 4 14 3-7h5',
+  moon:'M20 15a8.5 8.5 0 0 1-11-11 8.5 8.5 0 1 0 11 11Z',
+  sun:'M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5 M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z',
+  kettlebell:'M8 9V6a4 4 0 0 1 8 0v3m3 6a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z',
+  fork:'M4 3v6a3 3 0 0 0 6 0V3M7 3v18M20 3c-3 2-4 5-4 9h4m0-9v18',
+  trend:'M3 3v17h18M6 15l5-5 4 3 5-7',
+  chat:'M20 11.5a8 8 0 0 1-8 8H4l1.5-4A8 8 0 1 1 20 11.5Z M8 11h8m-8 4h5',
+  close:'m6 6 12 12M18 6 6 18',
+  chevron:'m9 5 7 7-7 7',
+  arrow:'M4 12h15m-6-6 6 6-6 6',
+  plus:'M12 5v14M5 12h14',
+  battery:'M20 10h2v4h-2M4 7h14a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Zm3 3v4m4-4v4',
+  wave:'M2 13h3l3-5 3 9 3-12 3 8h5',
+  check:'m5 12 4 4L19 6',
+  pen:'m4 20 4-1L20 7l-3-3L5 16l-1 4Zm11-14 3 3',
+  spark:'M12 2c.8 6.2 3.8 9.2 10 10-6.2.8-9.2 3.8-10 10-.8-6.2-3.8-9.2-10-10C8.2 11.2 11.2 8.2 12 2Z'
+};
+const icon = name => '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + icons[name] + '"/></svg>';
+const $ = selector => document.querySelector(selector);
+const clean = value => String(value).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+const fmt = value => new Intl.NumberFormat('zh-CN', {maximumFractionDigits:1}).format(value);
+const mean = values => {
+  const observed = values.filter(value => value !== null);
+  return observed.length ? observed.reduce((sum, value) => sum + value, 0) / observed.length : null;
+};
+const quantile = (values, p) => {
+  const sorted = values.filter(value => value !== null).sort((a,b) => a-b);
+  if (!sorted.length) return null;
+  const index = (sorted.length - 1) * p;
+  return sorted[Math.floor(index)] + (sorted[Math.ceil(index)] - sorted[Math.floor(index)]) * (index % 1);
+};
+const DAY = 86400000;
+const END = Date.UTC(2026, 10, 23);
+const dateAt = offset => new Date(END + offset * DAY);
+const dayLabel = (date, short = false) => short
+  ? date.toLocaleDateString('zh-CN', {month:'numeric',day:'numeric',timeZone:'UTC'})
+  : date.toLocaleDateString('zh-CN', {month:'long',day:'numeric',timeZone:'UTC'});
+const duration = minutes => Math.floor(minutes / 60) + ' 小时 ' + minutes % 60 + ' 分';
+const workout = {name:'胸与三头', minutes:52, kcal:412, time:'07:05'};
+const recoveryLast = [78,74,70,66,62,68,72];
+const loadLast = [38,0,52,61,0,47,46];
+const sleepStages = [
+  ['清醒',6],['核心',22],['深睡',46],['核心',30],['REM',18],['核心',25],['深睡',26],['核心',28],
+  ['清醒',3],['REM',30],['核心',50],['REM',34],['核心',30],['清醒',2],['REM',45],['核心',48]
+];
+const sleepMinutes = sleepStages.filter(([stage]) => stage !== '清醒').reduce((sum, [,minutes]) => sum + minutes, 0);
+const stressToday = [18,16,15,15,14,16,20,null,null,40,46,44,49,52,55,61,54,47,38];
+const energyToday = [70,74,79,83,86,88,88,86,83,80,76,73,70,69,67,66,64,64,64];
+const history = Array.from({length:58}, (_, index) => {
+  const offset = index - 57;
+  const daysAgo = -offset;
+  const last = 6 - daysAgo;
+  const wave = Math.sin(index * .81);
+  return {
+    date:dateAt(offset),
+    hrv:daysAgo === 18 || daysAgo === 17 ? null : daysAgo === 0 ? 49 : Math.round(55 + wave * 3 - (daysAgo < 8 ? 5 : 0)),
+    recovery:last >= 0 ? recoveryLast[last] : Math.round(74 + wave * 3),
+    sleep:daysAgo === 0 ? 81 : Math.round(78 + wave * 5 - (daysAgo < 6 ? 4 : 0)),
+    strain:last >= 0 ? loadLast[last] : index % 7 < 4 ? Math.round(41 + wave * 9) : 0,
+    stress:daysAgo === 0 ? 38 : Math.round(39 + wave * 6),
+    energy:daysAgo === 0 ? 64 : Math.round(67 + wave * 5),
+    minutes:daysAgo === 0 ? sleepMinutes : Math.round(452 + wave * 21 - (daysAgo < 7 ? 19 : 0))
+  };
+});
+history.forEach((entry,index) => {
+  const prior = history.slice(Math.max(0,index-28),index).map(item => item.hrv);
+  const available = prior.filter(value => value !== null).length;
+  entry.baseline = index >= 28 ? [quantile(prior,.25),quantile(prior,.75),available] : null;
+});
+const latest = history.at(-1);
+const metricInfo = {
+  recovery:{name:'恢复',icon:'pulse',label:'近 7 天恢复评分',note:'综合恢复在平时范围内。夜间 HRV 单项低于平时范围，两项回答的问题不同。',source:'示例恢复评分 · 近 7 天'},
+  sleep:{name:'睡眠',icon:'moon',label:'昨夜睡眠分期',note:'实睡时长汇总核心、深睡和 REM 阶段。清醒时段单列。', source:'示例睡眠分期 · 昨晚'},
+  strain:{name:'负荷',icon:'kettlebell',label:'近 7 天训练负荷',note:'无训练的日期显示为 0。点击趋势可查看 7 天或 30 天。', source:'示例训练负荷 · 近 7 天'},
+  stress:{name:'压力',icon:'wave',label:'日内压力',note:'07:00–09:00 为示例训练屏蔽区间。今日数据截至 18:00。',source:'示例小时数据 · 今天'},
+  energy:{name:'能量',icon:'battery',label:'日内能量变化',note:'当天从 00:00 展示至最后样本 18:00。',source:'示例能量评分 · 今天'}
+};
+const metricNotes = {
+  sleep:duration(sleepMinutes) + ' 实睡',
+  strain:'1 次训练 · ' + workout.kcal + ' kcal',
+  stress:'15:00 达到今日峰值',
+  energy:'06:00 晨起 88 分'
+};
+const shortRanges = {
+  sleep:['入睡','醒来'], strain:['11/17','11/23'], stress:['00:00','18:00'], energy:['00:00','18:00']
+};
+const muscles = [
+  {name:'胸', value:82, side:'front'}, {name:'肩', value:48, side:'front'}, {name:'腹', value:22, side:'front'},
+  {name:'三头', value:64, side:'back'}, {name:'背', value:14, side:'back'},
+  {name:'腿', value:9, side:'both'}
+];
+const meals = [
+  {name:'早餐', note:'燕麦、鸡蛋、牛奶', kcal:520, estimated:0, icon:'sun'},
+  {name:'午餐', note:'黄焖鸡米饭', kcal:430, estimated:90, icon:'fork'}
+];
+const macros = [
+  {name:'蛋白质', recorded:52, estimated:10, goal:140},
+  {name:'碳水', recorded:110, estimated:24, goal:280},
+  {name:'脂肪', recorded:30, estimated:8, goal:70}
+];
+const advice = {
+  title:'今天先维持强度',
+  summary:'恢复仍在平时范围内，训练疲劳连续 4 天高于体能。把加量留到下次。',
+  action:'今天维持中等强度'
+};
+const pages = [
+  ['today','今日','pulse'], ['fitness','健身','kettlebell'], ['nutrition','营养','fork'],
+  ['trends','趋势','trend'], ['coach','Coach','chat']
+];
+const state = {page:'today', days:30, metric:'hrv', selected:null, muscleSide:'front', meals:[], review:'', plans:{}, checkin:'', chat:[]};
+const nav = $('.main-nav');
+const main = $('#main');
+const sheet = $('#sheet');
+const sheetBody = $('#sheet-body');
+let returnFocus = null;
+let announcementTimer;
+let skillTheme = null;
+const themeMedia = matchMedia('(prefers-color-scheme:dark)');
+
+function head(title, subtitle, action = '') {
+  return '<header class="page-head"><div><h1 id="page-title" tabindex="-1">' + title + '</h1><p>' + subtitle + '</p></div>' + action + '</header>';
+}
+function button(label, action, options = {}) {
+  const {variant = '', symbol = '', detail = ''} = options;
+  return '<button class="button ' + variant + '" type="button" data-action="' + action + '"'
+    + (detail ? ' data-detail="' + detail + '"' : '') + '>' + (symbol ? icon(symbol) : '') + label + '</button>';
+}
+function sectionHead(title, meta = '') {
+  return '<div class="section-head"><h2>' + title + '</h2>' + (meta ? '<span class="meta">' + meta + '</span>' : '') + '</div>';
+}
+function rowButton(title, meta, symbol, action, detail = '', trailing = '') {
+  return '<button type="button" class="card row-button" data-action="' + action + '" data-detail="' + detail + '">'
+    + '<span class="metric-icon">' + icon(symbol) + '</span><span class="row-main"><strong>' + title + '</strong><small>' + meta
+    + '</small></span>' + (trailing ? '<span class="meta">' + trailing + '</span>' : '') + icon('chevron').replace('class="icon"','class="icon chev"') + '</button>';
+}
+function tile(key) {
+  const metric = metricInfo[key];
+  const [start,end] = shortRanges[key];
+  return '<button type="button" class="card metric ' + key + '" data-action="metric" data-detail="' + key + '">'
+    + '<div class="metric-top"><span class="metric-name"><span class="metric-icon">' + icon(metric.icon) + '</span>' + metric.name + '</span>'
+    + icon('chevron').replace('class="icon"','class="icon chev"') + '</div><div class="metric-value num">' + latest[key]
+    + '<span class="metric-unit">分</span></div><p class="meta">' + metricNotes[key] + '</p>'
+    + '<canvas aria-hidden="true" data-chart="' + key + '"></canvas><div class="chart-foot" aria-hidden="true"><span>' + start + '</span><span>' + end + '</span></div></button>';
+}
+function todayView() {
+  const delta = Math.round(latest.hrv - mean(history.slice(-29,-1).map(item => item.hrv)));
+  const vitals = [
+    ['夜间 HRV',latest.hrv + ' ms','较均值 ' + (delta < 0 ? '−' + Math.abs(delta) : '+' + delta) + ' ms'],
+    ['静息心率','56 bpm','较均值 +2 bpm'], ['呼吸率','14.8 次/分','接近平时'], ['血氧','97%','接近平时']
+  ];
+  const mealTotal = meals.length + state.meals.length;
+  return head('今日','11 月 23 日，周一 · 18:00 快照',button('打卡','checkin',{variant:'secondary',symbol:'pen'}))
+    + '<div class="today-grid"><section class="hero" aria-label="今日恢复"><div><h2>' + icon('pulse') + '恢复评分</h2>'
+    + '<div class="score-row"><div><strong class="score num">' + latest.recovery + '</strong><span class="out-of">/ 100</span></div><span class="status">平时范围内</span></div>'
+    + '<p>夜间 HRV 低于平时范围</p><button class="hero-link" type="button" data-action="metric" data-detail="recovery">查看恢复详情 ' + icon('arrow') + '</button></div>'
+    + '<figure class="hero-figure"><figcaption>近 7 天恢复</figcaption><canvas role="img" aria-label="11 月 17 日至 23 日恢复评分：' + recoveryLast.join('、') + '" data-chart="hero"></canvas>'
+    + '<div class="hero-axis" aria-hidden="true"><span>11/17</span><span>11/20</span><span>今天</span></div></figure></section>'
+    + '<section class="card brief"><div><div class="brief-label"><span class="brief-icon">' + icon('spark') + '</span>今日建议</div><h2>' + advice.title + '</h2><p>' + advice.summary + '</p></div>'
+    + button('查看建议','brief',{symbol:'arrow'}) + '</section>'
+    + '<section class="metrics">' + sectionHead('四项指标') + '<div class="metrics-grid">' + ['sleep','strain','stress','energy'].map(tile).join('') + '</div></section>'
+    + '<section class="vitals">' + sectionHead('关键体征','相较前 28 天') + '<dl class="card vital-list">'
+    + vitals.map(([label,value,note]) => '<div class="vital"><dt>' + label + '</dt><dd><strong>' + value + '</strong><small>' + note + '</small></dd></div>').join('')
+    + '</dl></section>'
+    + '<section class="records">' + sectionHead('今日记录') + '<div class="record-grid">'
+    + rowButton(workout.name,workout.time + ' · ' + workout.minutes + ' 分钟 · ' + (state.review ? '已复盘' : '待复盘'),'kettlebell','navigate','fitness')
+    + rowButton('饮食','已记录 ' + mealTotal + ' 餐','fork','navigate','nutrition') + '</div></section></div>';
+}
+function fitnessView() {
+  const side = state.muscleSide;
+  const muscleList = muscles.filter(m => m.side === side || m.side === 'both');
+  return head('健身','11 月 23 日，周一 · 今日 1 次训练')
+    + '<div class="page-grid"><div class="stack"><section class="card pad strain">' + sectionHead('肌群疲劳','模型估算')
+    + '<div class="segment" aria-label="肌群视角">' + [['front','正面'],['back','背面']].map(([key,label]) =>
+      '<button type="button" data-action="side" data-detail="' + key + '" aria-pressed="' + (side === key) + '">' + label + '</button>').join('') + '</div>'
+    + '<div class="anatomy"><canvas class="body-map" aria-hidden="true" data-chart="muscles"></canvas><div>'
+    + muscleList.map(m => '<div class="muscle-row"><div class="spread"><strong>' + m.name + '</strong><span>' + m.value + ' / 100</span></div>'
+      + '<div class="progress" aria-hidden="true"><span style="width:' + m.value + '%"></span></div></div>').join('')
+    + '</div></div><div class="stat-row"><div><span class="meta">体能</span><strong class="num">60</strong></div><div><span class="meta">疲劳</span><strong class="num">85</strong></div>'
+    + '<div><span class="meta">状态差</span><strong class="num" style="color:var(--strain)">−25</strong></div></div></section>'
+    + '<section class="card pad">' + sectionHead('表现记录')
+    + '<div class="summary-row"><span>深蹲估算 1RM</span><strong>112 kg</strong></div>'
+    + '<div class="summary-row"><span>最大摄氧量</span><strong>46.3 mL/kg/min</strong></div>'
+    + '<div class="summary-row"><span>体重 <small>仅 4 次记录</small></span><strong>72.3 kg</strong></div></section></div>'
+    + '<div class="stack"><section class="card pad">' + sectionHead('最近训练')
+    + '<h3>' + workout.name + '</h3><p class="meta">' + workout.time + ' · ' + workout.minutes + ' 分钟 · ' + workout.kcal + ' kcal</p>'
+    + (state.review ? '<p class="text-block">' + clean(state.review) + '</p>' : '<p class="text-block">补充实际练了什么、当时感觉如何。</p>')
+    + '<div style="margin-top:.7rem">' + button(state.review ? '编辑复盘' : '记录复盘','review',{symbol:'pen'}) + '</div></section>'
+    + '<section class="card pad">' + sectionHead('训练计划')
+    + (Object.entries(state.plans).length ? Object.entries(state.plans).map(([key,label]) => '<div class="action-box"><strong>' + label + '</strong><div>' + button('撤销变更','undo-plan',{variant:'secondary',detail:key}) + '</div></div>').join('') : '<p class="text-block">暂无计划变更</p>')
+    + '</section><section class="card pad">' + sectionHead('今日建议') + '<h3>' + advice.title + '</h3><p class="text-block">' + advice.summary + '</p>'
+    + '<div style="margin-top:.7rem">' + button('查看依据','brief',{variant:'secondary',symbol:'arrow'}) + '</div></section></div></div>';
+}
+function nutritionView() {
+  const allMeals = meals.concat(state.meals);
+  const confirmed = allMeals.reduce((sum,m) => sum + (m.kcal ?? 0),0);
+  const estimated = allMeals.reduce((sum,m) => sum + m.estimated,0);
+  const unfilled = allMeals.filter(m => m.kcal === null).length;
+  return head('营养','11 月 23 日，周一 · ' + allMeals.length + ' 餐已记录',button('记一餐','meal',{symbol:'plus'}))
+    + '<div class="page-grid"><section class="card pad">' + sectionHead('今日热量','按已有记录汇总')
+    + '<div class="meal-total num">≈' + fmt(confirmed + estimated) + '<small>kcal</small></div><p class="text-block">已录入 ' + fmt(confirmed)
+    + ' kcal · AI 估算 ' + fmt(estimated) + ' kcal' + (unfilled ? ' · ' + unfilled + ' 餐待补热量' : '') + '</p>'
+    + '<div class="progress" style="margin-top:.75rem" aria-hidden="true"><span style="width:' + Math.min(100,confirmed/23) + '%"></span>'
+    + '<span class="estimate" style="width:' + Math.max(0,Math.min(100-confirmed/23,estimated/23)) + '%"></span></div>'
+    + '<p class="meta" style="margin-top:.43rem">日目标 2,300 kcal</p><h3 style="margin-top:1.1rem">宏量营养素</h3>'
+    + macros.map(m => '<div class="macro-row"><div class="spread"><strong>' + m.name + '</strong><span class="meta">'
+      + m.recorded + ' g 已录入 · ' + m.estimated + ' g 估算 / 目标 ' + m.goal + ' g</span></div><div class="progress" aria-hidden="true">'
+      + '<span style="width:' + m.recorded/m.goal*100 + '%"></span><span class="estimate" style="width:' + m.estimated/m.goal*100 + '%"></span></div></div>').join('')
+    + '<div class="legend"><span><i class="key"></i>已录入</span><span><i class="key striped"></i>AI 估算</span></div>'
+    + (state.meals.length ? '<p class="text-block">新餐次仅录入描述和可选热量，宏量营养素仍来自原始示例餐次。</p>' : '')
+    + '</section><div class="stack"><section class="card pad">' + sectionHead('餐次')
+    + '<div class="list-rows">' + allMeals.map((m,i) => rowButton(clean(m.name),clean(m.note) + (m.estimated ? ' · 含估算' : ''),
+      m.icon,'meal-detail',String(i),m.kcal === null ? '待补热量' : (m.estimated ? '≈' : '') + fmt(m.kcal+m.estimated) + ' kcal')).join('') + '</div></section>'
+    + '<section class="card pad">' + sectionHead('营养判断','覆盖不足') + '<p class="text-block">当前记录含 AI 估算，暂时无法判断全天营养是否达标。已录入和估算值可在餐次中查看。</p></section></div></div>';
+}
+const trendNames = {hrv:'夜间 HRV', recovery:'恢复', sleep:'睡眠', strain:'负荷', stress:'压力', energy:'能量', minutes:'实睡时长'};
+const trendUnit = key => key === 'hrv' ? 'ms' : key === 'minutes' ? '分钟' : '分';
+const trendSeries = () => history.slice(-state.days);
+const validCount = (records,key) => records.filter(item => item[key] !== null).length;
+const renderNumber = value => value === null ? '—' : fmt(value);
+
+function trendReadout() {
+  const key = state.metric;
+  const records = trendSeries();
+  const selected = state.selected === null ? null : records[state.selected];
+  const value = selected ? selected[key] : mean(records.map(item=>item[key]));
+  let note = selected
+    ? (value === null ? '当天缺少有效记录' : '当天记录')
+    : validCount(records,key) + ' / ' + records.length + ' 天有记录';
+  if (selected && key === 'hrv' && selected.baseline) {
+    const [low,high,coverage] = selected.baseline;
+    const range = '平时范围 ' + fmt(low) + '–' + fmt(high) + ' ms（' + coverage + '/28 晚）';
+    note = value === null ? note : (value < low ? '低于' : value > high ? '高于' : '处于') + range;
+  }
+  return '<div><p class="meta">' + (selected ? dayLabel(selected.date) + ' · ' + trendNames[key] : trendNames[key] + ' · 日均')
+    + '</p><strong class="num">' + (key === 'minutes' && value !== null ? duration(Math.round(value)) : renderNumber(value))
+    + '</strong>' + (value !== null && key !== 'minutes' ? ' <span class="meta">' + trendUnit(key) + '</span>' : '')
+    + '<p class="meta">' + note + '</p></div>';
+}
+function trendsView() {
+  const key = state.metric;
+  const records = trendSeries();
+  const range = dayLabel(records[0].date) + ' – ' + dayLabel(records.at(-1).date);
+  return head('趋势',range)
+    + '<div class="page-grid"><section class="card pad trend-shell ' + key + '"><div class="trend-controls"><div class="segment" aria-label="趋势周期">'
+    + [7,30].map(days => '<button type="button" data-action="period" data-detail="' + days + '" aria-pressed="' + (days === state.days) + '">' + days + ' 天</button>').join('')
+    + '</div></div><div class="trend-stat"><div id="trend-value" aria-live="polite">' + trendReadout() + '</div>'
+    + '<button class="button secondary" id="clear-trend" type="button" data-action="clear-trend"' + (state.selected === null ? ' hidden' : '') + '>清除选中</button></div>'
+    + '<canvas id="trend-chart" class="trend-chart" data-chart="trend" tabindex="0" aria-label="' + trendNames[key]
+    + '趋势图，左右方向键切换日期，Escape 清除。数据也可在下方表格查看。"></canvas>'
+    + '<div class="legend"><span><i class="key"></i>' + trendNames[key] + '</span>'
+    + (key === 'hrv' ? '<span><i class="key neutral"></i>平时范围</span>' : '') + '</div>'
+    + '<p class="meta trend-hint">轻点或横拖图表选日期。键盘可用左右方向键。</p>'
+    + (key === 'hrv' ? '<p class="meta">平时范围取每个日期之前 28 晚有效记录的第 25–75 百分位。缺测处断开。</p>' : '')
+    + '<details><summary>查看逐日数据</summary><table class="data-table" aria-label="' + trendNames[key] + '逐日数据"><thead><tr><th scope="col">日期</th><th scope="col">'
+    + trendNames[key] + '</th>' + (key === 'hrv' ? '<th scope="col">平时范围</th>' : '') + '</tr></thead><tbody>'
+    + records.map(rec => '<tr><th scope="row">' + dayLabel(rec.date,true) + '</th><td>'
+      + (rec[key] === null ? '缺测' : fmt(rec[key]) + ' ' + trendUnit(key)) + '</td>'
+      + (key === 'hrv' ? '<td>' + fmt(rec.baseline[0]) + '–' + fmt(rec.baseline[1]) + ' ms</td>' : '') + '</tr>').join('')
+    + '</tbody></table></details></section><section class="card pad">' + sectionHead('选择指标','同周期日均')
+    + '<div class="list-rows">' + Object.entries(trendNames).map(([name,label]) => {
+      const avg = mean(records.map(item=>item[name]));
+      return '<button type="button" class="card row-button ' + name + '" data-action="trend-metric" data-detail="' + name
+        + '" aria-pressed="' + (name === key) + '"' + (name === key ? ' style="background:var(--mint);border-color:var(--accent)"' : '')
+        + '><span class="metric-icon">' + icon(metricInfo[name]?.icon || (name === 'minutes' ? 'moon' : 'pulse'))
+        + '</span><span class="row-main"><strong>' + label + '</strong></span><span class="meta">'
+        + renderNumber(avg) + ' ' + trendUnit(name) + '</span></button>';
+    }).join('') + '</div></section></div>';
+}
+const lastRecovery = Math.round(mean(history.slice(-7).map(item=>item.recovery)));
+const previousRecovery = Math.round(mean(history.slice(-35,-7).map(item=>item.recovery)));
+const sleepDiff = Math.round(mean(history.slice(-35,-7).map(item=>item.minutes)) - mean(history.slice(-7).map(item=>item.minutes)));
+const saturdayPlan = '周六腿部训练 · 待决定';
+const scriptedPrompts = ['这周恢复为什么下降？','周六要练腿吗？','今天怎么安排训练？'];
+function coachReply(type) {
+  if (type === 'recovery') {
+    return '<h3>这周恢复均分下降了 ' + (previousRecovery - lastRecovery) + ' 分</h3><p>近 7 天均分为 <strong>' + lastRecovery
+      + '</strong>，此前 28 天为 <strong>' + previousRecovery + '</strong>。这段时间训练和睡眠都有变化。</p>'
+      + '<ul><li>近 7 天有 5 天训练，训练疲劳已连续 4 天高于体能。</li><li>近 7 晚实睡日均比此前 28 晚少 ' + sleepDiff
+      + ' 分钟。</li></ul><p class="meta">两项变化与恢复下降同期出现。现有记录不足以判断各自贡献。</p>'
+      + button('查看数据依据','evidence',{variant:'secondary',symbol:'trend'});
+  }
+  if (type === 'saturday') {
+    return '<h3>周六当天再定</h3><p>把这节腿部训练标为「待决定」，等周六有新的恢复记录再看。</p>'
+      + '<div class="action-box"><strong>' + saturdayPlan + '</strong><p class="meta">更新健身计划 · 可撤销</p>'
+      + (state.plans.saturday ? button('撤销变更','undo-plan',{variant:'secondary',detail:'saturday'}) : button('应用到计划','plan',{detail:'saturday'})) + '</div>';
+  }
+  if (type === 'today') {
+    return '<h3>' + advice.title + '</h3><p>' + advice.summary + '</p>' + button('打开今日建议','brief',{variant:'secondary',symbol:'arrow'});
+  }
+  return '<p>这个原型支持查看本周恢复、周六训练计划和今日建议。选择下面一个问题继续。</p>';
+}
+function coachView() {
+  const messages = [{text:scriptedPrompts[0],type:'recovery'},...state.chat];
+  return head('Coach','示例对话')
+    + '<div class="page-grid"><div class="chat-col" aria-label="对话">'
+    + messages.map(msg => '<div class="bubble-user">' + clean(msg.text) + '</div><article class="card pad chat-reply">' + coachReply(msg.type) + '</article>').join('')
+    + '<div class="suggest">' + scriptedPrompts.slice(1).map((prompt,i) => button(prompt,'prompt',{variant:'secondary',detail:String(i+1)})).join('') + '</div>'
+    + '<form class="composer" id="coach-form"><input id="coach-input" aria-label="问 Coach" required maxlength="180" placeholder="问 Coach"><button class="button" type="submit">发送</button></form>'
+    + '</div><aside class="card pad">' + sectionHead('计划变更')
+    + (Object.entries(state.plans).length ? Object.entries(state.plans).map(([key,label]) =>
+      '<div class="action-box"><strong>' + label + '</strong><div>' + button('撤销变更','undo-plan',{variant:'secondary',detail:key}) + '</div></div>').join('')
+      : '<p class="text-block">暂无变更</p>') + '</aside></div>';
+}
+const views = {today:todayView, fitness:fitnessView, nutrition:nutritionView, trends:trendsView, coach:coachView};
+
+function drawIcons() {
+  document.querySelectorAll('[data-icon]').forEach(element => {
+    if (!element.firstElementChild) element.innerHTML = icon(element.dataset.icon);
+  });
+}
+function drawTheme() {
+  const dark = skillTheme ? skillTheme === 'dark' : themeMedia.matches;
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  const toggle = $('#theme-toggle');
+  toggle.innerHTML = icon(dark ? 'sun' : 'moon');
+  toggle.setAttribute('aria-label',dark ? '切换浅色模式' : '切换深色模式');
+  toggle.title = toggle.getAttribute('aria-label');
+  drawCharts();
+}
+function render(options = {}) {
+  chartObserver.disconnect();
+  nav.innerHTML = pages.map(([key,label,symbol]) => '<a class="nav-link" href="#' + key + '"'
+    + (key === state.page ? ' aria-current="page"' : '') + '>' + icon(symbol) + '<span>' + label + '</span></a>').join('');
+  main.innerHTML = views[state.page]();
+  document.title = 'BodySeek · ' + pages.find(([key])=>key === state.page)[1];
+  drawCharts();
+  if (state.page === 'trends') attachTrend();
+  if (options.focus) $('#page-title').focus({preventScroll:true});
+  if (options.top) scrollTo(0,0);
+}
+function route(options = {}) {
+  const key = location.hash.slice(1);
+  const next = Object.hasOwn(views,key) ? key : 'today';
+  const changed = next !== state.page;
+  state.page = next;
+  render({focus:options.focus && changed,top:changed});
+}
+function rerenderControl(action, detail) {
+  render();
+  main.querySelector('[data-action="' + action + '"][data-detail="' + detail + '"]')?.focus({preventScroll:true});
+}
+function announce(message) {
+  const area = $('#announcement');
+  area.hidden = false;
+  area.textContent = message;
+  clearTimeout(announcementTimer);
+  announcementTimer = setTimeout(()=>{ area.hidden = true; area.textContent = ''; },3300);
+}
+function openSheet(title, content) {
+  if (!sheet.open) returnFocus = document.activeElement;
+  $('#sheet-title').textContent = title;
+  sheetBody.querySelectorAll('canvas').forEach(canvas => chartObserver.unobserve(canvas));
+  sheetBody.innerHTML = content;
+  sheetBody.scrollTop = 0;
+  sheet.scrollTop = 0;
+  if (!sheet.open) sheet.showModal();
+  $('#sheet-close').focus();
+  document.body.style.overflow = 'hidden';
+  drawCharts();
+}
+sheet.addEventListener('close', () => {
+  if (sheet.open) return;
+  document.body.style.overflow = '';
+  sheetBody.querySelectorAll('canvas').forEach(canvas => chartObserver.unobserve(canvas));
+  sheetBody.replaceChildren();
+  const replacement = returnFocus?.dataset.action
+    ? Array.from(main.querySelectorAll('[data-action]')).find(element =>
+        element.dataset.action === returnFocus.dataset.action && element.dataset.detail === returnFocus.dataset.detail)
+    : null;
+  const target = returnFocus?.isConnected ? returnFocus : replacement || main;
+  target.focus({preventScroll:true});
+});
+$('#sheet-close').addEventListener('click',()=>sheet.close());
+let backdropDown = false;
+sheet.addEventListener('pointerdown', event => { backdropDown = event.target === sheet; });
+sheet.addEventListener('click',event => {
+  if (event.target === sheet && backdropDown) sheet.close();
+  backdropDown = false;
+});
+function detailSheet(key) {
+  const m = metricInfo[key];
+  const goKey = key === 'recovery' ? 'hrv' : key;
+  openSheet(m.name + '详情','<section class="' + key + '"><h3>' + m.label + '</h3><div class="meal-total num">' + latest[key]
+    + '<small>/ 100 分</small></div><p class="text-block">' + m.note + '</p>'
+    + '<canvas class="sheet-chart" data-chart="' + key + '" aria-hidden="true"></canvas>'
+    + (key === 'sleep' ? '<div class="legend">'
+      + ['清醒','REM','核心','深睡'].map((stage,i)=>'<span><i class="key" style="opacity:' + [.34,.5,.74,1][i]
+        + '"></i>' + stage + ' ' + sleepStages.filter(([label])=>label===stage).reduce((sum,[,minutes])=>sum+minutes,0) + ' 分</span>').join('') + '</div>'
+      : key === 'strain' || key === 'recovery'
+      ? '<p class="meta">11/17 至 11/23：' + (key === 'strain' ? loadLast : recoveryLast).join('、') + '</p>'
+      : '<p class="meta">00:00 → 18:00 · 每小时一条示例记录</p>')
+    + '<p class="meta" style="margin:.65rem 0">' + m.source + '</p>'
+    + button('打开趋势','open-trend',{variant:'secondary',symbol:'arrow',detail:goKey}) + '</section>');
+}
+function briefSheet() {
+  openSheet('今日建议','<h3>' + advice.title + '</h3><p class="text-block">' + advice.summary + '</p><div class="action-box"><strong>'
+    + advice.action + '</strong><p class="meta">更新健身计划 · 可撤销</p>'
+    + (state.plans.today ? button('撤销变更','undo-plan',{variant:'secondary',detail:'today'}) : button('加入计划','plan',{detail:'today'}))
+    + '</div><details open><summary>查看依据</summary>'
+    + '<div class="summary-row"><span>恢复评分</span><strong>' + latest.recovery + ' / 100</strong></div>'
+    + '<div class="summary-row"><span>状态差</span><strong>−25</strong></div>'
+    + '<div class="summary-row"><span>昨夜实睡</span><strong>' + duration(sleepMinutes) + '</strong></div>'
+    + '<p class="meta" style="margin-top:.5rem">来源：示例恢复、训练和睡眠记录 · 11 月 23 日</p></details>');
+}
+function evidenceSheet() {
+  openSheet('恢复分析依据','<div class="summary-row"><span>恢复均分 · 11/17–11/23</span><strong>' + lastRecovery + '（7/7 天）</strong></div>'
+    + '<div class="summary-row"><span>恢复均分 · 10/20–11/16</span><strong>' + previousRecovery + '（28/28 天）</strong></div>'
+    + '<div class="summary-row"><span>实睡时长 · 近 7 晚对比</span><strong>−' + sleepDiff + ' 分</strong></div>'
+    + '<p class="meta">来源：同一套示例趋势序列。近 7 天与此前 28 天的窗口互不重叠。</p>'
+    + button('打开恢复趋势','open-trend',{variant:'secondary',symbol:'arrow',detail:'recovery'}));
+}
+function formSheet(kind) {
+  const forms = {
+    meal:['记一餐','餐次描述','如：晚餐，牛肉饭和一杯无糖茶',''],
+    review:['训练复盘','复盘笔记','如：卧推最后一组偏重，下次保留两次余力',state.review],
+    checkin:['今日打卡','主观感受','如：晨起精神一般，胸部略酸',state.checkin]
+  };
+  const [title,label,placeholder,current] = forms[kind];
+  openSheet(title,'<form id="entry-form" data-kind="' + kind + '"><label class="field">' + label
+    + '<textarea name="note" maxlength="200" required placeholder="' + placeholder + '">' + clean(current) + '</textarea></label>'
+    + (kind === 'meal' ? '<label class="field">热量 kcal（可选）<input name="kcal" type="number" inputmode="numeric" min="0" max="10000" step="1" placeholder="如：580"></label>' : '')
+    + '<p class="meta" style="margin-bottom:.65rem">本次打开期间保留记录。</p><button class="button" type="submit">保存</button></form>');
+}
+function mealDetail(index) {
+  const meal = meals.concat(state.meals)[index];
+  openSheet(meal.name,'<p>' + clean(meal.note) + '</p><p class="text-block">'
+    + (meal.kcal === null ? '热量待补' : '已录入热量 ' + fmt(meal.kcal) + ' kcal')
+    + (meal.estimated ? ' · AI 估算 ' + fmt(meal.estimated) + ' kcal' : '') + '</p>');
+}
+function color(element, variable) {
+  return getComputedStyle(element).getPropertyValue(variable).trim();
+}
+function canvasContext(canvas) {
+  const {width,height} = canvas.getBoundingClientRect();
+  if (width < 1 || height < 1) return null;
+  const scale = Math.min(devicePixelRatio || 1,3);
+  canvas.width = Math.round(width * scale);
+  canvas.height = Math.round(height * scale);
+  const ctx = canvas.getContext('2d');
+  ctx.scale(scale,scale);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  return {ctx,w:width,h:height};
+}
+function line(ctx, points, stroke, width = 2) {
+  ctx.beginPath();
+  let continuing = false;
+  points.forEach(point => {
+    if (!point) { continuing = false; return; }
+    if (continuing) ctx.lineTo(...point);
+    else ctx.moveTo(...point);
+    continuing = true;
+  });
+  ctx.strokeStyle = stroke;
+  ctx.lineWidth = width;
+  ctx.stroke();
+}
+function dot(ctx,x,y,r,fill) {
+  ctx.beginPath();
+  ctx.arc(x,y,r,0,2*Math.PI);
+  ctx.fillStyle = fill;
+  ctx.fill();
+}
+function rounded(ctx,x,y,width,height,radius,fill) {
+  if (width <= 0 || height <= 0) return;
+  ctx.beginPath();
+  ctx.roundRect(x,y,width,height,Math.min(radius,width/2,height/2));
+  ctx.fillStyle = fill;
+  ctx.fill();
+}
+function sparkChart(canvas, frame, key) {
+  const {ctx,w,h} = frame;
+  const stripe = color(canvas,'--track');
+  const stroke = color(canvas,key === 'hero' ? '--hero-graph' : '--domain') || color(canvas,'--accent');
+  const base = h - 3;
+  if (key === 'sleep') {
+    const lanes = {'清醒':0,'REM':1,'核心':2,'深睡':3};
+    const alphas = [.34,.5,.74,1];
+    const total = sleepStages.reduce((sum,[,minutes])=>sum + minutes,0);
+    const laneHeight = (h-2) / 4;
+    let start = 1;
+    sleepStages.forEach(([stage,minutes]) => {
+      const width = minutes / total * (w-2);
+      const lane = lanes[stage];
+      ctx.globalAlpha = alphas[lane];
+      rounded(ctx,start,1 + lane*laneHeight,Math.max(1,width-1.2),laneHeight*.9,2,stroke);
+      start += width;
+    });
+    ctx.globalAlpha = 1;
+    return;
+  }
+  if (key === 'strain' || key === 'stress') {
+    const values = key === 'strain' ? loadLast : stressToday;
+    const step = (w-2) / values.length;
+    const barWidth = Math.min(step*.72,32);
+    values.forEach((value,index) => {
+      const x = 1 + step*(index+.5)-barWidth/2;
+      if (value === null) {
+        rounded(ctx,x,2,barWidth,base-2,2,stripe);
+        return;
+      }
+      const height = value === 0 ? 0 : Math.max(2,value/70*(base-1));
+      ctx.globalAlpha = index === values.length-1 ? 1 : .52;
+      if (value === 0) dot(ctx,x+barWidth/2,base-1,1.5,stroke);
+      else rounded(ctx,x,base-height,barWidth,height,2.5,stroke);
+    });
+    ctx.globalAlpha = 1;
+    return;
+  }
+  const values = key === 'energy' ? energyToday : recoveryLast;
+  const min = 45;
+  const max = key === 'energy' ? 95 : 90;
+  const left = 5, right = w-5;
+  const points = values.map((value,index) => [
+    left + (right-left)*index/(values.length-1),
+    4 + (max-value)/(max-min)*(h-8)
+  ]);
+  if (key === 'hero') {
+    for (const y of [5,h*.5,h-4]) line(ctx,[[1,y],[w-1,y]],color(canvas,'--hero-line'),1);
+  }
+  if (key !== 'recovery') {
+    ctx.beginPath();
+    ctx.moveTo(left,h-2);
+    points.forEach(point=>ctx.lineTo(...point));
+    ctx.lineTo(right,h-2);
+    ctx.closePath();
+    ctx.globalAlpha = key === 'hero' ? .13 : .11;
+    ctx.fillStyle = stroke;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+  line(ctx,points,stroke,key === 'hero' ? 2.5 : 1.9);
+  dot(ctx,...points.at(-1),key === 'hero' ? 3.8 : 2.35,stroke);
+}
+function bodyChart(canvas, frame) {
+  const {ctx,w,h} = frame;
+  const scale = Math.min(w/126,h/211);
+  ctx.translate((w-126*scale)/2,(h-211*scale)/2);
+  ctx.scale(scale,scale);
+  const neutral = color(canvas,'--track');
+  const stress = color(canvas,'--strain');
+  const back = state.muscleSide === 'back';
+  const shape = (coords,amount = 0) => {
+    rounded(ctx,...coords,6,neutral);
+    if (amount) {
+      ctx.globalAlpha = .26 + amount / 140;
+      rounded(ctx,...coords,6,stress);
+      ctx.globalAlpha = 1;
+    }
+  };
+  dot(ctx,63,14,11,neutral);
+  shape([57,25,12,12]);
+  shape([39,36,48,57],back ? 14 : 0);
+  shape([34,36,16,21],back ? 0 : 48);
+  shape([76,36,16,21],back ? 0 : 48);
+  shape([48,40,14,23],back ? 14 : 82);
+  shape([64,40,14,23],back ? 14 : 82);
+  shape([52,65,22,30],back ? 0 : 22);
+  shape([45,86,36,26]);
+  shape([28,54,13,36],back ? 64 : 0);
+  shape([85,54,13,36],back ? 64 : 0);
+  shape([24,87,11,34]); shape([91,87,11,34]);
+  shape([44,106,17,48],9); shape([65,106,17,48],9);
+  shape([46,153,14,45],9); shape([66,153,14,45],9);
+  shape([42,194,19,8]); shape([65,194,19,8]);
+}
+function trendLayout(w,h) {
+  return {left:39,right:Math.max(49,w-13),top:11,bottom:h-30};
+}
+function trendChart(canvas,frame) {
+  const {ctx,w,h} = frame;
+  const key = state.metric;
+  const records = trendSeries();
+  const {left,right,top,bottom} = trendLayout(w,h);
+  const domain = color(canvas,'--domain') || color(canvas,'--accent');
+  const grid = color(canvas,'--line');
+  const text = color(canvas,'--muted');
+  const ticks = key === 'hrv' ? [40,50,60] : key === 'minutes' ? [360,420,480] : [0,50,100];
+  const min = ticks[0], max = ticks.at(-1);
+  const x = i => left + i/(records.length-1)*(right-left);
+  const y = v => bottom - (v-min)/(max-min)*(bottom-top);
+  ctx.font = '12px -apple-system, system-ui, sans-serif';
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'right';
+  ticks.forEach(tick => {
+    line(ctx,[[left,y(tick)],[right,y(tick)]],grid,1);
+    ctx.fillStyle = text;
+    ctx.fillText(key === 'minutes' ? (tick/60) + 'h' : tick,left-8,y(tick));
+  });
+  if (key === 'hrv') {
+    ctx.beginPath();
+    records.forEach((rec,i)=>i ? ctx.lineTo(x(i),y(rec.baseline[1])) : ctx.moveTo(x(i),y(rec.baseline[1])));
+    for (let i=records.length-1;i>=0;i--) ctx.lineTo(x(i),y(records[i].baseline[0]));
+    ctx.closePath();
+    ctx.fillStyle = color(canvas,'--track');
+    ctx.fill();
+  }
+  const pts = records.map((rec,i)=>rec[key] === null ? null : [x(i),y(rec[key])]);
+  if (key === 'strain') {
+    const bw = Math.min(20,(right-left)/(records.length-1)*.62);
+    pts.forEach(point => {
+      if (point[1] === bottom) dot(ctx,...point,1.9,domain);
+      else rounded(ctx,point[0]-bw/2,point[1],bw,bottom-point[1],2,domain);
+    });
+  } else {
+    line(ctx,pts,domain,2);
+    if (records.length <= 7) pts.forEach(point=>{ if (point) dot(ctx,...point,2.65,domain); });
+  }
+  if (state.selected !== null) {
+    const xx = x(state.selected);
+    line(ctx,[[xx,top],[xx,bottom]],text,1);
+    const point = pts[state.selected];
+    if (point) {
+      dot(ctx,...point,5.2,color(canvas,'--surface'));
+      dot(ctx,...point,3.5,domain);
+    }
+  }
+  ctx.fillStyle = text;
+  const last = records.length-1;
+  [0,Math.round(last/2),last].forEach((i,index) => {
+    ctx.textAlign = index === 0 ? 'left' : index === 2 ? 'right' : 'center';
+    ctx.fillText(dayLabel(records[i].date,true),x(i),h-12);
+  });
+}
+function drawChart(canvas) {
+  const frame = canvasContext(canvas);
+  if (!frame) return;
+  const name = canvas.dataset.chart;
+  if (name === 'trend') trendChart(canvas,frame);
+  else if (name === 'muscles') bodyChart(canvas,frame);
+  else sparkChart(canvas,frame,name);
+}
+const chartObserver = new ResizeObserver(entries => {
+  entries.forEach(({target}) => { if (target.isConnected) drawChart(target); });
+});
+function drawCharts() {
+  document.querySelectorAll('canvas[data-chart]').forEach(canvas => {
+    if (canvas.closest('dialog:not([open])')) return;
+    drawChart(canvas);
+    chartObserver.observe(canvas);
+  });
+}
+function pickTrend(index) {
+  if (index === state.selected) return;
+  state.selected = index;
+  $('#trend-value').innerHTML = trendReadout();
+  $('#clear-trend').hidden = index === null;
+  drawChart($('#trend-chart'));
+}
+function attachTrend() {
+  const graph = $('#trend-chart');
+  let tracking = null;
+  function pickPointer(event) {
+    const rect = graph.getBoundingClientRect();
+    const {left,right} = trendLayout(rect.width,rect.height);
+    const index = Math.round((event.clientX-rect.left-left)/(right-left)*(state.days-1));
+    pickTrend(Math.max(0,Math.min(state.days-1,index)));
+  }
+  graph.addEventListener('pointerdown', event => {
+    if (!event.isPrimary || event.button !== 0) return;
+    tracking = {id:event.pointerId,x:event.clientX,y:event.clientY,locked:false};
+    graph.setPointerCapture(event.pointerId);
+  });
+  graph.addEventListener('pointermove', event => {
+    if (tracking?.id !== event.pointerId) return;
+    const dx = Math.abs(event.clientX-tracking.x), dy = Math.abs(event.clientY-tracking.y);
+    if (!tracking.locked && dx > 8 && dx > dy) tracking.locked = true;
+    if (tracking.locked) pickPointer(event);
+  });
+  graph.addEventListener('pointerup', event => {
+    if (tracking?.id !== event.pointerId) return;
+    if (tracking.locked || Math.abs(event.clientY-tracking.y) < 8) pickPointer(event);
+    tracking = null;
+  });
+  graph.addEventListener('pointercancel',()=>{ tracking = null; });
+  graph.addEventListener('keydown',event => {
+    const current = state.selected ?? state.days-1;
+    const positions = {
+      ArrowLeft:Math.max(0,current-1), ArrowRight:Math.min(state.days-1,current+1),
+      Home:0, End:state.days-1, Escape:null
+    };
+    if (!Object.hasOwn(positions,event.key)) return;
+    event.preventDefault();
+    pickTrend(positions[event.key]);
+  });
+}
+function gotoPage(page) {
+  if (location.hash === '#' + page) render({focus:true,top:true});
+  else location.hash = page;
+}
+function addChat(text, index) {
+  const key = ['recovery','saturday','today'][index] || 'default';
+  state.chat.push({text,type:key});
+  render();
+  main.querySelector('.chat-reply:last-of-type')?.scrollIntoView({block:'nearest'});
+  $('#coach-input').focus({preventScroll:true});
+}
+function applyPlan(key,remove = false) {
+  const label = key === 'saturday' ? saturdayPlan : advice.action;
+  if (remove) delete state.plans[key];
+  else state.plans[key] = label;
+  if (sheet.open) briefSheet();
+  else render();
+  const nextAction = remove ? 'plan' : 'undo-plan';
+  document.querySelector((sheet.open ? '#sheet ' : '#main ') + '[data-action="' + nextAction + '"][data-detail="' + key + '"]')?.focus({preventScroll:true});
+  announce(remove ? '已撤销计划变更' : '已更新健身计划');
+}
+const actions = {
+  navigate:gotoPage, metric:detailSheet, brief:briefSheet, evidence:evidenceSheet, 'meal-detail':mealDetail,
+  checkin:()=>formSheet('checkin'), meal:()=>formSheet('meal'), review:()=>formSheet('review'),
+  side:key=>{ state.muscleSide = key; rerenderControl('side',key); },
+  period:key=>{ state.days = +key; state.selected = null; rerenderControl('period',key); },
+  'trend-metric':key=>{ state.metric = key; state.selected = null; rerenderControl('trend-metric',key);
+    if (matchMedia('(max-width:50.99rem)').matches) $('.trend-shell').scrollIntoView({block:'nearest'});
+  },
+  'clear-trend':()=>{ pickTrend(null); $('#trend-chart').focus({preventScroll:true}); },
+  'open-trend':key=>{ state.metric = key; state.selected = null; sheet.close(); gotoPage('trends'); },
+  plan:key=>applyPlan(key), 'undo-plan':key=>applyPlan(key,true),
+  prompt:key=>addChat(scriptedPrompts[+key],+key)
+};
+document.addEventListener('click',event => {
+  const target = event.target.closest('button[data-action]');
+  if (target) actions[target.dataset.action]?.(target.dataset.detail);
+});
+document.addEventListener('submit',event => {
+  if (event.target.id === 'coach-form') {
+    event.preventDefault();
+    const input = $('#coach-input');
+    const value = input.value.trim();
+    if (!value) { input.focus(); return; }
+    const index = /周六|练腿/.test(value) ? 1 : /恢复.*降|为什么|这周/.test(value) ? 0 : /训练|今天/.test(value) ? 2 : -1;
+    addChat(value,index);
+  }
+  if (event.target.id === 'entry-form') {
+    event.preventDefault();
+    const form = event.target;
+    const data = new FormData(form);
+    const note = data.get('note').trim();
+    if (!note) {
+      form.elements.note.setCustomValidity('请输入内容。');
+      form.elements.note.reportValidity();
+      form.elements.note.addEventListener('input',()=>form.elements.note.setCustomValidity(''),{once:true});
+      return;
+    }
+    const kind = form.dataset.kind;
+    if (kind === 'meal') {
+      const kcal = data.get('kcal');
+      state.meals.push({name:note.match(/^(早餐|午餐|晚餐|加餐)/)?.[1] || '新增餐次',note,kcal:kcal === '' ? null : +kcal,estimated:0,icon:'fork'});
+    } else state[kind] = note;
+    sheet.close();
+    render();
+    announce(kind === 'meal' ? '已保存餐次' : kind === 'review' ? '已保存复盘' : '已保存打卡');
+  }
+});
+$('#theme-toggle').addEventListener('click',() => {
+  skillTheme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  drawTheme();
+});
+themeMedia.addEventListener('change',()=>{ if (!skillTheme) drawTheme(); });
+$('.skip').addEventListener('click',event => {
+  event.preventDefault();
+  main.focus();
+});
+window.addEventListener('hashchange',()=>route({focus:true}));
+drawIcons();
+drawTheme();
+route();
+</script>
+</body>
+</html>

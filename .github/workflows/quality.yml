@@ -18,7 +18,7 @@ jobs:
   ios:
     name: iOS build and tests
     runs-on: macos-26
-    timeout-minutes: 35
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v6
 
@@ -77,16 +77,11 @@ jobs:
           xcrun simctl list runtimes || true
           echo "============================================="
 
-      - name: Run BodySeekDomain tests
+      - name: Run BodySeekKit tests
         shell: bash
-        run: swift test --package-path BodySeekDomain
+        run: swift test --package-path BodySeekKit
 
-      - name: Schema version guard
-        shell: bash
-        run: |
-          python3 scripts/schema_fingerprint.py --check
-
-      - name: Contrast guard (textColor >= 4.5:1)
+      - name: Contrast guard (text tokens >= 4.5:1)
         shell: bash
         run: |
           python3 scripts/check_contrast.py
@@ -96,16 +91,19 @@ jobs:
         run: |
           python3 scripts/check_fixed_fonts.py
 
-      - name: SwiftLint (report-only until baseline is clean)
+      - name: Design system gate (report-only, V6 baseline)
+        shell: bash
+        run: |
+          python3 scripts/check_design_system.py || true
+
+      - name: SwiftLint (report-only, skip if unavailable)
         shell: bash
         run: |
           set -euo pipefail
           if which swiftlint >/dev/null 2>&1; then
             swiftlint --config .swiftlint.yml || true
           else
-            # macos runners 不预装 SwiftLint；安装后运行自定义规则审计
-            brew install swiftlint >/dev/null 2>&1
-            swiftlint --config .swiftlint.yml || true
+            echo "SwiftLint not preinstalled; report-only step skipped."
           fi
 
       - name: Reject tracked dependencies
@@ -122,17 +120,18 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          # SWIFT_TREAT_WARNINGS_AS_ERRORS and GCC_TREAT_WARNINGS_AS_ERRORS are codified
-          # in Vela.xcodeproj on all first-party targets. Do not pass them via CLI overrides
-          # to avoid conflicting with SPM package dependencies (e.g. SentryCppHelper -suppress-warnings).
+          # BodySeekKit 的第一方 target 在 Package.swift 中启用 -warnings-as-errors。
+          # 不通过 CLI 覆盖该设置，避免把 SPM 依赖（如 Spezi）的警告也升级为错误。
           xcodebuild \
             -project Vela.xcodeproj \
             -scheme Vela \
             -configuration Debug \
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath build/DerivedData \
+            -skipMacroValidation \
+            -skipPackagePluginValidation \
             CODE_SIGNING_ALLOWED=NO \
-            clean build
+            build
 
       - name: Run iOS tests
         shell: bash
@@ -153,6 +152,8 @@ jobs:
             -testLanguage zh \
             -testRegion CN \
             -only-testing:VelaTests \
+            -skipMacroValidation \
+            -skipPackagePluginValidation \
             CODE_SIGNING_ALLOWED=NO
 
       - name: Run iOS UI smoke tests
@@ -171,7 +172,9 @@ jobs:
             -resultBundlePath build/UISmokeTests.xcresult \
             -testLanguage zh \
             -testRegion CN \
-            -only-testing:VelaUITests
+            -only-testing:VelaUITests \
+            -skipMacroValidation \
+            -skipPackagePluginValidation
 
       - name: Coverage summary (report-only)
         if: always()

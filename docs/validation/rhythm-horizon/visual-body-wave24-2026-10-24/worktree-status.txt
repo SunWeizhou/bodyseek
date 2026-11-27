@@ -1,0 +1,24 @@
+ M VelaApp/Core/DesignSystem/VelaCard.swift
+ M VelaApp/Core/DesignSystem/VelaChart.swift
+ M VelaApp/Core/DesignSystem/VelaDesignSystem.swift
+ M VelaApp/Core/DesignSystem/VelaFeedback.swift
+ M VelaApp/Core/DesignSystem/VelaInput.swift
+ M VelaApp/Features/Coach/WikiProfileView.swift
+ M VelaApp/Features/Minimal/JournalCorrelationSection.swift
+ M VelaApp/Features/Minimal/JournalEntryCard.swift
+ M VelaApp/Features/Minimal/JournalTagInsights.swift
+ M VelaApp/Features/Minimal/MetricEvidenceSection.swift
+ M VelaApp/Features/Minimal/MetricTrendsSection.swift
+ M VelaApp/Features/Minimal/PrivacyDataControlsView.swift
+ M VelaApp/Features/Minimal/TodayTrainingPlanAdaptationCard.swift
+ M VelaApp/Features/Minimal/VelaJournalView.swift
+ M VelaApp/Features/Minimal/VelaMinimalComponents.swift
+ M VelaApp/Features/Minimal/VelaMinimalFitnessView.swift
+ M VelaApp/Features/Minimal/VelaMinimalJournalView.swift
+ M VelaApp/Features/Minimal/VelaMinimalShell.swift
+ M VelaApp/Features/SharedComponents/MetricCoachCard.swift
+ M VelaApp/Features/Training/WorkoutDetailView.swift
+ M VelaApp/Features/Trends/TrendsOneMetricChart.swift
+ M VelaAppTests/VelaThemeTests.swift
+ M VelaUITests/VelaSmokeUITests.swift
+?? docs/validation/rhythm-horizon/visual-body-wave24-2026-10-24/

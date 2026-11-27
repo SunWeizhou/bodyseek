@@ -31,7 +31,13 @@ stitch_vela_ios_26_liquid_glass/
 docs/reference/bevel-3.1.4/*.png
 docs/reference/bevel-3.1.4/*.mov
 
-# SQLite databases
+# SQLite & ML local data
 *.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.parquet
+BodySeekML/data/
+BodySeekML/.venv/
+BodySeekML/artifacts/
 .superpowers/
 __pycache__/

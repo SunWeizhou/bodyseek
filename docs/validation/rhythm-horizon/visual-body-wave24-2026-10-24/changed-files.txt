@@ -1,0 +1,48 @@
+VelaApp/Core/DesignSystem/VelaCard.swift
+VelaApp/Core/DesignSystem/VelaChart.swift
+VelaApp/Core/DesignSystem/VelaDesignSystem.swift
+VelaApp/Core/DesignSystem/VelaFeedback.swift
+VelaApp/Core/DesignSystem/VelaInput.swift
+VelaApp/Features/Coach/WikiProfileView.swift
+VelaApp/Features/Minimal/JournalCorrelationSection.swift
+VelaApp/Features/Minimal/JournalEntryCard.swift
+VelaApp/Features/Minimal/JournalTagInsights.swift
+VelaApp/Features/Minimal/MetricEvidenceSection.swift
+VelaApp/Features/Minimal/MetricTrendsSection.swift
+VelaApp/Features/Minimal/PrivacyDataControlsView.swift
+VelaApp/Features/Minimal/TodayTrainingPlanAdaptationCard.swift
+VelaApp/Features/Minimal/VelaJournalView.swift
+VelaApp/Features/Minimal/VelaMinimalComponents.swift
+VelaApp/Features/Minimal/VelaMinimalFitnessView.swift
+VelaApp/Features/Minimal/VelaMinimalJournalView.swift
+VelaApp/Features/Minimal/VelaMinimalShell.swift
+VelaApp/Features/SharedComponents/MetricCoachCard.swift
+VelaApp/Features/Training/WorkoutDetailView.swift
+VelaApp/Features/Trends/TrendsOneMetricChart.swift
+VelaAppTests/VelaThemeTests.swift
+VelaUITests/VelaSmokeUITests.swift
+---
+ VelaApp/Core/DesignSystem/VelaCard.swift           |  14 ++-
+ VelaApp/Core/DesignSystem/VelaChart.swift          |   8 +-
+ VelaApp/Core/DesignSystem/VelaDesignSystem.swift   |   4 +-
+ VelaApp/Core/DesignSystem/VelaFeedback.swift       |   6 +-
+ VelaApp/Core/DesignSystem/VelaInput.swift          |   6 +-
+ VelaApp/Features/Coach/WikiProfileView.swift       |   4 +-
+ .../Minimal/JournalCorrelationSection.swift        | 117 +++++++++++++++------
+ VelaApp/Features/Minimal/JournalEntryCard.swift    |   4 +-
+ VelaApp/Features/Minimal/JournalTagInsights.swift  |   4 +-
+ .../Features/Minimal/MetricEvidenceSection.swift   |   4 +-
+ VelaApp/Features/Minimal/MetricTrendsSection.swift |   4 +-
+ .../Features/Minimal/PrivacyDataControlsView.swift |   2 +-
+ .../Minimal/TodayTrainingPlanAdaptationCard.swift  |   4 +-
+ VelaApp/Features/Minimal/VelaJournalView.swift     |  10 +-
+ .../Features/Minimal/VelaMinimalComponents.swift   |  10 +-
+ .../Features/Minimal/VelaMinimalFitnessView.swift  |  14 +--
+ .../Features/Minimal/VelaMinimalJournalView.swift  |  12 +--
+ VelaApp/Features/Minimal/VelaMinimalShell.swift    |   6 +-
+ .../SharedComponents/MetricCoachCard.swift         |   2 +-
+ VelaApp/Features/Training/WorkoutDetailView.swift  |  21 +++-
+ VelaApp/Features/Trends/TrendsOneMetricChart.swift |  10 +-
+ VelaAppTests/VelaThemeTests.swift                  |  78 ++++++++++++++
+ VelaUITests/VelaSmokeUITests.swift                 |  21 ++++
+ 23 files changed, 268 insertions(+), 97 deletions(-)

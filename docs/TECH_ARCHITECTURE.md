@@ -1,174 +1,68 @@
-# Vela Technical Architecture Specification
+# BodySeek (Vela) Technical Architecture Specification
 
 > Status: Canonical
-> Last verified: 2026-10-15
-> Scope: Vela 当前工程的技术架构、模块分层、数据流管道、持久化模型与状态管理规范
-> Does not define: 业务需求与产品优先级（见 [docs/PRD.md](PRD.md)）、领域术语定义（见 [../CONTEXT.md](../CONTEXT.md)）
+> Last reviewed: 2026-11-21（更新采集、持久化和 Agent 入口）
+> Scope: BodySeek V5 工程架构、模块依赖 DAG、HealthKit 同步、GRDB 持久化、计算与体验分层规范
+> Authoritative ADRs: [ADR 0019](adr/0019-bodyseek-v5-architecture-and-modeling-baseline.md)（架构与建模基线）、[ADR 0018](adr/0018-ios26-native-architecture-and-bevel-visual-reset.md)（iOS 26 原生导航与五域视觉）
+> Does not define: 业务需求与产品边界（见 [docs/PRD.md](PRD.md)）、领域术语（见 [../CONTEXT.md](../CONTEXT.md)）
 
-> 现行源码（2026-10-15）：App 的 `DailyHealthComputation`（`VelaApp/Scoring/ScoreEngineFactory.swift`）只映射快照与长线上下文，五项装配在 `BodySeekDomain.DailyHealthComputation`。App 内同名引擎文件只做结果映射。Today 由 `VelaMinimalShell` 持有 `TodayStore`；Trends 由 Shell 注入选中日与仪表盘快照。更细的模块化现状见 [bodyseek-modularization-map.md](architecture/bodyseek-modularization-map.md)。页面/共享文件地图见 [UI 工作流](collaboration/UI_WORKFLOW.md)。下文算法表是概要，旧 v1 评分文档与 Energy 模型卡仍待对齐，不据此宣称公式已经重新验证。
+> 说明：2026-11-16 起仓库已从旧 `BodySeekDomain/` + 手写 `VelaApp/` + `VelaWatch/` 迁移为本地 Swift 6 Package `BodySeekKit`（TCA + `SpeziHealthKit`）与薄壳 `VelaApp/App/VelaApp.swift`。旧版 32 模型 SwiftData 与 `BodySeekDomain` 说明均已由 ADR 0019 取代；本文件随 M0–M4 逐步实现持续同步状态。
 
 ---
 
 ## 1. 架构总览与技术栈
 
-- **平台**: iOS 17+ / watchOS 10+（SwiftUI + SwiftData + HealthKit · Swift 6 · ADR 0017 权威基线；更高系统能力渐进增强）
-- **对外产品名**: BodySeek（工程代码、Bundle ID 与数据库身份保持 Vela）
-- **UI 风格**: Apple Native Design System + Rhythm 视觉 Tokens（`VelaTheme`）
-- **数据流**: 单向数据流（Unidirectional Data Flow），本地确定性计算优先，AI 作为解释与提案增强
-- **交互状态复用（2026-10-22）**：Today 首次读取成功后，15 分钟内返回页面复用已发布状态；显式刷新、换日、失败重试和本地数据变更仍走既有读取路径，不改变评分或数据新鲜度时间戳。Plan/Coach 打开时不再附带刷新整套仪表盘。底部草稿由独立 Observation 状态持有，输入与听写局部更新；Coach 默认页内面板，完整会话为主动展开。
-- **数据呈现与失败恢复（2026-10-23）**：基线 prior-day count 与含当天 chart count 分别标注；详情范围仅在对应 finding 可用时显示。AgentLoop 对文本化工具协议最多纠正一次，仅执行正式工具调用；旧协议回复在呈现及上下文装配边界隔离，不改写原会话。HistoricalScoreBackfillService 复用 DailyHealthComputation 的历史日 cutoff，以串行写门禁、独立 ModelContext 和旧记录版本检查，只填从未评分日的计算字段，不覆盖原始汇总或已有分数。
-
-- **语音回调边界**：Speech 授权、识别结果与音频 tap 的系统回调在非 MainActor 边界定义；只把可传输结果投递到 MainActor。录音启动可取消，返回过期结果不重启录音；听写限本机识别，结果停留在草稿。
-- **运行时 AI 连接**: iOS 端直连 DeepSeek API (`api.deepseek.com`，Keychain 存储 Key)，可选 Kimi Vision 识别食物照片。`VelaBackend` 的测试在 CI 的 `backend` job 里运行；它仍不是线上服务。工具链版本在仓库根目录的 `.xcode-version`。
+- **平台**: iOS 26.0+（`IPHONEOS_DEPLOYMENT_TARGET = 26.0`）。CI 工具链严格匹配 `.xcode-version`（当前 26.5.0）；本机验证环境可为更新版本（当前 Xcode 27.1 / Swift 6.4），报告必须注明实际工具链，固定版本判定以 CI 为准。Watch 端由系统“体能训练”App 采集（无独立 `VelaWatch` target）。
+- **对外产品名**: BodySeek（仓库、Xcode 工程、Bundle ID `com.sunweizhou.Vela4` 与内部日志子系统保持 Vela 约定）。
+- **架构核心**: Point-Free TCA（`swift-composable-architecture` + `swift-dependencies`）+ `StanfordSpezi/SpeziHealthKit` + **GRDB 7**（M1 引入）+ **原生 `Swift Charts`**（M1-UI 全量替代 `Liveline`）+ **`BodySeekML/`** 离线 Python 建模实验室。
+- **状态与性能原则**:
+  - 启动首屏只读本地持久化快照，不阻塞等待 HealthKit 全量回填；
+  - `DayKey` 采用本地时区凌晨 `04:00` 切日，配合 UTC 时间戳与源时区；
+  - 持久化、Keychain、HealthKit、网络与模型调用禁止静默 `try?`，全部采用结构化错误传播与 `os.Logger` 诊断日志。
+- **安全与凭据**: 云端 LLM（默认 DeepSeek）API Key 严格存储在 iOS Keychain（`com.sunweizhou.Vela4`），永不回落到 `UserDefaults`。
 
 ---
 
-## 2. 端到端数据流管道（Canonical Pipeline）
+## 2. 模块依赖拓扑（单向无环 DAG）
+
+按需求增量拆分，禁止预建空包：
 
 ```text
-Apple HealthKit (Raw Samples)
-      ↓
-HealthKitSyncEngine (2-Pass: Raw Fetch → Snapshot Normalization)
-      ↓
-Daily Health Snapshot (SwiftData: DailyHealthSummaryRecord)
-      ↓
-Daily Health Computation (ScoreEngineFactory: 单一确定性计算入口)
-      ↓
-Scored Health Evidence (0–100 标准化: Recovery, Sleep, Strain, Stress, Energy)
-      ↓
-HealthTrendEngine (多尺度趋势计算: 7d, 30d, 6m, 3y)
-      ↓
-Personal Health Brief (全局权威认知与简报投影)
-      ↓
-DailyIntelligenceAssemblyModule (共享确定性 Seam：Body State → Brief → Training Decision)
-      ├───────────────────────┬───────────────────────┬───────────────────────┐
-      ↓                       ↓                       ↓                       ↓
-Tab 0: Today            Tab 1: Trends           Tab 2: Plan             Tab 3: Coach
-(五分身体状态)          (时间序列与偏离)         (用户拥有的每日安排)      (Agent Fact Snapshot
-                                                                        & 解释/追问/记忆)
+VelaApp (Thin iOS 26 Entry Shell + Assets + Entitlements)
+  └── BodySeekFeatures (TCA Reducers + L1/L2/L3 Views, ViewState snapshots only)
+        ├── BodySeekDesign   (M1-UI split: Tokens + BodySeekChart Swift Charts family)
+        ├── BodySeekAgent    (M3 split: OpenAICompatibleClient + FoundationModels + Tools + Memory + Evals)
+        ├── BodySeekStore    (M1-Data split: GRDB 7 + DatabaseMigrator + ReadModels + ActionAuditLog)
+        ├── BodySeekHealth   (SpeziHealthKit SyncEngine + 3y Backfill + sleepMergePolicy + KeychainService)
+        └── BodySeekCore     (Pure Foundation: Contracts, score-v2 BevelScoringEngine, Baselines, recovery-heuristic-v1, feature_spec)
 ```
 
 ---
 
-## 3. 分层规范与核心组件
+## 3. 分层规范与数据流管道
 
-### 3.1 数据采集与日快照层（Evidence Layer）
+### 3.1 合同与真值边界（`BodySeekCore/Contracts.swift`）
+- **`DayKey`**：本地 `04:00` 生理日标识（`YYYY-MM-DD`），前向/后向跨午夜夜生活与晚睡归属同一生理日。
+- **`HealthObservation<Value>`**：`available(Value, Provenance)`、`knownZero(reason, Provenance)`、`missing(MissingReason)`、`excluded(ExclusionReason, Provenance)` 四态贯穿采集 → 存储 → 评分 → UI → Agent 工具 → ML 缺失掩码（命名避开 Apple `Observation` 系统模块冲突）。
+- **`AlgorithmVersion`**：每个评分、合并、恢复、解析和 ML 工件均携带版本标识（`score-v2`、`recovery-heuristic-v1`、`sleep-merge-v1`、`workout-parser-v1`）。
+- **`ActionProposal`**：所有由 Agent 或解析器生成的写入（`annotateWorkout`、`commitMemory`、`retireMemory`、`adjustPlan`、`recordCheckIn`）必须先产出结构化提案，经用户确认后进入审计日志并生效。
 
-| 规范类型 | 生产者 (Producer) | 消费者 (Consumer) | 缺失规则 | 持久化位置 | 状态 |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **`DailyHealthSnapshot`** | `HealthKitSyncEngine` / `HealthQueryService` | `DailyHealthComputation` | 标记缺失字段，不伪造默认值 | SwiftData `DailyHealthSummaryRecord` | **Implemented** |
-| **`WorkoutEvent`** | HealthKit / Apple Watch | `WorkoutAggregationService` / 训练页 | 无运动记录时为空数组 | SwiftData `WorkoutEventRecord` | **Implemented** |
-| **`LivedState` / Check-in** | 用户每日主观自评 | `BodyStateKernel` / `CoachContext` | 可选跳过；未填不代表无压力/无酸痛 | `LivedStateJournalAdapter` 以 `JournalEntryRecord` 承载日级对齐判断与结构化体感；每类每日 upsert，不重复计数 | **Implemented (V3 adapter-backed)** |
+### 3.2 采集与持久化
+- [SyncEngine](../BodySeekKit/Sources/BodySeekHealth/SyncEngine.swift) 负责 HealthKit 锚点增量与可续传回填。用户记录的 `WorkoutEffortScore` 和系统 `EstimatedWorkoutEffortScore` 分开保存，原始高频心率留在 HealthKit。
+- [BodySeekDatabase](../BodySeekKit/Sources/BodySeekStore/BodySeekDatabase.swift) 管理 GRDB 迁移。[BodySeekRepository](../BodySeekKit/Sources/BodySeekStore/BodySeekRepository.swift) 负责健康数据、评分、训练、计划、打卡、记忆和营养的本地持久化。AppFeature 使用本地 ReadModel 装配产品界面。
+- 训练删除使用 HealthKit 锚点中的明确删除 UUID。现行 `v4_healthkit_workout_deletions` 迁移保存 UUID 及日期，避免旧快照重新引入训练，并让重试能重算受影响的日期。保留独立手动训练和有效的已有心率区间。
 
-`LivedStateJournalAdapter` 是 V3 发布候选的正式持久化边界。它将“分数是否符合感受”与详细体感作为同一天的两个独立事实保存、回读和更新；`BodyStateKernel` 合并同一日两类事实并采用更保守的影响，任何一类都不会因记录时间较晚而遮蔽另一类。只有当未来语义无法由该适配器稳定表达时，才新增 `DailyCheckInRecord` 并启动显式 schema migration，避免为了类型命名在发布前引入无价值的数据迁移风险。
+### 3.3 计算层（`BodySeekCore`）
+- **五项评分 `score-v2`（`BevelScoringEngine`）**：
+  - 使用严格不含当日与未来日的 28 天滚动中位基线（零未来数据泄露）；
+  - 输出 Recovery、Sleep、Strain、Stress、Energy 五项独立 `0–100` 评分，附带 `AlgorithmVersion` 与结构化 `MetricContributor` 列表；
+  - 详细分布比对见 `docs/validation/m0-score-v1-vs-v2-replay-2026-11-19.md` 与 `docs/model_cards/`。
+- **动态肌群恢复 `recovery-heuristic-v1`（M2 上线）**：
+  - 累计疲劳 $F_m(t) = \sum_i L_{m,i}\exp(-(t-t_i)/(\tau_m \cdot \alpha))$，恢复度 $R_m = \exp(-F_m)$；
+  - $\alpha$ 仅读取**前一晚**睡眠与 HRV 基线偏离，不读取当天恢复分。
 
-### 3.2 每日评分与趋势计算层（Computation Layer）
-
-| 规范类型 | 算法引擎 / 逻辑 | 生产者 | 消费者 | 状态 |
-| :--- | :--- | :--- | :--- | :--- |
-| **`RecoveryScore`** | HRV log-SDNN MAD Z-score (35%) + RHR Z (25%) + Sleep (25%) + prior_strain (15%，昨日负荷) | `RecoveryScoreEngine` | `DashboardSummary`, `PersonalHealthBrief` | **Implemented** |
-| **`SleepScore`** | Duration (0-50) + Consistency (0-30) + Interruption (0-20) | 生产路径：`DomainSleepScoreAdapter` → `BodySeekDomain.SleepScoreEngine` | `DashboardSummary`, `PersonalHealthBrief` | **Implemented** |
-| **`StrainScore`** | Lucia/Banister TRIMP + Session RPE → ATL/CTL/ACWR | `StrainScoreEngine` | `DashboardSummary`, `PersonalHealthBrief` | **Implemented** |
-| **`StressIndex`** | 6 因子加权: RHR↑, HRV↓, RR↑, Temp, SleepDebt, Load | `StressIndexEngine` | `DashboardSummary`, `PersonalHealthBrief` | **Implemented** |
-| **`EnergyBank`** | Firstbeat-inspired 充放电模型 + TSB | `EnergyBankEngine` | `DashboardSummary`, `PersonalHealthBrief` | **Implemented** |
-| **`HealthTrendFinding`** | 7d/30d/6m/3y 多尺度统计基线对比与百分位定位；五项评分各自拥有独立序列，`SleepScore` 不复用 `sleepDuration`；派生评分的 3 年基线从持久化每日评分序列计算 | `HealthTrendEngine` | `VelaTrendsView`, `AIContextBuilder` | **Implemented** |
-
-`PersonalBaselineEngine.formationProgress` 从截至所选日期的真实
-`DailyHealthSnapshot` 统计不重复的有效观察日，并把 `0 天 / 1–6 天 / ≥7 天`
-投影为 `waitingForEvidence / learning / ready`。该投影只负责首周界面定向；
-每个指标原有的七样本门槛继续独立生效，不能用整体进度绕过缺失规则或宣称长期基线已稳定。
-
-### 3.3 认知投影与决策层（Cognitive & Decision Layer）
-
-| 规范类型 | 职责描述 | 生产者 | 消费者 | 状态 |
-| :--- | :--- | :--- | :--- | :--- |
-| **`PersonalHealthBrief`** | 汇总身体状态、显著变化、驱动因素与行动建议的权威对象 | `HealthTrendEngine`（PersonalHealthBrief 由其构造，见 PersonalHealthBrief.swift:381） | Today, Trends, Plan, Coach | **Accepted Target** (持续收敛各视图消费路径) |
-| **`BodyState`** | 当前身体恢复、负荷与压力承受力的保守解释 | `BodyStateKernel` | `TrainingDecisionKernel`, `AIContextBuilder` | **Implemented** |
-| **`TrainingDecision`** | 今日训练定调（keep / reduce / swap / rest）+ 3 大执行边界 | `TrainingDecisionKernel` | Plan, Today detail | **Implemented** |
-| **`DailyOperatingPlan`** | 跨域日常行动计划（1 个主行动 + 最多 2 个辅助行动），用户拥有完成、编辑、删除、替换与改期状态 | `DailyOperatingPlanCoordinator` / `DailyOperatingPlanEditor` | Today, Plan, Coach | **Implemented** |
-| **`AgentFactSnapshot`** | 供给 LLM 的无时区偏差、确定性结构化事实快照 | `AIContextBuilder` | `CoachChatVM`, `ReportGenerator`, `ToolExecutionContext` | **Implemented** |
-
-Coach 的 non-casual 请求由 `CoachContextAssembler.buildRequestContext` 一次
-构造 `AgentFactSnapshot`，同时渲染消息并将快照透传给
-`ToolExecutionContext` → `ToolRegistry` → `AgentLoop`。`HealthTrendTool` 只从
-该请求快照（兼容时为 `DashboardSummary.healthTrends`）读取 canonical
-`HealthTrendFinding`；SwiftData `DailyHealthSummaryRecord` 只提供用户明确
-请求的逐日 points，不触发趋势重算。工具返回 snapshot 的
-`context_hash`/`generated_at`/`as_of`，缺失快照时使用 JSON `null`，绝不以
-消息 hash 冒充 canonical hash。当前 snapshot 只有 `generatedAt` 一个请求
-时间字段，因此 `as_of` 明确映射同一值。Agent trace 以 `contextHashSource` 区分
-`agent_fact_snapshot` 与兼容路径的 `message_content`。
-
-Coach 路由同时保存 `CoachScreenSurface`。`VelaCoachView` 消费预填问题时，
-通过 `CoachContextFocus.routed` 将 Today、Trends、Plan、指标详情、手记、营养
-与训练入口投影成不同的 `systemContext` / `screenContext`，再交给同一请求装配链。
-这使 Agent 能延续上游语义；Plan 入口尤其明确要求实质修改只生成候选并等待
-用户确认。空会话首屏只消费同一 `DashboardSummary`、正式
-`DailyOperatingPlanRecord`、Coach artifacts 与 Memory Proposals，不构建第二套
-身体状态或计划事实。
-
-### 3.4 Daily Intelligence Assembly Module
-
-`DailyIntelligenceAssemblyModule` 是 Today/dashboard 日常认知装配的共享
-Module。`DailySummaryUseCase` 与 `SecondaryDataAssembler` 是两个 Adapter，
-都跨同一个 Seam，传入值类型事实及显式 `selectedDay`、`calendar` 与
-`activeStatus`。Adapter 先用 wall-clock evaluation time 解析 selected-day
-状态，再把显式状态交给纯 Module。
-
-其 Interface 返回 `BodyState`、下游 `DailyTrainingDecision`，以及承载
-canonical `PersonalHealthBrief`/趋势发现和兼容投影的 Dashboard。Implementation
-是确定性纯计算：先建 Body State，再由 `HealthTrendEngine` 建 Brief，最后把
-Brief 注入 `TrainingDecisionKernel`。持久化决策只有在 `bodyStateHash` 和
-rotation title 均匹配时复用。HealthKit/SwiftData fetch、DTO 转换、保存、
-Watch/计划副作用仍由 Adapter 保留。
-
-这个 Seam 通过 deletion test：删除 Module 后，以上装配顺序、历史状态与
-hash 校验必须重新散回两个调用方；因此 Module 具有实际 Leverage 与
-Locality，而非 shallow pass-through。
-
-`DailyOperatingPlanBuilder` 是这条链路下游的确定性 Implementation。
-`DailyOperatingPlanPayload` schema v3 在保留训练决定、容量与 RPE Interface
-的同时，持久化一个主行动、最多两个不同领域的辅助行动，以及安排时间、完成时间
-和用户编辑时间。`DailyOperatingPlanEditor` 是用户修改的唯一写入 Seam；一旦计划
-带有用户编辑状态，`DailyOperatingPlanRefreshPolicy` 禁止日常重算静默覆盖它，
-身体状态变化只能在 Plan 呈现候选差异。旧 schema 仍由兼容 Adapter 读取。
-Today、Plan、Coach 与 Agent facts 均消费同一正式记录；训练是 Plan 内的下游入口。
-
----
-
-## 4. 前端应用分层与视图映射
-
-```text
-VelaApp
-├── Features/Onboarding/
-│   └── VelaOnboardingView.swift     # Body State → Agent Control → Apple Health 首次使用契约
-├── Features/Minimal/
-│   ├── VelaMinimalShell.swift        # 根 TabView：Today / Trends / Plan / Coach
-│   ├── VelaMinimalTodayView.swift    # Tab 0：五分 3+2 Today
-│   ├── VelaTrainingPlanView.swift    # Tab 2 Plan + 二级训练轮转页面
-│   ├── VelaMinimalFitnessView.swift  # Plan 内的训练专项工作区
-│   └── TrainingHeroSection.swift     # 训练专项 Hero、三日轮转与分析入口
-├── Features/Trends/
-│   └── VelaTrendsView.swift           # Tab 1: 多尺度趋势对比与指标图表
-├── Features/Coach/
-│   ├── CoachView.swift               # Tab 3: AI 分析工作台与流式对话主场
-│   ├── CoachWelcomeWorkspace.swift   # 情境生理问候与动态分析提问气泡
-│   └── WikiProfileView.swift         # 健康记忆档案（Wiki / Memory Ledger）
-└── Features/Settings/
-    ├── DataCoverageView.swift        # 数据覆盖与权限
-    ├── TrustCenterView.swift         # 数据与 AI 信任设置
-    └── BiologyView.swift             # 血检记录、化验解析；生物年龄页面已从导航移除
-```
-
----
-
-## 5. 本地规则与 AI 的安全边界与交互协议
-
-1. **确定性评分保护**：
-   - 所有的 0–100 健康评分必须由本地 Swift 评分引擎计算；
-   - LLM 严禁重新计算或篡改生理分数，只能读取并解释 `AgentFactSnapshot` 中的已有事实。
-2. **计划修改需用户确认（User-confirmed Plan Proposals）**：
-   - AI 可以基于自然语言对话生成 `Plan Proposal`；
-   - 任何改写正式 `DailyOperatingPlanRecord` 的行为，必须经过 UI 交互由用户显式点击确认（Explicit Confirmation）。
-3. **语言边界**：
-   - AI 在解释体征变化时使用“关联观察”与“候选影响因素”，严禁向用户宣称确定的生理因果关系。
+### 3.4 体验与 Agent 层（M1-UI / M2 / M3）
+- **一级导航**：`今日`（五项读数与今日行动卡 + `DailyCheckIn` 打卡）、`健身`（Watch-First 待复盘 Inbox + 肌群恢复热图 + ACWR 轮转）、`营养`（餐次、AI 记饮食草稿与周/月看板）、`趋势`（7d/30d/6m/3y + 我的规律 + N-of-1 实验）、尾部 `.search` 入口的 `Coach`。
+- **图表规范**：M1-UI 起在 `docs/design/chart-grammar.md` 下以统一组件族 `BodySeekChart`（纯 Apple `Swift Charts`）重构全部图表，选中态隔离在局部 `@State`，性能埋点由 `PerformanceSignposts` (`os_signpost`) 追踪并在 iPhone 16 Pro Release 包验证。
+- **Coach 与 AI 记饮食**使用 BodySeekAgent 的 OpenAI 兼容客户端、类型化证据与营养合同。Coach 另有端侧 Foundation Models 路径。分路由工具、追问窗口与验证入口见 [V5 AI Agent 开发指南](AI_AGENT_SPEC.md)。后续扩展对话写入、目标与复盘时，按 [Coach 数据治理设计](design/coach-data-governance.md) 核对共享身份、日期和授权边界。
+- **个人建模（`BodySeekML/`）**：Mac 本地 Python (`uv`) 基于 Walk-Forward 时间序列切分先评测 Persistence / Ridge / Banister / LightGBM 基线，再研究 Masked TCN / PatchTST-Lite，通过显著性检验并完成双端特征一致性测试后以 Core ML 上机。

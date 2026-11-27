@@ -1,0 +1,80 @@
+{
+  "runs": [
+    {
+      "bundle": "build/DeviceAuditCandidateFinal.xcresult",
+      "code": "e470e38d",
+      "exit_code": 0,
+      "result": "Passed",
+      "passed": 695,
+      "failed": 0,
+      "skipped": 0,
+      "breakdown": {
+        "unit": 683,
+        "ui": 12
+      }
+    },
+    {
+      "bundle": "build/DeviceAuditScreenshotQA.xcresult",
+      "code": "ec2689cd",
+      "exit_code": 0,
+      "result": "Passed",
+      "passed": 685,
+      "failed": 0,
+      "skipped": 0,
+      "breakdown": {
+        "unit": 683,
+        "ui": 2
+      }
+    },
+    {
+      "bundle": "build/DeviceAuditAXGreen.xcresult",
+      "code": "07b85e8b (same production bytes)",
+      "exit_code": 0,
+      "result": "Passed",
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "breakdown": {
+        "ui": 2
+      }
+    },
+    {
+      "bundle": "build/DeviceAuditVerifiedTip.xcresult",
+      "code": "07b85e8b",
+      "exit_code": 0,
+      "result": "Passed",
+      "passed": 687,
+      "failed": 0,
+      "skipped": 0,
+      "breakdown": {
+        "unit": 683,
+        "ui": 4
+      }
+    }
+  ],
+  "ui_unique_paths": 13,
+  "latest_code": "07b85e8ba98bd3c3a526723ad50c6dd984495fc5",
+  "checks": {
+    "fixed_fonts_strict": {
+      "count": 178,
+      "threshold": 216,
+      "exit_code": 0
+    },
+    "contrast": {
+      "result": "OK",
+      "exit_code": 0
+    },
+    "schema": {
+      "live_models": 32,
+      "frozen_v3_models": 32,
+      "exit_code": 0
+    },
+    "token_audit": {
+      "exit_code": 0,
+      "mode": "report-only"
+    },
+    "diff_check": {
+      "exit_code": 0
+    }
+  }
+}

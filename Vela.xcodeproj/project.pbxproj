@@ -3,918 +3,159 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 56;
+	objectVersion = 77;
 	objects = {
 
 /* Begin PBXBuildFile section */
-		D0CEA8F6CBE8CC6555972F9C /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = 286FFA53BD9D8961FD2A971E /* Sentry */; };
-		0B4A00010000000000000001 /* VelaWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B4A10010000000000000001 /* VelaWatchApp.swift */; };
-		0B4A00020000000000000002 /* WristSnapshotBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B4A10020000000000000002 /* WristSnapshotBridge.swift */; };
-		0B4A00150000000000000015 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0B1001580000000000000058 /* Assets.xcassets */; };
-		0B25D0740000000000000074 /* DataFreshnessIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1740000000000000074 /* DataFreshnessIndicator.swift */; };
-		0B1009010000000000000901 /* TrainingIntelligenceModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1009020000000000000902 /* TrainingIntelligenceModels.swift */; };
-		0B1009110000000000000911 /* StrengthWorkoutLogSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1009120000000000000912 /* StrengthWorkoutLogSheetView.swift */; };
-		0B1009130000000000000913 /* StrengthWorkoutDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1009140000000000000914 /* StrengthWorkoutDetailView.swift */; };
-		0B1009150000000000000915 /* FitnessActivitySummaryDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1009160000000000000916 /* FitnessActivitySummaryDetailView.swift */; };
-		0B1009030000000000000903 /* ExerciseLibraryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1009040000000000000904 /* ExerciseLibraryService.swift */; };
-		0B1009050000000000000905 /* TrainingAnalyticsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1009060000000000000906 /* TrainingAnalyticsService.swift */; };
-		0B1009070000000000000907 /* RecoveryTrainingAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1009080000000000000908 /* RecoveryTrainingAdapter.swift */; };
-		0B1009090000000000000909 /* TrainingPlanLinkingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B10090A000000000000090A /* TrainingPlanLinkingService.swift */; };
-		0B0000010000000000000001 /* VelaThemeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B0000020000000000000002 /* VelaThemeTests.swift */; };
-		0B0000290000000000000029 /* HealthFoundationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B0000300000000000000030 /* HealthFoundationTests.swift */; };
-		0B0000310000000000000031 /* PersistenceFoundationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B0000320000000000000032 /* PersistenceFoundationTests.swift */; };
-		83C9FE3788EF342185EFBC60 /* CrashLogStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F86EF538F9A14056E258C8E9 /* CrashLogStoreTests.swift */; };
-		1349E4216DE17618B3CBBDEC /* PrivacyDeletionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65FC7EBF9C35D54DDE1CF67A /* PrivacyDeletionTests.swift */; };
-		F2947F55733DA7C0951889F7 /* HealthSyncErrorHandlingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8381F93B80FA02BC248E253B /* HealthSyncErrorHandlingTests.swift */; };
-		F8AD5CF5041611F055C3B3F9 /* SchemaMigrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47FCDF48D12A9E1EEE2FECA0 /* SchemaMigrationTests.swift */; };
-		0B0000330000000000000033 /* ScoringEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B0000340000000000000034 /* ScoringEngineTests.swift */; };
-		0B0000350000000000000035 /* TrainingPlanAdaptationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B0000360000000000000036 /* TrainingPlanAdaptationTests.swift */; };
-		0B26A0010000000000000001 /* DataCoverageAndEvidenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B26A0020000000000000002 /* DataCoverageAndEvidenceTests.swift */; };
-		0B26A0050000000000000005 /* Milestone1ChallengeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B26A0060000000000000006 /* Milestone1ChallengeTests.swift */; };
-		0B9900080000000000000008 /* HealthTrendAndBriefTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B9900070000000000000007 /* HealthTrendAndBriefTests.swift */; };
-		0B1000010000000000000001 /* VelaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001010000000000000001 /* VelaApp.swift */; };
-		0B1000020000000000000002 /* AppCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001020000000000000002 /* AppCoordinator.swift */; };
-		0B1000030000000000000003 /* VelaRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001030000000000000003 /* VelaRootView.swift */; };
-		0B1000040000000000000004 /* VelaAppMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001040000000000000004 /* VelaAppMetadata.swift */; };
-		0B1000050000000000000005 /* AppDocumentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001050000000000000005 /* AppDocumentation.swift */; };
-		0B1000060000000000000006 /* VelaTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001060000000000000006 /* VelaTheme.swift */; };
-		0B1000070000000000000007 /* VelaBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001070000000000000007 /* VelaBackground.swift */; };
-		0B1000100000000000000010 /* SectionHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001100000000000000010 /* SectionHeader.swift */; };
-
-		0B1000160000000000000016 /* CoachView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001160000000000000016 /* CoachView.swift */; };
-		0B1000180000000000000018 /* HealthAuthorizationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001180000000000000018 /* HealthAuthorizationService.swift */; };
-		0B1000190000000000000019 /* HealthDomainModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001190000000000000019 /* HealthDomainModels.swift */; };
-		0B1000200000000000000020 /* AgentContextSchema.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001200000000000000020 /* AgentContextSchema.swift */; };
-		0B1000210000000000000021 /* JournalDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001210000000000000021 /* JournalDraft.swift */; };
-		0B1000220000000000000022 /* PersistenceModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001220000000000000022 /* PersistenceModels.swift */; };
-		0B1000230000000000000023 /* DateRangeQuery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001240000000000000024 /* DateRangeQuery.swift */; };
-		C6D100010000000000000001 /* HealthPresentationCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6D110010000000000000001 /* HealthPresentationCopy.swift */; };
-		C6D100020000000000000002 /* HealthPresentationCopyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6D110020000000000000002 /* HealthPresentationCopyTests.swift */; };
-		0B1000240000000000000024 /* SleepSampleNormalizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001250000000000000025 /* SleepSampleNormalizer.swift */; };
-		0B1000250000000000000025 /* PreviewHealthDataProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001260000000000000026 /* PreviewHealthDataProvider.swift */; };
-		0B1000260000000000000026 /* HealthQueryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001270000000000000027 /* HealthQueryService.swift */; };
-		0B1000270000000000000027 /* HealthKitSleepStageMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001280000000000000028 /* HealthKitSleepStageMapper.swift */; };
-		0B1000280000000000000028 /* HealthKitQueryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001290000000000000029 /* HealthKitQueryService.swift */; };
-		0B1000290000000000000029 /* HealthDataRefreshService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001300000000000000030 /* HealthDataRefreshService.swift */; };
-		0B1000300000000000000030 /* HealthCachePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001310000000000000031 /* HealthCachePolicy.swift */; };
-		0B1000310000000000000031 /* DailyHealthSummaryRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001320000000000000032 /* DailyHealthSummaryRepository.swift */; };
-		C5A5000D000000000000000D /* TrainingPlanRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A5100D000000000000000D /* TrainingPlanRepository.swift */; };
-		C5A5000E000000000000000E /* WorkoutHistoryRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A5100E000000000000000E /* WorkoutHistoryRepository.swift */; };
-		C5A5000F000000000000000F /* DailyOperatingPlanRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A5100F000000000000000F /* DailyOperatingPlanRepository.swift */; };
-		C5A500110000000000000011 /* DailyDecisionFeedbackRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A510110000000000000011 /* DailyDecisionFeedbackRepository.swift */; };
-		C5A500120000000000000012 /* ProfileRecordRepositories.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A510120000000000000012 /* ProfileRecordRepositories.swift */; };
-		0B1000320000000000000032 /* JournalRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001330000000000000033 /* JournalRepository.swift */; };
-		0B1000330000000000000033 /* AIReportRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001340000000000000034 /* AIReportRepository.swift */; };
-		0B1000340000000000000034 /* VelaModelContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001350000000000000035 /* VelaModelContainer.swift */; };
-		3848C89DE6723E0A72CB5D58 /* VelaSchemaV3Frozen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C47F96BE1FC2D34782EF610 /* VelaSchemaV3Frozen.swift */; };
-		C40400010000000000000001 /* VelaSchemaV1Frozen.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40410010000000000000001 /* VelaSchemaV1Frozen.swift */; };
-		C40400020000000000000002 /* VelaSchemaV2Frozen.swift in Sources */ = {isa = PBXBuildFile; fileRef = C40410020000000000000002 /* VelaSchemaV2Frozen.swift */; };
-		0B1000350000000000000035 /* ScoringCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001360000000000000036 /* ScoringCore.swift */; };
-		0B1000350000000000000101 /* ScoreEngineFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001360000000000000101 /* ScoreEngineFactory.swift */; };
-		0B1000360000000000000036 /* SleepEvidence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001370000000000000037 /* SleepEvidence.swift */; };
-		0B1000370000000000000037 /* RecoveryScoreEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001380000000000000038 /* RecoveryScoreEngine.swift */; };
-		0B1000380000000000000038 /* StrainScoreEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001390000000000000039 /* StrainScoreEngine.swift */; };
-		0B1000390000000000000039 /* StressIndexEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001400000000000000040 /* StressIndexEngine.swift */; };
-		0B1000400000000000000040 /* EnergyBankEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001410000000000000041 /* EnergyBankEngine.swift */; };
-		0B1000410000000000000041 /* HealthAgeTrendEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001420000000000000042 /* HealthAgeTrendEngine.swift */; };
-		0B1000420000000000000042 /* DashboardSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001430000000000000043 /* DashboardSummary.swift */; };
-		C00300010000000000000001 /* TodayViewState.swift in Sources */ = {isa = PBXBuildFile; fileRef = C00310010000000000000001 /* TodayViewState.swift */; };
-		C00300020000000000000002 /* TodayStoreAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = C00310020000000000000002 /* TodayStoreAction.swift */; };
-		C00300030000000000000003 /* TodayStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C00310030000000000000003 /* TodayStore.swift */; };
-		C00300050000000000000005 /* TodayLegacyCompatibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = C00310050000000000000005 /* TodayLegacyCompatibility.swift */; };
-		C5A500010000000000000001 /* TrendsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A510010000000000000001 /* TrendsStore.swift */; };
-		C5A500020000000000000002 /* TrendsStoreAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A510020000000000000002 /* TrendsStoreAction.swift */; };
-		C5A500030000000000000003 /* TrendsViewState.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A510030000000000000003 /* TrendsViewState.swift */; };
-		C5A500040000000000000004 /* TrendsOneMetricChart.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A510040000000000000004 /* TrendsOneMetricChart.swift */; };
-		C5A5000C000000000000000C /* PersistedTrendsWindowLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A5100C000000000000000C /* PersistedTrendsWindowLoader.swift */; };
-		C5A500060000000000000006 /* TrendsStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A530010000000000000001 /* TrendsStoreTests.swift */; };
-		C5A500070000000000000007 /* RecoveryReplaySensitivityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A530020000000000000002 /* RecoveryReplaySensitivityTests.swift */; };
-		C5A500080000000000000008 /* StrainReplaySensitivityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A530030000000000000003 /* StrainReplaySensitivityTests.swift */; };
-		C5A500090000000000000009 /* StressReplaySensitivityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A530040000000000000004 /* StressReplaySensitivityTests.swift */; };
-		C5A5000A000000000000000A /* EnergyReplaySensitivityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A530050000000000000005 /* EnergyReplaySensitivityTests.swift */; };
-		0B9900020000000000000002 /* PersonalHealthBrief.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B9900010000000000000001 /* PersonalHealthBrief.swift */; };
-		0B9900040000000000000004 /* HealthTrendEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B9900030000000000000003 /* HealthTrendEngine.swift */; };
-		0B9900060000000000000006 /* VelaTrendsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B9900050000000000000005 /* VelaTrendsView.swift */; };
-		0B25D0700000000000000070 /* BodyState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1700000000000000070 /* BodyState.swift */; };
-		0B25D0710000000000000071 /* TrainingDecision.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1710000000000000071 /* TrainingDecision.swift */; };
-		0B25D0720000000000000072 /* DailyOperatingPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1720000000000000072 /* DailyOperatingPlan.swift */; };
-		0B25D0730000000000000073 /* TodayCommandState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1730000000000000073 /* TodayCommandState.swift */; };
-		0B1000430000000000000043 /* DailySummaryUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001440000000000000044 /* DailySummaryUseCase.swift */; };
-		0B1000440000000000000044 /* AIContextBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001450000000000000045 /* AIContextBuilder.swift */; };
-		0B1000450000000000000045 /* LLMProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001460000000000000046 /* LLMProvider.swift */; };
-		0B1000460000000000000046 /* DeepSeekProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001470000000000000047 /* DeepSeekProvider.swift */; };
-		0B1000470000000000000047 /* ReportGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001480000000000000048 /* ReportGenerator.swift */; };
-		0B1000480000000000000048 /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001490000000000000049 /* KeychainService.swift */; };
-		A373D726D063176FA16A33A5 /* SentryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C151684BA1B29ECA7C2FD77B /* SentryService.swift */; };
-		0B1000490000000000000049 /* DashboardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001500000000000000050 /* DashboardViewModel.swift */; };
-		0B10004A000000000000004A /* WebSearchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B10014A000000000000004A /* WebSearchService.swift */; };
-		0B10004B000000000000004B /* AgentTool.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B10014B000000000000004B /* AgentTool.swift */; };
-		0B10004C000000000000004C /* FoodPhotoAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B10014C000000000000004C /* FoodPhotoAnalyzer.swift */; };
-		0B10004D000000000000004D /* WebSearchHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B10014D000000000000004D /* WebSearchHelper.swift */; };
-		0B10004E000000000000004E /* ToolFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B10014E000000000000004E /* ToolFactory.swift */; };
-
-		0B1000510000000000000051 /* WikiFileService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001520000000000000052 /* WikiFileService.swift */; };
-		0B1000520000000000000052 /* AppLanguage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001530000000000000053 /* AppLanguage.swift */; };
-		0B1000530000000000000053 /* MarkdownText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001540000000000000054 /* MarkdownText.swift */; };
-		0B1000540000000000000054 /* CoachChatPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001550000000000000055 /* CoachChatPanel.swift */; };
-		0B25D0600000000000000060 /* CoachChatVM.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1600000000000000060 /* CoachChatVM.swift */; };
-		0B25D0610000000000000060 /* CoachSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1610000000000000060 /* CoachSessionStore.swift */; };
-		0B25D0620000000000000060 /* CoachContextAssembler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1620000000000000060 /* CoachContextAssembler.swift */; };
-		0B25D0630000000000000060 /* CoachPersistenceWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1630000000000000060 /* CoachPersistenceWriter.swift */; };
-		0B25D0640000000000000060 /* CoachRequestRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1640000000000000060 /* CoachRequestRunner.swift */; };
-		0B25D0650000000000000060 /* FoodPhotoWorkflow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1650000000000000060 /* FoodPhotoWorkflow.swift */; };
-
-		0B25D0810000000000000081 /* CoachHistoryDrawer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1810000000000000081 /* CoachHistoryDrawer.swift */; };
-		0B25D0820000000000000082 /* CoachWelcomeWorkspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1820000000000000082 /* CoachWelcomeWorkspace.swift */; };
-		0B25D0830000000000000083 /* WorkoutDetailSubComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1830000000000000083 /* WorkoutDetailSubComponents.swift */; };
-		0B25D0840000000000000084 /* StrengthWorkoutLogSubComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1840000000000000084 /* StrengthWorkoutLogSubComponents.swift */; };
-
-
-		0B1000550000000000000055 /* MetricCoachCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001560000000000000056 /* MetricCoachCard.swift */; };
-		0B1000560000000000000056 /* VelaLogoMark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001570000000000000057 /* VelaLogoMark.swift */; };
-		0B1000570000000000000057 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0B1001580000000000000058 /* Assets.xcassets */; };
-		0B3000010000000000000001 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 0B3000020000000000000002 /* PrivacyInfo.xcprivacy */; };
-		0B1000600000000000000060 /* WikiProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001600000000000000060 /* WikiProfileView.swift */; };
-		0B1000710000000000000071 /* MorningBriefScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001710000000000000071 /* MorningBriefScheduler.swift */; };
-		0B1000720000000000000072 /* ProactiveInsightService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001720000000000000072 /* ProactiveInsightService.swift */; };
-		0B1000730000000000000073 /* BackgroundTaskManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001730000000000000073 /* BackgroundTaskManager.swift */; };
-		0B1000740000000000000074 /* HealthSnapshotRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001740000000000000074 /* HealthSnapshotRepository.swift */; };
-		0B1000750000000000000075 /* JournalCorrelationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001750000000000000075 /* JournalCorrelationEngine.swift */; };
-
-
-
-
-		0B1000880000000000000088 /* BiologyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001880000000000000088 /* BiologyView.swift */; };
-		0B10008A000000000000008A /* CorrelationArtifactView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B10018A000000000000008A /* CorrelationArtifactView.swift */; };
-		0B10008B000000000000008B /* CoachPersonality.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B10018B000000000000008B /* CoachPersonality.swift */; };
-		0B10008C000000000000008C /* BiologicalAgeEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B10018C000000000000008C /* BiologicalAgeEngine.swift */; };
-		0B1000900000000000000090 /* VelaQuickActionsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001900000000000000090 /* VelaQuickActionsSheet.swift */; };
-		0B1000910000000000000091 /* WeightLogSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001910000000000000091 /* WeightLogSheetView.swift */; };
-		0B1000990000000000000099 /* HealthKitSyncEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001990000000000000099 /* HealthKitSyncEngine.swift */; };
-		0B1000A100000000000000A1 /* HealthUnitNormalizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001A100000000000000A1 /* HealthUnitNormalizer.swift */; };
-		0B1000A200000000000000A2 /* PipelineDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001A200000000000000A2 /* PipelineDiagnostics.swift */; };
-		0B1000A300000000000000A3 /* WorkoutDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001A300000000000000A3 /* WorkoutDetailView.swift */; };
-		0B1001800000000000000080 /* PersonalBaselineEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001810000000000000081 /* PersonalBaselineEngine.swift */; };
-		0B1001820000000000000082 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001830000000000000083 /* NotificationService.swift */; };
-		7EBA3C1140E973334B0448BE /* CrashLogStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9B500DB5B6DB64C589FACC3 /* CrashLogStore.swift */; };
-		0B1001840000000000000084 /* LocationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001850000000000000085 /* LocationManager.swift */; };
-		0B1001890000000000000089 /* WeatherService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B10018D000000000000008D /* WeatherService.swift */; };
-		0B1001A400000000000000A4 /* DomainContextBuilders.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001A500000000000000A5 /* DomainContextBuilders.swift */; };
-		0B1001A600000000000000A6 /* PreviewDataFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001A700000000000000A7 /* PreviewDataFactory.swift */; };
-		0B1001B100000000000000B1 /* VelaError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001B000000000000000B0 /* VelaError.swift */; };
-		0B1001B300000000000000B3 /* VelaServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001B200000000000000B2 /* VelaServices.swift */; };
-		0B1001B500000000000000B5 /* ViewVelaErrorAlert.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1001B400000000000000B4 /* ViewVelaErrorAlert.swift */; };
-		0B1002020000000000000202 /* VelaOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1002000000000000000200 /* VelaOnboardingView.swift */; };
-		0B1003440000000000000044 /* TrainingDecisionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1003430000000000000043 /* TrainingDecisionEngine.swift */; };
-		0B1003510000000000000051 /* PersistenceWriteGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B1003500000000000000050 /* PersistenceWriteGate.swift */; };
-		0B2000010000000000000001 /* VelaMinimalComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B2001010000000000000001 /* VelaMinimalComponents.swift */; };
-		0B2000020000000000000002 /* VelaMinimalShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B2001020000000000000002 /* VelaMinimalShell.swift */; };
-		0B2000030000000000000003 /* VelaMinimalTodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B2001030000000000000003 /* VelaMinimalTodayView.swift */; };
-		0B2000050000000000000005 /* VelaMinimalFitnessView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B2001050000000000000005 /* VelaMinimalFitnessView.swift */; };
-		0B2000080000000000000008 /* TodayTrainingPlanAdaptationCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B2001080000000000000008 /* TodayTrainingPlanAdaptationCard.swift */; };
-		0B2000060000000000000006 /* VelaMinimalJournalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B2001060000000000000006 /* VelaMinimalJournalView.swift */; };
-		0B25D0430000000000000043 /* TodaySubSheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1430000000000000043 /* TodaySubSheets.swift */; };
-		0B25D0440000000000000044 /* TodaySubComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1440000000000000044 /* TodaySubComponents.swift */; };
-		0B25D0450000000000000045 /* VelaTodayViewData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1450000000000000045 /* VelaTodayViewData.swift */; };
-		0B25D0400000000000000040 /* VelaJournalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1400000000000000040 /* VelaJournalView.swift */; };
-
-		0B25D0420000000000000042 /* BodyModelViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1420000000000000042 /* BodyModelViews.swift */; };
-		0B25D0380000000000000038 /* VelaMetricDetailWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1380000000000000038 /* VelaMetricDetailWidgets.swift */; };
-		R2D200020000000000000002 /* RecoveryDetailV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = R2D200010000000000000001 /* RecoveryDetailV2.swift */; };
-		R2D200060000000000000006 /* RecoveryDetailV2Editorial.swift in Sources */ = {isa = PBXBuildFile; fileRef = R2D200050000000000000005 /* RecoveryDetailV2Editorial.swift */; };
-		R2D200040000000000000004 /* RecoveryDetailV2Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = R2D200030000000000000003 /* RecoveryDetailV2Tests.swift */; };
-		0B25D0390000000000000039 /* VelaMetricDetailData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1390000000000000039 /* VelaMetricDetailData.swift */; };
-		0B25D0310000000000000031 /* SleepClockWheelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1310000000000000031 /* SleepClockWheelView.swift */; };
-		0B25D0320000000000000032 /* DailyStressChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1320000000000000032 /* DailyStressChartView.swift */; };
-		0B25D0330000000000000033 /* MetricChartSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1330000000000000033 /* MetricChartSection.swift */; };
-		0B25D0340000000000000034 /* MetricHighlightsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1340000000000000034 /* MetricHighlightsSection.swift */; };
-		0B25D0350000000000000035 /* MetricEvidenceSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1350000000000000035 /* MetricEvidenceSection.swift */; };
-		0B25D0360000000000000036 /* MetricTrendsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1360000000000000036 /* MetricTrendsSection.swift */; };
-		0B25D0370000000000000037 /* MetricCoachAdviceSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1370000000000000037 /* MetricCoachAdviceSection.swift */; };
-		0B25D0010000000000000001 /* JournalEntryList.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1010000000000000001 /* JournalEntryList.swift */; };
-		0B25D0020000000000000002 /* JournalEntryCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1020000000000000002 /* JournalEntryCard.swift */; };
-		0B25D0030000000000000003 /* JournalTagInsights.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1030000000000000003 /* JournalTagInsights.swift */; };
-		0B25D0040000000000000004 /* JournalComposeSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1040000000000000004 /* JournalComposeSheet.swift */; };
-		0B25D0050000000000000005 /* JournalCorrelationSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1050000000000000005 /* JournalCorrelationSection.swift */; };
-		0B25D0060000000000000006 /* TodayHeroCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1060000000000000006 /* TodayHeroCard.swift */; };
-		0B25D0FA0000000000000001 /* BodySeekInstrument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1FA0000000000000001 /* BodySeekInstrument.swift */; };
-		0B25D0070000000000000007 /* TodaySignalGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1070000000000000007 /* TodaySignalGrid.swift */; };
-
-		0B25D0090000000000000009 /* TodayNutritionStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1090000000000000009 /* TodayNutritionStrip.swift */; };
-
-		0B25D0110000000000000011 /* TodayEvidenceSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1110000000000000011 /* TodayEvidenceSheet.swift */; };
-		0B25D0120000000000000012 /* TodayWeatherBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1120000000000000012 /* TodayWeatherBar.swift */; };
-		0B25D0130000000000000013 /* VelaSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1130000000000000013 /* VelaSettingsView.swift */; };
-		0B25D0150000000000000015 /* SettingsAccountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1150000000000000015 /* SettingsAccountView.swift */; };
-		0B25D0160000000000000016 /* SettingsCoachModelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1160000000000000016 /* SettingsCoachModelView.swift */; };
-		0B25D0170000000000000017 /* TodayExperienceModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1170000000000000017 /* TodayExperienceModel.swift */; };
-		0B25D0180000000000000018 /* BehaviorTagModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1180000000000000018 /* BehaviorTagModels.swift */; };
-		0B25D0190000000000000019 /* CoachMessageBubble.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1190000000000000019 /* CoachMessageBubble.swift */; };
-
-		0B25D0210000000000000021 /* TrainingHeroSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1210000000000000021 /* TrainingHeroSection.swift */; };
-
-		0B25D0230000000000000023 /* TrainingStatsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1230000000000000023 /* TrainingStatsSection.swift */; };
-
-		0B25D0250000000000000025 /* VelaTrainingPlanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B25D1250000000000000025 /* VelaTrainingPlanView.swift */; };
-		0B2000070000000000000007 /* PrivacyDataControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B2001070000000000000007 /* PrivacyDataControlsView.swift */; };
-		0B21D0010000000000000001 /* VelaDesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B21D1010000000000000001 /* VelaDesignSystem.swift */; };
-		0B21D0020000000000000002 /* VelaCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B21D1020000000000000002 /* VelaCard.swift */; };
-		0B21D0040000000000000004 /* VelaFeedback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B21D1040000000000000004 /* VelaFeedback.swift */; };
-		0B21D0050000000000000005 /* VelaChart.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B21D1050000000000000005 /* VelaChart.swift */; };
-		0B21D0060000000000000006 /* VelaInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B21D1060000000000000006 /* VelaInput.swift */; };
-		1299F7AE0A664D63B6146337 /* CoachPromptComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 540A8976728D4342AB813647 /* CoachPromptComposer.swift */; };
-		1586C9ADAE4F4253BDE1C34C /* ContextBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D2B5FDE2C894A4E932CD4DB /* ContextBuilderTests.swift */; };
-		2628FAFD9A5E478C88FE7E4A /* MemoryModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53E4C9616A624711B40AD7F4 /* MemoryModels.swift */; };
-		287CB086AF0E4C7D93B733E9 /* EveningWikiSyncAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B14519B53994C578B0EB905 /* EveningWikiSyncAgent.swift */; };
-		2ABEFD7CAFAF4B688AAD9547 /* AgentActionParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E0AA760E81449C5A55B5CC0 /* AgentActionParser.swift */; };
-		2EBA83E644634BF8BA4EC807 /* BodyInterpretationTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBA7A2EC2D864756B06DC78E /* BodyInterpretationTypes.swift */; };
-		3720F50DEC174172A094C392 /* BodyInterpreterEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 359118EB7D9C43659D1C55C1 /* BodyInterpreterEngine.swift */; };
-		43BEF779AE284532AACC77E8 /* AgentSkillsConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 087BEB3E31344B8EA6E94717 /* AgentSkillsConfig.swift */; };
-		4A35595A791645EAB2547E0C /* AgentLoop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83AE10D45DA9421385D48088 /* AgentLoop.swift */; };
-		5357016B721440F7AA0D7EFF /* PromptComposerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06E296850D824F5484621DB7 /* PromptComposerTests.swift */; };
-		5769DAD12DC24CCCA5AED73B /* TrustCenterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82C4D493FC3C40CCBF15B72B /* TrustCenterView.swift */; };
-		5EAF240962A24A8B8D74158C /* PersonalResponseInsightService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38F23741E2F4476BAEAD938 /* PersonalResponseInsightService.swift */; };
-		6829963D454246609FA8E8EC /* PersonalResponseModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96D0A980BB50405EA1CFA4B8 /* PersonalResponseModel.swift */; };
-		69BC4AEFAD210833E9A3B560 /* DailyPlanLimiterEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 133A4EB88D8CAFC310065B46 /* DailyPlanLimiterEngine.swift */; };
-		705A8DE187AF4FE29F2BB59D /* HealthStoreProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CF8EED0E93741AB80179897 /* HealthStoreProvider.swift */; };
-		75B10B74453B4E3985380BC2 /* DailyPlanBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFF4CA95248945C89D12DDB1 /* DailyPlanBuilder.swift */; };
-		8A28AFF8B51B41BA99FD9521 /* AdaptiveTrainingEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7992FEFB1A064B77A704975B /* AdaptiveTrainingEngine.swift */; };
-		9EEBD787BE2D414CB10076A7 /* TypedContextSchema.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6B6D7ADB8B84A4089793988 /* TypedContextSchema.swift */; };
-		A24B8C77AB634C2792754C42 /* DailyLogService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C22C274390C43168652DB74 /* DailyLogService.swift */; };
-		AEB2F547D6A04198821B3E0C /* DataCoverageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63AAF7BE44C44A87855807F0 /* DataCoverageView.swift */; };
-		B886D213B1A540FD7EE4A215 /* WorkoutAggregationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4746CA84311E3C6D12654200 /* WorkoutAggregationTests.swift */; };
-		C00300040000000000000004 /* TodayStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C00310040000000000000004 /* TodayStoreTests.swift */; };
-		BB0D33806F6BFB4500B7623E /* HealthSignalCoverageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C294FDB6008E4D8BF26C22C9 /* HealthSignalCoverageService.swift */; };
-		BB4501256E114FAC859D914B /* AgentActionParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D3C95453E2F4CA38EF8BCC8 /* AgentActionParserTests.swift */; };
-		CCE926745D694215843A40D4 /* AdaptiveTrainingManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54074915D1CD439596F77AD1 /* AdaptiveTrainingManager.swift */; };
-		DD4356A314314464890D8B2D /* MemoryLedgerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC2F3B94AA064B1E83F71978 /* MemoryLedgerTests.swift */; };
-		E703B94D5AEE0BDFC5C65BC6 /* WorkoutAggregationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF997A906CC0C633B881762F /* WorkoutAggregationService.swift */; };
-		FA5C51F575E749ED899FC496 /* MemoryLedger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AC9EACC8099421CA872BDBF /* MemoryLedger.swift */; };
-		FE760BA0280B448DB02489E4 /* WikiMergeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B3FF1E44A844CECACC8727E /* WikiMergeTests.swift */; };
-		A11E00010000000000000001 /* VelaSmokeUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11E00020000000000000002 /* VelaSmokeUITests.swift */; };
+		089F5C009FF1D9092921A053 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 3ECDF3E2FC7C622B347DE25F /* PrivacyInfo.xcprivacy */; };
+		12C884983D26B9478D304845 /* BodySeekIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = A49A7B26B4BF131FE837F590 /* BodySeekIcon.icon */; };
+		37550D7DE71BBDD2E162F7C0 /* BodySeekHealth in Frameworks */ = {isa = PBXBuildFile; productRef = 2856C729EEC2A06F86A035DB /* BodySeekHealth */; };
+		42732EFA8569D516F2230370 /* BodySeekFeatures in Frameworks */ = {isa = PBXBuildFile; productRef = C19CBD0A40EA7C601C02835D /* BodySeekFeatures */; };
+		4F46C1ED06C3A1AE8B0E18CE /* BodySeekDesign in Frameworks */ = {isa = PBXBuildFile; productRef = 8AD9E50BF80AEE91AE719A8F /* BodySeekDesign */; };
+		5DDF685059EB432BB24FF62E /* BodySeekUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C55DEC4A06FDADF31AAC755 /* BodySeekUITests.swift */; };
+		7E68DB6F7B15AB8C028E8CC1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1BED176B9748E9E0B87D79D7 /* Assets.xcassets */; };
+		8E9A857D6630E3F65677543F /* BodySeekStore in Frameworks */ = {isa = PBXBuildFile; productRef = 9EB3A65ED6E6A8147035EA08 /* BodySeekStore */; };
+		A35153FC9A17858A3A8AF0A8 /* VelaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7499466D6D0797FCF7AB6CB /* VelaApp.swift */; };
+		A591830F448954367B34CF1B /* BodySeekCore in Frameworks */ = {isa = PBXBuildFile; productRef = E031FC1C3EF2981CD0379868 /* BodySeekCore */; };
+		A889A67CA7D501EC0400642F /* BodySeekAppIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E974BE917F29D0ACA303CE02 /* BodySeekAppIntegrationTests.swift */; };
+		B6A23A9084994CF3DD8B40F4 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 9AE69E6819F40934E746AA99 /* Localizable.strings */; };
+		C881CC0F63E055DADB293792 /* BodySeekAgent in Frameworks */ = {isa = PBXBuildFile; productRef = DFF90B05B71199024DB46199 /* BodySeekAgent */; };
+		EB85666C6FDCF17AFA6D3612 /* UIv4ScreenshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4700C64438039661DBF54F2 /* UIv4ScreenshotTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		0B4A00040000000000000004 /* PBXContainerItemProxy */ = {
+		3A1F5677571FEAEEC349EA44 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
-			containerPortal = 0B0000040000000000000004 /* Project object */;
+			containerPortal = 7FD476A6B78E6892F5E407ED /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 0B4A00050000000000000005;
-			remoteInfo = VelaWatch;
-		};
-		0B0000030000000000000003 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 0B0000040000000000000004 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 0B0000050000000000000005;
+			remoteGlobalIDString = 887543FE98EDDB51C0D26FB2;
 			remoteInfo = Vela;
 		};
-		A11E000A000000000000000A /* PBXContainerItemProxy */ = {
+		8C5F3BDC5D93B805FF1C37BA /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
-			containerPortal = 0B0000040000000000000004 /* Project object */;
+			containerPortal = 7FD476A6B78E6892F5E407ED /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 0B0000050000000000000005;
+			remoteGlobalIDString = 887543FE98EDDB51C0D26FB2;
 			remoteInfo = Vela;
 		};
 /* End PBXContainerItemProxy section */
 
-/* Begin PBXCopyFilesBuildPhase section */
-/* End PBXCopyFilesBuildPhase section */
-
 /* Begin PBXFileReference section */
-		0B4A10010000000000000001 /* VelaWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VelaWatchApp.swift; sourceTree = "<group>"; };
-		0B4A10020000000000000002 /* WristSnapshotBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/Services/WristSnapshotBridge.swift; sourceTree = "<group>"; };
-		0B4A10030000000000000003 /* VelaWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VelaWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		06E296850D824F5484621DB7 /* PromptComposerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptComposerTests.swift; sourceTree = "<group>"; };
-		087BEB3E31344B8EA6E94717 /* AgentSkillsConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI/Proactive/AgentSkillsConfig.swift; sourceTree = "<group>"; };
-		0B0000020000000000000002 /* VelaThemeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VelaThemeTests.swift; sourceTree = "<group>"; };
-		0B0000060000000000000006 /* Vela.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Vela.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		0B0000070000000000000007 /* VelaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VelaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		A11E00020000000000000002 /* VelaSmokeUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VelaSmokeUITests.swift; sourceTree = "<group>"; };
-		A11E00030000000000000003 /* VelaUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VelaUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		0B0000300000000000000030 /* HealthFoundationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthFoundationTests.swift; sourceTree = "<group>"; };
-		0B0000320000000000000032 /* PersistenceFoundationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistenceFoundationTests.swift; sourceTree = "<group>"; };
-		F86EF538F9A14056E258C8E9 /* CrashLogStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrashLogStoreTests.swift; sourceTree = "<group>"; };
-		65FC7EBF9C35D54DDE1CF67A /* PrivacyDeletionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyDeletionTests.swift; sourceTree = "<group>"; };
-		8381F93B80FA02BC248E253B /* HealthSyncErrorHandlingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthSyncErrorHandlingTests.swift; sourceTree = "<group>"; };
-		47FCDF48D12A9E1EEE2FECA0 /* SchemaMigrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SchemaMigrationTests.swift; sourceTree = "<group>"; };
-		0B0000340000000000000034 /* ScoringEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScoringEngineTests.swift; sourceTree = "<group>"; };
-		0B0000360000000000000036 /* TrainingPlanAdaptationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingPlanAdaptationTests.swift; sourceTree = "<group>"; };
-		0B26A0020000000000000002 /* DataCoverageAndEvidenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataCoverageAndEvidenceTests.swift; sourceTree = "<group>"; };
-		0B26A0060000000000000006 /* Milestone1ChallengeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Milestone1ChallengeTests.swift; sourceTree = "<group>"; };
-		0B9900070000000000000007 /* HealthTrendAndBriefTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthTrendAndBriefTests.swift; sourceTree = "<group>"; };
-		0B1001010000000000000001 /* VelaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App/VelaApp.swift; sourceTree = "<group>"; };
-		0B1001020000000000000002 /* AppCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App/AppCoordinator.swift; sourceTree = "<group>"; };
-		0B1001030000000000000003 /* VelaRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App/VelaRootView.swift; sourceTree = "<group>"; };
-		0B1001040000000000000004 /* VelaAppMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/Constants/VelaAppMetadata.swift; sourceTree = "<group>"; };
-		0B1001050000000000000005 /* AppDocumentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/Constants/AppDocumentation.swift; sourceTree = "<group>"; };
-		0B1001060000000000000006 /* VelaTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/Theme/VelaTheme.swift; sourceTree = "<group>"; };
-		0B1001070000000000000007 /* VelaBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/Theme/VelaBackground.swift; sourceTree = "<group>"; };
-		0B1001100000000000000010 /* SectionHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/SharedComponents/SectionHeader.swift; sourceTree = "<group>"; };
-
-		0B1001160000000000000016 /* CoachView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Coach/CoachView.swift; sourceTree = "<group>"; };
-		0B1001180000000000000018 /* HealthAuthorizationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Health/Authorization/HealthAuthorizationService.swift; sourceTree = "<group>"; };
-		0B1001190000000000000019 /* HealthDomainModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Health/Models/HealthDomainModels.swift; sourceTree = "<group>"; };
-		0B1001200000000000000020 /* AgentContextSchema.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI/Models/AgentContextSchema.swift; sourceTree = "<group>"; };
-		0B1001210000000000000021 /* JournalDraft.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Journal/Models/JournalDraft.swift; sourceTree = "<group>"; };
-		0B1001220000000000000022 /* PersistenceModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence/SwiftDataModels/PersistenceModels.swift; sourceTree = "<group>"; };
-		0B1001230000000000000023 /* Vela.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App/Vela.entitlements; sourceTree = "<group>"; };
-		0B1001240000000000000024 /* DateRangeQuery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/Utilities/DateRangeQuery.swift; sourceTree = "<group>"; };
-		C6D110010000000000000001 /* HealthPresentationCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/Utilities/HealthPresentationCopy.swift; sourceTree = "<group>"; };
-		C6D110020000000000000002 /* HealthPresentationCopyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthPresentationCopyTests.swift; sourceTree = "<group>"; };
-		0B1001250000000000000025 /* SleepSampleNormalizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Health/Mapping/SleepSampleNormalizer.swift; sourceTree = "<group>"; };
-		0B1001260000000000000026 /* PreviewHealthDataProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Health/Services/PreviewHealthDataProvider.swift; sourceTree = "<group>"; };
-		0B1001270000000000000027 /* HealthQueryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Health/Queries/HealthQueryService.swift; sourceTree = "<group>"; };
-		0B1001280000000000000028 /* HealthKitSleepStageMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Health/Mapping/HealthKitSleepStageMapper.swift; sourceTree = "<group>"; };
-		0B1001290000000000000029 /* HealthKitQueryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Health/Services/HealthKitQueryService.swift; sourceTree = "<group>"; };
-		0B1001300000000000000030 /* HealthDataRefreshService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Health/Services/HealthDataRefreshService.swift; sourceTree = "<group>"; };
-		0B1001310000000000000031 /* HealthCachePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence/Repositories/HealthCachePolicy.swift; sourceTree = "<group>"; };
-		0B1001320000000000000032 /* DailyHealthSummaryRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence/Repositories/DailyHealthSummaryRepository.swift; sourceTree = "<group>"; };
-		C5A5100D000000000000000D /* TrainingPlanRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence/Repositories/TrainingPlanRepository.swift; sourceTree = "<group>"; };
-		C5A5100E000000000000000E /* WorkoutHistoryRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence/Repositories/WorkoutHistoryRepository.swift; sourceTree = "<group>"; };
-		C5A5100F000000000000000F /* DailyOperatingPlanRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence/Repositories/DailyOperatingPlanRepository.swift; sourceTree = "<group>"; };
-		C5A510110000000000000011 /* DailyDecisionFeedbackRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence/Repositories/DailyDecisionFeedbackRepository.swift; sourceTree = "<group>"; };
-		C5A510120000000000000012 /* ProfileRecordRepositories.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence/Repositories/ProfileRecordRepositories.swift; sourceTree = "<group>"; };
-		0B1001330000000000000033 /* JournalRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence/Repositories/JournalRepository.swift; sourceTree = "<group>"; };
-		0B1001340000000000000034 /* AIReportRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence/Repositories/AIReportRepository.swift; sourceTree = "<group>"; };
-		0B1001350000000000000035 /* VelaModelContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence/SwiftDataModels/VelaModelContainer.swift; sourceTree = "<group>"; };
-		3C47F96BE1FC2D34782EF610 /* VelaSchemaV3Frozen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence/SwiftDataModels/VelaSchemaV3Frozen.swift; sourceTree = "<group>"; };
-		C40410010000000000000001 /* VelaSchemaV1Frozen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence/SwiftDataModels/VelaSchemaV1Frozen.swift; sourceTree = "<group>"; };
-		C40410020000000000000002 /* VelaSchemaV2Frozen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence/SwiftDataModels/VelaSchemaV2Frozen.swift; sourceTree = "<group>"; };
-		0B1001360000000000000036 /* ScoringCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scoring/ScoringCore.swift; sourceTree = "<group>"; };
-		0B1001360000000000000101 /* ScoreEngineFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scoring/ScoreEngineFactory.swift; sourceTree = "<group>"; };
-		0B1001370000000000000037 /* SleepEvidence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scoring/Sleep/SleepEvidence.swift; sourceTree = "<group>"; };
-		0B1001380000000000000038 /* RecoveryScoreEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scoring/Recovery/RecoveryScoreEngine.swift; sourceTree = "<group>"; };
-		0B1001390000000000000039 /* StrainScoreEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scoring/Strain/StrainScoreEngine.swift; sourceTree = "<group>"; };
-		0B1009020000000000000902 /* TrainingIntelligenceModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingIntelligence/Models/TrainingIntelligenceModels.swift; sourceTree = "<group>"; };
-		0B1009040000000000000904 /* ExerciseLibraryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingIntelligence/Services/ExerciseLibraryService.swift; sourceTree = "<group>"; };
-		0B1009060000000000000906 /* TrainingAnalyticsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingIntelligence/Services/TrainingAnalyticsService.swift; sourceTree = "<group>"; };
-		0B1009080000000000000908 /* RecoveryTrainingAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingIntelligence/Services/RecoveryTrainingAdapter.swift; sourceTree = "<group>"; };
-		0B10090A000000000000090A /* TrainingPlanLinkingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingIntelligence/Services/TrainingPlanLinkingService.swift; sourceTree = "<group>"; };
-		0B1009120000000000000912 /* StrengthWorkoutLogSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingIntelligence/Views/StrengthWorkoutLogSheetView.swift; sourceTree = "<group>"; };
-		0B1009140000000000000914 /* StrengthWorkoutDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingIntelligence/Views/StrengthWorkoutDetailView.swift; sourceTree = "<group>"; };
-		0B1009160000000000000916 /* FitnessActivitySummaryDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingIntelligence/Views/FitnessActivitySummaryDetailView.swift; sourceTree = "<group>"; };
-		0B1001400000000000000040 /* StressIndexEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scoring/Stress/StressIndexEngine.swift; sourceTree = "<group>"; };
-		0B1001410000000000000041 /* EnergyBankEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scoring/EnergyBank/EnergyBankEngine.swift; sourceTree = "<group>"; };
-		0B1001420000000000000042 /* HealthAgeTrendEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scoring/HealthAge/HealthAgeTrendEngine.swift; sourceTree = "<group>"; };
-		0B1001430000000000000043 /* DashboardSummary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/Utilities/DashboardSummary.swift; sourceTree = "<group>"; };
-		C00310010000000000000001 /* TodayViewState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayViewState.swift; sourceTree = "<group>"; };
-		C00310020000000000000002 /* TodayStoreAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayStoreAction.swift; sourceTree = "<group>"; };
-		C00310030000000000000003 /* TodayStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayStore.swift; sourceTree = "<group>"; };
-		C00310050000000000000005 /* TodayLegacyCompatibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Compatibility/Today/TodayLegacyCompatibility.swift; sourceTree = "<group>"; };
-		C5A510010000000000000001 /* TrendsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrendsStore.swift; sourceTree = "<group>"; };
-		C5A510020000000000000002 /* TrendsStoreAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrendsStoreAction.swift; sourceTree = "<group>"; };
-		C5A510030000000000000003 /* TrendsViewState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrendsViewState.swift; sourceTree = "<group>"; };
-		C5A510040000000000000004 /* TrendsOneMetricChart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrendsOneMetricChart.swift; sourceTree = "<group>"; };
-		C5A5100C000000000000000C /* PersistedTrendsWindowLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistedTrendsWindowLoader.swift; sourceTree = "<group>"; };
-		C5A530010000000000000001 /* TrendsStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrendsStoreTests.swift; sourceTree = "<group>"; };
-		C5A530020000000000000002 /* RecoveryReplaySensitivityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryReplaySensitivityTests.swift; sourceTree = "<group>"; };
-		C5A530030000000000000003 /* StrainReplaySensitivityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StrainReplaySensitivityTests.swift; sourceTree = "<group>"; };
-		C5A530040000000000000004 /* StressReplaySensitivityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StressReplaySensitivityTests.swift; sourceTree = "<group>"; };
-		C5A530050000000000000005 /* EnergyReplaySensitivityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnergyReplaySensitivityTests.swift; sourceTree = "<group>"; };
-		0B9900010000000000000001 /* PersonalHealthBrief.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/Utilities/PersonalHealthBrief.swift; sourceTree = "<group>"; };
-		0B9900030000000000000003 /* HealthTrendEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scoring/HealthTrendEngine.swift; sourceTree = "<group>"; };
-		0B9900050000000000000005 /* VelaTrendsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Trends/VelaTrendsView.swift; sourceTree = "<group>"; };
-		0B25D1700000000000000070 /* BodyState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/Utilities/BodyState.swift; sourceTree = "<group>"; };
-		0B25D1710000000000000071 /* TrainingDecision.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/Utilities/TrainingDecision.swift; sourceTree = "<group>"; };
-		0B25D1720000000000000072 /* DailyOperatingPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/Utilities/DailyOperatingPlan.swift; sourceTree = "<group>"; };
-		0B25D1730000000000000073 /* TodayCommandState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/Utilities/TodayCommandState.swift; sourceTree = "<group>"; };
-		0B1001440000000000000044 /* DailySummaryUseCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/Utilities/DailySummaryUseCase.swift; sourceTree = "<group>"; };
-		0B1001450000000000000045 /* AIContextBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI/Context/AIContextBuilder.swift; sourceTree = "<group>"; };
-		0B1001460000000000000046 /* LLMProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI/Provider/LLMProvider.swift; sourceTree = "<group>"; };
-		0B1001470000000000000047 /* DeepSeekProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI/Provider/DeepSeekProvider.swift; sourceTree = "<group>"; };
-		0B1001480000000000000048 /* ReportGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI/Reports/ReportGenerator.swift; sourceTree = "<group>"; };
-		0B1001490000000000000049 /* KeychainService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI/Provider/KeychainService.swift; sourceTree = "<group>"; };
-		C151684BA1B29ECA7C2FD77B /* SentryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI/Provider/SentryService.swift; sourceTree = "<group>"; };
-		0B10014A000000000000004A /* WebSearchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI/Provider/WebSearchService.swift; sourceTree = "<group>"; };
-		0B10014B000000000000004B /* AgentTool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI/Agent/AgentTool.swift; sourceTree = "<group>"; };
-		0B10014C000000000000004C /* FoodPhotoAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI/Agent/FoodPhotoAnalyzer.swift; sourceTree = "<group>"; };
-		0B10014D000000000000004D /* WebSearchHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI/Agent/WebSearchHelper.swift; sourceTree = "<group>"; };
-		0B10014E000000000000004E /* ToolFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI/Agent/ToolFactory.swift; sourceTree = "<group>"; };
-		0B1001500000000000000050 /* DashboardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/SharedComponents/DashboardViewModel.swift; sourceTree = "<group>"; };
-
-		0B1001520000000000000052 /* WikiFileService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI/Context/WikiFileService.swift; sourceTree = "<group>"; };
-		0B1001530000000000000053 /* AppLanguage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/Settings/AppLanguage.swift; sourceTree = "<group>"; };
-		0B1001540000000000000054 /* MarkdownText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/SharedComponents/MarkdownText.swift; sourceTree = "<group>"; };
-		0B1001550000000000000055 /* CoachChatPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Coach/CoachChatPanel.swift; sourceTree = "<group>"; };
-		0B25D1600000000000000060 /* CoachChatVM.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Coach/CoachChatVM.swift; sourceTree = "<group>"; };
-		0B25D1610000000000000060 /* CoachSessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Coach/CoachSessionStore.swift; sourceTree = "<group>"; };
-		0B25D1620000000000000060 /* CoachContextAssembler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Coach/CoachContextAssembler.swift; sourceTree = "<group>"; };
-		0B25D1630000000000000060 /* CoachPersistenceWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Coach/CoachPersistenceWriter.swift; sourceTree = "<group>"; };
-		0B25D1640000000000000060 /* CoachRequestRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Coach/CoachRequestRunner.swift; sourceTree = "<group>"; };
-		0B25D1650000000000000060 /* FoodPhotoWorkflow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Coach/FoodPhotoWorkflow.swift; sourceTree = "<group>"; };
-
-		0B25D1810000000000000081 /* CoachHistoryDrawer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Coach/CoachHistoryDrawer.swift; sourceTree = "<group>"; };
-		0B25D1820000000000000082 /* CoachWelcomeWorkspace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Coach/CoachWelcomeWorkspace.swift; sourceTree = "<group>"; };
-		0B25D1830000000000000083 /* WorkoutDetailSubComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Training/WorkoutDetailSubComponents.swift; sourceTree = "<group>"; };
-		0B25D1840000000000000084 /* StrengthWorkoutLogSubComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingIntelligence/Views/StrengthWorkoutLogSubComponents.swift; sourceTree = "<group>"; };
-
-
-		0B1001560000000000000056 /* MetricCoachCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/SharedComponents/MetricCoachCard.swift; sourceTree = "<group>"; };
-		0B1001570000000000000057 /* VelaLogoMark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/SharedComponents/VelaLogoMark.swift; sourceTree = "<group>"; };
-		0B1001580000000000000058 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Resources/Assets.xcassets; sourceTree = "<group>"; };
-		0B3000020000000000000002 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = Resources/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		0B1001600000000000000060 /* WikiProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Coach/WikiProfileView.swift; sourceTree = "<group>"; };
-		0B1001610000000000000061 /* Vela-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Vela-Info.plist"; sourceTree = "<group>"; };
-		0B1001710000000000000071 /* MorningBriefScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI/Proactive/MorningBriefScheduler.swift; sourceTree = "<group>"; };
-		0B1001720000000000000072 /* ProactiveInsightService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI/Proactive/ProactiveInsightService.swift; sourceTree = "<group>"; };
-		0B1001730000000000000073 /* BackgroundTaskManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI/Proactive/BackgroundTaskManager.swift; sourceTree = "<group>"; };
-		0B1001740000000000000074 /* HealthSnapshotRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence/Repositories/HealthSnapshotRepository.swift; sourceTree = "<group>"; };
-		0B1001750000000000000075 /* JournalCorrelationEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scoring/Correlation/JournalCorrelationEngine.swift; sourceTree = "<group>"; };
-		0B1001810000000000000081 /* PersonalBaselineEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scoring/PersonalBaselineEngine.swift; sourceTree = "<group>"; };
-		0B1001830000000000000083 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/Services/NotificationService.swift; sourceTree = "<group>"; };
-		A9B500DB5B6DB64C589FACC3 /* CrashLogStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/Services/CrashLogStore.swift; sourceTree = "<group>"; };
-		0B1001850000000000000085 /* LocationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/Services/LocationManager.swift; sourceTree = "<group>"; };
-		0B10018D000000000000008D /* WeatherService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/Services/WeatherService.swift; sourceTree = "<group>"; };
-
-
-
-
-		0B1001880000000000000088 /* BiologyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Settings/BiologyView.swift; sourceTree = "<group>"; };
-		0B10018A000000000000008A /* CorrelationArtifactView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/SharedComponents/CorrelationArtifactView.swift; sourceTree = "<group>"; };
-		0B10018B000000000000008B /* CoachPersonality.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Coach/CoachPersonality.swift; sourceTree = "<group>"; };
-		0B10018C000000000000008C /* BiologicalAgeEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scoring/Biology/BiologicalAgeEngine.swift; sourceTree = "<group>"; };
-		0B1001900000000000000090 /* VelaQuickActionsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/SharedComponents/VelaQuickActionsSheet.swift; sourceTree = "<group>"; };
-		0B1001910000000000000091 /* WeightLogSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/SharedComponents/WeightLogSheetView.swift; sourceTree = "<group>"; };
-		0B1001990000000000000099 /* HealthKitSyncEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Health/Services/HealthKitSyncEngine.swift; sourceTree = "<group>"; };
-		0B1001A100000000000000A1 /* HealthUnitNormalizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Health/Mapping/HealthUnitNormalizer.swift; sourceTree = "<group>"; };
-		0B1001A200000000000000A2 /* PipelineDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/Utilities/PipelineDiagnostics.swift; sourceTree = "<group>"; };
-		0B1001A300000000000000A3 /* WorkoutDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Training/WorkoutDetailView.swift; sourceTree = "<group>"; };
-		0B1001A500000000000000A5 /* DomainContextBuilders.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI/Context/DomainContextBuilders.swift; sourceTree = "<group>"; };
-		0B1001A700000000000000A7 /* PreviewDataFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/Utilities/PreviewDataFactory.swift; sourceTree = "<group>"; };
-		0B1001B000000000000000B0 /* VelaError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/Utilities/VelaError.swift; sourceTree = "<group>"; };
-		0B1001B200000000000000B2 /* VelaServices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/Utilities/VelaServices.swift; sourceTree = "<group>"; };
-		0B1001B400000000000000B4 /* ViewVelaErrorAlert.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/Extensions/ViewVelaErrorAlert.swift; sourceTree = "<group>"; };
-		0B1002000000000000000200 /* VelaOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Onboarding/VelaOnboardingView.swift; sourceTree = "<group>"; };
-		0B1003430000000000000043 /* TrainingDecisionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scoring/Training/TrainingDecisionEngine.swift; sourceTree = "<group>"; };
-		0B1003500000000000000050 /* PersistenceWriteGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/Utilities/PersistenceWriteGate.swift; sourceTree = "<group>"; };
-		0B2001010000000000000001 /* VelaMinimalComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/VelaMinimalComponents.swift; sourceTree = "<group>"; };
-		0B2001020000000000000002 /* VelaMinimalShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/VelaMinimalShell.swift; sourceTree = "<group>"; };
-		0B2001030000000000000003 /* VelaMinimalTodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/VelaMinimalTodayView.swift; sourceTree = "<group>"; };
-		0B2001050000000000000005 /* VelaMinimalFitnessView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/VelaMinimalFitnessView.swift; sourceTree = "<group>"; };
-		0B2001080000000000000008 /* TodayTrainingPlanAdaptationCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/TodayTrainingPlanAdaptationCard.swift; sourceTree = "<group>"; };
-		0B2001060000000000000006 /* VelaMinimalJournalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/VelaMinimalJournalView.swift; sourceTree = "<group>"; };
-		0B25D1250000000000000025 /* VelaTrainingPlanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/VelaTrainingPlanView.swift; sourceTree = "<group>"; };
-		0B25D1430000000000000043 /* TodaySubSheets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/TodaySubSheets.swift; sourceTree = "<group>"; };
-		0B25D1440000000000000044 /* TodaySubComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/TodaySubComponents.swift; sourceTree = "<group>"; };
-		0B25D1450000000000000045 /* VelaTodayViewData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/VelaTodayViewData.swift; sourceTree = "<group>"; };
-		0B25D1400000000000000040 /* VelaJournalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/VelaJournalView.swift; sourceTree = "<group>"; };
-
-		0B25D1420000000000000042 /* BodyModelViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/BodyModelViews.swift; sourceTree = "<group>"; };
-		0B25D1380000000000000038 /* VelaMetricDetailWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/VelaMetricDetailWidgets.swift; sourceTree = "<group>"; };
-		R2D200010000000000000001 /* RecoveryDetailV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/RecoveryDetailV2.swift; sourceTree = "<group>"; };
-		R2D200050000000000000005 /* RecoveryDetailV2Editorial.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/RecoveryDetailV2Editorial.swift; sourceTree = "<group>"; };
-		R2D200030000000000000003 /* RecoveryDetailV2Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryDetailV2Tests.swift; sourceTree = "<group>"; };
-		0B25D1390000000000000039 /* VelaMetricDetailData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/VelaMetricDetailData.swift; sourceTree = "<group>"; };
-		0B25D1310000000000000031 /* SleepClockWheelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/SleepClockWheelView.swift; sourceTree = "<group>"; };
-		0B25D1320000000000000032 /* DailyStressChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/DailyStressChartView.swift; sourceTree = "<group>"; };
-		0B25D1330000000000000033 /* MetricChartSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/MetricChartSection.swift; sourceTree = "<group>"; };
-		0B25D1340000000000000034 /* MetricHighlightsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/MetricHighlightsSection.swift; sourceTree = "<group>"; };
-		0B25D1350000000000000035 /* MetricEvidenceSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/MetricEvidenceSection.swift; sourceTree = "<group>"; };
-		0B25D1360000000000000036 /* MetricTrendsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/MetricTrendsSection.swift; sourceTree = "<group>"; };
-		0B25D1370000000000000037 /* MetricCoachAdviceSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/MetricCoachAdviceSection.swift; sourceTree = "<group>"; };
-		0B25D1010000000000000001 /* JournalEntryList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/JournalEntryList.swift; sourceTree = "<group>"; };
-		0B25D1020000000000000002 /* JournalEntryCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/JournalEntryCard.swift; sourceTree = "<group>"; };
-		0B25D1030000000000000003 /* JournalTagInsights.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/JournalTagInsights.swift; sourceTree = "<group>"; };
-		0B25D1040000000000000004 /* JournalComposeSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/JournalComposeSheet.swift; sourceTree = "<group>"; };
-		0B25D1050000000000000005 /* JournalCorrelationSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/JournalCorrelationSection.swift; sourceTree = "<group>"; };
-		0B25D1060000000000000006 /* TodayHeroCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/TodayHeroCard.swift; sourceTree = "<group>"; };
-		0B25D1FA0000000000000001 /* BodySeekInstrument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/BodySeekInstrument.swift; sourceTree = "<group>"; };
-		0B25D1070000000000000007 /* TodaySignalGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/TodaySignalGrid.swift; sourceTree = "<group>"; };
-
-		0B25D1090000000000000009 /* TodayNutritionStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/TodayNutritionStrip.swift; sourceTree = "<group>"; };
-
-		0B25D1110000000000000011 /* TodayEvidenceSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/TodayEvidenceSheet.swift; sourceTree = "<group>"; };
-		0B25D1120000000000000012 /* TodayWeatherBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/TodayWeatherBar.swift; sourceTree = "<group>"; };
-		0B25D1130000000000000013 /* VelaSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/VelaSettingsView.swift; sourceTree = "<group>"; };
-		0B25D1150000000000000015 /* SettingsAccountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/SettingsAccountView.swift; sourceTree = "<group>"; };
-		0B25D1160000000000000016 /* SettingsCoachModelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/SettingsCoachModelView.swift; sourceTree = "<group>"; };
-		0B25D1170000000000000017 /* TodayExperienceModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/Utilities/TodayExperienceModel.swift; sourceTree = "<group>"; };
-		0B25D1180000000000000018 /* BehaviorTagModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/Utilities/BehaviorTagModels.swift; sourceTree = "<group>"; };
-		0B25D1190000000000000019 /* CoachMessageBubble.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Coach/CoachMessageBubble.swift; sourceTree = "<group>"; };
-
-		0B25D1210000000000000021 /* TrainingHeroSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/TrainingHeroSection.swift; sourceTree = "<group>"; };
-
-		0B25D1230000000000000023 /* TrainingStatsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/TrainingStatsSection.swift; sourceTree = "<group>"; };
-
-		0B2001070000000000000007 /* PrivacyDataControlsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Minimal/PrivacyDataControlsView.swift; sourceTree = "<group>"; };
-		0B21D1010000000000000001 /* VelaDesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/DesignSystem/VelaDesignSystem.swift; sourceTree = "<group>"; };
-		0B21D1020000000000000002 /* VelaCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/DesignSystem/VelaCard.swift; sourceTree = "<group>"; };
-		0B21D1040000000000000004 /* VelaFeedback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/DesignSystem/VelaFeedback.swift; sourceTree = "<group>"; };
-		0B21D1050000000000000005 /* VelaChart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/DesignSystem/VelaChart.swift; sourceTree = "<group>"; };
-		0B21D1060000000000000006 /* VelaInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Core/DesignSystem/VelaInput.swift; sourceTree = "<group>"; };
-		133A4EB88D8CAFC310065B46 /* DailyPlanLimiterEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DailyPlanLimiterEngine.swift; path = VelaApp/Scoring/DailyPlan/DailyPlanLimiterEngine.swift; sourceTree = SOURCE_ROOT; };
-		2CF8EED0E93741AB80179897 /* HealthStoreProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Health/Services/HealthStoreProvider.swift; sourceTree = "<group>"; };
-		0B25D1740000000000000074 /* DataFreshnessIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/SharedComponents/DataFreshnessIndicator.swift; sourceTree = "<group>"; };
-		359118EB7D9C43659D1C55C1 /* BodyInterpreterEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scoring/BodyInterpreter/BodyInterpreterEngine.swift; sourceTree = "<group>"; };
-		4746CA84311E3C6D12654200 /* WorkoutAggregationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WorkoutAggregationTests.swift; sourceTree = "<group>"; };
-		4AC9EACC8099421CA872BDBF /* MemoryLedger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI/Memory/MemoryLedger.swift; sourceTree = "<group>"; };
-		53E4C9616A624711B40AD7F4 /* MemoryModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI/Memory/MemoryModels.swift; sourceTree = "<group>"; };
-		54074915D1CD439596F77AD1 /* AdaptiveTrainingManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scoring/Training/AdaptiveTrainingManager.swift; sourceTree = "<group>"; };
-		540A8976728D4342AB813647 /* CoachPromptComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI/Prompting/CoachPromptComposer.swift; sourceTree = "<group>"; };
-		5C22C274390C43168652DB74 /* DailyLogService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI/Logs/DailyLogService.swift; sourceTree = "<group>"; };
-		63AAF7BE44C44A87855807F0 /* DataCoverageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Settings/DataCoverageView.swift; sourceTree = "<group>"; };
-		6B3FF1E44A844CECACC8727E /* WikiMergeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WikiMergeTests.swift; sourceTree = "<group>"; };
-		7992FEFB1A064B77A704975B /* AdaptiveTrainingEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scoring/Training/AdaptiveTrainingEngine.swift; sourceTree = "<group>"; };
-		82C4D493FC3C40CCBF15B72B /* TrustCenterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Features/Settings/TrustCenterView.swift; sourceTree = "<group>"; };
-		83AE10D45DA9421385D48088 /* AgentLoop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI/Agent/AgentLoop.swift; sourceTree = "<group>"; };
-		8B14519B53994C578B0EB905 /* EveningWikiSyncAgent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI/Proactive/EveningWikiSyncAgent.swift; sourceTree = "<group>"; };
-		8D2B5FDE2C894A4E932CD4DB /* ContextBuilderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextBuilderTests.swift; sourceTree = "<group>"; };
-		8E0AA760E81449C5A55B5CC0 /* AgentActionParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI/Actions/AgentActionParser.swift; sourceTree = "<group>"; };
-		96D0A980BB50405EA1CFA4B8 /* PersonalResponseModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scoring/BodyInterpreter/PersonalResponseModel.swift; sourceTree = "<group>"; };
-		9D3C95453E2F4CA38EF8BCC8 /* AgentActionParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentActionParserTests.swift; sourceTree = "<group>"; };
-		A6B6D7ADB8B84A4089793988 /* TypedContextSchema.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI/Models/TypedContextSchema.swift; sourceTree = "<group>"; };
-		C294FDB6008E4D8BF26C22C9 /* HealthSignalCoverageService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HealthSignalCoverageService.swift; sourceTree = "<group>"; };
-		C38F23741E2F4476BAEAD938 /* PersonalResponseInsightService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AI/Proactive/PersonalResponseInsightService.swift; sourceTree = "<group>"; };
-		DFF4CA95248945C89D12DDB1 /* DailyPlanBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scoring/DailyPlan/DailyPlanBuilder.swift; sourceTree = "<group>"; };
-		EBA7A2EC2D864756B06DC78E /* BodyInterpretationTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scoring/BodyInterpreter/BodyInterpretationTypes.swift; sourceTree = "<group>"; };
-		EF997A906CC0C633B881762F /* WorkoutAggregationService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WorkoutAggregationService.swift; sourceTree = "<group>"; };
-		FC2F3B94AA064B1E83F71978 /* MemoryLedgerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryLedgerTests.swift; sourceTree = "<group>"; };
-		C00310040000000000000004 /* TodayStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayStoreTests.swift; sourceTree = "<group>"; };
+		0EEA3733DAA6951BD72BD5A8 /* VelaUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = VelaUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		1BED176B9748E9E0B87D79D7 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		3C55DEC4A06FDADF31AAC755 /* BodySeekUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BodySeekUITests.swift; sourceTree = "<group>"; };
+		3ECDF3E2FC7C622B347DE25F /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		A49A7B26B4BF131FE837F590 /* BodySeekIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = BodySeekIcon.icon; sourceTree = "<group>"; };
+		C1078DFACB04854902CB04AA /* VelaTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = VelaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		C842370B8594FEEC8487C280 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
+		CFE80E1CCB1CCFB4A21F2D23 /* BodySeekKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = BodySeekKit; path = BodySeekKit; sourceTree = SOURCE_ROOT; };
+		D7499466D6D0797FCF7AB6CB /* VelaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VelaApp.swift; sourceTree = "<group>"; };
+		DB48061975AD87F58267ABB3 /* Vela.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Vela.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E4700C64438039661DBF54F2 /* UIv4ScreenshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIv4ScreenshotTests.swift; sourceTree = "<group>"; };
+		E974BE917F29D0ACA303CE02 /* BodySeekAppIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BodySeekAppIntegrationTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		0B4A00070000000000000007 /* Frameworks */ = {
+		99A162DEA9F9BBFB648466BA /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		0B0000080000000000000008 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				D0CEA8F6CBE8CC6555972F9C /* Sentry in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		0B0000090000000000000009 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		A11E00070000000000000007 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
+				A591830F448954367B34CF1B /* BodySeekCore in Frameworks */,
+				4F46C1ED06C3A1AE8B0E18CE /* BodySeekDesign in Frameworks */,
+				8E9A857D6630E3F65677543F /* BodySeekStore in Frameworks */,
+				37550D7DE71BBDD2E162F7C0 /* BodySeekHealth in Frameworks */,
+				C881CC0F63E055DADB293792 /* BodySeekAgent in Frameworks */,
+				42732EFA8569D516F2230370 /* BodySeekFeatures in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		0B0000100000000000000010 = {
+		0C3238E4A9A1E653E406D619 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				0B0000110000000000000011 /* VelaApp */,
-				0B4A00080000000000000008 /* VelaWatch */,
-				0B0000120000000000000012 /* VelaAppTests */,
-				A11E00040000000000000004 /* VelaUITests */,
-				0B0000130000000000000013 /* Products */,
-				133A4EB88D8CAFC310065B46 /* DailyPlanLimiterEngine.swift */,
+				1BED176B9748E9E0B87D79D7 /* Assets.xcassets */,
+				A49A7B26B4BF131FE837F590 /* BodySeekIcon.icon */,
+				3ECDF3E2FC7C622B347DE25F /* PrivacyInfo.xcprivacy */,
+				9AE69E6819F40934E746AA99 /* Localizable.strings */,
 			);
+			path = Resources;
 			sourceTree = "<group>";
 		};
-		0B0000110000000000000011 /* VelaApp */ = {
+		2565B0BFFF6597E44F8214D7 /* Packages */ = {
 			isa = PBXGroup;
 			children = (
-				0B4A10020000000000000002 /* WristSnapshotBridge.swift */,
-				0B1001900000000000000090 /* VelaQuickActionsSheet.swift */,
-				0B1009020000000000000902 /* TrainingIntelligenceModels.swift */,
-				0B1009040000000000000904 /* ExerciseLibraryService.swift */,
-				0B1009060000000000000906 /* TrainingAnalyticsService.swift */,
-				0B1009080000000000000908 /* RecoveryTrainingAdapter.swift */,
-				0B10090A000000000000090A /* TrainingPlanLinkingService.swift */,
-				0B1009120000000000000912 /* StrengthWorkoutLogSheetView.swift */,
-				0B1009140000000000000914 /* StrengthWorkoutDetailView.swift */,
-				0B1009160000000000000916 /* FitnessActivitySummaryDetailView.swift */,
-				0B1001910000000000000091 /* WeightLogSheetView.swift */,
-				0B1001A100000000000000A1 /* HealthUnitNormalizer.swift */,
-				0B1001A200000000000000A2 /* PipelineDiagnostics.swift */,
-				0B1001A300000000000000A3 /* WorkoutDetailView.swift */,
-				0B1001010000000000000001 /* VelaApp.swift */,
-				0B1001020000000000000002 /* AppCoordinator.swift */,
-				0B1001030000000000000003 /* VelaRootView.swift */,
-				0B1001230000000000000023 /* Vela.entitlements */,
-				0B1001580000000000000058 /* Assets.xcassets */,
-				0B3000020000000000000002 /* PrivacyInfo.xcprivacy */,
-				0B1001040000000000000004 /* VelaAppMetadata.swift */,
-				0B1001050000000000000005 /* AppDocumentation.swift */,
-				0B1001240000000000000024 /* DateRangeQuery.swift */,
-				C6D110010000000000000001 /* HealthPresentationCopy.swift */,
-				0B1001430000000000000043 /* DashboardSummary.swift */,
-				0B9900010000000000000001 /* PersonalHealthBrief.swift */,
-				0B9900030000000000000003 /* HealthTrendEngine.swift */,
-				0B9900050000000000000005 /* VelaTrendsView.swift */,
-				C5A520010000000000000001 /* Trends */,
-				0B25D1700000000000000070 /* BodyState.swift */,
-				0B25D1710000000000000071 /* TrainingDecision.swift */,
-				0B25D1720000000000000072 /* DailyOperatingPlan.swift */,
-				0B25D1730000000000000073 /* TodayCommandState.swift */,
-				C00320010000000000000001 /* Today */,
-				C00310050000000000000005 /* TodayLegacyCompatibility.swift */,
-				0B1001440000000000000044 /* DailySummaryUseCase.swift */,
-				0B1001A700000000000000A7 /* PreviewDataFactory.swift */,
-				0B1001B000000000000000B0 /* VelaError.swift */,
-				0B1003500000000000000050 /* PersistenceWriteGate.swift */,
-				0B1001B200000000000000B2 /* VelaServices.swift */,
-				0B1001B400000000000000B4 /* ViewVelaErrorAlert.swift */,
-				0B1001530000000000000053 /* AppLanguage.swift */,
-				0B1001060000000000000006 /* VelaTheme.swift */,
-				0B21D1010000000000000001 /* VelaDesignSystem.swift */,
-				0B21D1020000000000000002 /* VelaCard.swift */,
-				0B21D1040000000000000004 /* VelaFeedback.swift */,
-				0B21D1050000000000000005 /* VelaChart.swift */,
-				0B21D1060000000000000006 /* VelaInput.swift */,
-				0B1001070000000000000007 /* VelaBackground.swift */,
-				0B2001010000000000000001 /* VelaMinimalComponents.swift */,
-				0B2001020000000000000002 /* VelaMinimalShell.swift */,
-				0B2001030000000000000003 /* VelaMinimalTodayView.swift */,
-				0B2001050000000000000005 /* VelaMinimalFitnessView.swift */,
-				0B2001080000000000000008 /* TodayTrainingPlanAdaptationCard.swift */,
-				0B25D1250000000000000025 /* VelaTrainingPlanView.swift */,
-				0B2001060000000000000006 /* VelaMinimalJournalView.swift */,
-				0B25D1430000000000000043 /* TodaySubSheets.swift */,
-				0B25D1440000000000000044 /* TodaySubComponents.swift */,
-				0B25D1450000000000000045 /* VelaTodayViewData.swift */,
-				0B25D1400000000000000040 /* VelaJournalView.swift */,
-
-				0B25D1420000000000000042 /* BodyModelViews.swift */,
-				0B25D1380000000000000038 /* VelaMetricDetailWidgets.swift */,
-				R2D200010000000000000001 /* RecoveryDetailV2.swift */,
-				R2D200050000000000000005 /* RecoveryDetailV2Editorial.swift */,
-				0B25D1390000000000000039 /* VelaMetricDetailData.swift */,
-				0B25D1310000000000000031 /* SleepClockWheelView.swift */,
-				0B25D1320000000000000032 /* DailyStressChartView.swift */,
-				0B25D1330000000000000033 /* MetricChartSection.swift */,
-				0B25D1340000000000000034 /* MetricHighlightsSection.swift */,
-				0B25D1350000000000000035 /* MetricEvidenceSection.swift */,
-				0B25D1360000000000000036 /* MetricTrendsSection.swift */,
-				0B25D1370000000000000037 /* MetricCoachAdviceSection.swift */,
-				0B25D1010000000000000001 /* JournalEntryList.swift */,
-				0B25D1020000000000000002 /* JournalEntryCard.swift */,
-				0B25D1030000000000000003 /* JournalTagInsights.swift */,
-				0B25D1040000000000000004 /* JournalComposeSheet.swift */,
-				0B25D1050000000000000005 /* JournalCorrelationSection.swift */,
-				0B25D1060000000000000006 /* TodayHeroCard.swift */,
-				0B25D1FA0000000000000001 /* BodySeekInstrument.swift */,
-				0B25D1070000000000000007 /* TodaySignalGrid.swift */,
-
-				0B25D1090000000000000009 /* TodayNutritionStrip.swift */,
-
-				0B25D1110000000000000011 /* TodayEvidenceSheet.swift */,
-				0B25D1120000000000000012 /* TodayWeatherBar.swift */,
-				0B25D1130000000000000013 /* VelaSettingsView.swift */,
-				0B25D1150000000000000015 /* SettingsAccountView.swift */,
-				0B25D1160000000000000016 /* SettingsCoachModelView.swift */,
-				0B25D1170000000000000017 /* TodayExperienceModel.swift */,
-				0B25D1180000000000000018 /* BehaviorTagModels.swift */,
-				0B25D1190000000000000019 /* CoachMessageBubble.swift */,
-
-				0B25D1210000000000000021 /* TrainingHeroSection.swift */,
-
-				0B25D1230000000000000023 /* TrainingStatsSection.swift */,
-				0B2001070000000000000007 /* PrivacyDataControlsView.swift */,
-				0B1001100000000000000010 /* SectionHeader.swift */,
-				0B1001500000000000000050 /* DashboardViewModel.swift */,
-				0B1001540000000000000054 /* MarkdownText.swift */,
-				0B1001560000000000000056 /* MetricCoachCard.swift */,
-				0B1001570000000000000057 /* VelaLogoMark.swift */,
-
-				0B1001160000000000000016 /* CoachView.swift */,
-
-				0B25D1810000000000000081 /* CoachHistoryDrawer.swift */,
-				0B25D1820000000000000082 /* CoachWelcomeWorkspace.swift */,
-				0B25D1830000000000000083 /* WorkoutDetailSubComponents.swift */,
-				0B25D1840000000000000084 /* StrengthWorkoutLogSubComponents.swift */,
-
-
-				0B1001550000000000000055 /* CoachChatPanel.swift */,
-				0B25D1600000000000000060 /* CoachChatVM.swift */,
-				0B25D1610000000000000060 /* CoachSessionStore.swift */,
-				0B25D1620000000000000060 /* CoachContextAssembler.swift */,
-				0B25D1630000000000000060 /* CoachPersistenceWriter.swift */,
-				0B25D1640000000000000060 /* CoachRequestRunner.swift */,
-				0B25D1650000000000000060 /* FoodPhotoWorkflow.swift */,
-				0B1001180000000000000018 /* HealthAuthorizationService.swift */,
-				0B1001190000000000000019 /* HealthDomainModels.swift */,
-				0B1001270000000000000027 /* HealthQueryService.swift */,
-				0B1001280000000000000028 /* HealthKitSleepStageMapper.swift */,
-				0B1001250000000000000025 /* SleepSampleNormalizer.swift */,
-				0B1001290000000000000029 /* HealthKitQueryService.swift */,
-				2CF8EED0E93741AB80179897 /* HealthStoreProvider.swift */,
-				0B1001300000000000000030 /* HealthDataRefreshService.swift */,
-				0B1001990000000000000099 /* HealthKitSyncEngine.swift */,
-				0B1001260000000000000026 /* PreviewHealthDataProvider.swift */,
-				0B1001200000000000000020 /* AgentContextSchema.swift */,
-				0B1001450000000000000045 /* AIContextBuilder.swift */,
-				0B1001A500000000000000A5 /* DomainContextBuilders.swift */,
-				0B1001520000000000000052 /* WikiFileService.swift */,
-				8E0AA760E81449C5A55B5CC0 /* AgentActionParser.swift */,
-				5C22C274390C43168652DB74 /* DailyLogService.swift */,
-				0B1001460000000000000046 /* LLMProvider.swift */,
-				0B1001470000000000000047 /* DeepSeekProvider.swift */,
-				0B1001480000000000000048 /* ReportGenerator.swift */,
-				0B1001490000000000000049 /* KeychainService.swift */,
-				C151684BA1B29ECA7C2FD77B /* SentryService.swift */,
-				0B10014A000000000000004A /* WebSearchService.swift */,
-				0B10014B000000000000004B /* AgentTool.swift */,
-				0B10014C000000000000004C /* FoodPhotoAnalyzer.swift */,
-				0B1001210000000000000021 /* JournalDraft.swift */,
-				0B10014D000000000000004D /* WebSearchHelper.swift */,
-				0B10014E000000000000004E /* ToolFactory.swift */,
-
-				0B1001220000000000000022 /* PersistenceModels.swift */,
-				0B1001350000000000000035 /* VelaModelContainer.swift */,
-				C40410010000000000000001 /* VelaSchemaV1Frozen.swift */,
-				C40410020000000000000002 /* VelaSchemaV2Frozen.swift */,
-				3C47F96BE1FC2D34782EF610 /* VelaSchemaV3Frozen.swift */,
-				0B1001310000000000000031 /* HealthCachePolicy.swift */,
-				0B1001320000000000000032 /* DailyHealthSummaryRepository.swift */,
-				C5A5100D000000000000000D /* TrainingPlanRepository.swift */,
-				C5A5100E000000000000000E /* WorkoutHistoryRepository.swift */,
-				C5A5100F000000000000000F /* DailyOperatingPlanRepository.swift */,
-				C5A510110000000000000011 /* DailyDecisionFeedbackRepository.swift */,
-				C5A510120000000000000012 /* ProfileRecordRepositories.swift */,
-				0B1001330000000000000033 /* JournalRepository.swift */,
-				0B1001340000000000000034 /* AIReportRepository.swift */,
-				0B1001740000000000000074 /* HealthSnapshotRepository.swift */,
-				0B1001360000000000000036 /* ScoringCore.swift */,
-				0B1001360000000000000101 /* ScoreEngineFactory.swift */,
-				0B1001370000000000000037 /* SleepEvidence.swift */,
-				0B1001380000000000000038 /* RecoveryScoreEngine.swift */,
-				0B1001390000000000000039 /* StrainScoreEngine.swift */,
-				0B1001400000000000000040 /* StressIndexEngine.swift */,
-				0B1001410000000000000041 /* EnergyBankEngine.swift */,
-				0B1001420000000000000042 /* HealthAgeTrendEngine.swift */,
-				0B1001750000000000000075 /* JournalCorrelationEngine.swift */,
-				0B1001810000000000000081 /* PersonalBaselineEngine.swift */,
-				0B25D1740000000000000074 /* DataFreshnessIndicator.swift */,
-				0B1001600000000000000060 /* WikiProfileView.swift */,
-				0B1001610000000000000061 /* Vela-Info.plist */,
-				0B1001710000000000000071 /* MorningBriefScheduler.swift */,
-				8B14519B53994C578B0EB905 /* EveningWikiSyncAgent.swift */,
-				0B1001720000000000000072 /* ProactiveInsightService.swift */,
-				0B1001730000000000000073 /* BackgroundTaskManager.swift */,
-				087BEB3E31344B8EA6E94717 /* AgentSkillsConfig.swift */,
-				0B1001830000000000000083 /* NotificationService.swift */,
-				A9B500DB5B6DB64C589FACC3 /* CrashLogStore.swift */,
-				0B1001850000000000000085 /* LocationManager.swift */,
-				0B10018D000000000000008D /* WeatherService.swift */,
-
-
-
-
-				0B1001880000000000000088 /* BiologyView.swift */,
-				0B10018A000000000000008A /* CorrelationArtifactView.swift */,
-				0B10018B000000000000008B /* CoachPersonality.swift */,
-				0B10018C000000000000008C /* BiologicalAgeEngine.swift */,
-				0B1002000000000000000200 /* VelaOnboardingView.swift */,
-				A6B6D7ADB8B84A4089793988 /* TypedContextSchema.swift */,
-				53E4C9616A624711B40AD7F4 /* MemoryModels.swift */,
-				540A8976728D4342AB813647 /* CoachPromptComposer.swift */,
-				83AE10D45DA9421385D48088 /* AgentLoop.swift */,
-				4AC9EACC8099421CA872BDBF /* MemoryLedger.swift */,
-				DFF4CA95248945C89D12DDB1 /* DailyPlanBuilder.swift */,
-				7992FEFB1A064B77A704975B /* AdaptiveTrainingEngine.swift */,
-				0B1003430000000000000043 /* TrainingDecisionEngine.swift */,
-				82C4D493FC3C40CCBF15B72B /* TrustCenterView.swift */,
-				EBA7A2EC2D864756B06DC78E /* BodyInterpretationTypes.swift */,
-				359118EB7D9C43659D1C55C1 /* BodyInterpreterEngine.swift */,
-				96D0A980BB50405EA1CFA4B8 /* PersonalResponseModel.swift */,
-				54074915D1CD439596F77AD1 /* AdaptiveTrainingManager.swift */,
-				63AAF7BE44C44A87855807F0 /* DataCoverageView.swift */,
-				C38F23741E2F4476BAEAD938 /* PersonalResponseInsightService.swift */,
-				F3EF45BD930A9AE032A07C94 /* Health */,
+				CFE80E1CCB1CCFB4A21F2D23 /* BodySeekKit */,
 			);
-			path = VelaApp;
+			name = Packages;
 			sourceTree = "<group>";
 		};
-		0B0000120000000000000012 /* VelaAppTests */ = {
+		483BF04F79F6240146C6B63F /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				C00310040000000000000004 /* TodayStoreTests.swift */,
-				0B0000020000000000000002 /* VelaThemeTests.swift */,
-				0B0000300000000000000030 /* HealthFoundationTests.swift */,
-				0B0000320000000000000032 /* PersistenceFoundationTests.swift */,
-				F86EF538F9A14056E258C8E9 /* CrashLogStoreTests.swift */,
-				65FC7EBF9C35D54DDE1CF67A /* PrivacyDeletionTests.swift */,
-				8381F93B80FA02BC248E253B /* HealthSyncErrorHandlingTests.swift */,
-				47FCDF48D12A9E1EEE2FECA0 /* SchemaMigrationTests.swift */,
-				0B0000340000000000000034 /* ScoringEngineTests.swift */,
-				0B0000360000000000000036 /* TrainingPlanAdaptationTests.swift */,
-				0B26A0020000000000000002 /* DataCoverageAndEvidenceTests.swift */,
-				0B26A0060000000000000006 /* Milestone1ChallengeTests.swift */,
-				0B9900070000000000000007 /* HealthTrendAndBriefTests.swift */,
-				6B3FF1E44A844CECACC8727E /* WikiMergeTests.swift */,
-				9D3C95453E2F4CA38EF8BCC8 /* AgentActionParserTests.swift */,
-				8D2B5FDE2C894A4E932CD4DB /* ContextBuilderTests.swift */,
-				06E296850D824F5484621DB7 /* PromptComposerTests.swift */,
-				FC2F3B94AA064B1E83F71978 /* MemoryLedgerTests.swift */,
-				4746CA84311E3C6D12654200 /* WorkoutAggregationTests.swift */,
-				C5A530010000000000000001 /* TrendsStoreTests.swift */,
-				R2D200030000000000000003 /* RecoveryDetailV2Tests.swift */,
-				C6D110020000000000000002 /* HealthPresentationCopyTests.swift */,
-				C5A530020000000000000002 /* RecoveryReplaySensitivityTests.swift */,
-				C5A530030000000000000003 /* StrainReplaySensitivityTests.swift */,
-				C5A530040000000000000004 /* StressReplaySensitivityTests.swift */,
-				C5A530050000000000000005 /* EnergyReplaySensitivityTests.swift */,
-			);
-			path = VelaAppTests;
-			sourceTree = "<group>";
-		};
-		A11E00040000000000000004 /* VelaUITests */ = {
-			isa = PBXGroup;
-			children = (
-				A11E00020000000000000002 /* VelaSmokeUITests.swift */,
-			);
-			path = VelaUITests;
-			sourceTree = "<group>";
-		};
-		0B0000130000000000000013 /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				0B0000060000000000000006 /* Vela.app */,
-				0B4A10030000000000000003 /* VelaWatch.app */,
-				0B0000070000000000000007 /* VelaTests.xctest */,
-				A11E00030000000000000003 /* VelaUITests.xctest */,
+				DB48061975AD87F58267ABB3 /* Vela.app */,
+				C1078DFACB04854902CB04AA /* VelaTests.xctest */,
+				0EEA3733DAA6951BD72BD5A8 /* VelaUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
-		0B4A00080000000000000008 /* VelaWatch */ = {
+		5A451741DAD02C18BD06062E /* VelaApp */ = {
 			isa = PBXGroup;
 			children = (
-				0B4A10010000000000000001 /* VelaWatchApp.swift */,
+				BF9E35413D9EF2F62BE52364 /* App */,
+				0C3238E4A9A1E653E406D619 /* Resources */,
 			);
-			path = VelaWatch;
+			path = VelaApp;
 			sourceTree = "<group>";
 		};
-		5458E0C4362B49350165581D /* Coverage */ = {
+		64768EB809BAEF59463895CB /* VelaAppTests */ = {
 			isa = PBXGroup;
 			children = (
-				C294FDB6008E4D8BF26C22C9 /* HealthSignalCoverageService.swift */,
+				E974BE917F29D0ACA303CE02 /* BodySeekAppIntegrationTests.swift */,
 			);
-			name = Coverage;
-			path = Coverage;
+			path = VelaAppTests;
 			sourceTree = "<group>";
 		};
-		CF81A09F309D241C596CDE2F /* Services */ = {
+		8D8AC28433B2AC935501E5A2 = {
 			isa = PBXGroup;
 			children = (
-				EF997A906CC0C633B881762F /* WorkoutAggregationService.swift */,
+				2565B0BFFF6597E44F8214D7 /* Packages */,
+				5A451741DAD02C18BD06062E /* VelaApp */,
+				64768EB809BAEF59463895CB /* VelaAppTests */,
+				9146771148C588AB2DD77267 /* VelaUITests */,
+				483BF04F79F6240146C6B63F /* Products */,
 			);
-			name = Services;
-			path = Services;
 			sourceTree = "<group>";
 		};
-		F3EF45BD930A9AE032A07C94 /* Health */ = {
+		9146771148C588AB2DD77267 /* VelaUITests */ = {
 			isa = PBXGroup;
 			children = (
-				5458E0C4362B49350165581D /* Coverage */,
-				CF81A09F309D241C596CDE2F /* Services */,
+				3C55DEC4A06FDADF31AAC755 /* BodySeekUITests.swift */,
+				E4700C64438039661DBF54F2 /* UIv4ScreenshotTests.swift */,
 			);
-			name = Health;
-			path = Health;
+			path = VelaUITests;
 			sourceTree = "<group>";
 		};
-		C00320010000000000000001 /* Today */ = {
+		BF9E35413D9EF2F62BE52364 /* App */ = {
 			isa = PBXGroup;
 			children = (
-				C00310010000000000000001 /* TodayViewState.swift */,
-				C00310020000000000000002 /* TodayStoreAction.swift */,
-				C00310030000000000000003 /* TodayStore.swift */,
+				D7499466D6D0797FCF7AB6CB /* VelaApp.swift */,
 			);
-			name = Today;
-			path = Features/Today;
-			sourceTree = "<group>";
-		};
-		C5A520010000000000000001 /* Trends */ = {
-			isa = PBXGroup;
-			children = (
-				C5A510010000000000000001 /* TrendsStore.swift */,
-				C5A510020000000000000002 /* TrendsStoreAction.swift */,
-				C5A510030000000000000003 /* TrendsViewState.swift */,
-				C5A510040000000000000004 /* TrendsOneMetricChart.swift */,
-				C5A5100C000000000000000C /* PersistedTrendsWindowLoader.swift */,
-			);
-			name = Trends;
-			path = Features/Trends;
+			path = App;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		0B0000050000000000000005 /* Vela */ = {
+		887543FE98EDDB51C0D26FB2 /* Vela */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 0B0000140000000000000014 /* Build configuration list for PBXNativeTarget "Vela" */;
+			buildConfigurationList = 6E36DFB38ED9B78C5432D865 /* Build configuration list for PBXNativeTarget "Vela" */;
 			buildPhases = (
-				0B0000150000000000000015 /* Sources */,
-				0B0000080000000000000008 /* Frameworks */,
-				0B0000160000000000000016 /* Resources */,
+				41EE8B5767B0C17BE620D5EB /* Sources */,
+				D2CBC3C0A47F2DDAC075D2B2 /* Resources */,
+				99A162DEA9F9BBFB648466BA /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -922,516 +163,211 @@
 			);
 			name = Vela;
 			packageProductDependencies = (
-				286FFA53BD9D8961FD2A971E /* Sentry */,
-				E1B2C3D40000000000000002 /* BodySeekDomain */,
+				E031FC1C3EF2981CD0379868 /* BodySeekCore */,
+				8AD9E50BF80AEE91AE719A8F /* BodySeekDesign */,
+				9EB3A65ED6E6A8147035EA08 /* BodySeekStore */,
+				2856C729EEC2A06F86A035DB /* BodySeekHealth */,
+				DFF90B05B71199024DB46199 /* BodySeekAgent */,
+				C19CBD0A40EA7C601C02835D /* BodySeekFeatures */,
 			);
 			productName = Vela;
-			productReference = 0B0000060000000000000006 /* Vela.app */;
+			productReference = DB48061975AD87F58267ABB3 /* Vela.app */;
 			productType = "com.apple.product-type.application";
 		};
-		0B4A00050000000000000005 /* VelaWatch */ = {
+		BCCFD8D037ED6DA65F70506A /* VelaTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 0B4A00100000000000000010 /* Build configuration list for PBXNativeTarget "VelaWatch" */;
+			buildConfigurationList = EBE048412C188E0C02EB3FBB /* Build configuration list for PBXNativeTarget "VelaTests" */;
 			buildPhases = (
-				0B4A00110000000000000011 /* Sources */,
-				0B4A00070000000000000007 /* Frameworks */,
-				0B4A00120000000000000012 /* Resources */,
+				ED0A716E8CBDA2A819B54C5D /* Sources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-			);
-			name = VelaWatch;
-			productName = VelaWatch;
-			productReference = 0B4A10030000000000000003 /* VelaWatch.app */;
-			productType = "com.apple.product-type.application";
-		};
-		0B0000170000000000000017 /* VelaTests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 0B0000180000000000000018 /* Build configuration list for PBXNativeTarget "VelaTests" */;
-			buildPhases = (
-				0B0000190000000000000019 /* Sources */,
-				0B0000090000000000000009 /* Frameworks */,
-				0B0000200000000000000020 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				0B0000210000000000000021 /* PBXTargetDependency */,
+				0A16816192FC832CFD7D6BBB /* PBXTargetDependency */,
 			);
 			name = VelaTests;
+			packageProductDependencies = (
+			);
 			productName = VelaTests;
-			productReference = 0B0000070000000000000007 /* VelaTests.xctest */;
+			productReference = C1078DFACB04854902CB04AA /* VelaTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		A11E00050000000000000005 /* VelaUITests */ = {
+		D432462B310DF536939AAD28 /* VelaUITests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = A11E000D000000000000000D /* Build configuration list for PBXNativeTarget "VelaUITests" */;
+			buildConfigurationList = BA6BE275FEB80938A7BBF666 /* Build configuration list for PBXNativeTarget "VelaUITests" */;
 			buildPhases = (
-				A11E00060000000000000006 /* Sources */,
-				A11E00070000000000000007 /* Frameworks */,
-				A11E00080000000000000008 /* Resources */,
+				A8E61BAB6CF9B43819A14BE7 /* Sources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				A11E00090000000000000009 /* PBXTargetDependency */,
+				5E3B4A6AE2415ED23A91BBB1 /* PBXTargetDependency */,
 			);
 			name = VelaUITests;
+			packageProductDependencies = (
+			);
 			productName = VelaUITests;
-			productReference = A11E00030000000000000003 /* VelaUITests.xctest */;
+			productReference = 0EEA3733DAA6951BD72BD5A8 /* VelaUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
 
-/* Begin PBXProject section *//* Begin XCRemoteSwiftPackageReference section */
-		3366974B39BF06D2D2F4F6B8 /* XCRemoteSwiftPackageReference "sentry-cocoa" */ = {isa = XCRemoteSwiftPackageReference; repositoryURL = "https://github.com/getsentry/sentry-cocoa"; requirement = {kind = upToNextMajorVersion; minimumVersion = 8.0.0;}; };
-/* End XCRemoteSwiftPackageReference section */
-
-/* Begin XCLocalSwiftPackageReference section */
-		E1B2C3D40000000000000001 /* XCLocalSwiftPackageReference "BodySeekDomain" */ = {isa = XCLocalSwiftPackageReference; relativePath = BodySeekDomain; };
-/* End XCLocalSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		286FFA53BD9D8961FD2A971E /* Sentry */ = {isa = XCSwiftPackageProductDependency; package = 3366974B39BF06D2D2F4F6B8 /* XCRemoteSwiftPackageReference "sentry-cocoa" */; productName = Sentry; };
-		E1B2C3D40000000000000002 /* BodySeekDomain */ = {isa = XCSwiftPackageProductDependency; package = E1B2C3D40000000000000001 /* XCLocalSwiftPackageReference "BodySeekDomain" */; productName = BodySeekDomain; };
-/* End XCSwiftPackageProductDependency section */
-
-
-		0B0000040000000000000004 /* Project object */ = {
+/* Begin PBXProject section */
+		7FD476A6B78E6892F5E407ED /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2604;
-				LastUpgradeCheck = 2604;
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
 				TargetAttributes = {
-					0B0000050000000000000005 = {
-						CreatedOnToolsVersion = 26.4;
+					887543FE98EDDB51C0D26FB2 = {
+						DevelopmentTeam = UHS4N7454X;
+						ProvisioningStyle = Automatic;
 					};
-					0B0000170000000000000017 = {
-						CreatedOnToolsVersion = 26.4;
-						TestTargetID = 0B0000050000000000000005;
+					BCCFD8D037ED6DA65F70506A = {
+						DevelopmentTeam = UHS4N7454X;
+						ProvisioningStyle = Automatic;
 					};
-					0B4A00050000000000000005 = {
-						CreatedOnToolsVersion = 26.5;
-					};
-					A11E00050000000000000005 = {
-						CreatedOnToolsVersion = 26.5;
-						TestTargetID = 0B0000050000000000000005;
+					D432462B310DF536939AAD28 = {
+						DevelopmentTeam = UHS4N7454X;
+						ProvisioningStyle = Automatic;
+						TestTargetID = 887543FE98EDDB51C0D26FB2;
 					};
 				};
 			};
-			buildConfigurationList = 0B0000220000000000000022 /* Build configuration list for PBXProject "Vela" */;
-			compatibilityVersion = "Xcode 14.0";
-			developmentRegion = en;
+			buildConfigurationList = 070106BC6C9C9A3557F945E6 /* Build configuration list for PBXProject "Vela" */;
+			developmentRegion = "zh-Hans";
 			hasScannedForEncodings = 0;
 			knownRegions = (
-				en,
 				Base,
+				"zh-Hans",
 			);
-			mainGroup = 0B0000100000000000000010;
-			productRefGroup = 0B0000130000000000000013 /* Products */;
+			mainGroup = 8D8AC28433B2AC935501E5A2;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				8AF018C0CC0145E8C1087F67 /* XCLocalSwiftPackageReference "BodySeekKit" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 483BF04F79F6240146C6B63F /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
-			packageReferences = (
-				3366974B39BF06D2D2F4F6B8 /* XCRemoteSwiftPackageReference "sentry-cocoa" */,
-				E1B2C3D40000000000000001 /* XCLocalSwiftPackageReference "BodySeekDomain" */,
-			);
 			targets = (
-				0B0000050000000000000005 /* Vela */,
-				0B4A00050000000000000005 /* VelaWatch */,
-				0B0000170000000000000017 /* VelaTests */,
-				A11E00050000000000000005 /* VelaUITests */,
+				887543FE98EDDB51C0D26FB2 /* Vela */,
+				BCCFD8D037ED6DA65F70506A /* VelaTests */,
+				D432462B310DF536939AAD28 /* VelaUITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		0B4A00120000000000000012 /* Resources */ = {
+		D2CBC3C0A47F2DDAC075D2B2 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				0B4A00150000000000000015 /* Assets.xcassets in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		0B0000160000000000000016 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				0B1000570000000000000057 /* Assets.xcassets in Resources */,
-				0B3000010000000000000001 /* PrivacyInfo.xcprivacy in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		0B0000200000000000000020 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		A11E00080000000000000008 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
+				7E68DB6F7B15AB8C028E8CC1 /* Assets.xcassets in Resources */,
+				12C884983D26B9478D304845 /* BodySeekIcon.icon in Resources */,
+				B6A23A9084994CF3DD8B40F4 /* Localizable.strings in Resources */,
+				089F5C009FF1D9092921A053 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		0B4A00110000000000000011 /* Sources */ = {
+		41EE8B5767B0C17BE620D5EB /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				0B4A00010000000000000001 /* VelaWatchApp.swift in Sources */,
+				A35153FC9A17858A3A8AF0A8 /* VelaApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		0B0000150000000000000015 /* Sources */ = {
+		A8E61BAB6CF9B43819A14BE7 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				0B4A00020000000000000002 /* WristSnapshotBridge.swift in Sources */,
-				0B1000900000000000000090 /* VelaQuickActionsSheet.swift in Sources */,
-				0B1009010000000000000901 /* TrainingIntelligenceModels.swift in Sources */,
-				0B1009030000000000000903 /* ExerciseLibraryService.swift in Sources */,
-				0B1009050000000000000905 /* TrainingAnalyticsService.swift in Sources */,
-				0B1009070000000000000907 /* RecoveryTrainingAdapter.swift in Sources */,
-				0B1009090000000000000909 /* TrainingPlanLinkingService.swift in Sources */,
-				0B1009110000000000000911 /* StrengthWorkoutLogSheetView.swift in Sources */,
-				0B1009130000000000000913 /* StrengthWorkoutDetailView.swift in Sources */,
-				0B1009150000000000000915 /* FitnessActivitySummaryDetailView.swift in Sources */,
-				0B1000910000000000000091 /* WeightLogSheetView.swift in Sources */,
-				0B1000A100000000000000A1 /* HealthUnitNormalizer.swift in Sources */,
-				0B1000A200000000000000A2 /* PipelineDiagnostics.swift in Sources */,
-				0B1000A300000000000000A3 /* WorkoutDetailView.swift in Sources */,
-				0B1000010000000000000001 /* VelaApp.swift in Sources */,
-				0B1000020000000000000002 /* AppCoordinator.swift in Sources */,
-				0B1000030000000000000003 /* VelaRootView.swift in Sources */,
-				0B1000040000000000000004 /* VelaAppMetadata.swift in Sources */,
-				0B1000050000000000000005 /* AppDocumentation.swift in Sources */,
-				0B1000230000000000000023 /* DateRangeQuery.swift in Sources */,
-				C6D100010000000000000001 /* HealthPresentationCopy.swift in Sources */,
-				0B1000420000000000000042 /* DashboardSummary.swift in Sources */,
-				0B9900020000000000000002 /* PersonalHealthBrief.swift in Sources */,
-				0B9900040000000000000004 /* HealthTrendEngine.swift in Sources */,
-				0B9900060000000000000006 /* VelaTrendsView.swift in Sources */,
-				0B25D0700000000000000070 /* BodyState.swift in Sources */,
-				0B25D0710000000000000071 /* TrainingDecision.swift in Sources */,
-				0B25D0720000000000000072 /* DailyOperatingPlan.swift in Sources */,
-				0B25D0730000000000000073 /* TodayCommandState.swift in Sources */,
-				C00300010000000000000001 /* TodayViewState.swift in Sources */,
-				C00300020000000000000002 /* TodayStoreAction.swift in Sources */,
-				C00300030000000000000003 /* TodayStore.swift in Sources */,
-				C00300050000000000000005 /* TodayLegacyCompatibility.swift in Sources */,
-				C5A500010000000000000001 /* TrendsStore.swift in Sources */,
-				C5A500020000000000000002 /* TrendsStoreAction.swift in Sources */,
-				C5A500030000000000000003 /* TrendsViewState.swift in Sources */,
-				C5A500040000000000000004 /* TrendsOneMetricChart.swift in Sources */,
-				C5A5000C000000000000000C /* PersistedTrendsWindowLoader.swift in Sources */,
-				0B1000430000000000000043 /* DailySummaryUseCase.swift in Sources */,
-				0B1001A600000000000000A6 /* PreviewDataFactory.swift in Sources */,
-				0B1001B100000000000000B1 /* VelaError.swift in Sources */,
-				0B1003510000000000000051 /* PersistenceWriteGate.swift in Sources */,
-				0B1001B300000000000000B3 /* VelaServices.swift in Sources */,
-				0B1001B500000000000000B5 /* ViewVelaErrorAlert.swift in Sources */,
-				0B1000520000000000000052 /* AppLanguage.swift in Sources */,
-				0B1000060000000000000006 /* VelaTheme.swift in Sources */,
-				0B21D0010000000000000001 /* VelaDesignSystem.swift in Sources */,
-				0B21D0020000000000000002 /* VelaCard.swift in Sources */,
-				0B21D0040000000000000004 /* VelaFeedback.swift in Sources */,
-				0B21D0050000000000000005 /* VelaChart.swift in Sources */,
-				0B21D0060000000000000006 /* VelaInput.swift in Sources */,
-				0B1000070000000000000007 /* VelaBackground.swift in Sources */,
-				0B2000010000000000000001 /* VelaMinimalComponents.swift in Sources */,
-				0B2000020000000000000002 /* VelaMinimalShell.swift in Sources */,
-				0B2000030000000000000003 /* VelaMinimalTodayView.swift in Sources */,
-				0B2000050000000000000005 /* VelaMinimalFitnessView.swift in Sources */,
-				0B2000080000000000000008 /* TodayTrainingPlanAdaptationCard.swift in Sources */,
-				0B25D0250000000000000025 /* VelaTrainingPlanView.swift in Sources */,
-				0B2000060000000000000006 /* VelaMinimalJournalView.swift in Sources */,
-				0B25D0430000000000000043 /* TodaySubSheets.swift in Sources */,
-				0B25D0440000000000000044 /* TodaySubComponents.swift in Sources */,
-				0B25D0450000000000000045 /* VelaTodayViewData.swift in Sources */,
-				0B25D0400000000000000040 /* VelaJournalView.swift in Sources */,
-
-				0B25D0420000000000000042 /* BodyModelViews.swift in Sources */,
-				0B25D0380000000000000038 /* VelaMetricDetailWidgets.swift in Sources */,
-				R2D200020000000000000002 /* RecoveryDetailV2.swift in Sources */,
-				R2D200060000000000000006 /* RecoveryDetailV2Editorial.swift in Sources */,
-				0B25D0390000000000000039 /* VelaMetricDetailData.swift in Sources */,
-				0B25D0310000000000000031 /* SleepClockWheelView.swift in Sources */,
-				0B25D0320000000000000032 /* DailyStressChartView.swift in Sources */,
-				0B25D0330000000000000033 /* MetricChartSection.swift in Sources */,
-				0B25D0340000000000000034 /* MetricHighlightsSection.swift in Sources */,
-				0B25D0350000000000000035 /* MetricEvidenceSection.swift in Sources */,
-				0B25D0360000000000000036 /* MetricTrendsSection.swift in Sources */,
-				0B25D0370000000000000037 /* MetricCoachAdviceSection.swift in Sources */,
-				0B25D0010000000000000001 /* JournalEntryList.swift in Sources */,
-				0B25D0020000000000000002 /* JournalEntryCard.swift in Sources */,
-				0B25D0030000000000000003 /* JournalTagInsights.swift in Sources */,
-				0B25D0040000000000000004 /* JournalComposeSheet.swift in Sources */,
-				0B25D0050000000000000005 /* JournalCorrelationSection.swift in Sources */,
-				0B25D0060000000000000006 /* TodayHeroCard.swift in Sources */,
-				0B25D0FA0000000000000001 /* BodySeekInstrument.swift in Sources */,
-				0B25D0070000000000000007 /* TodaySignalGrid.swift in Sources */,
-
-				0B25D0090000000000000009 /* TodayNutritionStrip.swift in Sources */,
-
-				0B25D0110000000000000011 /* TodayEvidenceSheet.swift in Sources */,
-				0B25D0120000000000000012 /* TodayWeatherBar.swift in Sources */,
-				0B25D0130000000000000013 /* VelaSettingsView.swift in Sources */,
-				0B25D0150000000000000015 /* SettingsAccountView.swift in Sources */,
-				0B25D0160000000000000016 /* SettingsCoachModelView.swift in Sources */,
-				0B25D0170000000000000017 /* TodayExperienceModel.swift in Sources */,
-				0B25D0180000000000000018 /* BehaviorTagModels.swift in Sources */,
-				0B25D0190000000000000019 /* CoachMessageBubble.swift in Sources */,
-
-				0B25D0210000000000000021 /* TrainingHeroSection.swift in Sources */,
-
-				0B25D0230000000000000023 /* TrainingStatsSection.swift in Sources */,
-				0B2000070000000000000007 /* PrivacyDataControlsView.swift in Sources */,
-				0B1000100000000000000010 /* SectionHeader.swift in Sources */,
-				0B1000490000000000000049 /* DashboardViewModel.swift in Sources */,
-				0B1000530000000000000053 /* MarkdownText.swift in Sources */,
-				0B1000550000000000000055 /* MetricCoachCard.swift in Sources */,
-				0B1000560000000000000056 /* VelaLogoMark.swift in Sources */,
-				2ABEFD7CAFAF4B688AAD9547 /* AgentActionParser.swift in Sources */,
-				A24B8C77AB634C2792754C42 /* DailyLogService.swift in Sources */,
-
-				0B1000160000000000000016 /* CoachView.swift in Sources */,
-
-				0B25D0810000000000000081 /* CoachHistoryDrawer.swift in Sources */,
-				0B25D0820000000000000082 /* CoachWelcomeWorkspace.swift in Sources */,
-				0B25D0830000000000000083 /* WorkoutDetailSubComponents.swift in Sources */,
-				0B25D0840000000000000084 /* StrengthWorkoutLogSubComponents.swift in Sources */,
-
-
-				0B1000540000000000000054 /* CoachChatPanel.swift in Sources */,
-				0B25D0600000000000000060 /* CoachChatVM.swift in Sources */,
-				0B25D0610000000000000060 /* CoachSessionStore.swift in Sources */,
-				0B25D0620000000000000060 /* CoachContextAssembler.swift in Sources */,
-				0B25D0630000000000000060 /* CoachPersistenceWriter.swift in Sources */,
-				0B25D0640000000000000060 /* CoachRequestRunner.swift in Sources */,
-				0B25D0650000000000000060 /* FoodPhotoWorkflow.swift in Sources */,
-				0B1000180000000000000018 /* HealthAuthorizationService.swift in Sources */,
-				0B1000190000000000000019 /* HealthDomainModels.swift in Sources */,
-				0B1000260000000000000026 /* HealthQueryService.swift in Sources */,
-				0B1000270000000000000027 /* HealthKitSleepStageMapper.swift in Sources */,
-				0B1000240000000000000024 /* SleepSampleNormalizer.swift in Sources */,
-				0B1000280000000000000028 /* HealthKitQueryService.swift in Sources */,
-				705A8DE187AF4FE29F2BB59D /* HealthStoreProvider.swift in Sources */,
-				0B1000290000000000000029 /* HealthDataRefreshService.swift in Sources */,
-				0B1000990000000000000099 /* HealthKitSyncEngine.swift in Sources */,
-				0B1000250000000000000025 /* PreviewHealthDataProvider.swift in Sources */,
-				0B1000200000000000000020 /* AgentContextSchema.swift in Sources */,
-				0B1000440000000000000044 /* AIContextBuilder.swift in Sources */,
-				0B1001A400000000000000A4 /* DomainContextBuilders.swift in Sources */,
-				0B1000510000000000000051 /* WikiFileService.swift in Sources */,
-				0B1000450000000000000045 /* LLMProvider.swift in Sources */,
-				0B1000460000000000000046 /* DeepSeekProvider.swift in Sources */,
-				0B1000470000000000000047 /* ReportGenerator.swift in Sources */,
-				0B1000480000000000000048 /* KeychainService.swift in Sources */,
-				A373D726D063176FA16A33A5 /* SentryService.swift in Sources */,
-				0B10004A000000000000004A /* WebSearchService.swift in Sources */,
-				0B10004B000000000000004B /* AgentTool.swift in Sources */,
-				0B10004C000000000000004C /* FoodPhotoAnalyzer.swift in Sources */,
-				0B1000210000000000000021 /* JournalDraft.swift in Sources */,
-				0B10004D000000000000004D /* WebSearchHelper.swift in Sources */,
-				0B10004E000000000000004E /* ToolFactory.swift in Sources */,
-
-				0B1000220000000000000022 /* PersistenceModels.swift in Sources */,
-				0B1000340000000000000034 /* VelaModelContainer.swift in Sources */,
-				C40400010000000000000001 /* VelaSchemaV1Frozen.swift in Sources */,
-				C40400020000000000000002 /* VelaSchemaV2Frozen.swift in Sources */,
-				3848C89DE6723E0A72CB5D58 /* VelaSchemaV3Frozen.swift in Sources */,
-				0B1000300000000000000030 /* HealthCachePolicy.swift in Sources */,
-				0B1000310000000000000031 /* DailyHealthSummaryRepository.swift in Sources */,
-				C5A5000D000000000000000D /* TrainingPlanRepository.swift in Sources */,
-				C5A5000E000000000000000E /* WorkoutHistoryRepository.swift in Sources */,
-				C5A5000F000000000000000F /* DailyOperatingPlanRepository.swift in Sources */,
-				C5A500110000000000000011 /* DailyDecisionFeedbackRepository.swift in Sources */,
-				C5A500120000000000000012 /* ProfileRecordRepositories.swift in Sources */,
-				0B1000320000000000000032 /* JournalRepository.swift in Sources */,
-				0B1000330000000000000033 /* AIReportRepository.swift in Sources */,
-				0B1000740000000000000074 /* HealthSnapshotRepository.swift in Sources */,
-				0B1000350000000000000035 /* ScoringCore.swift in Sources */,
-				0B1000350000000000000101 /* ScoreEngineFactory.swift in Sources */,
-				0B1000360000000000000036 /* SleepEvidence.swift in Sources */,
-				0B1000370000000000000037 /* RecoveryScoreEngine.swift in Sources */,
-				0B1000380000000000000038 /* StrainScoreEngine.swift in Sources */,
-				0B1000390000000000000039 /* StressIndexEngine.swift in Sources */,
-				0B1000400000000000000040 /* EnergyBankEngine.swift in Sources */,
-				0B1000410000000000000041 /* HealthAgeTrendEngine.swift in Sources */,
-				0B1000750000000000000075 /* JournalCorrelationEngine.swift in Sources */,
-				0B1001800000000000000080 /* PersonalBaselineEngine.swift in Sources */,
-				0B25D0740000000000000074 /* DataFreshnessIndicator.swift in Sources */,
-				0B1000600000000000000060 /* WikiProfileView.swift in Sources */,
-				0B1000710000000000000071 /* MorningBriefScheduler.swift in Sources */,
-				287CB086AF0E4C7D93B733E9 /* EveningWikiSyncAgent.swift in Sources */,
-				0B1000720000000000000072 /* ProactiveInsightService.swift in Sources */,
-				43BEF779AE284532AACC77E8 /* AgentSkillsConfig.swift in Sources */,
-				0B1000730000000000000073 /* BackgroundTaskManager.swift in Sources */,
-				0B1001820000000000000082 /* NotificationService.swift in Sources */,
-				7EBA3C1140E973334B0448BE /* CrashLogStore.swift in Sources */,
-				0B1001840000000000000084 /* LocationManager.swift in Sources */,
-				0B1001890000000000000089 /* WeatherService.swift in Sources */,
-
-
-
-
-				0B1000880000000000000088 /* BiologyView.swift in Sources */,
-				0B10008A000000000000008A /* CorrelationArtifactView.swift in Sources */,
-				0B10008B000000000000008B /* CoachPersonality.swift in Sources */,
-				0B10008C000000000000008C /* BiologicalAgeEngine.swift in Sources */,
-				9EEBD787BE2D414CB10076A7 /* TypedContextSchema.swift in Sources */,
-				2628FAFD9A5E478C88FE7E4A /* MemoryModels.swift in Sources */,
-				1299F7AE0A664D63B6146337 /* CoachPromptComposer.swift in Sources */,
-				4A35595A791645EAB2547E0C /* AgentLoop.swift in Sources */,
-				FA5C51F575E749ED899FC496 /* MemoryLedger.swift in Sources */,
-				75B10B74453B4E3985380BC2 /* DailyPlanBuilder.swift in Sources */,
-				8A28AFF8B51B41BA99FD9521 /* AdaptiveTrainingEngine.swift in Sources */,
-				0B1003440000000000000044 /* TrainingDecisionEngine.swift in Sources */,
-				5769DAD12DC24CCCA5AED73B /* TrustCenterView.swift in Sources */,
-				2EBA83E644634BF8BA4EC807 /* BodyInterpretationTypes.swift in Sources */,
-				3720F50DEC174172A094C392 /* BodyInterpreterEngine.swift in Sources */,
-				6829963D454246609FA8E8EC /* PersonalResponseModel.swift in Sources */,
-				CCE926745D694215843A40D4 /* AdaptiveTrainingManager.swift in Sources */,
-				AEB2F547D6A04198821B3E0C /* DataCoverageView.swift in Sources */,
-				0B1002020000000000000202 /* VelaOnboardingView.swift in Sources */,
-				5EAF240962A24A8B8D74158C /* PersonalResponseInsightService.swift in Sources */,
-				69BC4AEFAD210833E9A3B560 /* DailyPlanLimiterEngine.swift in Sources */,
-				BB0D33806F6BFB4500B7623E /* HealthSignalCoverageService.swift in Sources */,
-				E703B94D5AEE0BDFC5C65BC6 /* WorkoutAggregationService.swift in Sources */,
+				5DDF685059EB432BB24FF62E /* BodySeekUITests.swift in Sources */,
+				EB85666C6FDCF17AFA6D3612 /* UIv4ScreenshotTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		0B0000190000000000000019 /* Sources */ = {
+		ED0A716E8CBDA2A819B54C5D /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				0B0000010000000000000001 /* VelaThemeTests.swift in Sources */,
-				0B0000290000000000000029 /* HealthFoundationTests.swift in Sources */,
-				0B0000310000000000000031 /* PersistenceFoundationTests.swift in Sources */,
-				83C9FE3788EF342185EFBC60 /* CrashLogStoreTests.swift in Sources */,
-				1349E4216DE17618B3CBBDEC /* PrivacyDeletionTests.swift in Sources */,
-				F2947F55733DA7C0951889F7 /* HealthSyncErrorHandlingTests.swift in Sources */,
-				F8AD5CF5041611F055C3B3F9 /* SchemaMigrationTests.swift in Sources */,
-				0B0000330000000000000033 /* ScoringEngineTests.swift in Sources */,
-				0B0000350000000000000035 /* TrainingPlanAdaptationTests.swift in Sources */,
-				0B26A0010000000000000001 /* DataCoverageAndEvidenceTests.swift in Sources */,
-				0B26A0050000000000000005 /* Milestone1ChallengeTests.swift in Sources */,
-				0B9900080000000000000008 /* HealthTrendAndBriefTests.swift in Sources */,
-				FE760BA0280B448DB02489E4 /* WikiMergeTests.swift in Sources */,
-				BB4501256E114FAC859D914B /* AgentActionParserTests.swift in Sources */,
-				1586C9ADAE4F4253BDE1C34C /* ContextBuilderTests.swift in Sources */,
-				5357016B721440F7AA0D7EFF /* PromptComposerTests.swift in Sources */,
-				DD4356A314314464890D8B2D /* MemoryLedgerTests.swift in Sources */,
-				B886D213B1A540FD7EE4A215 /* WorkoutAggregationTests.swift in Sources */,
-				C00300040000000000000004 /* TodayStoreTests.swift in Sources */,
-				C5A500060000000000000006 /* TrendsStoreTests.swift in Sources */,
-				R2D200040000000000000004 /* RecoveryDetailV2Tests.swift in Sources */,
-				C6D100020000000000000002 /* HealthPresentationCopyTests.swift in Sources */,
-				C5A500070000000000000007 /* RecoveryReplaySensitivityTests.swift in Sources */,
-				C5A500080000000000000008 /* StrainReplaySensitivityTests.swift in Sources */,
-				C5A500090000000000000009 /* StressReplaySensitivityTests.swift in Sources */,
-				C5A5000A000000000000000A /* EnergyReplaySensitivityTests.swift in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		A11E00060000000000000006 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				A11E00010000000000000001 /* VelaSmokeUITests.swift in Sources */,
+				A889A67CA7D501EC0400642F /* BodySeekAppIntegrationTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		0B0000210000000000000021 /* PBXTargetDependency */ = {
+		0A16816192FC832CFD7D6BBB /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 0B0000050000000000000005 /* Vela */;
-			targetProxy = 0B0000030000000000000003 /* PBXContainerItemProxy */;
+			target = 887543FE98EDDB51C0D26FB2 /* Vela */;
+			targetProxy = 3A1F5677571FEAEEC349EA44 /* PBXContainerItemProxy */;
 		};
-		A11E00090000000000000009 /* PBXTargetDependency */ = {
+		5E3B4A6AE2415ED23A91BBB1 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 0B0000050000000000000005 /* Vela */;
-			targetProxy = A11E000A000000000000000A /* PBXContainerItemProxy */;
+			target = 887543FE98EDDB51C0D26FB2 /* Vela */;
+			targetProxy = 8C5F3BDC5D93B805FF1C37BA /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
-/* Begin XCBuildConfiguration section */
-		0B4A00130000000000000013 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = UHS4N7454X;
-				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = Vela;
-				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.sunweizhou.Vela4;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				MARKETING_VERSION = 4.0.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.sunweizhou.Vela4.watchkitapp;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = watchos;
-				SKIP_INSTALL = YES;
-				SUPPORTED_PLATFORMS = "watchos watchsimulator";
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 6.0;
-				TARGETED_DEVICE_FAMILY = 4;
-				WATCHOS_DEPLOYMENT_TARGET = 10.0;
-			};
-			name = Debug;
+/* Begin PBXVariantGroup section */
+		9AE69E6819F40934E746AA99 /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				C842370B8594FEEC8487C280 /* zh-Hans */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
 		};
-		0B4A00140000000000000014 /* Release */ = {
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		1CEE218FF8A747D74AC0ED38 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = UHS4N7454X;
-				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = Vela;
-				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.sunweizhou.Vela4;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				ASSETCATALOG_COMPILER_APPICON_NAME = BodySeekIcon;
+				CODE_SIGN_ENTITLEMENTS = VelaApp/App/Vela.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = "VelaApp/Vela-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = BodySeek;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 4.0.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.sunweizhou.Vela4.watchkitapp;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = watchos;
-				SKIP_INSTALL = YES;
-				SUPPORTED_PLATFORMS = "watchos watchsimulator";
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 6.0;
-				TARGETED_DEVICE_FAMILY = 4;
-				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.sunweizhou.Vela4;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
 		};
-		0B0000230000000000000023 /* Debug */ = {
+		33385A60476E304021E1BEE4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.sunweizhou.VelaTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Vela.app/Vela";
+			};
+			name = Debug;
+		};
+		476CFC287C549CE5B64C8F41 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_ENABLE_OBJC_WEAK = YES;
@@ -1457,18 +393,20 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = UHS4N7454X;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = (
-					"DEBUG=1",
 					"$(inherited)",
+					"DEBUG=1",
 				);
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
@@ -1476,24 +414,78 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 4.0.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
 			};
 			name = Debug;
 		};
-		0B0000240000000000000024 /* Release */ = {
+		8F93191B5945983291414356 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.sunweizhou.VelaUITests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Vela;
+			};
+			name = Debug;
+		};
+		C06002D0C3EF0D1741FEDF3F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.sunweizhou.VelaTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Vela.app/Vela";
+			};
+			name = Release;
+		};
+		C7722117C5818BBA606872BA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.sunweizhou.VelaUITests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Vela;
+			};
+			name = Release;
+		};
+		D79908D40D80D98CCA71B49C /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_ENABLE_OBJC_WEAK = YES;
@@ -1519,12 +511,14 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = UHS4N7454X;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
@@ -1532,219 +526,110 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 4.0.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_COMPILATION_MODE = wholemodule;
-				VALIDATE_PRODUCT = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
 			};
 			name = Release;
 		};
-		0B0000250000000000000025 /* Debug */ = {
+		D7AB7837F21C8FEF021F50B9 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_APPICON_NAME = BodySeekIcon;
 				CODE_SIGN_ENTITLEMENTS = VelaApp/App/Vela.entitlements;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "";
-				DEVELOPMENT_TEAM = UHS4N7454X;
-				ENABLE_PREVIEWS = YES;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
 				INFOPLIST_FILE = "VelaApp/Vela-Info.plist";
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				MARKETING_VERSION = 4.0.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.sunweizhou.Vela4;
-				PRODUCT_NAME = "$(TARGET_NAME)";
 				INFOPLIST_KEY_CFBundleDisplayName = BodySeek;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SUPPORTS_MACCATALYST = NO;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 6.0;
-				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
-				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
-				TARGETED_DEVICE_FAMILY = 1;
-			};
-			name = Debug;
-		};
-		0B0000260000000000000026 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = VelaApp/App/Vela.entitlements;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "";
-				DEVELOPMENT_TEAM = UHS4N7454X;
-				ENABLE_PREVIEWS = YES;
-				INFOPLIST_FILE = "VelaApp/Vela-Info.plist";
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 4.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.sunweizhou.Vela4;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				INFOPLIST_KEY_CFBundleDisplayName = BodySeek;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SUPPORTS_MACCATALYST = NO;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 6.0;
-				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
-				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = 1;
-			};
-			name = Release;
-		};
-		0B0000270000000000000027 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = UHS4N7454X;
-				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@loader_path/Frameworks",
-				);
-				MARKETING_VERSION = 0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = com.sunweizhou.VelaTests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SWIFT_VERSION = 6.0;
-				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
-				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
-				TARGETED_DEVICE_FAMILY = 1;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Vela.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Vela";
 			};
 			name = Debug;
-		};
-		0B0000280000000000000028 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = UHS4N7454X;
-				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@loader_path/Frameworks",
-				);
-				MARKETING_VERSION = 0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = com.sunweizhou.VelaTests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SWIFT_VERSION = 6.0;
-				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
-				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
-				TARGETED_DEVICE_FAMILY = 1;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Vela.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Vela";
-			};
-			name = Release;
-		};
-		A11E000B000000000000000B /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = UHS4N7454X;
-				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = com.sunweizhou.VelaUITests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SWIFT_VERSION = 6.0;
-				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
-				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
-				TARGETED_DEVICE_FAMILY = 1;
-				TEST_TARGET_NAME = Vela;
-			};
-			name = Debug;
-		};
-		A11E000C000000000000000C /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = UHS4N7454X;
-				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = com.sunweizhou.VelaUITests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SWIFT_VERSION = 6.0;
-				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
-				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
-				TARGETED_DEVICE_FAMILY = 1;
-				TEST_TARGET_NAME = Vela;
-			};
-			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		0B4A00100000000000000010 /* Build configuration list for PBXNativeTarget "VelaWatch" */ = {
+		070106BC6C9C9A3557F945E6 /* Build configuration list for PBXProject "Vela" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				0B4A00130000000000000013 /* Debug */,
-				0B4A00140000000000000014 /* Release */,
+				476CFC287C549CE5B64C8F41 /* Debug */,
+				D79908D40D80D98CCA71B49C /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
-		0B0000140000000000000014 /* Build configuration list for PBXNativeTarget "Vela" */ = {
+		6E36DFB38ED9B78C5432D865 /* Build configuration list for PBXNativeTarget "Vela" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				0B0000250000000000000025 /* Debug */,
-				0B0000260000000000000026 /* Release */,
+				D7AB7837F21C8FEF021F50B9 /* Debug */,
+				1CEE218FF8A747D74AC0ED38 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
-		0B0000180000000000000018 /* Build configuration list for PBXNativeTarget "VelaTests" */ = {
+		BA6BE275FEB80938A7BBF666 /* Build configuration list for PBXNativeTarget "VelaUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				0B0000270000000000000027 /* Debug */,
-				0B0000280000000000000028 /* Release */,
+				8F93191B5945983291414356 /* Debug */,
+				C7722117C5818BBA606872BA /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
-		A11E000D000000000000000D /* Build configuration list for PBXNativeTarget "VelaUITests" */ = {
+		EBE048412C188E0C02EB3FBB /* Build configuration list for PBXNativeTarget "VelaTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				A11E000B000000000000000B /* Debug */,
-				A11E000C000000000000000C /* Release */,
+				33385A60476E304021E1BEE4 /* Debug */,
+				C06002D0C3EF0D1741FEDF3F /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		0B0000220000000000000022 /* Build configuration list for PBXProject "Vela" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				0B0000230000000000000023 /* Debug */,
-				0B0000240000000000000024 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		8AF018C0CC0145E8C1087F67 /* XCLocalSwiftPackageReference "BodySeekKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = BodySeekKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		2856C729EEC2A06F86A035DB /* BodySeekHealth */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = BodySeekHealth;
+		};
+		8AD9E50BF80AEE91AE719A8F /* BodySeekDesign */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = BodySeekDesign;
+		};
+		9EB3A65ED6E6A8147035EA08 /* BodySeekStore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = BodySeekStore;
+		};
+		C19CBD0A40EA7C601C02835D /* BodySeekFeatures */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = BodySeekFeatures;
+		};
+		DFF90B05B71199024DB46199 /* BodySeekAgent */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = BodySeekAgent;
+		};
+		E031FC1C3EF2981CD0379868 /* BodySeekCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = BodySeekCore;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
-	rootObject = 0B0000040000000000000004 /* Project object */;
+	rootObject = 7FD476A6B78E6892F5E407ED /* Project object */;
 }

@@ -1,0 +1,5 @@
+Command: xcodebuild test -project Vela.xcodeproj -scheme Vela -destination 'platform=iOS Simulator,id=0FA54155-145A-4862-ABB1-6D4D5D6A3DEF' -derivedDataPath build/DerivedData -resultBundlePath build/Wave22Unit.xcresult -testLanguage zh -testRegion CN -only-testing:VelaTests CODE_SIGNING_ALLOWED=NO
+
+** TEST SUCCEEDED **
+passed tests: 676
+failed tests: 0

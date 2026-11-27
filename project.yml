@@ -1,0 +1,91 @@
+name: Vela
+options:
+  bundleIdPrefix: com.sunweizhou
+  deploymentTarget:
+    iOS: "26.0"
+  developmentLanguage: zh-Hans
+  createIntermediateGroups: true
+
+packages:
+  BodySeekKit:
+    path: BodySeekKit
+
+settings:
+  base:
+    CODE_SIGN_STYLE: Automatic
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: UHS4N7454X
+    IPHONEOS_DEPLOYMENT_TARGET: "26.0"
+    MARKETING_VERSION: "4.0.0"
+    SWIFT_VERSION: "6.0"
+
+targets:
+  Vela:
+    type: application
+    platform: iOS
+    sources:
+      - path: VelaApp/App
+        excludes:
+          - "*.entitlements"
+      - path: VelaApp/Resources
+    settings:
+      base:
+        ASSETCATALOG_COMPILER_APPICON_NAME: BodySeekIcon
+        CODE_SIGN_ENTITLEMENTS: VelaApp/App/Vela.entitlements
+        INFOPLIST_FILE: VelaApp/Vela-Info.plist
+        INFOPLIST_KEY_CFBundleDisplayName: BodySeek
+        PRODUCT_BUNDLE_IDENTIFIER: com.sunweizhou.Vela4
+        TARGETED_DEVICE_FAMILY: "1"
+    dependencies:
+      - package: BodySeekKit
+        product: BodySeekCore
+      - package: BodySeekKit
+        product: BodySeekDesign
+      - package: BodySeekKit
+        product: BodySeekStore
+      - package: BodySeekKit
+        product: BodySeekHealth
+      - package: BodySeekKit
+        product: BodySeekAgent
+      - package: BodySeekKit
+        product: BodySeekFeatures
+
+  VelaTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: VelaAppTests
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.sunweizhou.VelaTests
+    dependencies:
+      - target: Vela
+
+  VelaUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: VelaUITests
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.sunweizhou.VelaUITests
+        TEST_TARGET_NAME: Vela
+    dependencies:
+      - target: Vela
+
+schemes:
+  Vela:
+    build:
+      targets:
+        Vela: all
+        VelaTests: [test]
+        VelaUITests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - name: VelaTests
+        - name: VelaUITests

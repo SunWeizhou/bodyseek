@@ -1,0 +1,3 @@
+baseline (wave21/main b26ca525): fixedFont report 180 sites (threshold 216); audit total 601 (fixedFont 178, RoundedRectangle(cornerRadius: 423, Color(hex:) 0, semantic color 0)
+after wave22: fixedFont report 179 sites; audit total 590 (fixedFont 177, RoundedRectangle 413, Color(hex:) 0, semantic color 0)
+touched files: numeric cornerRadius literals 183 -> 16 (remaining are data marks 2.5/3/3.5/4/6 and DS-internal small tiles); design: .rounded 63 -> 1 (remaining is one SF Symbol icon font in VelaDesignSystem); material as chrome: 3 -> 1 (remaining TodayLegacyCompatibility legacy layer, out of wave scope)

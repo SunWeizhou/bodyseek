@@ -1,0 +1,7 @@
+# VelaUITests/VelaSmokeUITests/testVisualBodyWave25Snapshots
+# xcresult: build/wave25-ui.xcresult（最终代码）
+result: Passed
+totalTestCount: 1
+passedTests: 1
+failedTests: 0
+attachments: wave25-today-hero-dark / -accessibility, wave25-trends-hierarchy-dark / -scrolled / -accessibility, wave25-plan-dark

@@ -1,0 +1,11 @@
+Command:
+  xcodebuild test -project Vela.xcodeproj -scheme Vela \
+    -destination 'platform=iOS Simulator,id=0FA54155-145A-4862-ABB1-6D4D5D6A3DEF' \
+    -derivedDataPath build/DerivedData -resultBundlePath build/Wave23Unit-final.xcresult \
+    -testLanguage zh -testRegion CN -parallel-testing-enabled NO \
+    -only-testing:VelaTests CODE_SIGNING_ALLOWED=NO
+
+** TEST SUCCEEDED **
+Executed 679 tests, with 0 failures (0 unexpected) in 22.695 seconds
+（wave22 baseline 676 + 本波新增 testVisualBodyWave23Snapshots 及宿主断言变体）
+exit: 0

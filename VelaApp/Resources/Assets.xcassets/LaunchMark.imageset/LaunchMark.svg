@@ -1,19 +1,25 @@
 <svg width="96" height="96" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="background" x1="12" y1="12" x2="84" y2="84" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#5665EC" stop-opacity="0.16"/>
-      <stop offset="1" stop-color="#7B62E8" stop-opacity="0.08"/>
+    <linearGradient id="bg" x1="12" y1="8" x2="84" y2="88" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0B101B"/>
+      <stop offset="1" stop-color="#141E30"/>
     </linearGradient>
-    <linearGradient id="sail" x1="30" y1="27" x2="74" y2="22" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#5665EC"/>
-      <stop offset="1" stop-color="#7B62E8"/>
+    <linearGradient id="titanium" x1="28" y1="18" x2="68" y2="78" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="0.55" stop-color="#DCE6EC"/>
+      <stop offset="1" stop-color="#B8EBD9"/>
+    </linearGradient>
+    <linearGradient id="emeraldGlow" x1="34" y1="24" x2="64" y2="72" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#34D399"/>
+      <stop offset="1" stop-color="#168B70"/>
     </linearGradient>
   </defs>
-  <rect x="4" y="4" width="88" height="88" rx="22" fill="url(#background)"/>
-  <rect x="4.5" y="4.5" width="87" height="87" rx="21.5" stroke="#5665EC" stroke-opacity="0.22"/>
-  <path d="M30 27L48 71L74 22L55 50L30 27Z" fill="url(#sail)"/>
-  <path d="M30 27L48 71L36 59" stroke="#15161A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="30" cy="27" r="3.5" fill="#15161A"/>
-  <circle cx="48" cy="71" r="3.5" fill="#15161A"/>
-  <circle cx="74" cy="22" r="3.5" fill="#15161A"/>
+  <rect x="4" y="4" width="88" height="88" rx="22" fill="url(#bg)"/>
+  <rect x="4.75" y="4.75" width="86.5" height="86.5" rx="21.25" stroke="url(#titanium)" stroke-opacity="0.18" stroke-width="1.5"/>
+  <!-- Outer architectural B track -->
+  <path d="M30 21H48.5C58.2 21 64.5 26.2 64.5 34C64.5 39.6 60.8 43.8 55.2 45.6C62.2 47.4 66.8 52.3 66.8 59.3C66.8 68.4 59.5 75 49 75H30V21Z" stroke="url(#titanium)" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M30 46.2H50.5" stroke="url(#titanium)" stroke-width="4.2" stroke-linecap="round"/>
+  <!-- Inner concentric rhythm arc -->
+  <path d="M37 28H47.8C53.2 28 57 30.8 57 34.8C57 38.8 53.2 41.2 47.8 41.2H37V28Z" stroke="url(#emeraldGlow)" stroke-width="2.4" stroke-linejoin="round"/>
+  <path d="M37 51.8H48.4C54.6 51.8 59 54.9 59 59.6C59 64.3 54.6 68 48.4 68H37V51.8Z" stroke="url(#emeraldGlow)" stroke-width="2.4" stroke-linejoin="round"/>
 </svg>

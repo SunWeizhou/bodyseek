@@ -1,0 +1,31 @@
+{
+  "base": "53d173c3ab69aef9d5ec798a77e4e257cbb58c79",
+  "code_commit": "07b85e8ba98bd3c3a526723ad50c6dd984495fc5",
+  "files": {
+    "VelaApp/Core/Utilities/DailySummaryUseCase.swift": "84c2e60fa5a443a3d48112ecf9caa6ca4c0ac5ebd46e3eb841cb5b7a5937dc38",
+    "VelaApp/Features/Coach/CoachMessageBubble.swift": "d0bceb2144c50fa5fed9207863f83e113bca97478a75549c115010cb628984f2",
+    "VelaApp/Features/Coach/CoachPersonality.swift": "0ab8d669b85626e7e774b0d81121497a086cdbda5f64c72dba8c5947c367c728",
+    "VelaApp/Features/Minimal/BodySeekInstrument.swift": "2cab3abcbb50cd4ea4b006e98a47dea3573273843dbddad813d9fc3f3e3dbfbd",
+    "VelaApp/Features/Minimal/JournalComposeSheet.swift": "bf5a7274483f98aead10657275cf78fe1f07d393bf3fb282c807d745b9b5abbb",
+    "VelaApp/Features/Minimal/JournalCorrelationSection.swift": "c186c26e1332146861bed85f2efeaef2102227033c7ff503651950891a7c18b7",
+    "VelaApp/Features/Minimal/SettingsAccountView.swift": "e93660cbcef34b0d709d55a37c13a896514a1d5470db768949fd64b5b00f0d8e",
+    "VelaApp/Features/Minimal/SettingsCoachModelView.swift": "484955514e941e2b5f9b34f261cc0541639ab1b199f0979547cd4e01134b3c5a",
+    "VelaApp/Features/Minimal/TodaySignalGrid.swift": "2137b06c6a0d52852c3e0374704e45c742e54782cbacc0a52d87440034c41216",
+    "VelaApp/Features/Minimal/TrainingHeroSection.swift": "0bcdd2ed4b4933c6261667af2a0a0aebf18cee630ce82b5480ab100a2c2a3ae7",
+    "VelaApp/Features/Minimal/VelaJournalView.swift": "f2c6644e5664d04946b5f18cc2adf0c28f32617c485c2d5bc123958f8530c0eb",
+    "VelaApp/Features/Minimal/VelaMetricDetailData.swift": "bcb481e280794b740fcde00256bfa699c66324cc8cc02e359dab47a26dd3c4b4",
+    "VelaApp/Features/Minimal/VelaMetricDetailWidgets.swift": "c04b3d1a92e3e2be6639807e926957cee55be40d0af2981a6d8d9e50e02629b5",
+    "VelaApp/Features/Minimal/VelaMinimalComponents.swift": "65b4ab8e117d1e695d23e9eac20dd761cedc6d60cc9e0aaebc8e8887cfe1632b",
+    "VelaApp/Features/Minimal/VelaMinimalFitnessView.swift": "d98ac7fc14a819e8b901e5c2a4f44ed57ba63b553f44466edb01c7b9ac3cfe4c",
+    "VelaApp/Features/Minimal/VelaMinimalShell.swift": "4c94579ed5cc43fd810a9a2071f3dd3458b6ce0480efcffda7c8ea20eb17a27c",
+    "VelaApp/Features/Minimal/VelaMinimalTodayView.swift": "583bbfb2dcbddc08f84e80fd86bcf9f1d898398a114e2381ea441171fdd2e7d8",
+    "VelaApp/Features/Minimal/VelaSettingsView.swift": "27d7511cffb00e92ce15bbcf501a62eba1ef7c953dd55ce84f22ad395c620545",
+    "VelaApp/Features/Minimal/VelaTrainingPlanView.swift": "90c0342e9d1d7422f0c4e2d380ed3c1ce60521cefb6c0e45b6669e32a02f523c",
+    "VelaApp/Features/Settings/DataCoverageView.swift": "bc38cb6bfc409c691258976a32e60f5cd372dfa31b6b4fe3129f5983b0e34fee",
+    "VelaApp/Features/Settings/TrustCenterView.swift": "242b7adf37a23963744d893d240757ba266f3ccdf09f810408d2bb486ea9d939",
+    "VelaApp/Features/SharedComponents/VelaQuickActionsSheet.swift": "e543dd4f27fc1f46d23f76a0b37e882e2764d0b2d8cdca8bffde64da8a9ff0f7",
+    "VelaApp/Features/Trends/VelaTrendsView.swift": "51b60ae8914fc2f19c5439119069f00a4ac3b55275cfae4c5a283798dff8fe02",
+    "VelaAppTests/VelaThemeTests.swift": "f9f4fd9232486f0ec492e990453ff3ed3cde62c1feba406fd5575047ef945b09",
+    "VelaUITests/VelaSmokeUITests.swift": "04a8760b102c8346f297e8532dca90213f6bf2339a692f6616aae2bf3a978d42"
+  }
+}

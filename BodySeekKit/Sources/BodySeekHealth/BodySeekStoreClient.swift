@@ -1,0 +1,625 @@
+import BodySeekCore
+import BodySeekStore
+import Dependencies
+import DependenciesMacros
+import Foundation
+import os
+#if os(iOS)
+import HealthKit
+#endif
+
+/// Process-wide GRDB runtime coordinator shared by `BodySeekStoreClient` and `FitnessStoreClient`.
+public actor BodySeekSharedStore {
+    public static let shared = BodySeekSharedStore()
+    private static let logger = Logger(subsystem: "com.sunweizhou.Vela4", category: "BodySeekSharedStore")
+
+    private var cachedDB: BodySeekDatabase?
+    private var cachedRepo: BodySeekRepository?
+    private var cachedExecutor: ActionExecutor?
+    private var cachedReadModel: BodySeekReadModel?
+    private var cachedBodyModel: BodyModelStore?
+    private var hasCheckedLegacyImport = false
+    private var lastBackfillRunAt: Date?
+    private var cachedSyncEngine: SyncEngine?
+
+    private init() {}
+
+    public func database() throws -> BodySeekDatabase {
+        if let cachedDB { return cachedDB }
+        let db = try BodySeekDatabase.openOnDisk()
+        cachedDB = db
+        return db
+    }
+
+    public func repository() throws -> BodySeekRepository {
+        if let cachedRepo { return cachedRepo }
+        let repo = BodySeekRepository(database: try database())
+        cachedRepo = repo
+        return repo
+    }
+
+    public func executor() throws -> ActionExecutor {
+        if let cachedExecutor { return cachedExecutor }
+        let exec = ActionExecutor(database: try database())
+        cachedExecutor = exec
+        return exec
+    }
+
+    public func readModel() throws -> BodySeekReadModel {
+        if let cachedReadModel { return cachedReadModel }
+        let rm = BodySeekReadModel(database: try database())
+        cachedReadModel = rm
+        return rm
+    }
+
+    public func bodyModelStore() throws -> BodyModelStore {
+        if let cachedBodyModel { return cachedBodyModel }
+        let store = BodyModelStore(database: try database())
+        cachedBodyModel = store
+        return store
+    }
+
+    @discardableResult
+    public func ensureLegacyMigratedIfNeeded() async throws -> LegacyImportReport {
+        let repo = try repository()
+        if hasCheckedLegacyImport {
+            if let anchor = try await repo.loadSyncAnchor(type: LegacyDataImporter.anchorKey) {
+                return LegacyImportReport(
+                    alreadyImported: true,
+                    templatesImported: 0,
+                    sessionsImported: 0,
+                    memoriesImported: 0,
+                    messagesImported: 0,
+                    checkInsImported: 0,
+                    completedAt: anchor.updatedAt
+                )
+            }
+        }
+
+        let report = try await LegacyDataImporter.importIfNeeded(into: repo) {
+            let swiftDataPayload = try BodySeekSwiftDataBackend.shared.exportLegacyPayloadIfStoreExists()
+            let prefs = try PreferencesClient.liveValue.load()
+            let legacyCheckIns = Array(prefs.checkInsByDay.values)
+            if swiftDataPayload == nil && legacyCheckIns.isEmpty {
+                return nil
+            }
+            return LegacyImportPayload(
+                templates: swiftDataPayload?.templates ?? [],
+                sessions: swiftDataPayload?.sessions ?? [],
+                memories: swiftDataPayload?.memories ?? [],
+                messages: swiftDataPayload?.messages ?? [],
+                checkIns: legacyCheckIns
+            )
+        }
+        hasCheckedLegacyImport = true
+        return report
+    }
+
+    #if os(iOS)
+    private func syncEngine(sleepGoalMinutes: Int) async throws -> SyncEngine {
+        if let cachedSyncEngine {
+            await cachedSyncEngine.updateSleepGoal(minutes: sleepGoalMinutes)
+            return cachedSyncEngine
+        }
+        let engine = SyncEngine(
+            repository: try repository(),
+            source: LiveHealthKitSyncSource(),
+            sleepGoalMinutes: sleepGoalMinutes
+        )
+        cachedSyncEngine = engine
+        return engine
+    }
+    #endif
+
+    public func runSyncRecentIfAvailable(
+        sleepGoalMinutes: Int,
+        referenceDate: Date
+    ) async throws -> SyncRunSummary? {
+        #if os(iOS)
+        guard HKHealthStore.isHealthDataAvailable() else { return nil }
+        let engine = try await syncEngine(sleepGoalMinutes: sleepGoalMinutes)
+        return try await engine.syncRecentWindow(days: 30, referenceDate: referenceDate)
+        #else
+        return nil
+        #endif
+    }
+
+    public func runBackfillIfAvailable(
+        sleepGoalMinutes: Int,
+        referenceDate: Date
+    ) async throws -> BackfillRunSummary? {
+        #if os(iOS)
+        guard HKHealthStore.isHealthDataAvailable() else { return nil }
+        if let lastBackfillRunAt, referenceDate.timeIntervalSince(lastBackfillRunAt) < 120 {
+            return nil
+        }
+        lastBackfillRunAt = referenceDate
+        let engine = try await syncEngine(sleepGoalMinutes: sleepGoalMinutes)
+        return try await engine.runResumableBackfill(totalMonths: 36, referenceDate: referenceDate)
+        #else
+        return nil
+        #endif
+    }
+
+    public func resetAll() async throws {
+        let repo = try repository()
+        try await repo.resetAll()
+        // `resetAll` removes the import anchor; without an explicit dismissal marker
+        // a retained legacy store would be imported again on the next launch.
+        try await LegacyDataImporter.markDismissed(into: repo)
+        await BodySeekSwiftDataBackend.shared.deleteLegacyStoreIfExists()
+        try PreferencesClient.liveValue.reset()
+        cachedSyncEngine = nil
+        hasCheckedLegacyImport = true
+    }
+}
+
+private actor PreviewGRDBContainer {
+    private static let logger = Logger(subsystem: "com.sunweizhou.Vela4", category: "PreviewGRDBContainer")
+    private var db: BodySeekDatabase?
+
+    func resolve() throws -> (BodySeekDatabase, BodySeekRepository, ActionExecutor, BodySeekReadModel) {
+        if let db {
+            return (db, BodySeekRepository(database: db), ActionExecutor(database: db), BodySeekReadModel(database: db))
+        }
+        let created = try BodySeekDatabase.inMemory()
+        db = created
+        return (created, BodySeekRepository(database: created), ActionExecutor(database: created), BodySeekReadModel(database: created))
+    }
+}
+
+@DependencyClient
+public struct BodySeekStoreClient: Sendable {
+    public var loadCachedDashboard: @Sendable (_ sleepGoalMinutes: Int, _ referenceDate: Date) async throws -> CachedDashboardState?
+    public var observeDashboard: @Sendable (_ sleepGoalMinutes: Int) async -> AsyncThrowingStream<CachedDashboardState, Error> = { _ in
+        AsyncThrowingStream { $0.finish() }
+    }
+    public var persistDashboardSnapshot: @Sendable (_ snapshot: BodySeekDashboardSnapshot) async throws -> Void
+    public var syncRecentWindow: @Sendable (_ sleepGoalMinutes: Int, _ referenceDate: Date) async throws -> SyncRunSummary?
+    public var runBackgroundBackfill: @Sendable (_ sleepGoalMinutes: Int, _ referenceDate: Date) async throws -> BackfillRunSummary?
+    public var executeProposal: @Sendable (_ proposal: ActionProposal) async throws -> ActionAuditEntry
+    public var undoWorkoutAnnotation: @Sendable (_ auditID: UUID) async throws -> ActionAuditEntry = { _ in
+        throw BodySeekDatabaseError.undoUnsupported(reason: "当前存储未配置撤销入口")
+    }
+    /// 动作层：按风险级别执行。A、B 级直接执行并返回回执；C 级在 `confirmed == false` 时返回"需要确认"。
+    public var executeAction: @Sendable (_ proposal: ActionProposal, _ source: String, _ confirmed: Bool) async throws -> AppActionOutcome = { proposal, _, _ in
+        throw BodySeekDatabaseError.undoUnsupported(reason: "当前存储未配置动作层：\(proposal.kind.rawValue)")
+    }
+    /// 动作层：按原操作 ID 撤销（训练标注、记忆、营养日志）。
+    public var undoAction: @Sendable (_ auditID: UUID) async throws -> ActionAuditEntry = { _ in
+        throw BodySeekDatabaseError.undoUnsupported(reason: "当前存储未配置撤销入口")
+    }
+    /// 动作层：最近执行的动作回执，新的在前。
+    public var loadRecentActionReceipts: @Sendable (_ limit: Int) async throws -> [AppActionReceipt] = { _ in [] }
+    /// 某条 Coach 消息上保存的回执（带最新的撤销状态）。
+    public var loadMessageReceipts: @Sendable (_ messageID: UUID) async throws -> [AppActionReceipt] = { _ in [] }
+    /// 订阅身体模型的只读快照（数据库变化驱动）。
+    public var observeBodyModel: @Sendable () async -> AsyncThrowingStream<BodyModelSnapshot, Error> = {
+        AsyncThrowingStream { $0.finish() }
+    }
+    public var loadCheckIns: @Sendable () async throws -> [DailyCheckIn] = { [] }
+    public var loadPlanItems: @Sendable (_ dayKey: DayKey) async throws -> [PlanItemRecord] = { _ in [] }
+    public var loadExperimentPlanItems: @Sendable () async throws -> [PlanItemRecord] = { [] }
+    public var loadPatternFindings: @Sendable (_ status: PatternFindingStatus?) async throws -> [PatternFindingRecord] = { _ in [] }
+    public var loadNutritionProfile: @Sendable () async throws -> NutritionProfile?
+    public var loadNutritionTargetPlan: @Sendable () async throws -> NutritionTargetPlan?
+    public var loadNutritionLogs: @Sendable (_ from: DayKey?, _ to: DayKey?) async throws -> [DailyNutritionLog] = { _, _ in [] }
+    public var searchFoodLibrary: @Sendable (_ query: String) async throws -> [FoodLibraryItem] = { _ in [] }
+    public var seedStarterFoodLibraryIfNeeded: @Sendable () async throws -> Void
+    public var saveFoodLibraryItem: @Sendable (_ item: FoodLibraryItem) async throws -> Void
+    public var loadDeletedWorkoutUUIDs: @Sendable () async throws -> Set<String> = { [] }
+    public var loadStoredWorkouts: @Sendable (_ limit: Int?) async throws -> [StoredWorkoutRecord] = { _ in [] }
+    public var upsertStoredWorkouts: @Sendable (_ workouts: [StoredWorkoutRecord], _ symbolByUUID: [String: String]) async throws -> Void
+    public var loadWorkoutAnnotations: @Sendable (_ workoutUUID: String?) async throws -> [WorkoutAnnotationRecord] = { _ in [] }
+    public var loadAllMuscleLoads: @Sendable (_ since: Date?) async throws -> [WorkoutMuscleLoadRecord] = { _ in [] }
+    public var applyAutoWorkoutAttribution: @Sendable (_ workoutUUID: String, _ loads: [WorkoutMuscleLoadRecord]) async throws -> Bool = { _, _ in false }
+    public var loadTieredMemories: @Sendable (_ includeRetired: Bool) async throws -> [TieredMemoryRecord] = { _ in [] }
+    public var loadActionAuditEntries: @Sendable (_ limit: Int) async throws -> [ActionAuditEntry] = { _ in [] }
+    public var savePatternFinding: @Sendable (_ finding: PatternFindingRecord) async throws -> Void
+}
+
+extension BodySeekStoreClient: DependencyKey {
+    public static let liveValue: BodySeekStoreClient = {
+        let preview = PreviewGRDBContainer()
+        let logger = Logger(subsystem: "com.sunweizhou.Vela4", category: "BodySeekStoreClient")
+
+        return BodySeekStoreClient(
+            loadCachedDashboard: { goalMinutes, refDate in
+                if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard")
+                    || ProcessInfo.processInfo.arguments.contains("-velaPreviewEmptyDashboard")
+                {
+                    return nil
+                }
+                _ = try await BodySeekSharedStore.shared.ensureLegacyMigratedIfNeeded()
+                let readModel = try await BodySeekSharedStore.shared.readModel()
+                return try await readModel.loadCachedDashboard(
+                    sleepGoalMinutes: goalMinutes,
+                    referenceDate: refDate,
+                    sourceLabel: "Apple 健康 · 离线缓存",
+                    isAuthorized: true
+                )
+            },
+            observeDashboard: { goalMinutes in
+                if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard")
+                    || ProcessInfo.processInfo.arguments.contains("-velaPreviewEmptyDashboard")
+                {
+                    return AsyncThrowingStream { $0.finish() }
+                }
+                do {
+                    _ = try await BodySeekSharedStore.shared.ensureLegacyMigratedIfNeeded()
+                    let readModel = try await BodySeekSharedStore.shared.readModel()
+                    return readModel.observeDashboard(
+                        sleepGoalMinutes: goalMinutes,
+                        sourceLabel: "Apple 健康"
+                    )
+                } catch {
+                    logger.error("Failed starting observeDashboard: \(error.localizedDescription, privacy: .public)")
+                    return AsyncThrowingStream { $0.finish(throwing: error) }
+                }
+            },
+            persistDashboardSnapshot: { snapshot in
+                if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard")
+                    || ProcessInfo.processInfo.arguments.contains("-velaPreviewEmptyDashboard")
+                {
+                    return
+                }
+                guard snapshot.isAuthorized else { return }
+                let repo = try await BodySeekSharedStore.shared.repository()
+                let rawDays = snapshot.historyDays.map(\.raw)
+                try await repo.saveDailyRawMetrics(rawDays)
+                try await repo.saveComputedDays(snapshot.historyDays)
+            },
+            syncRecentWindow: { goalMinutes, refDate in
+                if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard")
+                    || ProcessInfo.processInfo.arguments.contains("-velaPreviewEmptyDashboard")
+                {
+                    return nil
+                }
+                return try await BodySeekSharedStore.shared.runSyncRecentIfAvailable(
+                    sleepGoalMinutes: goalMinutes,
+                    referenceDate: refDate
+                )
+            },
+            runBackgroundBackfill: { goalMinutes, refDate in
+                if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard")
+                    || ProcessInfo.processInfo.arguments.contains("-velaPreviewEmptyDashboard")
+                {
+                    return nil
+                }
+                return try await BodySeekSharedStore.shared.runBackfillIfAvailable(
+                    sleepGoalMinutes: goalMinutes,
+                    referenceDate: refDate
+                )
+            },
+            executeProposal: { proposal in
+                if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard")
+                    || ProcessInfo.processInfo.arguments.contains("-velaPreviewEmptyDashboard")
+                {
+                    let (_, _, exec, _) = try await preview.resolve()
+                    return try await exec.execute(proposal)
+                }
+                let exec = try await BodySeekSharedStore.shared.executor()
+                return try await exec.execute(proposal)
+            },
+            undoWorkoutAnnotation: { auditID in
+                if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard")
+                    || ProcessInfo.processInfo.arguments.contains("-velaPreviewEmptyDashboard")
+                {
+                    let (_, _, exec, _) = try await preview.resolve()
+                    return try await exec.undoWorkoutAnnotation(originalAuditID: auditID)
+                }
+                let exec = try await BodySeekSharedStore.shared.executor()
+                return try await exec.undoWorkoutAnnotation(originalAuditID: auditID)
+            },
+            executeAction: { proposal, source, confirmed in
+                let exec = try await liveOrPreviewExecutor(preview: preview)
+                return try await exec.executeAction(proposal, source: source, confirmed: confirmed)
+            },
+            undoAction: { auditID in
+                let exec = try await liveOrPreviewExecutor(preview: preview)
+                return try await exec.undoAction(originalAuditID: auditID)
+            },
+            loadRecentActionReceipts: { limit in
+                let repo = try await liveOrPreviewRepo(preview: preview)
+                return try await repo.loadRecentActionReceipts(limit: limit)
+            },
+            loadMessageReceipts: { messageID in
+                let repo = try await liveOrPreviewRepo(preview: preview)
+                return try await repo.loadMessageReceipts(messageID: messageID)
+            },
+            observeBodyModel: {
+                if ProcessInfo.processInfo.arguments.contains("-velaPreviewEmptyDashboard") {
+                    return AsyncThrowingStream { $0.finish() }
+                }
+                do {
+                    if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard") {
+                        let (db, _, _, _) = try await preview.resolve()
+                        return BodyModelStore(database: db).observe()
+                    }
+                    _ = try await BodySeekSharedStore.shared.ensureLegacyMigratedIfNeeded()
+                    return try await BodySeekSharedStore.shared.bodyModelStore().observe()
+                } catch {
+                    logger.error("Failed starting observeBodyModel: \(error.localizedDescription, privacy: .public)")
+                    return AsyncThrowingStream { $0.finish(throwing: error) }
+                }
+            },
+            loadCheckIns: {
+                if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard")
+                    || ProcessInfo.processInfo.arguments.contains("-velaPreviewEmptyDashboard")
+                {
+                    let (_, repo, _, _) = try await preview.resolve()
+                    return try await repo.loadCheckIns()
+                }
+                _ = try await BodySeekSharedStore.shared.ensureLegacyMigratedIfNeeded()
+                let repo = try await BodySeekSharedStore.shared.repository()
+                return try await repo.loadCheckIns()
+            },
+            loadPlanItems: { dayKey in
+                if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard")
+                    || ProcessInfo.processInfo.arguments.contains("-velaPreviewEmptyDashboard")
+                {
+                    let (_, repo, _, _) = try await preview.resolve()
+                    return try await repo.loadPlanItems(dayKey: dayKey)
+                }
+                let repo = try await BodySeekSharedStore.shared.repository()
+                return try await repo.loadPlanItems(dayKey: dayKey)
+            },
+            loadExperimentPlanItems: {
+                let repo = try await liveOrPreviewRepo(preview: preview)
+                return try await repo.loadExperimentPlanItems()
+            },
+            loadPatternFindings: { status in
+                if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard")
+                    || ProcessInfo.processInfo.arguments.contains("-velaPreviewEmptyDashboard")
+                {
+                    let (_, repo, _, _) = try await preview.resolve()
+                    return try await repo.loadPatternFindings(status: status)
+                }
+                let repo = try await BodySeekSharedStore.shared.repository()
+                return try await repo.loadPatternFindings(status: status)
+            },
+            loadNutritionProfile: {
+                if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard")
+                    || ProcessInfo.processInfo.arguments.contains("-velaPreviewEmptyDashboard")
+                {
+                    let (_, repo, _, _) = try await preview.resolve()
+                    return try await repo.loadNutritionProfile()
+                }
+                let repo = try await BodySeekSharedStore.shared.repository()
+                return try await repo.loadNutritionProfile()
+            },
+            loadNutritionTargetPlan: {
+                if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard")
+                    || ProcessInfo.processInfo.arguments.contains("-velaPreviewEmptyDashboard")
+                {
+                    let (_, repo, _, _) = try await preview.resolve()
+                    return try await repo.loadNutritionTargetPlan()
+                }
+                let repo = try await BodySeekSharedStore.shared.repository()
+                return try await repo.loadNutritionTargetPlan()
+            },
+            loadNutritionLogs: { fromKey, toKey in
+                if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard")
+                    || ProcessInfo.processInfo.arguments.contains("-velaPreviewEmptyDashboard")
+                {
+                    let (_, repo, _, _) = try await preview.resolve()
+                    return try await repo.loadNutritionLogs(from: fromKey, to: toKey)
+                }
+                let repo = try await BodySeekSharedStore.shared.repository()
+                return try await repo.loadNutritionLogs(from: fromKey, to: toKey)
+            },
+            searchFoodLibrary: { query in
+                if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard")
+                    || ProcessInfo.processInfo.arguments.contains("-velaPreviewEmptyDashboard")
+                {
+                    let (_, repo, _, _) = try await preview.resolve()
+                    return try await repo.searchFoodLibrary(query: query)
+                }
+                let repo = try await BodySeekSharedStore.shared.repository()
+                return try await repo.searchFoodLibrary(query: query)
+            },
+            seedStarterFoodLibraryIfNeeded: {
+                if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard")
+                    || ProcessInfo.processInfo.arguments.contains("-velaPreviewEmptyDashboard")
+                {
+                    let (_, repo, _, _) = try await preview.resolve()
+                    try await repo.seedStarterFoodLibraryIfNeeded()
+                    return
+                }
+                let repo = try await BodySeekSharedStore.shared.repository()
+                try await repo.seedStarterFoodLibraryIfNeeded()
+            },
+            saveFoodLibraryItem: { item in
+                let repo = try await liveOrPreviewRepo(preview: preview)
+                try await repo.saveFoodLibraryItem(item)
+            },
+            loadDeletedWorkoutUUIDs: {
+                let repo = try await liveOrPreviewRepo(preview: preview)
+                return try await repo.loadDeletedWorkoutUUIDs()
+            },
+            loadStoredWorkouts: { limit in
+                let repo = try await liveOrPreviewRepo(preview: preview)
+                return try await repo.loadWorkouts(limit: limit)
+            },
+            upsertStoredWorkouts: { workouts, symbolByUUID in
+                let repo = try await liveOrPreviewRepo(preview: preview)
+                try await repo.upsertWorkouts(workouts, symbolByUUID: symbolByUUID)
+            },
+            loadWorkoutAnnotations: { workoutUUID in
+                let repo = try await liveOrPreviewRepo(preview: preview)
+                return try await repo.loadWorkoutAnnotations(workoutUUID: workoutUUID)
+            },
+            loadAllMuscleLoads: { since in
+                let repo = try await liveOrPreviewRepo(preview: preview)
+                return try await repo.loadAllMuscleLoads(since: since)
+            },
+            applyAutoWorkoutAttribution: { workoutUUID, loads in
+                let repo = try await liveOrPreviewRepo(preview: preview)
+                return try await repo.applyAutoWorkoutAttribution(workoutUUID: workoutUUID, loads: loads)
+            },
+            loadTieredMemories: { includeRetired in
+                let repo = try await liveOrPreviewRepo(preview: preview)
+                return try await repo.loadTieredMemories(includeRetired: includeRetired)
+            },
+            loadActionAuditEntries: { limit in
+                let repo = try await liveOrPreviewRepo(preview: preview)
+                return try await repo.loadAuditEntries(limit: max(1, limit))
+            },
+            savePatternFinding: { finding in
+                let repo = try await liveOrPreviewRepo(preview: preview)
+                try await repo.savePatternFinding(finding)
+            }
+        )
+    }()
+
+    private static func liveOrPreviewExecutor(preview: PreviewGRDBContainer) async throws -> ActionExecutor {
+        if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard")
+            || ProcessInfo.processInfo.arguments.contains("-velaPreviewEmptyDashboard")
+        {
+            let (_, _, exec, _) = try await preview.resolve()
+            return exec
+        }
+        return try await BodySeekSharedStore.shared.executor()
+    }
+
+    private static func liveOrPreviewRepo(preview: PreviewGRDBContainer) async throws -> BodySeekRepository {
+        if ProcessInfo.processInfo.arguments.contains("-velaPreviewDashboard")
+            || ProcessInfo.processInfo.arguments.contains("-velaPreviewEmptyDashboard")
+        {
+            let (_, repo, _, _) = try await preview.resolve()
+            return repo
+        }
+        return try await BodySeekSharedStore.shared.repository()
+    }
+
+    public static let previewValue: BodySeekStoreClient = makeInMemoryClient()
+
+    public static var testValue: BodySeekStoreClient {
+        makeInMemoryClient()
+    }
+
+    private static func makeInMemoryClient() -> BodySeekStoreClient {
+        let preview = PreviewGRDBContainer()
+        return BodySeekStoreClient(
+            loadCachedDashboard: { _, _ in nil },
+            observeDashboard: { _ in AsyncThrowingStream { $0.finish() } },
+            persistDashboardSnapshot: { snapshot in
+                let (_, repo, _, _) = try await preview.resolve()
+                try await repo.saveDailyRawMetrics(snapshot.historyDays.map(\.raw))
+                try await repo.saveComputedDays(snapshot.historyDays)
+            },
+            syncRecentWindow: { _, _ in nil },
+            runBackgroundBackfill: { _, _ in nil },
+            executeProposal: { proposal in
+                let (_, _, exec, _) = try await preview.resolve()
+                return try await exec.execute(proposal)
+            },
+            undoWorkoutAnnotation: { auditID in
+                let (_, _, exec, _) = try await preview.resolve()
+                return try await exec.undoWorkoutAnnotation(originalAuditID: auditID)
+            },
+            executeAction: { proposal, source, confirmed in
+                let (_, _, exec, _) = try await preview.resolve()
+                return try await exec.executeAction(proposal, source: source, confirmed: confirmed)
+            },
+            undoAction: { auditID in
+                let (_, _, exec, _) = try await preview.resolve()
+                return try await exec.undoAction(originalAuditID: auditID)
+            },
+            loadRecentActionReceipts: { limit in
+                let (_, repo, _, _) = try await preview.resolve()
+                return try await repo.loadRecentActionReceipts(limit: limit)
+            },
+            loadMessageReceipts: { messageID in
+                let (_, repo, _, _) = try await preview.resolve()
+                return try await repo.loadMessageReceipts(messageID: messageID)
+            },
+            // 测试值默认不启动数据库观察，避免 TestStore 出现未声明的长生命周期 effect；
+            // 需要时在测试里覆盖 `observeBodyModel`。
+            observeBodyModel: { AsyncThrowingStream { $0.finish() } },
+            loadCheckIns: {
+                let (_, repo, _, _) = try await preview.resolve()
+                return try await repo.loadCheckIns()
+            },
+            loadPlanItems: { dayKey in
+                let (_, repo, _, _) = try await preview.resolve()
+                return try await repo.loadPlanItems(dayKey: dayKey)
+            },
+            loadExperimentPlanItems: {
+                let (_, repo, _, _) = try await preview.resolve()
+                return try await repo.loadExperimentPlanItems()
+            },
+            loadPatternFindings: { status in
+                let (_, repo, _, _) = try await preview.resolve()
+                return try await repo.loadPatternFindings(status: status)
+            },
+            loadNutritionProfile: {
+                let (_, repo, _, _) = try await preview.resolve()
+                return try await repo.loadNutritionProfile()
+            },
+            loadNutritionTargetPlan: {
+                let (_, repo, _, _) = try await preview.resolve()
+                return try await repo.loadNutritionTargetPlan()
+            },
+            loadNutritionLogs: { fromKey, toKey in
+                let (_, repo, _, _) = try await preview.resolve()
+                return try await repo.loadNutritionLogs(from: fromKey, to: toKey)
+            },
+            searchFoodLibrary: { query in
+                let (_, repo, _, _) = try await preview.resolve()
+                return try await repo.searchFoodLibrary(query: query)
+            },
+            seedStarterFoodLibraryIfNeeded: {
+                let (_, repo, _, _) = try await preview.resolve()
+                try await repo.seedStarterFoodLibraryIfNeeded()
+            },
+            saveFoodLibraryItem: { item in
+                let (_, repo, _, _) = try await preview.resolve()
+                try await repo.saveFoodLibraryItem(item)
+            },
+            loadDeletedWorkoutUUIDs: {
+                let (_, repo, _, _) = try await preview.resolve()
+                return try await repo.loadDeletedWorkoutUUIDs()
+            },
+            loadStoredWorkouts: { limit in
+                let (_, repo, _, _) = try await preview.resolve()
+                return try await repo.loadWorkouts(limit: limit)
+            },
+            upsertStoredWorkouts: { workouts, symbolByUUID in
+                let (_, repo, _, _) = try await preview.resolve()
+                try await repo.upsertWorkouts(workouts, symbolByUUID: symbolByUUID)
+            },
+            loadWorkoutAnnotations: { workoutUUID in
+                let (_, repo, _, _) = try await preview.resolve()
+                return try await repo.loadWorkoutAnnotations(workoutUUID: workoutUUID)
+            },
+            loadAllMuscleLoads: { since in
+                let (_, repo, _, _) = try await preview.resolve()
+                return try await repo.loadAllMuscleLoads(since: since)
+            },
+            applyAutoWorkoutAttribution: { workoutUUID, loads in
+                let (_, repo, _, _) = try await preview.resolve()
+                return try await repo.applyAutoWorkoutAttribution(workoutUUID: workoutUUID, loads: loads)
+            },
+            loadTieredMemories: { includeRetired in
+                let (_, repo, _, _) = try await preview.resolve()
+                return try await repo.loadTieredMemories(includeRetired: includeRetired)
+            },
+            loadActionAuditEntries: { limit in
+                let (_, repo, _, _) = try await preview.resolve()
+                return Array(try await repo.loadAuditEntries().prefix(max(1, limit)))
+            },
+            savePatternFinding: { finding in
+                let (_, repo, _, _) = try await preview.resolve()
+                try await repo.savePatternFinding(finding)
+            }
+        )
+    }
+}
+
+public extension DependencyValues {
+    var bodySeekStoreClient: BodySeekStoreClient {
+        get { self[BodySeekStoreClient.self] }
+        set { self[BodySeekStoreClient.self] = newValue }
+    }
+}

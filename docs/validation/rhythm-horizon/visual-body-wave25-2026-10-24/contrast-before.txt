@@ -1,0 +1,21 @@
+Canvas: #FFFFFF / #000000
+WARN (graphic palette <3:1, informational):
+  accentOn #FFFFFF on #FFFFFF = 1.00:1
+  accentOn #000000 on #000000 = 1.00:1
+  brandSoft #F2F2F3 on #FFFFFF = 1.12:1
+  brandSoft #1B1B1C on #000000 = 1.22:1
+  stateModerate #E8A23C on #FFFFFF = 2.17:1
+  systemGreen #34C759 on #FFFFFF = 2.22:1
+  systemOrange #FF9F0A on #FFFFFF = 2.06:1
+  systemYellow #FFB74D on #FFFFFF = 1.73:1
+  infoBlue #30A2FF on #FFFFFF = 2.71:1
+  sleepText #F2EFE8 on #FFFFFF = 1.15:1
+  sleepText #161512 on #000000 = 1.15:1
+  sleepClockFace #100F0D on #000000 = 1.10:1
+  sleepClockRing #3D3930 on #000000 = 1.83:1
+  sleepClockWakePill #87BAC5 on #FFFFFF = 2.13:1
+  sleepClockBedPill #D6BF74 on #FFFFFF = 1.82:1
+deviationInk light #5E5E63 on #FFFFFF = 6.45:1
+deviationInk dark #9A9A9E on #000000 = 7.49:1
+contrast OK: textColor(for:) and deviationInk all >= 4.5:1
+exit=0

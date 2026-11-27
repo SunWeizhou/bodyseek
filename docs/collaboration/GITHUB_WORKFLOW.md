@@ -28,7 +28,7 @@ PR 必须说明：改了什么、为什么、测试命令和退出码、设备�
 3. 先集成合同，再集成算法和 UI 的适配；UI 可用测试/Preview 样例提前开发。
 4. 双方完成各自验证，另一人复核 PR；最终以集成提交的 CI 与所需页面证据验收。
 
-`Vela.xcodeproj/project.pbxproj`、共享领域模型、SwiftData schema 和公共 DTO 同一时间只允许一个人修改。
+`Vela.xcodeproj/project.pbxproj`、共享领域模型、GRDB schema 和公共 DTO 同一时间只允许一个人修改。
 
 ## 同步
 

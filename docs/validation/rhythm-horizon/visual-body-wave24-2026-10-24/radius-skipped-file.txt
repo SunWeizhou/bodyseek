@@ -1,0 +1,13 @@
+# 本波按 brief SKIP：VelaMetricDetailWidgets（12 处数字字面量，Watch/Widget/工具性文件 out of scope）
+VelaApp/Features/Minimal/VelaMetricDetailWidgets.swift:259:                        let path = Path(roundedRect: rect, cornerRadius: 1.5)
+VelaApp/Features/Minimal/VelaMetricDetailWidgets.swift:313:        .background(color.opacity(0.055), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+VelaApp/Features/Minimal/VelaMetricDetailWidgets.swift:1152:                            .background(RoundedRectangle(cornerRadius: 12).fill(Color.black.opacity(0.8)))
+VelaApp/Features/Minimal/VelaMetricDetailWidgets.swift:1173:                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+VelaApp/Features/Minimal/VelaMetricDetailWidgets.swift:1188:                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+VelaApp/Features/Minimal/VelaMetricDetailWidgets.swift:1203:                        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+VelaApp/Features/Minimal/VelaMetricDetailWidgets.swift:1248:            .background(VelaTheme.rhythmCanvasRaised, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+VelaApp/Features/Minimal/VelaMetricDetailWidgets.swift:1250:                RoundedRectangle(cornerRadius: 20, style: .continuous)
+VelaApp/Features/Minimal/VelaMetricDetailWidgets.swift:1451:                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+VelaApp/Features/Minimal/VelaMetricDetailWidgets.swift:1470:                                RoundedRectangle(cornerRadius: 3, style: .continuous)
+VelaApp/Features/Minimal/VelaMetricDetailWidgets.swift:1486:                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+VelaApp/Features/Minimal/VelaMetricDetailWidgets.swift:1498:                                    RoundedRectangle(cornerRadius: 4, style: .continuous)

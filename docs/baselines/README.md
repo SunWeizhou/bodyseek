@@ -32,9 +32,11 @@ The result includes 6 UI smoke tests and 514 unit/integration tests. It is the c
 
 Guard commands at this baseline:
 
+> 2026-11-20 更新：SwiftData schema guard 已随 GRDB 迁移退役，存储 schema 由 `swift test --package-path BodySeekKit --filter BodySeekStoreTests` 的迁移标识守卫覆盖。以下命令记录的是该基线当时的结果。
+
 ```text
-python3 scripts/schema_fingerprint.py --check
-# schema fingerprint OK: 32 live models (VelaSchemaV3 3.0.0), 32 frozen V3 models
+swift test --package-path BodySeekKit --filter BodySeekStoreTests
+# migration identifiers stable
 
 python3 scripts/check_contrast.py
 # contrast OK: textColor(for:) all >= 4.5:1

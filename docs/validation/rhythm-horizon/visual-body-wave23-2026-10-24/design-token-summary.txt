@@ -1,0 +1,21 @@
+baseline (wave22 tip 259e991b): fixedFont report 179 sites (threshold 216); audit total 590 (fixedFont 177, RoundedRectangle 413, Color(hex:) 0, semantic color 0)
+after wave23: fixedFont report 179 sites; audit total 589 (fixedFont 177, RoundedRectangle 412, Color(hex:) 0, semantic color 0; -1 为 JournalCorrelationSection L432 13pt RoundedRectangle → Capsule())
+
+Wave23 target files, numeric radius literals `RoundedRectangle(cornerRadius: [0-9])` before -> after:
+  VelaTrendsView.swift              11 -> 1 (remaining 2pt legend band swatch = data mark)
+  JournalCorrelationSection.swift   18 -> 0 (17 tokens + 1 Capsule CTA)
+  BodyModelViews.swift               7 -> 0
+  WorkoutDetailView.swift            5 -> 0
+  VelaSettingsView.swift             4 -> 0
+  VelaDesignSystem.swift             5 -> 0
+  VelaCard.swift                     1 -> 1 (VelaEvidenceRow 10pt icon tile, DS-internal SKIP)
+  TodayLegacyCompatibility.swift     0 -> 0 (material instead)
+  sum (in-scope files)              50 -> 1
+repo-wide VelaApp numeric radius literals: 118 -> 69 (-49)
+
+Other metrics:
+  .velaNativeCard(radius: <literal>): 16 -> 0
+  VelaHeroSurface(tint:):              5 -> 0 (tint wash removed; mono cardBg + hairline)
+  .ultraThinMaterial (VelaApp):        1 -> 0 (TodayLegacyCompatibility LivedStateCheckInSheet -> cardBg + top hairline)
+  design: .rounded: VelaDesignSystem 1 -> 1 (SF Symbol icon font, documented SKIP); VelaMetricDetailWidgets (WidgetKit) 11 unchanged, out of scope
+  fixed font .font(.system(size:)) in target files: 24 sites, all SF Symbol/geometric/brand-proportional -> 0 text sites converted, documented per file

@@ -1,0 +1,10 @@
+Command:
+  xcodebuild test ... -only-testing:VelaUITests/VelaSmokeUITests/{testVisualBodyWave22Snapshots,
+  testVisualResidualSnapshots,testVisualNextWaveSheetsAndCoachSnapshots,testUpgradeSurfaceSnapshots}
+
+testUpgradeSurfaceSnapshots                     passed (38.837 seconds)
+testVisualBodyWave22Snapshots                   passed (55.899 seconds)
+testVisualNextWaveSheetsAndCoachSnapshots       passed (46.440 seconds)
+testVisualResidualSnapshots                     passed (52.990 seconds)
+** TEST SUCCEEDED **
+exit: 0

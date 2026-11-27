@@ -1,0 +1,2 @@
+schema fingerprint OK: 32 live models (VelaSchemaV3 3.0.0), 32 frozen V3 models
+exit=0

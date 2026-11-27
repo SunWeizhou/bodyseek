@@ -1,0 +1,5 @@
+Command: xcodebuild test ... -only-testing:VelaUITests/VelaSmokeUITests/testVisualBodyWave22Snapshots (final head, 6b...)
+
+Test Case '-[VelaUITests.VelaSmokeUITests testVisualBodyWave22Snapshots]' started.
+Test Case '-[VelaUITests.VelaSmokeUITests testVisualBodyWave22Snapshots]' passed (56.125 seconds).
+** TEST SUCCEEDED **

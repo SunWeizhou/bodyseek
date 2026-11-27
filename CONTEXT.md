@@ -1,9 +1,9 @@
 # Vela Health Intelligence — Domain Glossary
 
 > Status: Canonical
-> Last verified: 2026-10-06
+> Last reviewed: 2026-11-21（补充 Coach 设计术语）
 > Scope: Vela 全局唯一领域术语定义与受控词汇表（Domain Ubiquitous Language）
-> Does not define: 页面结构与 UI 组件（见 [docs/PRD.md](docs/PRD.md)）、代码实现细节（见 [docs/TECH_ARCHITECTURE.md](docs/TECH_ARCHITECTURE.md)）
+> Does not define: 页面结构与 UI 组件（见 [docs/PRD.md](docs/PRD.md)）、代码实现细节（见 [docs/TECH_ARCHITECTURE.md](docs/TECH_ARCHITECTURE.md)）与架构决策（见 [docs/adr/0019-bodyseek-v5-architecture-and-modeling-baseline.md](docs/adr/0019-bodyseek-v5-architecture-and-modeling-baseline.md)）
 
 BodySeek（工程身份 Vela）是建立在 Apple 健康之上的个人身体状态仪表与 AI 分析助手：用个人长期数据量化当下状态，让用户为真实感受找到客观线索，而不是把疲惫或不适简单归咎于意志力；Agent 负责解释、追问与把理解转化为可调整的日常计划。
 
@@ -73,7 +73,7 @@ A multi-scale (7d, 30d, 6m, 3y) statistical finding for a specific health metric
 _Avoid_: Raw difference, isolated daily variance
 
 **Personal Health Brief**:
-The canonical, structured daily intelligence object answering "How am I overall? What is changing? Is it noteworthy? What might be driving it? Does it need action?". Consumed synchronously by Today, Trends, Plan, and Coach.
+The canonical, structured daily intelligence object answering "How am I overall? What is changing? Is it noteworthy? What might be driving it? Does it need action?". Consumed synchronously by Today, Workout, Trends, and Coach.
 _Avoid_: Workout prescription, isolated score summary
 
 **Lived State**:
@@ -93,7 +93,7 @@ The canonical daily choice to keep, reduce, swap, or recover, with reasons and c
 _Avoid_: AI recommendation, workout verdict, readiness label
 
 **Daily Operating Plan**:
-A locally available plan created for every day that protects Health Rhythm through one primary action and at most two supporting actions across training, movement, eating, stress recovery, and sleep. Deterministic evidence establishes safety constraints, the Agent expresses and organizes them naturally, and the Primary User may edit, delete, reschedule, or replace any action. A saved canonical action sequence stays in place when body state changes; Plan shows a candidate instead of replacing it. It does not become a general work or calendar manager.
+A locally available plan created for every day (surfaced via the Today action card under ADR 0019) that protects Health Rhythm through one primary action and at most two supporting actions across training, movement, eating, stress recovery, and sleep. Deterministic evidence establishes safety constraints, the Agent expresses and organizes them naturally, and the Primary User may edit, delete, reschedule, or replace any action. A saved canonical action sequence stays in place when body state changes; the Today action card shows a candidate instead of replacing it. It does not become a general work or calendar manager.
 _Avoid_: Today card, generated brief, coach plan, silent regeneration
 
 **Plan Proposal**:
@@ -130,6 +130,10 @@ _Avoid_: Cheat meal, bad day, dietary failure
 Optional information about a meal, including foods, portions, photos, calories, or nutrients. Meal Detail may improve an explanation but is never required for Vela to recognise an Eating Disruption or provide guidance.
 _Avoid_: Required food log, exact intake, inferred consumption
 
+**Meal Draft**
+
+Food candidates extracted from user-entered text or a selected photo. User confirmation makes them part of Meal Detail. Nutrient values are estimates derived from the confirmed portions and matched food catalog items. Entries without a suitable catalog item carry missing nutrient values and mark the meal as partial.
+
 ### Training loop
 
 **Training Rotation**:
@@ -152,6 +156,8 @@ _Avoid_: Active workout, in-app workout, training draft
 The evidence Vela receives after a Training Session, combining the imported activity record with any optional user-reported experience. It is the factual basis for post-training interpretation and later calibration.
 _Avoid_: Workout log, completed plan, execution record
 
+In Coach evidence, a HealthKit UUID links an imported Training Observation to a matching manual session. Manual sessions without a matching identifier remain separate observations. An empty HealthKit result leaves workout coverage unknown.
+
 **Session Annotation**:
 User-supplied context attached after a Training Session. Its quick layer identifies Session Focus and overall experience; an optional detail layer may add exercises, weights, sets, and a free-form reflection without turning in-session phone logging into a requirement.
 _Avoid_: Mandatory workout log, active set tracking, training diary
@@ -160,11 +166,26 @@ _Avoid_: Mandatory workout log, active set tracking, training diary
 A low-friction account of perceived effort, fatigue, pain, and relevant context after a Training Session. It forms the subjective part of a Session Annotation, may be skipped or completed later, and never blocks importing or analysing the session.
 _Avoid_: Workout logger, set log, mandatory feedback
 
-### Coach memory
+### Coach and health data
+
+**Health Ontology**:
+BodySeek 健康对象、关系及操作语义的共享定义。它统一解释一条记录属于什么、能作为哪种证据，以及不同页面如何引用同一对象。
+
+**Health Goal**:
+用户希望在指定期限达到的健康或训练结果，包含衡量标准及生效范围。每日行动可以服务某个目标，实际记录用于核对进展。
+
+**Personal Health Rule**:
+用户定义的一组可核对条件，用于给健康记录或生理日分类，例如「赶工夜」。
+
+**Coach Follow-up**:
+用户交办给 Coach 的有期限事项，带观察对象、触发条件和预期反馈。一个事项可在跟进期间持续纳入新证据。
+
 
 **Agent Fact Snapshot**:
 The locale-neutral, deterministic projection used by every AI workflow. It includes the five Scored Health Evidence results and contributors, Personal Baselines and deviations, multi-scale findings, recent daily aggregates, Data Coverage and freshness, Lived State, Training Observations, Daily Operating Plan edits, and confirmed memory or Personal Response Insights. Its semantic content hash excludes snapshot creation time; workflows may query bounded time-series detail through tools instead of uploading raw HealthKit samples.
 _Avoid_: Prompt context, context JSON, AI summary
+
+The `bodyseek-evidence-v1` Coach tool contract carries availability, the calculation version, and coverage where it can be established. Trend and intake results identify their day windows. Intake results preserve the applied plan version, estimates, and partial meals. Training results retain the record source, user effort, and estimated effort separately.
 
 **Coach Artifact**:
 A structured, reviewable output produced by the Coach, such as a readiness explanation, training adjustment, or review.
